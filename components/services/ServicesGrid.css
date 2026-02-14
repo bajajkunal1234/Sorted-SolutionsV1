@@ -1,0 +1,74 @@
+.services-grid-section {
+    padding: 60px 0;
+    background: var(--bg-primary);
+}
+
+.services-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+}
+
+.service-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    text-align: center;
+    border: 2px solid var(--border-primary);
+    transition: all 0.3s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-primary);
+}
+
+.service-name {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 12px 0;
+}
+
+.service-description {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 16px 0;
+}
+
+.service-price {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin: 16px 0;
+}
+
+.book-now-btn {
+    width: 100%;
+    padding: 12px 24px;
+    background: var(--color-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.book-now-btn:hover {
+    background: var(--color-primary-dark);
+    transform: scale(1.05);
+}
+
+@media (max-width: 768px) {
+    .services-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .service-card {
+        padding: 16px;
+    }
+}

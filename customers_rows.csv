@@ -1,0 +1,2 @@
+id,name,email,phone,address,gstin,properties,opening_balance,closing_balance,jobs_done,active,created_at,updated_at,firebase_uid
+78f66aae-f8f0-4334-8fbc-9a5c2b0899be,xyz,,9876543210,{},,[],0.00,0.00,0,true,2026-02-14 08:20:59.285216+00,2026-02-14 08:20:59.285216+00,

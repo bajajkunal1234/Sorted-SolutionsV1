@@ -1,0 +1,125 @@
+.brand-logos {
+    padding: var(--spacing-2xl) var(--spacing-md);
+    background: var(--bg-elevated);
+}
+
+.logos-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.logos-title {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.logos-subtitle {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+}
+
+.logos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: var(--spacing-lg);
+    max-width: 1200px;
+    margin: 0 auto var(--spacing-xl);
+    align-items: center;
+}
+
+.logo-item {
+    opacity: 0;
+    animation: fadeIn 0.5s ease-out forwards;
+}
+
+.logo-placeholder {
+    background: var(--bg-primary);
+    border: 2px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-base);
+    padding: var(--spacing-md);
+}
+
+.logo-placeholder:hover {
+    transform: scale(1.05);
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+}
+
+.logo-text {
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+}
+
+/* Size variations */
+.logo-small .logo-placeholder {
+    height: 60px;
+}
+
+.logo-small .logo-text {
+    font-size: var(--font-size-sm);
+}
+
+.logo-medium .logo-placeholder {
+    height: 80px;
+}
+
+.logo-medium .logo-text {
+    font-size: var(--font-size-base);
+}
+
+.logo-large .logo-placeholder {
+    height: 100px;
+    grid-column: span 2;
+}
+
+.logo-large .logo-text {
+    font-size: var(--font-size-lg);
+}
+
+.logos-footer {
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: rgba(99, 102, 241, 0.05);
+    border-radius: var(--radius-md);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.footer-note {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .logos-grid {
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: var(--spacing-md);
+    }
+
+    .logo-large .logo-placeholder {
+        grid-column: span 1;
+        height: 80px;
+    }
+
+    .brand-logos {
+        padding: var(--spacing-xl) var(--spacing-md);
+    }
+}

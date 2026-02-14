@@ -1,0 +1,106 @@
+.problems-section {
+    padding: var(--spacing-2xl) var(--spacing-md);
+    background: linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.problems-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.problems-title {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.problems-subtitle {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+}
+
+.problems-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+    max-width: 1200px;
+    margin: 0 auto var(--spacing-2xl);
+}
+
+.problem-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-base);
+    opacity: 0;
+    animation: fadeInLeft 0.5s ease-out forwards;
+}
+
+.problem-item:hover {
+    transform: translateX(5px);
+    border-color: var(--color-success);
+    box-shadow: var(--shadow-md);
+}
+
+.check-icon {
+    color: var(--color-success);
+    flex-shrink: 0;
+}
+
+.problem-text {
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.problems-cta {
+    text-align: center;
+    padding: var(--spacing-xl);
+    background: var(--bg-elevated);
+    border: 2px dashed var(--border-primary);
+    border-radius: var(--radius-lg);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.cta-text {
+    font-size: var(--font-size-lg);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.cta-text strong {
+    color: var(--color-primary);
+}
+
+.cta-subtext {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+@keyframes fadeInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 768px) {
+    .problems-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .problems-section {
+        padding: var(--spacing-xl) var(--spacing-md);
+    }
+}

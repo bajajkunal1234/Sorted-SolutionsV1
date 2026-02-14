@@ -1,0 +1,170 @@
+/* Quick Booking Form Styles - Enhanced */
+.quick-booking-form {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    margin-top: 24px;
+}
+
+.form-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 0 0 8px 0;
+    text-align: center;
+}
+
+.form-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    text-align: center;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.form-group select,
+.form-group input {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 15px;
+    color: #1f2937;
+    background: white;
+    transition: all 0.2s ease;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.pincode-input-wrapper {
+    position: relative;
+}
+
+.pincode-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+}
+
+.pincode-input-wrapper input {
+    padding-left: 40px;
+}
+
+.pincode-status {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.pincode-status.valid {
+    color: #10b981;
+    background: #d1fae5;
+}
+
+.pincode-status.invalid {
+    color: #ef4444;
+    background: #fee2e2;
+}
+
+.pincode-help {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 8px;
+    background: #fef3c7;
+    border-radius: 6px;
+    font-size: 11px;
+    color: #92400e;
+}
+
+.pincode-help svg {
+    flex-shrink: 0;
+}
+
+.book-button {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 20px;
+    animation: slideUp 0.3s ease;
+}
+
+.book-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.form-trust {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.form-trust span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+@media (max-width: 480px) {
+    .form-trust {
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+    }
+}

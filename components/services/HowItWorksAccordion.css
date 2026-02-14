@@ -1,0 +1,195 @@
+.how-it-works-accordion {
+    padding: var(--spacing-2xl) var(--spacing-md);
+    background: var(--bg-primary);
+}
+
+.accordion-header {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+}
+
+.accordion-title {
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.accordion-subtitle {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+}
+
+.accordion-container {
+    max-width: 900px;
+    margin: 0 auto var(--spacing-2xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.accordion-item {
+    background: var(--bg-elevated);
+    border: 2px solid var(--border-primary);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all var(--transition-base);
+}
+
+.accordion-item.expanded {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-lg);
+}
+
+.accordion-trigger {
+    width: 100%;
+    padding: var(--spacing-lg);
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.accordion-trigger:hover {
+    background: var(--bg-secondary);
+}
+
+.trigger-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.stage-number-badge {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-inverse);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.accordion-item.expanded .stage-number-badge {
+    background: linear-gradient(135deg, var(--color-success), var(--color-success-dark));
+}
+
+.stage-icon-small {
+    font-size: 2rem;
+}
+
+.trigger-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    text-align: left;
+    margin: 0;
+}
+
+.chevron {
+    color: var(--text-secondary);
+    transition: transform var(--transition-base);
+    flex-shrink: 0;
+}
+
+.chevron.rotated {
+    transform: rotate(180deg);
+    color: var(--color-primary);
+}
+
+.accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height var(--transition-slow);
+}
+
+.accordion-content.show {
+    max-height: 500px;
+}
+
+.content-inner {
+    padding: 0 var(--spacing-lg) var(--spacing-lg);
+    padding-left: calc(var(--spacing-lg) + 40px + var(--spacing-md));
+}
+
+.content-description {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    line-height: 1.6;
+    margin-bottom: var(--spacing-lg);
+}
+
+.content-features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.feature-check {
+    color: var(--color-success);
+    flex-shrink: 0;
+}
+
+.accordion-footer {
+    text-align: center;
+    padding: var(--spacing-lg);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.footer-text {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+}
+
+.footer-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 600;
+    transition: color var(--transition-fast);
+}
+
+.footer-link:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+    .trigger-left {
+        gap: var(--spacing-sm);
+    }
+
+    .stage-icon-small {
+        display: none;
+    }
+
+    .trigger-title {
+        font-size: var(--font-size-lg);
+    }
+
+    .content-inner {
+        padding-left: var(--spacing-lg);
+    }
+
+    .how-it-works-accordion {
+        padding: var(--spacing-xl) var(--spacing-md);
+    }
+}

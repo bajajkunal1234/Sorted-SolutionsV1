@@ -1,0 +1,586 @@
+'use client'
+
+import { useState } from 'react';
+import { Plus, Trash2, X } from 'lucide-react';
+import AccountSelector from '../common/AccountSelector';
+import ProductSelector from '../common/ProductSelector';
+import NewAccountForm from './NewAccountForm';
+import { sampleLedgers } from '../../data/accountingData';
+
+function QuotationForm({ onClose, onSave }) {
+    const [formData, setFormData] = useState({
+        accountId: null,
+        accountGSTIN: '',
+        accountState: 'Maharashtra',
+        property: null,
+        billingAddress: '',
+        shippingAddress: '',
+        quotationNumber: 'QUO-2026-0003',
+        quotationDate: new Date().toISOString().split('T')[0],
+        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        subject: '',
+        items: [
+            { id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }
+        ],
+        notes: '',
+        terms: 'Quotation valid for 30 days.\nPrices subject to change without notice.\nPayment terms: 50% advance, 50% on completion.',
+        showTax: true
+    });
+
+    const [showNewAccountForm, setShowNewAccountForm] = useState(false);
+
+    // Real customer accounts from sampleLedgers
+    const customers = sampleLedgers.filter(ledger =>
+        ledger.type === 'customer' ||
+        ledger.under === 'customer-accounts' ||
+        ledger.under === 'sundry-debtors'
+    );
+
+    const companyState = 'Maharashtra';
+
+    const calculateItemTotal = (item) => {
+        const subtotal = item.qty * item.rate;
+        const discountAmount = item.discount;
+        const taxableAmount = subtotal - discountAmount;
+        const taxAmount = formData.showTax ? (taxableAmount * item.taxRate) / 100 : 0;
+        return taxableAmount + taxAmount;
+    };
+
+    const calculateTotals = () => {
+        const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        const totalDiscount = formData.items.reduce((sum, item) => sum + item.discount, 0);
+        const taxableAmount = subtotal - totalDiscount;
+
+        const isInterState = formData.accountState !== companyState;
+        let cgst = 0, sgst = 0, igst = 0;
+
+        if (formData.showTax) {
+            formData.items.forEach(item => {
+                const itemTaxable = (item.qty * item.rate) - item.discount;
+                const taxAmount = (itemTaxable * item.taxRate) / 100;
+
+                if (isInterState) {
+                    igst += taxAmount;
+                } else {
+                    cgst += taxAmount / 2;
+                    sgst += taxAmount / 2;
+                }
+            });
+        }
+
+        const totalTax = cgst + sgst + igst;
+        const grandTotal = taxableAmount + totalTax;
+        const roundOff = Math.round(grandTotal) - grandTotal;
+
+        return {
+            subtotal,
+            totalDiscount,
+            taxableAmount,
+            cgst,
+            sgst,
+            igst,
+            totalTax,
+            roundOff,
+            grandTotal: Math.round(grandTotal)
+        };
+    };
+
+    const totals = calculateTotals();
+
+    const handleAccountChange = (accountId) => {
+        const account = sampleLedgers.find(c => c.id === accountId);
+        if (account) {
+            setFormData({
+                ...formData,
+                accountId: account.id,
+                accountGSTIN: account.gstin || account.gstNumber || '',
+                accountState: account.address?.state || 'Maharashtra',
+                property: null,
+                billingAddress: '',
+                shippingAddress: ''
+            });
+        }
+    };
+
+    const handleItemChange = (index, field, value) => {
+        const newItems = [...formData.items];
+        newItems[index][field] = field === 'description' || field === 'hsn' ? value : parseFloat(value) || 0;
+        newItems[index].total = calculateItemTotal(newItems[index]);
+        setFormData({ ...formData, items: newItems });
+    };
+
+    const addItem = () => {
+        setFormData({
+            ...formData,
+            items: [...formData.items, {
+                id: formData.items.length + 1,
+                description: '',
+                hsn: '',
+                qty: 1,
+                rate: 0,
+                discount: 0,
+                taxRate: 18,
+                total: 0
+            }]
+        });
+    };
+
+    const removeItem = (index) => {
+        if (formData.items.length > 1) {
+            const newItems = formData.items.filter((_, i) => i !== index);
+            setFormData({ ...formData, items: newItems });
+        }
+    };
+
+    const handleSave = (action) => {
+        if (!formData.accountId) {
+            alert('Please select an account');
+            return;
+        }
+        if (formData.items.some(item => !item.description || item.qty <= 0 || item.rate < 0)) {
+            alert('Please fill all item details correctly');
+            return;
+        }
+
+        const quotationData = {
+            ...formData,
+            ...totals,
+            createdAt: new Date().toISOString(),
+            status: action === 'draft' ? 'draft' : 'sent'
+        };
+
+        onSave(quotationData, action);
+    };
+
+    return (
+        <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: 'var(--spacing-md)'
+        }}>
+            <div style={{
+                backgroundColor: 'var(--bg-primary)',
+                borderRadius: 'var(--radius-lg)',
+                width: '100%',
+                maxWidth: '1200px',
+                maxHeight: '90vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: 'var(--shadow-xl)'
+            }}>
+                {/* Header */}
+                <div style={{
+                    padding: 'var(--spacing-md)',
+                    borderBottom: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                }}>
+                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#8b5cf6' }}>
+                        Create Quotation
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: 'var(--spacing-xs)',
+                            color: 'var(--text-secondary)'
+                        }}
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-lg)' }}>
+                    {/* Account & Quotation Details */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+                        <div>
+                            <AccountSelector
+                                value={formData.accountId}
+                                onChange={handleAccountChange}
+                                onCreateNew={() => setShowNewAccountForm(true)}
+                                accountType="customer"
+                                label="Account"
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Quotation Number
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.quotationNumber}
+                                readOnly
+                                style={{ width: '100%', backgroundColor: 'var(--bg-secondary)' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Quotation Date *
+                            </label>
+                            <input
+                                type="date"
+                                className="form-input"
+                                value={formData.quotationDate}
+                                onChange={(e) => setFormData({ ...formData, quotationDate: e.target.value })}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Valid Until *
+                            </label>
+                            <input
+                                type="date"
+                                className="form-input"
+                                value={formData.validUntil}
+                                onChange={(e) => setFormData({ ...formData, validUntil: e.target.value })}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Subject (Optional)
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.subject}
+                                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                                placeholder="e.g., Quotation for AC Installation"
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Show Tax Toggle */}
+                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={formData.showTax}
+                                onChange={(e) => setFormData({ ...formData, showTax: e.target.checked })}
+                            />
+                            <span style={{ fontSize: 'var(--font-size-sm)' }}>Show tax in quotation</span>
+                        </label>
+                    </div>
+
+                    {/* Items Table */}
+                    <div style={{
+                        marginBottom: 'var(--spacing-lg)',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'hidden'
+                    }}>
+                        <div style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>Items & Services</h4>
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
+                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '5%' }}>#</th>
+                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '35%' }}>Description *</th>
+                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Qty *</th>
+                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '15%' }}>Rate *</th>
+                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '12%' }}>Disc.</th>
+                                        {formData.showTax && (
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '10%' }}>Tax %</th>
+                                        )}
+                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '13%' }}>Total</th>
+                                        <th style={{ padding: 'var(--spacing-xs)', width: '5%' }}></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {formData.items.map((item, index) => (
+                                        <tr key={item.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                            <td style={{ padding: 'var(--spacing-xs)', textAlign: 'center' }}>{index + 1}</td>
+                                            <td style={{ padding: 'var(--spacing-xs)', position: 'relative', overflow: 'visible' }} colSpan="2">
+                                                {/* Product Selector */}
+                                                <div style={{ marginBottom: 'var(--spacing-xs)' }}>
+                                                    <ProductSelector
+                                                        value={item.productId}
+                                                        onChange={(productId) => handleItemChange(index, 'productId', productId)}
+                                                        label="Select Product"
+                                                        onProductSelect={(productDetails) => {
+                                                            const newItems = [...formData.items];
+                                                            newItems[index] = {
+                                                                ...newItems[index],
+                                                                productId: productDetails.productId,
+                                                                description: productDetails.description,
+                                                                hsn: productDetails.hsn,
+                                                                rate: productDetails.rate,
+                                                                taxRate: productDetails.taxRate
+                                                            };
+                                                            newItems[index].total = calculateItemTotal(newItems[index]);
+                                                            setFormData({ ...formData, items: newItems });
+                                                        }}
+                                                    />
+                                                </div>
+                                                {/* Manual override for description only */}
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={item.description}
+                                                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                                    placeholder="Or enter custom description"
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                />
+                                                {/* Display HSN (read-only, auto-populated) */}
+                                                {item.hsn && (
+                                                    <div style={{
+                                                        marginTop: '4px',
+                                                        fontSize: 'var(--font-size-xs)',
+                                                        color: 'var(--text-secondary)',
+                                                        padding: '4px 8px',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        borderRadius: 'var(--radius-sm)'
+                                                    }}>
+                                                        HSN: {item.hsn}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={item.qty}
+                                                    onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                                                    min="0"
+                                                    step="1"
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={item.rate}
+                                                    onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
+                                                    min="0"
+                                                    step="0.01"
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
+                                                />
+                                            </td>
+                                            <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                <input
+                                                    type="number"
+                                                    className="form-input"
+                                                    value={item.discount}
+                                                    onChange={(e) => handleItemChange(index, 'discount', e.target.value)}
+                                                    min="0"
+                                                    step="0.01"
+                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
+                                                />
+                                            </td>
+                                            {formData.showTax && (
+                                                <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                    <select
+                                                        className="form-input"
+                                                        value={item.taxRate}
+                                                        onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
+                                                        style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                    >
+                                                        <option value="0">0%</option>
+                                                        <option value="5">5%</option>
+                                                        <option value="12">12%</option>
+                                                        <option value="18">18%</option>
+                                                        <option value="28">28%</option>
+                                                    </select>
+                                                </td>
+                                            )}
+                                            <td style={{ padding: 'var(--spacing-xs)', textAlign: 'right', fontWeight: 600 }}>
+                                                ₹{item.total.toFixed(2)}
+                                            </td>
+                                            <td style={{ padding: 'var(--spacing-xs)', textAlign: 'center' }}>
+                                                {formData.items.length > 1 && (
+                                                    <button
+                                                        onClick={() => removeItem(index)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            cursor: 'pointer',
+                                                            color: '#ef4444',
+                                                            padding: '4px'
+                                                        }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div style={{ padding: 'var(--spacing-sm)', borderTop: '1px solid var(--border-primary)' }}>
+                            <button
+                                onClick={addItem}
+                                className="btn btn-secondary"
+                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                            >
+                                <Plus size={14} />
+                                Add Item
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Totals Section */}
+                    <div style={{
+                        backgroundColor: 'rgba(139, 92, 246, 0.05)',
+                        border: '1px solid rgba(139, 92, 246, 0.2)',
+                        borderRadius: 'var(--radius-md)',
+                        padding: 'var(--spacing-md)',
+                        marginBottom: 'var(--spacing-lg)'
+                    }}>
+                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Totals</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', fontSize: 'var(--font-size-sm)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <span>Subtotal:</span>
+                                <span style={{ fontWeight: 600 }}>₹{totals.subtotal.toFixed(2)}</span>
+                            </div>
+                            {totals.totalDiscount > 0 && (
+                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444' }}>
+                                    <span>Discount:</span>
+                                    <span style={{ fontWeight: 600 }}>-₹{totals.totalDiscount.toFixed(2)}</span>
+                                </div>
+                            )}
+                            {formData.showTax && (
+                                <>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span>Taxable Amount:</span>
+                                        <span style={{ fontWeight: 600 }}>₹{totals.taxableAmount.toFixed(2)}</span>
+                                    </div>
+                                    {totals.cgst > 0 && (
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
+                                                <span>CGST ({(formData.items[0]?.taxRate || 18) / 2}%):</span>
+                                                <span style={{ fontWeight: 600 }}>₹{totals.cgst.toFixed(2)}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
+                                                <span>SGST ({(formData.items[0]?.taxRate || 18) / 2}%):</span>
+                                                <span style={{ fontWeight: 600 }}>₹{totals.sgst.toFixed(2)}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                    {totals.igst > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b' }}>
+                                            <span>IGST ({formData.items[0]?.taxRate || 18}%):</span>
+                                            <span style={{ fontWeight: 600 }}>₹{totals.igst.toFixed(2)}</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                paddingTop: 'var(--spacing-sm)',
+                                borderTop: '2px solid #8b5cf6',
+                                fontSize: 'var(--font-size-lg)',
+                                fontWeight: 700,
+                                color: '#8b5cf6'
+                            }}>
+                                <span>Grand Total:</span>
+                                <span>₹{totals.grandTotal.toLocaleString()}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Notes & Terms */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Notes (Optional)
+                            </label>
+                            <textarea
+                                className="form-input"
+                                value={formData.notes}
+                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                rows="3"
+                                placeholder="Additional notes..."
+                                style={{ width: '100%', resize: 'vertical' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Terms & Conditions
+                            </label>
+                            <textarea
+                                className="form-input"
+                                value={formData.terms}
+                                onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
+                                rows="3"
+                                style={{ width: '100%', resize: 'vertical' }}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer Actions */}
+                <div style={{
+                    padding: 'var(--spacing-md)',
+                    borderTop: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    gap: 'var(--spacing-sm)',
+                    justifyContent: 'flex-end'
+                }}>
+                    <button
+                        onClick={onClose}
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 16px' }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={() => handleSave('draft')}
+                        className="btn"
+                        style={{ padding: '8px 16px', backgroundColor: 'var(--color-secondary)' }}
+                    >
+                        Save Draft
+                    </button>
+                    <button
+                        onClick={() => handleSave('send')}
+                        className="btn btn-primary"
+                        style={{ padding: '8px 16px', backgroundColor: '#8b5cf6' }}
+                    >
+                        Save & Send
+                    </button>
+                </div>
+            </div>
+
+            {/* New Account Form Modal */}
+            {showNewAccountForm && (
+                <NewAccountForm
+                    onClose={() => setShowNewAccountForm(false)}
+                    onSave={(account) => {
+                        setFormData({
+                            ...formData,
+                            accountId: account.id,
+                            accountGSTIN: account.gstin,
+                            accountState: account.state || 'Maharashtra'
+                        });
+                        setShowNewAccountForm(false);
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
+export default QuotationForm;
+
+
+
+

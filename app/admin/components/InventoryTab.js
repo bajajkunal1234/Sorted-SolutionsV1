@@ -1,0 +1,348 @@
+'use client'
+
+import { useState, useEffect } from 'react';
+import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X } from 'lucide-react';
+import { inventoryAPI } from '@/lib/adminAPI';
+import { productCategories, stockStatuses } from '@/lib/data/inventoryData';
+import { filterProducts, sortProducts, getUniqueBrands } from '@/lib/utils/inventoryHelpers';
+import InventoryTableView from './inventory/InventoryTableView';
+import InventoryCardView from './inventory/InventoryCardView';
+import InventoryKanbanView from './inventory/InventoryKanbanView';
+import InventoryDetailsView from './inventory/InventoryDetailsView';
+import ProductDetailModal from './ProductDetailModal';
+import NewProductForm from './inventory/NewProductForm';
+
+function InventoryTab() {
+    const [products, setProducts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [viewType, setViewType] = useState('table');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('all');
+    const [filterCategory, setFilterCategory] = useState('all');
+    const [filterBrand, setFilterBrand] = useState('all');
+    const [filterStockStatus, setFilterStockStatus] = useState('all');
+    const [sortBy, setSortBy] = useState('name');
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showCreateForm, setShowCreateForm] = useState(false);
+
+    // Fetch products on mount
+    useEffect(() => {
+        const fetchInventory = async () => {
+            try {
+                setLoading(true);
+                const data = await inventoryAPI.getAll();
+                setProducts(data || []);
+                setError(null);
+            } catch (err) {
+                console.error('Error fetching inventory:', err);
+                setError('Failed to load inventory. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchInventory();
+    }, []);
+
+    const brands = getUniqueBrands(products);
+
+    const filteredProducts = sortProducts(
+        filterProducts(products, {
+            type: filterType,
+            category: filterCategory,
+            brand: filterBrand,
+            stockStatus: filterStockStatus,
+            search: searchTerm
+        }),
+        sortBy
+    );
+
+    const viewIcons = {
+        card: Grid,
+        kanban: Columns,
+        table: TableIcon,
+        details: List
+    };
+
+    const totalStock = products
+        .filter(p => p.type === 'product' && p.current_stock !== null)
+        .reduce((sum, p) => sum + (p.current_stock || 0), 0);
+
+    const handleUpdateProduct = async (updatedProduct) => {
+        try {
+            const result = await inventoryAPI.update(updatedProduct.id, updatedProduct);
+            setProducts(prevProducts =>
+                prevProducts.map(p => p.id === result.id ? result : p)
+            );
+            setSelectedProduct(null);
+        } catch (err) {
+            console.error('Error updating product:', err);
+            alert('Failed to update product');
+        }
+    };
+
+    const handleCreateProduct = async (newProduct) => {
+        try {
+            const result = await inventoryAPI.create(newProduct);
+            setProducts(prevProducts => [...prevProducts, result]);
+            setShowCreateForm(false);
+        } catch (err) {
+            console.error('Error creating product:', err);
+            alert('Failed to create product');
+        }
+    };
+
+    const handleDeleteProduct = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this item?')) return;
+
+        try {
+            await inventoryAPI.delete(id);
+            setProducts(prevProducts => prevProducts.filter(p => p.id !== id));
+            setSelectedProduct(null);
+        } catch (err) {
+            console.error('Error deleting product:', err);
+            alert('Failed to delete product');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyCenter: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+                <div className="loader" style={{ marginRight: 'var(--spacing-sm)' }}></div>
+                Loading inventory...
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyCenter: 'center', height: '100%', color: '#ef4444', padding: 'var(--spacing-xl)' }}>
+                <X size={48} style={{ marginBottom: 'var(--spacing-md)' }} />
+                <p>{error}</p>
+                <button className="btn btn-secondary" onClick={() => window.location.reload()} style={{ marginTop: 'var(--spacing-md)' }}>
+                    Retry
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Row 1: Tab Name + Search + Create Button */}
+            <div style={{
+                padding: 'var(--spacing-sm) var(--spacing-md)',
+                backgroundColor: 'var(--bg-elevated)',
+                borderBottom: '1px solid var(--border-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--spacing-md)',
+                flexWrap: 'wrap'
+            }}>
+                <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, minWidth: '100px' }}>
+                    Inventory
+                </h2>
+
+                <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+                    <Search
+                        size={16}
+                        style={{
+                            position: 'absolute',
+                            left: 'var(--spacing-sm)',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: 'var(--text-tertiary)'
+                        }}
+                    />
+                    <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Search products..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{
+                            paddingLeft: '2rem',
+                            paddingTop: '6px',
+                            paddingBottom: '6px',
+                            fontSize: 'var(--font-size-sm)'
+                        }}
+                    />
+                </div>
+
+                <button
+                    className="btn btn-primary"
+                    onClick={() => setShowCreateForm(true)}
+                    style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
+                >
+                    <Plus size={16} />
+                    Create
+                </button>
+            </div>
+
+            {/* Row 2: View Buttons + Compact Filter Buttons */}
+            <div style={{
+                padding: 'var(--spacing-xs) var(--spacing-md)',
+                backgroundColor: 'var(--bg-secondary)',
+                borderBottom: '1px solid var(--border-primary)',
+                display: 'flex',
+                gap: '6px',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+            }}>
+                {/* View Type Buttons */}
+                {Object.entries(viewIcons).map(([type, Icon]) => (
+                    <button
+                        key={type}
+                        onClick={() => setViewType(type)}
+                        title={type.charAt(0).toUpperCase() + type.slice(1)}
+                        style={{
+                            padding: '6px 10px',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: '6px',
+                            backgroundColor: viewType === type ? '#6366f1' : '#334155',
+                            color: viewType === type ? 'white' : '#cbd5e1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <Icon size={16} />
+                    </button>
+                ))}
+
+                <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
+
+                {/* Type Filter Button */}
+                <div style={{ position: 'relative' }}>
+                    <select
+                        value={filterType}
+                        onChange={(e) => setFilterType(e.target.value)}
+                        className="form-select"
+                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
+                    >
+                        <option value="all">All Types</option>
+                        <option value="product">Products</option>
+                        <option value="service">Services</option>
+                        <option value="combo">Combos</option>
+                    </select>
+                </div>
+
+                {/* Category Filter Button */}
+                <div style={{ position: 'relative' }}>
+                    <select
+                        value={filterCategory}
+                        onChange={(e) => setFilterCategory(e.target.value)}
+                        className="form-select"
+                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
+                    >
+                        <option value="all">All Categories</option>
+                        {productCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Brand Filter Button */}
+                <div style={{ position: 'relative' }}>
+                    <select
+                        value={filterBrand}
+                        onChange={(e) => setFilterBrand(e.target.value)}
+                        className="form-select"
+                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
+                    >
+                        <option value="all">All Brands</option>
+                        {brands.map(brand => (
+                            <option key={brand} value={brand}>{brand}</option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Stock Status Filter Button */}
+                <div style={{ position: 'relative' }}>
+                    <select
+                        value={filterStockStatus}
+                        onChange={(e) => setFilterStockStatus(e.target.value)}
+                        className="form-select"
+                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
+                    >
+                        <option value="all">All Stock</option>
+                        <option value={stockStatuses.IN_STOCK}>In Stock</option>
+                        <option value={stockStatuses.LOW_STOCK}>Low Stock</option>
+                        <option value={stockStatuses.OUT_OF_STOCK}>Out of Stock</option>
+                    </select>
+                </div>
+
+                <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
+
+                {/* Sort Button */}
+                <div style={{ position: 'relative' }}>
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value)}
+                        className="form-select"
+                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
+                    >
+                        <option value="name">Sort: Name</option>
+                        <option value="stock">Sort: Stock</option>
+                        <option value="price">Sort: Price</option>
+                        <option value="category">Sort: Category</option>
+                        <option value="sku">Sort: SKU</option>
+                    </select>
+                </div>
+            </div>
+
+            {/* Content Area */}
+            <div style={{ flex: 1, overflow: 'auto' }}>
+                {viewType === 'table' && <InventoryTableView products={filteredProducts} onProductClick={setSelectedProduct} />}
+                {viewType === 'card' && <InventoryCardView products={filteredProducts} onProductClick={setSelectedProduct} />}
+                {viewType === 'kanban' && (
+                    <InventoryKanbanView
+                        products={filteredProducts}
+                        onProductClick={setSelectedProduct}
+                        onProductUpdate={handleUpdateProduct}
+                    />
+                )}
+                {viewType === 'details' && <InventoryDetailsView products={filteredProducts} onProductClick={setSelectedProduct} />}
+            </div>
+
+            {/* Summary Footer */}
+            <div style={{
+                padding: 'var(--spacing-xs) var(--spacing-md)',
+                backgroundColor: 'var(--bg-secondary)',
+                borderTop: '1px solid var(--border-primary)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                fontSize: 'var(--font-size-xs)'
+            }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                    Showing {filteredProducts.length} of {products.length} items
+                </span>
+                <span style={{ fontWeight: 600 }}>
+                    Total Stock: {totalStock} units
+                </span>
+            </div>
+
+            {/* Product Detail Modal */}
+            {selectedProduct && (
+                <ProductDetailModal
+                    product={selectedProduct}
+                    onClose={() => setSelectedProduct(null)}
+                    onUpdate={handleUpdateProduct}
+                    onDelete={() => handleDeleteProduct(selectedProduct.id)}
+                />
+            )}
+
+            {/* Create Product Form */}
+            {showCreateForm && (
+                <NewProductForm
+                    onClose={() => setShowCreateForm(false)}
+                    onSave={handleCreateProduct}
+                />
+            )}
+        </div>
+    );
+}
+
+export default InventoryTab;

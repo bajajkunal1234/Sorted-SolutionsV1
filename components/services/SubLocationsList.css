@@ -1,0 +1,26 @@
+.sublocations-section {
+    padding: 60px 0;
+    background: var(--bg-primary);
+}
+
+.sublocations-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.sublocation-item {
+    padding: 12px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    text-align: center;
+    border: 1px solid var(--border-primary);
+}
+
+@media (max-width: 768px) {
+    .sublocations-grid {
+        grid-template-columns: 1fr;
+    }
+}

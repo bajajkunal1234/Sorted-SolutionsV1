@@ -1,0 +1,137 @@
+/* Inventory Tab Styles */
+
+.inventory-tab {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.inventory-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-primary);
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    background: var(--bg-elevated);
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.checkbox-label input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.inventory-grid {
+    flex: 1;
+    padding: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    overflow-y: auto;
+    align-content: start;
+}
+
+.inventory-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.inventory-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.inventory-card.low-stock {
+    border-color: var(--color-warning);
+    background: rgba(245, 158, 11, 0.05);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.card-header h4 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.warning-icon {
+    color: var(--color-warning);
+}
+
+.card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.card-body p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.sku {
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.category {
+    color: var(--text-secondary);
+}
+
+.quantity-row,
+.price-row {
+    display: flex;
+    justify-content: space-between;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-primary);
+}
+
+.quantity {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.min-stock {
+    color: var(--text-tertiary);
+    font-size: 12px;
+}
+
+.price-row span {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-tertiary);
+}
+
+.empty-state svg {
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
