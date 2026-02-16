@@ -1,13 +1,12 @@
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseServer } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-)
 
 // GET - Fetch quick booking settings
 export async function GET() {
+    const supabase = getSupabaseServer()
+    if (!supabase) {
+        return NextResponse.json({ success: false, error: 'Database connection not available' }, { status: 503 })
+    }
     try {
         const { data, error } = await supabase
             .from('quick_booking_settings')
@@ -39,6 +38,10 @@ export async function GET() {
 
 // PUT - Update quick booking settings
 export async function PUT(request) {
+    const supabase = getSupabaseServer()
+    if (!supabase) {
+        return NextResponse.json({ success: false, error: 'Database connection not available' }, { status: 503 })
+    }
     try {
         const settings = await request.json()
 
