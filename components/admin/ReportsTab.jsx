@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { FileText, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, User } from 'lucide-react';
 import DaybookView from '@/components/reports/DaybookView';
 import DailyExpenses from '@/components/reports/DailyExpenses';
-import IssuesManagement from '@/components/reports/IssuesManagement';
 import VoucherNumberingSettings from '@/components/reports/VoucherNumberingSettings';
 import PrevisitRequirements from '@/components/reports/PrevisitRequirements';
 import WebsiteSettings from '@/components/reports/WebsiteSettings';
@@ -29,7 +28,6 @@ function ReportsTab({ onOpenSettings }) {
         { id: 'rentals', label: 'Rentals', icon: Package, component: RentalsTab, color: '#8b5cf6', description: 'Manage rental agreements' },
         { id: 'amc', label: 'AMC', icon: Shield, component: AMCTab, color: '#06b6d4', description: 'Annual Maintenance Contracts' },
         { id: 'interactions', label: 'Interactions', icon: History, component: InteractionsTab, color: '#ec4899', description: 'View all customer interactions' },
-        { id: 'issues', label: 'Issues Management', icon: List, component: IssuesManagement, color: '#f59e0b', description: 'Track and resolve issues' },
         { id: 'numbering', label: 'Voucher Numbering', icon: Settings, component: VoucherNumberingSettings, color: '#6366f1', description: 'Configure voucher sequences' },
         { id: 'previsit', label: 'Pre-visit Checklist', icon: Clipboard, component: PrevisitRequirements, color: '#14b8a6', description: 'Manage pre-visit requirements' },
         { id: 'slots', label: 'Website Settings', icon: Clock, component: WebsiteSettings, color: '#f97316', description: 'Manage website content & forms' },
