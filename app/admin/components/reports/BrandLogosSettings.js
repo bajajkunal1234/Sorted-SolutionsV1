@@ -1,53 +1,37 @@
 'use client'
 
-import { useState } from 'react';
-import { Image as ImageIcon, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Image as ImageIcon, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink, Loader2 } from 'lucide-react';
 
 function BrandLogosSettings() {
-    const [brands, setBrands] = useState([
-        {
-            id: 1,
-            name: 'LG',
-            logoUrl: '/brands/lg.png',
-            websiteUrl: 'https://www.lg.com',
-            order: 1
-        },
-        {
-            id: 2,
-            name: 'Samsung',
-            logoUrl: '/brands/samsung.png',
-            websiteUrl: 'https://www.samsung.com',
-            order: 2
-        },
-        {
-            id: 3,
-            name: 'Whirlpool',
-            logoUrl: '/brands/whirlpool.png',
-            websiteUrl: 'https://www.whirlpool.com',
-            order: 3
-        },
-        {
-            id: 4,
-            name: 'Godrej',
-            logoUrl: '/brands/godrej.png',
-            websiteUrl: 'https://www.godrej.com',
-            order: 4
-        },
-        {
-            id: 5,
-            name: 'Voltas',
-            logoUrl: '/brands/voltas.png',
-            websiteUrl: 'https://www.voltas.com',
-            order: 5
-        },
-        {
-            id: 6,
-            name: 'Blue Star',
-            logoUrl: '/brands/bluestar.png',
-            websiteUrl: 'https://www.bluestarindia.com',
-            order: 6
+    const [brands, setBrands] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        fetchBrands();
+    }, []);
+
+    const fetchBrands = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/settings/brand-logos');
+            const data = await res.json();
+            if (data.success) {
+                // Map API fields (logo_url, order_index) to component state fields (logoUrl, order)
+                const mappedBrands = data.data.map(b => ({
+                    ...b,
+                    logoUrl: b.logo_url || '',
+                    order: b.order_index || 0
+                }));
+                setBrands(mappedBrands);
+            }
+        } catch (error) {
+            console.error('Error fetching brands:', error);
+        } finally {
+            setLoading(false);
         }
-    ]);
+    };
 
     const [displaySettings, setDisplaySettings] = useState({
         showOnHomepage: true,
@@ -83,35 +67,109 @@ function BrandLogosSettings() {
         setEditForm({});
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (confirm('Are you sure you want to delete this brand?')) {
-            setBrands(brands.filter(b => b.id !== id));
+            try {
+                const res = await fetch(`/api/settings/brand-logos?id=${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    setBrands(brands.filter(b => b.id !== id));
+                }
+            } catch (error) {
+                console.error('Error deleting brand:', error);
+            }
         }
     };
 
-    const handleAddBrand = () => {
+    const handleAddBrand = async () => {
         if (newBrand.name && newBrand.logoUrl) {
-            const newId = Math.max(...brands.map(b => b.id), 0) + 1;
-            setBrands([...brands, { ...newBrand, id: newId, order: brands.length + 1 }]);
-            setNewBrand({ name: '', logoUrl: '', websiteUrl: '' });
-            setShowAddForm(false);
+            try {
+                const res = await fetch('/api/settings/brand-logos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: newBrand.name,
+                        logo_url: newBrand.logoUrl,
+                        website_url: newBrand.websiteUrl,
+                        order_index: brands.length + 1,
+                        active: true
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const addedBrand = {
+                        ...data.data[0],
+                        logoUrl: data.data[0].logo_url,
+                        order: data.data[0].order_index
+                    };
+                    setBrands([...brands, addedBrand]);
+                    setNewBrand({ name: '', logoUrl: '', websiteUrl: '' });
+                    setShowAddForm(false);
+                }
+            } catch (error) {
+                console.error('Error adding brand:', error);
+            }
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('Brand logos settings saved successfully!');
+    const handleSaveAll = async () => {
+        setSaving(true);
+        try {
+            const mappedLogos = brands.map(b => ({
+                id: b.id,
+                name: b.name,
+                logo_url: b.logoUrl,
+                website_url: b.websiteUrl,
+                order_index: b.order,
+                active: true
+            }));
+
+            const res = await fetch('/api/settings/brand-logos', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logos: mappedLogos })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Brand logos settings saved successfully!');
+            }
+        } catch (error) {
+            console.error('Error saving brands:', error);
+            alert('Failed to save brands');
+        } finally {
+            setSaving(false);
+        }
     };
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
+                <Loader2 className="animate-spin text-primary" size={48} style={{ animation: 'spin 1s linear infinite' }} />
+                <span style={{ marginLeft: '12px', fontSize: '18px', color: 'var(--text-secondary)' }}>Loading brands library...</span>
+            </div>
+        );
+    }
 
     return (
         <div>
-            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    Brand Logos Management
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage brand logos displayed on your website
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
+                <div>
+                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                        Global Brand Logos Management
+                    </h3>
+                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                        Create and manage a library of brand logos for use across all website pages
+                    </p>
+                </div>
+                <button
+                    onClick={handleSaveAll}
+                    disabled={saving}
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
+                >
+                    {saving ? <Loader2 className="animate-spin" size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save All Changes'}
+                </button>
             </div>
 
             {/* Display Settings */}
@@ -508,17 +566,6 @@ function BrandLogosSettings() {
                 ))}
             </div>
 
-            {/* Save All Button */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-lg)' }}>
-                <button
-                    onClick={handleSaveAll}
-                    className="btn btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
-                >
-                    <Save size={18} />
-                    Save All Changes
-                </button>
-            </div>
         </div>
     );
 }

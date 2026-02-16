@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react';
-import { HelpCircle, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { HelpCircle, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 
 function FAQsManagement() {
     const pageOptions = [
@@ -21,37 +21,9 @@ function FAQsManagement() {
         'About Page'
     ];
 
-    const [faqs, setFaqs] = useState([
-        {
-            id: 1,
-            question: 'What areas do you serve in Mumbai?',
-            answer: 'We provide service across all major areas in Mumbai including Andheri, Dadar, Ghatkopar, Goregaon, Kurla, Mumbai Central, and Parel. We cover 15+ pincodes across the city.',
-            pages: ['Homepage', 'All Location Pages'],
-            order: 1
-        },
-        {
-            id: 2,
-            question: 'How quickly can you send a technician?',
-            answer: 'We offer same-day service for most repairs. Our technicians can typically reach your location within 2-4 hours of booking, subject to availability in your area.',
-            pages: ['Homepage', 'All Service Pages'],
-            order: 2
-        },
-        {
-            id: 3,
-            question: 'Do you provide warranty on AC repairs?',
-            answer: 'Yes! We provide a 30-day warranty on all AC repairs and a 90-day warranty on spare parts. Our warranty covers both labor and parts used during the repair.',
-            pages: ['AC Repair Page'],
-            order: 3
-        },
-        {
-            id: 4,
-            question: 'What payment methods do you accept?',
-            answer: 'We accept all major payment methods including Cash, UPI, Credit/Debit Cards, and Net Banking. Payment is required after service completion and your satisfaction.',
-            pages: ['Homepage', 'All Service Pages'],
-            order: 4
-        }
-    ]);
-
+    const [faqs, setFaqs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [showAddForm, setShowAddForm] = useState(false);
@@ -61,6 +33,25 @@ function FAQsManagement() {
         pages: ['Homepage']
     });
     const [expandedId, setExpandedId] = useState(null);
+
+    useEffect(() => {
+        fetchFaqs();
+    }, []);
+
+    const fetchFaqs = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch('/api/settings/faqs');
+            const data = await res.json();
+            if (data.success) {
+                setFaqs(data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching FAQs:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleEdit = (faq) => {
         setEditingId(faq.id);
@@ -78,18 +69,37 @@ function FAQsManagement() {
         setEditForm({});
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (confirm('Are you sure you want to delete this FAQ?')) {
-            setFaqs(faqs.filter(f => f.id !== id));
+            try {
+                const res = await fetch(`/api/settings/faqs?id=${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    setFaqs(faqs.filter(f => f.id !== id));
+                }
+            } catch (error) {
+                console.error('Error deleting FAQ:', error);
+            }
         }
     };
 
-    const handleAddFaq = () => {
+    const handleAddFaq = async () => {
         if (newFaq.question && newFaq.answer) {
-            const newId = Math.max(...faqs.map(f => f.id), 0) + 1;
-            setFaqs([...faqs, { ...newFaq, id: newId, order: faqs.length + 1 }]);
-            setNewFaq({ question: '', answer: '', pages: ['Homepage'] });
-            setShowAddForm(false);
+            try {
+                const res = await fetch('/api/settings/faqs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...newFaq, order_index: faqs.length + 1 })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setFaqs([...faqs, data.data]);
+                    setNewFaq({ question: '', answer: '', pages: ['Homepage'] });
+                    setShowAddForm(false);
+                }
+            } catch (error) {
+                console.error('Error adding FAQ:', error);
+            }
         }
     };
 
@@ -101,20 +111,55 @@ function FAQsManagement() {
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('FAQs saved successfully!');
+    const handleSaveAll = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/settings/faqs', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ faqs })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('FAQs saved successfully!');
+            }
+        } catch (error) {
+            console.error('Error saving FAQs:', error);
+            alert('Failed to save FAQs');
+        } finally {
+            setSaving(false);
+        }
     };
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
+                <Loader2 className="animate-spin text-primary" size={48} style={{ animation: 'spin 1s linear infinite' }} />
+                <span style={{ marginLeft: '12px', fontSize: '18px', color: 'var(--text-secondary)' }}>Loading FAQs Library...</span>
+            </div>
+        );
+    }
 
     return (
         <div>
-            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    FAQs Management
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage frequently asked questions and assign them to specific pages
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
+                <div>
+                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                        Global FAQ's Management
+                    </h3>
+                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                        Create and manage a library of frequently asked questions for your website
+                    </p>
+                </div>
+                <button
+                    onClick={handleSaveAll}
+                    disabled={saving}
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
+                >
+                    {saving ? <Loader2 className="animate-spin" size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save All Changes'}
+                </button>
             </div>
 
             {/* Add New FAQ Button */}
@@ -381,17 +426,6 @@ function FAQsManagement() {
                 ))}
             </div>
 
-            {/* Save All Button */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-lg)' }}>
-                <button
-                    onClick={handleSaveAll}
-                    className="btn btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
-                >
-                    <Save size={18} />
-                    Save All Changes
-                </button>
-            </div>
         </div>
     );
 }

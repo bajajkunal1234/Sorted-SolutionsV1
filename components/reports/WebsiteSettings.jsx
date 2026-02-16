@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react';
 import {
@@ -35,99 +35,158 @@ import StaticPagesSettings from './StaticPagesSettings';
 function WebsiteSettings() {
     const [activeCategory, setActiveCategory] = useState(null);
 
-    const categories = [
+    // Debug: Verify new version is loading
+    console.log('🔧 WebsiteSettings v2.0 - Reorganized with category groups');
+
+    // Main category groups
+    const categoryGroups = [
         {
-            id: 'booking-slots',
-            label: 'Booking Slots Management',
-            icon: Clock,
-            description: 'Configure available time slots for service bookings',
-            color: '#3b82f6'
+            id: 'homepage',
+            label: 'Homepage Settings',
+            description: 'Manage homepage-specific content and sections',
+            color: '#3b82f6',
+            hasAddNew: true
         },
         {
-            id: 'header-locations',
-            label: 'Homepage Header Locations',
-            icon: MapPin,
-            description: 'Manage locations displayed in the header dropdown',
-            color: '#10b981'
+            id: 'category-pages',
+            label: 'Category Pages Settings',
+            description: 'Configure category-level service pages',
+            color: '#10b981',
+            hasAddNew: true
         },
         {
-            id: 'quick-booking',
-            label: 'Homepage Quick Booking Form',
-            icon: Calendar,
-            description: 'Configure the quick booking form on homepage',
-            color: '#f59e0b'
+            id: 'subcategory-pages',
+            label: 'Sub Category Pages Settings',
+            description: 'Configure sub-category service pages',
+            color: '#f59e0b',
+            hasAddNew: true
         },
         {
-            id: 'frequent-services',
-            label: 'Homepage Frequently Booked Services',
-            icon: Star,
-            description: 'Manage services shown in the frequently booked section',
-            color: '#8b5cf6'
+            id: 'location-pages',
+            label: 'Location Pages Settings',
+            description: 'Configure location-specific pages',
+            color: '#8b5cf6',
+            hasAddNew: true
         },
         {
-            id: 'how-it-works',
-            label: 'Global How it Works?',
-            icon: CheckCircle,
-            description: 'Edit the "How it Works" section content',
-            color: '#06b6d4'
+            id: 'sublocation-pages',
+            label: 'Sub Location Pages Settings',
+            description: 'Configure sub-location service pages',
+            color: '#06b6d4',
+            hasAddNew: true
         },
         {
-            id: 'why-choose-us',
-            label: 'Global Why Choose Us?',
-            icon: Award,
-            description: 'Edit the "Why Choose Us" section content',
-            color: '#ec4899'
-        },
-        {
-            id: 'testimonials',
-            label: 'Customer Testimonials',
-            icon: MessageCircle,
-            description: 'Manage customer reviews and testimonials',
-            color: '#14b8a6'
-        },
-        {
-            id: 'faqs',
-            label: "FAQ's",
-            icon: HelpCircle,
-            description: 'Manage frequently asked questions',
-            color: '#f97316'
-        },
-        {
-            id: 'technician-join',
-            label: 'Technician Join Form',
-            icon: UserPlus,
-            description: 'Configure the technician registration form',
-            color: '#6366f1'
-        },
-        {
-            id: 'footer-locations',
-            label: 'Homepage Footer Other Office Locations',
-            icon: Building2,
-            description: 'Manage office locations in footer',
-            color: '#84cc16'
-        },
-        {
-            id: 'terms-conditions',
-            label: 'Terms & Conditions',
-            icon: FileText,
-            description: 'Edit Terms & Conditions page content',
-            color: '#64748b'
-        },
-        {
-            id: 'privacy-policy',
-            label: 'Privacy Policy',
-            icon: Shield,
-            description: 'Edit Privacy Policy page content',
-            color: '#0ea5e9'
-        },
-        {
-            id: 'accessibility',
-            label: 'Accessibility Statement',
-            icon: Eye,
-            description: 'Edit Accessibility Statement page content',
-            color: '#a855f7'
+            id: 'global',
+            label: 'Global Settings',
+            description: 'Manage global website content and configurations',
+            color: '#ec4899',
+            hasAddNew: true
         }
     ];
+
+    // Settings within each category
+    const settingsByCategory = {
+        homepage: [
+            {
+                id: 'header-locations',
+                label: 'Homepage Header Locations',
+                icon: MapPin,
+                description: 'Manage locations displayed in the header dropdown',
+                color: '#10b981'
+            },
+            {
+                id: 'frequent-services',
+                label: 'Homepage Frequently Booked Services',
+                icon: Star,
+                description: 'Manage services shown in the frequently booked section',
+                color: '#8b5cf6'
+            },
+            {
+                id: 'footer-locations',
+                label: 'Homepage Footer Other Office Locations',
+                icon: Building2,
+                description: 'Manage office locations in footer',
+                color: '#84cc16'
+            }
+        ],
+        'category-pages': [],
+        'subcategory-pages': [],
+        'location-pages': [],
+        'sublocation-pages': [],
+        global: [
+            {
+                id: 'how-it-works',
+                label: 'Global How It Works',
+                icon: CheckCircle,
+                description: 'Edit the "How it Works" section content',
+                color: '#06b6d4'
+            },
+            {
+                id: 'why-choose-us',
+                label: 'Global Why Choose Us',
+                icon: Award,
+                description: 'Edit the "Why Choose Us" section content',
+                color: '#ec4899'
+            },
+            {
+                id: 'testimonials',
+                label: 'Customer Testimonials',
+                icon: MessageCircle,
+                description: 'Manage customer reviews and testimonials',
+                color: '#14b8a6'
+            },
+            {
+                id: 'booking-slots',
+                label: 'Booking Slots Management',
+                icon: Clock,
+                description: 'Configure available time slots for service bookings',
+                color: '#3b82f6'
+            },
+            {
+                id: 'quick-booking',
+                label: 'Global Quick Booking Form',
+                icon: Calendar,
+                description: 'Configure the quick booking form used across the site',
+                color: '#f59e0b'
+            },
+            {
+                id: 'technician-join',
+                label: 'Technician Join Form',
+                icon: UserPlus,
+                description: 'Configure the technician registration form',
+                color: '#6366f1'
+            },
+            {
+                id: 'terms-conditions',
+                label: 'Terms & Conditions',
+                icon: FileText,
+                description: 'Edit Terms & Conditions page content',
+                color: '#64748b'
+            },
+            {
+                id: 'privacy-policy',
+                label: 'Privacy Policy',
+                icon: Shield,
+                description: 'Edit Privacy Policy page content',
+                color: '#0ea5e9'
+            },
+            {
+                id: 'accessibility',
+                label: 'Accessibility Statement',
+                icon: Eye,
+                description: 'Edit Accessibility Statement page content',
+                color: '#a855f7'
+            },
+            {
+                id: 'faqs',
+                label: 'Global FAQ Settings',
+                icon: HelpCircle,
+                description: 'Manage frequently asked questions',
+                color: '#f97316'
+            }
+        ]
+    };
+
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
@@ -152,12 +211,11 @@ function WebsiteSettings() {
                     gap: 'var(--spacing-md)',
                     marginBottom: 'var(--spacing-xl)'
                 }}>
-                    {categories.map(category => {
-                        const Icon = category.icon;
+                    {categoryGroups.map(group => {
                         return (
                             <button
-                                key={category.id}
-                                onClick={() => setActiveCategory(category.id)}
+                                key={group.id}
+                                onClick={() => setActiveCategory(group.id)}
                                 className="card"
                                 style={{
                                     padding: 'var(--spacing-lg)',
@@ -171,9 +229,9 @@ function WebsiteSettings() {
                                     overflow: 'hidden'
                                 }}
                                 onMouseEnter={(e) => {
-                                    e.currentTarget.style.borderColor = category.color;
+                                    e.currentTarget.style.borderColor = group.color;
                                     e.currentTarget.style.transform = 'translateY(-4px)';
-                                    e.currentTarget.style.boxShadow = `0 8px 24px ${category.color}20`;
+                                    e.currentTarget.style.boxShadow = `0 8px 24px ${group.color}20`;
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.borderColor = 'var(--border-primary)';
@@ -189,7 +247,7 @@ function WebsiteSettings() {
                                     width: '100px',
                                     height: '100px',
                                     borderRadius: '50%',
-                                    backgroundColor: category.color,
+                                    backgroundColor: group.color,
                                     opacity: 0.1
                                 }} />
 
@@ -198,28 +256,29 @@ function WebsiteSettings() {
                                     <div style={{
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: 'var(--spacing-sm)',
+                                        justifyContent: 'space-between',
                                         marginBottom: 'var(--spacing-sm)'
                                     }}>
-                                        <div style={{
-                                            padding: 'var(--spacing-sm)',
-                                            borderRadius: 'var(--radius-md)',
-                                            backgroundColor: `${category.color}15`,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center'
-                                        }}>
-                                            <Icon size={24} style={{ color: category.color }} />
-                                        </div>
                                         <h3 style={{
                                             fontSize: 'var(--font-size-base)',
                                             fontWeight: 600,
                                             margin: 0,
-                                            color: 'var(--text-primary)',
-                                            flex: 1
+                                            color: 'var(--text-primary)'
                                         }}>
-                                            {category.label}
+                                            {group.label}
                                         </h3>
+                                        {group.hasAddNew && (
+                                            <span style={{
+                                                fontSize: 'var(--font-size-xs)',
+                                                padding: '4px 8px',
+                                                borderRadius: 'var(--radius-sm)',
+                                                backgroundColor: `${group.color}20`,
+                                                color: group.color,
+                                                fontWeight: 600
+                                            }}>
+                                                Add New
+                                            </span>
+                                        )}
                                     </div>
                                     <p style={{
                                         fontSize: 'var(--font-size-sm)',
@@ -227,7 +286,7 @@ function WebsiteSettings() {
                                         margin: 0,
                                         lineHeight: 1.5
                                     }}>
-                                        {category.description}
+                                        {group.description}
                                     </p>
                                 </div>
 
@@ -237,7 +296,7 @@ function WebsiteSettings() {
                                     bottom: 'var(--spacing-md)',
                                     right: 'var(--spacing-md)',
                                     fontSize: 'var(--font-size-xl)',
-                                    color: category.color,
+                                    color: group.color,
                                     opacity: 0.5
                                 }}>
                                     →
@@ -245,6 +304,145 @@ function WebsiteSettings() {
                             </button>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Show settings within a category group */}
+            {activeCategory && categoryGroups.find(g => g.id === activeCategory) && settingsByCategory[activeCategory] && (
+                <div>
+                    {/* Back Button */}
+                    <button
+                        onClick={() => setActiveCategory(null)}
+                        className="btn btn-secondary"
+                        style={{ marginBottom: 'var(--spacing-lg)', padding: '8px 16px' }}
+                    >
+                        ← Back to Website Settings
+                    </button>
+
+                    {/* Category Header */}
+                    <div style={{ marginBottom: 'var(--spacing-xl)' }}>
+                        <h3 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-xs)' }}>
+                            {categoryGroups.find(g => g.id === activeCategory)?.label}
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            {categoryGroups.find(g => g.id === activeCategory)?.description}
+                        </p>
+                    </div>
+
+                    {/* Settings Grid */}
+                    {settingsByCategory[activeCategory].length > 0 ? (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                            gap: 'var(--spacing-md)'
+                        }}>
+                            {settingsByCategory[activeCategory].map(setting => {
+                                const Icon = setting.icon;
+                                return (
+                                    <button
+                                        key={setting.id}
+                                        onClick={() => setActiveCategory(setting.id)}
+                                        className="card"
+                                        style={{
+                                            padding: 'var(--spacing-lg)',
+                                            border: '2px solid var(--border-primary)',
+                                            borderRadius: 'var(--radius-lg)',
+                                            backgroundColor: 'var(--bg-elevated)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            textAlign: 'left',
+                                            position: 'relative',
+                                            overflow: 'hidden'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor = setting.color;
+                                            e.currentTarget.style.transform = 'translateY(-4px)';
+                                            e.currentTarget.style.boxShadow = `0 8px 24px ${setting.color}20`;
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                    >
+                                        {/* Icon Background */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '-20px',
+                                            right: '-20px',
+                                            width: '100px',
+                                            height: '100px',
+                                            borderRadius: '50%',
+                                            backgroundColor: setting.color,
+                                            opacity: 0.1
+                                        }} />
+
+                                        {/* Content */}
+                                        <div style={{ position: 'relative', zIndex: 1 }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 'var(--spacing-sm)',
+                                                marginBottom: 'var(--spacing-sm)'
+                                            }}>
+                                                <div style={{
+                                                    padding: 'var(--spacing-sm)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    backgroundColor: `${setting.color}15`,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}>
+                                                    <Icon size={24} style={{ color: setting.color }} />
+                                                </div>
+                                                <h3 style={{
+                                                    fontSize: 'var(--font-size-base)',
+                                                    fontWeight: 600,
+                                                    margin: 0,
+                                                    color: 'var(--text-primary)',
+                                                    flex: 1
+                                                }}>
+                                                    {setting.label}
+                                                </h3>
+                                            </div>
+                                            <p style={{
+                                                fontSize: 'var(--font-size-sm)',
+                                                color: 'var(--text-secondary)',
+                                                margin: 0,
+                                                lineHeight: 1.5
+                                            }}>
+                                                {setting.description}
+                                            </p>
+                                        </div>
+
+                                        {/* Arrow Indicator */}
+                                        <div style={{
+                                            position: 'absolute',
+                                            bottom: 'var(--spacing-md)',
+                                            right: 'var(--spacing-md)',
+                                            fontSize: 'var(--font-size-xl)',
+                                            color: setting.color,
+                                            opacity: 0.5
+                                        }}>
+                                            →
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="card" style={{
+                            padding: 'var(--spacing-xl)',
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '2px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            textAlign: 'center'
+                        }}>
+                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                                No settings available in this category yet. Click "Add New" to create one.
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
 

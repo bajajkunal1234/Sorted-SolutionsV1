@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Phone, User, MapPin, Calculator, Star, Clock, Shield, TrendingUp, Award, CheckCircle } from 'lucide-react';
 import QuickBookingForm from './QuickBookingForm';
-import CostCalculatorPreview from './CostCalculatorPreview';
 import FrequentlyBookedServices from './FrequentlyBookedServices';
+import ServiceProductsGrid from './ServiceProductsGrid';
 import HowItWorksSection from './HowItWorksSection';
 import WhyChooseUsSection from './WhyChooseUsSection';
 import ServiceAreasSection from './ServiceAreasSection';
@@ -110,10 +110,11 @@ function MobileHomepage() {
                 <div className="hero-content">
                     {/* H1 - Primary SEO Keyword */}
                     <h1 className="hero-title">
-                        AC, Washing Machine & Refrigerator Repair in{' '}
+                        Technicians Available in{' '}
                         <span className="location-animated">
                             {locations[currentLocation]}
                         </span>
+                        {' '}within 90mins
                     </h1>
 
                     {/* H2 - Secondary Keywords */}
@@ -174,14 +175,12 @@ function MobileHomepage() {
                     <p className="section-description">
                         Expert repair and service for all major home appliances. Same day service available across Mumbai.
                     </p>
+                    <ServiceProductsGrid />
                 </div>
             </section>
 
             {/* Frequently Booked Services */}
             <FrequentlyBookedServices />
-
-            {/* Cost Calculator Preview - USP */}
-            <CostCalculatorPreview />
 
             {/* How It Works */}
             <HowItWorksSection />

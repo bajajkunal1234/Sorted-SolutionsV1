@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState } from 'react';
 import { FileText, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, User } from 'lucide-react';
@@ -102,7 +102,7 @@ function ReportsTab({ onOpenSettings }) {
                 </span>
                 {activeSection && (
                     <>
-                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                        <span style={{ color: 'var(--text-tertiary)' }}>â€º</span>
                         <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
                             {activeLabel}
                         </span>
@@ -279,6 +279,7 @@ function ReportsTab({ onOpenSettings }) {
 }
 
 export default ReportsTab;
+
 
 
 

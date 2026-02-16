@@ -1,3 +1,6 @@
+'use client'
+
+import Link from 'next/link';
 import { MapPin, Phone, Clock } from 'lucide-react';
 import './ServiceAreasSection.css';
 
@@ -24,17 +27,28 @@ function ServiceAreasSection() {
 
                 <div className="areas-grid">
                     {serviceAreas.map((area) => (
-                        <div key={area.name} className="area-card">
+                        <Link
+                            key={area.name}
+                            href={`/location/${area.name.toLowerCase().replace(/\s+/g, '-')}`}
+                            className="area-card"
+                        >
                             <div className="area-icon">
                                 <MapPin size={24} />
                             </div>
                             <h3>{area.name}</h3>
                             <p className="area-pincode">Pincode: {area.pincode}</p>
-                            <a href={`tel:${area.phone}`} className="area-call">
+                            <button
+                                className="area-call"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    window.location.href = `tel:${area.phone}`;
+                                }}
+                            >
                                 <Phone size={16} />
                                 Book Service
-                            </a>
-                        </div>
+                            </button>
+                        </Link>
                     ))}
                 </div>
 

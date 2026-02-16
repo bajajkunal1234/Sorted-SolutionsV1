@@ -58,6 +58,7 @@ export default function LocationPage({ params }) {
                 title={`Appliance Repair Services in ${locationName}`}
                 subtitle="Expert technicians • All brands • Same-day service available"
                 category="ac-repair"
+                location={locationName}
             />
 
             {/* Quick Booking Form */}

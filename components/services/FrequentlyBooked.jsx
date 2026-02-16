@@ -27,6 +27,22 @@ export default function FrequentlyBooked({
             .finally(() => setLoading(false))
     }, [])
 
+    const checkScroll = () => {
+        if (scrollContainerRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
+            setCanScrollLeft(scrollLeft > 0)
+            setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
+        }
+    }
+
+    useEffect(() => {
+        if (!loading) {
+            checkScroll()
+            window.addEventListener('resize', checkScroll)
+            return () => window.removeEventListener('resize', checkScroll)
+        }
+    }, [loading])
+
     if (loading) {
         return (
             <section className="frequently-booked">
@@ -40,20 +56,6 @@ export default function FrequentlyBooked({
             </section>
         )
     }
-
-    const checkScroll = () => {
-        if (scrollContainerRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
-            setCanScrollLeft(scrollLeft > 0)
-            setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
-        }
-    }
-
-    useEffect(() => {
-        checkScroll()
-        window.addEventListener('resize', checkScroll)
-        return () => window.removeEventListener('resize', checkScroll)
-    }, [])
 
     const scroll = (direction) => {
         if (scrollContainerRef.current) {

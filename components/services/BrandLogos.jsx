@@ -24,6 +24,12 @@ export default function BrandLogos({
             .finally(() => setLoading(false))
     }, [])
 
+    const sizeClasses = {
+        small: 'logo-small',
+        medium: 'logo-medium',
+        large: 'logo-large'
+    }
+
     if (loading) {
         return (
             <section className="brand-logos">
@@ -36,12 +42,6 @@ export default function BrandLogos({
                 </div>
             </section>
         )
-    }
-
-    const sizeClasses = {
-        small: 'logo-small',
-        medium: 'logo-medium',
-        large: 'logo-large'
     }
 
     return (

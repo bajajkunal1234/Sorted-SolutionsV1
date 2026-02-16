@@ -92,6 +92,19 @@
     white-space: nowrap;
 }
 
+/* Location tabs with longer text */
+.quick-nav-tab.location-tab {
+    font-size: 11px;
+    padding: var(--spacing-xs) var(--spacing-md);
+}
+
+.quick-nav-tab.location-tab .tab-text {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .quick-nav-tab:hover {
     background: rgba(255, 255, 255, 0.25);
     border-color: rgba(255, 255, 255, 0.4);

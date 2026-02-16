@@ -24,6 +24,25 @@ export default function HowItWorksScroll({
             .finally(() => setLoading(false))
     }, [])
 
+    const [canScrollLeft, setCanScrollLeft] = useState(false)
+    const [canScrollRight, setCanScrollRight] = useState(true)
+
+    const checkScroll = () => {
+        if (scrollContainerRef.current) {
+            const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
+            setCanScrollLeft(scrollLeft > 0)
+            setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
+        }
+    }
+
+    useEffect(() => {
+        if (!loading) {
+            checkScroll()
+            window.addEventListener('resize', checkScroll)
+            return () => window.removeEventListener('resize', checkScroll)
+        }
+    }, [loading])
+
     if (loading) {
         return (
             <section className="how-it-works-scroll">
@@ -37,23 +56,6 @@ export default function HowItWorksScroll({
             </section>
         )
     }
-
-    const [canScrollLeft, setCanScrollLeft] = useState(false)
-    const [canScrollRight, setCanScrollRight] = useState(true)
-
-    const checkScroll = () => {
-        if (scrollContainerRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
-            setCanScrollLeft(scrollLeft > 0)
-            setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10)
-        }
-    }
-
-    useEffect(() => {
-        checkScroll()
-        window.addEventListener('resize', checkScroll)
-        return () => window.removeEventListener('resize', checkScroll)
-    }, [])
 
     const scroll = (direction) => {
         if (scrollContainerRef.current) {

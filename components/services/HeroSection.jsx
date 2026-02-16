@@ -8,8 +8,11 @@ export default function HeroSection({
     title,
     subtitle,
     category,
+    location = null, // Location name for location pages
+    currentService = null, // Current service slug for sub-location pages
     quickNavCategories = ['AC', 'WM', 'Ovens', 'Refrigerator', 'RO', 'HOB']
 }) {
+    // Service mapping for regular service pages
     const categoryMap = {
         'AC': 'ac-repair',
         'WM': 'washing-machine-repair',
@@ -17,6 +20,47 @@ export default function HeroSection({
         'Refrigerator': 'refrigerator-repair',
         'RO': 'water-purifier-repair',
         'HOB': 'hob-repair'
+    }
+
+    // Service mapping for location pages
+    const locationServiceMap = {
+        'AC': { slug: 'ac', full: 'Air Conditioner' },
+        'WM': { slug: 'wm', full: 'Washing Machine' },
+        'Ovens': { slug: 'oven', full: 'Oven' },
+        'Refrigerator': { slug: 'refrigerator', full: 'Refrigerator' },
+        'RO': { slug: 'waterpurifier', full: 'Water Purifier' },
+        'HOB': { slug: 'hob', full: 'HOB Stoves' }
+    }
+
+    // Generate button text based on context
+    const getButtonText = (cat) => {
+        if (location) {
+            // Location page: show full name with location
+            return `${locationServiceMap[cat].full} in ${location}`
+        }
+        // Regular service page: show short name
+        return cat
+    }
+
+    // Generate link URL based on context
+    const getButtonLink = (cat) => {
+        if (location) {
+            // Location page: link to sub-location page
+            const locationSlug = location.toLowerCase().replace(/\s+/g, '-')
+            return `/location/${locationSlug}/${locationServiceMap[cat].slug}`
+        }
+        // Regular service page: link to service category page
+        return `/services/${categoryMap[cat]}`
+    }
+
+    // Check if button is active
+    const isButtonActive = (cat) => {
+        if (currentService) {
+            // Sub-location page: check against current service
+            return locationServiceMap[cat].slug === currentService
+        }
+        // Service page: check against category
+        return categoryMap[cat] === category
     }
 
     return (
@@ -39,14 +83,14 @@ export default function HeroSection({
                 {/* Quick Navigation Tabs */}
                 <div className="quick-nav-tabs">
                     {quickNavCategories.map((cat) => {
-                        const isActive = categoryMap[cat] === category
+                        const isActive = isButtonActive(cat)
                         return (
                             <Link
                                 key={cat}
-                                href={`/services/${categoryMap[cat]}`}
-                                className={`quick-nav-tab ${isActive ? 'active' : ''}`}
+                                href={getButtonLink(cat)}
+                                className={`quick-nav-tab ${isActive ? 'active' : ''} ${location ? 'location-tab' : ''}`}
                             >
-                                {cat}
+                                <span className="tab-text">{getButtonText(cat)}</span>
                                 {isActive && <ArrowRight size={16} />}
                             </Link>
                         )

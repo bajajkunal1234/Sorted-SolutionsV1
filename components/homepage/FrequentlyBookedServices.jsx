@@ -1,3 +1,5 @@
+'use client'
+
 import { Wind, Droplets, Microwave, Refrigerator, Filter, Flame } from 'lucide-react';
 import './FrequentlyBookedServices.css';
 

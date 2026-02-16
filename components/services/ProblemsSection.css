@@ -21,9 +21,9 @@
 }
 
 .problems-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--spacing-md);
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: var(--spacing-md) !important;
     max-width: 1200px;
     margin: 0 auto var(--spacing-2xl);
 }
@@ -97,7 +97,7 @@
 
 @media (max-width: 768px) {
     .problems-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
     }
 
     .problems-section {

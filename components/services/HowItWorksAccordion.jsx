@@ -52,7 +52,7 @@ export default function HowItWorksAccordion({
 
             <div className="accordion-container">
                 {stages.map((stage) => {
-                    const isExpanded = expandedStage === stage.stage
+                    const isExpanded = expandedIndex === stage.stage
 
                     return (
                         <div

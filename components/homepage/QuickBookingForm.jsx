@@ -4,47 +4,73 @@ import { useState, useEffect } from 'react';
 import { Search, MapPin, AlertCircle } from 'lucide-react';
 import './QuickBookingForm.css';
 
-function QuickBookingForm() {
+function QuickBookingForm({ preSelectedCategory }) {
+    // Map slugs to IDs
+    const categoryMapping = {
+        'ac-repair': '2',
+        'washing-machine-repair': '5',
+        'refrigerator-repair': '1',
+        'oven-repair': '3',
+        'water-purifier-repair': '6',
+        'hob-repair': '4'
+    };
+
+    const initialCategory = preSelectedCategory ?
+        (categoryMapping[preSelectedCategory] || preSelectedCategory) : '';
+
     const [formData, setFormData] = useState({
-        category: '',
+        category: initialCategory,
         subcategory: '',
         issue: '',
         pincode: ''
     });
     const [isPincodeValid, setIsPincodeValid] = useState(false);
-    const [issuesData, setIssuesData] = useState({ categories: [] });
+    const [settings, setSettings] = useState({
+        title: 'Book A Technician Now',
+        subtitle: 'Get same day service | Transparent pricing | Licensed technicians',
+        serviceable_pincodes: [],
+        valid_pincode_message: '✓ We serve here!',
+        invalid_pincode_message: '✗ Not serviceable',
+        help_text: 'We currently serve Mumbai areas. Call us for other locations.',
+        categories: []
+    });
+    const [loading, setLoading] = useState(true);
 
-    // Load hierarchical data from localStorage (set by admin)
+    // Load hierarchical data and global settings
     useEffect(() => {
-        try {
-            const stored = localStorage.getItem('issuesManagementData');
-            if (stored) {
-                setIssuesData(JSON.parse(stored));
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                // Load global settings from API
+                const res = await fetch('/api/settings/quick-booking');
+                const data = await res.json();
+                if (data.success) {
+                    setSettings(data.data);
+                }
+            } catch (error) {
+                console.error('Error loading booking data:', error);
+            } finally {
+                setLoading(false);
             }
-        } catch (e) {
-            console.error('Error loading issues data:', e);
-        }
+        };
+
+        loadData();
     }, []);
 
     // Get filtered data (only items with showOnBookingForm: true)
-    const visibleCategories = issuesData.categories?.filter(c => c.showOnBookingForm) || [];
+    const visibleCategories = (settings.categories || []).filter(c => c.showOnBookingForm) || [];
     const selectedCategory = visibleCategories.find(c => c.id === parseInt(formData.category));
-    const visibleSubcategories = selectedCategory?.subcategories?.filter(s => s.showOnBookingForm) || [];
+    const visibleSubcategories = (selectedCategory?.subcategories || []).filter(s => s.showOnBookingForm) || [];
     const selectedSubcategory = visibleSubcategories.find(s => s.id === parseInt(formData.subcategory));
-    const visibleIssues = selectedSubcategory?.issues?.filter(i => i.showOnBookingForm) || [];
+    const visibleIssues = (selectedSubcategory?.issues || []).filter(i => i.showOnBookingForm) || [];
 
-    const servicePincodes = [
-        '400001', '400002', '400003', '400004', '400005',
-        '400008', '400012', '400014', '400050', '400051',
-        '400052', '400053', '400063', '400070', '400077'
-    ];
 
     const handlePincodeChange = (e) => {
         const pincode = e.target.value;
         setFormData({ ...formData, pincode });
 
         if (pincode.length === 6) {
-            setIsPincodeValid(servicePincodes.includes(pincode));
+            setIsPincodeValid(settings.serviceable_pincodes.includes(pincode));
         } else {
             setIsPincodeValid(false);
         }
@@ -59,9 +85,9 @@ function QuickBookingForm() {
     };
 
     return (
-        <div className="quick-booking-form">
-            <h3 className="form-title">Book A Technician Now</h3>
-            <p className="form-subtitle">Get same day service | Transparent pricing | Licensed technicians</p>
+        <div className={`quick-booking-form ${loading ? 'loading' : ''}`}>
+            <h3 className="form-title">{settings.title}</h3>
+            <p className="form-subtitle">{settings.subtitle}</p>
 
             <form onSubmit={handleSubmit}>
                 {/* Field 1: Select Appliance (Category) */}
@@ -153,18 +179,14 @@ function QuickBookingForm() {
                             />
                             {formData.pincode.length === 6 && (
                                 <span className={`pincode-status ${isPincodeValid ? 'valid' : 'invalid'}`}>
-                                    {isPincodeValid ? (
-                                        <>✓ We serve here!</>
-                                    ) : (
-                                        <>✗ Not serviceable</>
-                                    )}
+                                    {isPincodeValid ? settings.valid_pincode_message : settings.invalid_pincode_message}
                                 </span>
                             )}
                         </div>
                         {formData.pincode.length === 6 && !isPincodeValid && (
                             <div className="pincode-help">
                                 <AlertCircle size={14} />
-                                <span>We currently serve Mumbai areas. Call us for other locations.</span>
+                                <span>{settings.help_text}</span>
                             </div>
                         )}
                     </div>
