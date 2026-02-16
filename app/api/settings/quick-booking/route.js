@@ -1,6 +1,8 @@
 import { getSupabaseServer } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 // GET - Fetch quick booking settings
 export async function GET() {
     const supabase = getSupabaseServer()
