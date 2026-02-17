@@ -1,4 +1,5 @@
 
+import { Suspense } from 'react';
 import BookingWizard from '@/components/booking/BookingWizard';
 import Header from '@/components/common/Header';
 import FooterSection from '@/components/homepage/FooterSection';
@@ -24,7 +25,9 @@ export default function BookingPage() {
                         </p>
                     </div>
 
-                    <BookingWizard />
+                    <Suspense fallback={<div style={{ textAlign: 'center', padding: 'var(--spacing-3xl)' }}>Loading booking details...</div>}>
+                        <BookingWizard />
+                    </Suspense>
                 </div>
             </main>
 
