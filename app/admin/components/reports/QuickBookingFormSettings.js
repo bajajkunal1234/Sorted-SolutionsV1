@@ -125,6 +125,177 @@ function QuickBookingFormSettings() {
         });
     };
 
+    // CRUD Operations
+    const handleAddCategory = async () => {
+        const name = prompt('Enter appliance name:');
+        if (!name?.trim()) return;
+
+        try {
+            console.log('Sending request to create category:', name.trim());
+            const res = await fetch('/api/settings/quick-booking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'category',
+                    data: {
+                        name: name.trim(),
+                        showOnBookingForm: true,
+                        displayOrder: settings.categories.length
+                    }
+                })
+            });
+
+            const result = await res.json();
+            console.log('API Response:', result);
+
+            if (result.success) {
+                await fetchSettings();
+                alert('Appliance added successfully!');
+            } else {
+                console.error('API Error:', result.error);
+                alert(`Failed to add appliance: ${result.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error adding appliance:', error);
+            alert(`Failed to add appliance: ${error.message}`);
+        }
+    };
+
+    const handleRename = async (type, id, name) => {
+        const newName = prompt('Rename to:', name);
+        if (!newName?.trim() || newName === name) return;
+        try {
+            const res = await fetch('/api/settings/quick-booking', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, id, data: { name: newName.trim() } })
+            });
+            if ((await res.json()).success) { await fetchSettings(); alert('Renamed!'); }
+        } catch (e) { alert('Failed'); }
+    };
+
+    const handleDelete = async (type, id, name) => {
+        if (!confirm(`Delete "${name}"?`)) return;
+        try {
+            const res = await fetch('/api/settings/quick-booking', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type, id })
+            });
+            if ((await res.json()).success) { await fetchSettings(); alert('Deleted!'); }
+        } catch (e) { alert('Failed'); }
+    };
+
+    const handleAddSubcategory = async () => {
+        // Get list of categories for selection
+        const categoryOptions = settings.categories.map((cat, idx) => `${idx + 1}. ${cat.name}`).join('\n');
+        const categorySelection = prompt(`Select appliance by number:\n\n${categoryOptions}`);
+
+        if (!categorySelection) return;
+        const categoryIndex = parseInt(categorySelection) - 1;
+
+        if (categoryIndex < 0 || categoryIndex >= settings.categories.length) {
+            alert('Invalid selection');
+            return;
+        }
+
+        const selectedCategory = settings.categories[categoryIndex];
+        const name = prompt(`Enter appliance type name for "${selectedCategory.name}":`);
+        if (!name?.trim()) return;
+
+        try {
+            const res = await fetch('/api/settings/quick-booking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'subcategory',
+                    data: {
+                        categoryId: selectedCategory.id,
+                        name: name.trim(),
+                        showOnBookingForm: true,
+                        displayOrder: (selectedCategory.subcategories || []).length
+                    }
+                })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                await fetchSettings();
+                alert('Appliance type added successfully!');
+            } else {
+                alert(`Failed to add type: ${result.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error adding type:', error);
+            alert(`Failed to add type: ${error.message}`);
+        }
+    };
+
+    const handleAddIssue = async () => {
+        // Get list of categories
+        const categoryOptions = settings.categories.map((cat, idx) => `${idx + 1}. ${cat.name}`).join('\n');
+        const categorySelection = prompt(`Select appliance by number:\n\n${categoryOptions}`);
+
+        if (!categorySelection) return;
+        const categoryIndex = parseInt(categorySelection) - 1;
+
+        if (categoryIndex < 0 || categoryIndex >= settings.categories.length) {
+            alert('Invalid selection');
+            return;
+        }
+
+        const selectedCategory = settings.categories[categoryIndex];
+
+        // Get list of subcategories for selected category
+        const subcategories = selectedCategory.subcategories || [];
+        if (subcategories.length === 0) {
+            alert(`No appliance types found for "${selectedCategory.name}". Please add a type first.`);
+            return;
+        }
+
+        const subcategoryOptions = subcategories.map((sub, idx) => `${idx + 1}. ${sub.name}`).join('\n');
+        const subcategorySelection = prompt(`Select appliance type by number:\n\n${subcategoryOptions}`);
+
+        if (!subcategorySelection) return;
+        const subcategoryIndex = parseInt(subcategorySelection) - 1;
+
+        if (subcategoryIndex < 0 || subcategoryIndex >= subcategories.length) {
+            alert('Invalid selection');
+            return;
+        }
+
+        const selectedSubcategory = subcategories[subcategoryIndex];
+        const name = prompt(`Enter issue name for "${selectedSubcategory.name}":`);
+        if (!name?.trim()) return;
+
+        try {
+            const res = await fetch('/api/settings/quick-booking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'issue',
+                    data: {
+                        subcategoryId: selectedSubcategory.id,
+                        name: name.trim(),
+                        showOnBookingForm: true,
+                        displayOrder: (selectedSubcategory.issues || []).length
+                    }
+                })
+            });
+
+            const result = await res.json();
+            if (result.success) {
+                await fetchSettings();
+                alert('Issue added successfully!');
+            } else {
+                alert(`Failed to add issue: ${result.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error adding issue:', error);
+            alert(`Failed to add issue: ${error.message}`);
+        }
+    };
+
     return (
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
@@ -321,6 +492,9 @@ function QuickBookingFormSettings() {
                     {/* Appliances (Categories) Tab */}
                     {activeTab === 'categories' && (
                         <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                            <button onClick={handleAddCategory} className="btn btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                <Plus size={18} /> Add New Appliance
+                            </button>
                             {settings.categories.map(category => (
                                 <div
                                     key={category.id}
@@ -339,7 +513,13 @@ function QuickBookingFormSettings() {
                                                 {(category.subcategories || []).length} types
                                             </p>
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                            <button onClick={() => handleRename('category', category.id, category.name)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', padding: '4px' }} title="Rename">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button onClick={() => handleDelete('category', category.id, category.name)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px' }} title="Delete">
+                                                <Trash2 size={16} />
+                                            </button>
                                             <button
                                                 onClick={() => toggleCategoryVisibility(category.id)}
                                                 style={{
@@ -416,6 +596,9 @@ function QuickBookingFormSettings() {
                     {/* Subcategories (Types) Tab */}
                     {activeTab === 'subcategories' && (
                         <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                            <button onClick={handleAddSubcategory} className="btn btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                <Plus size={18} /> Add New Type
+                            </button>
                             {settings.categories.map(category => (
                                 <div key={category.id} className="card" style={{ padding: 'var(--spacing-lg)' }}>
                                     <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--color-primary)' }}>
@@ -518,6 +701,9 @@ function QuickBookingFormSettings() {
                     {/* Issues Tab */}
                     {activeTab === 'issues' && (
                         <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                            <button onClick={handleAddIssue} className="btn btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                                <Plus size={18} /> Add New Issue
+                            </button>
                             {settings.categories.map(category => (
                                 <div key={category.id} className="card" style={{ padding: 'var(--spacing-lg)' }}>
                                     <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--color-primary)' }}>

@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase'
 import HeroSection from '@/components/services/HeroSection'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import CategoryCards from '@/components/services/CategoryCards'
@@ -8,31 +9,75 @@ import BrandLogos from '@/components/services/BrandLogos'
 import LocationLinks from '@/components/services/LocationLinks'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
+import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import { subcategoriesByCategory } from '@/data/servicePageContent'
 import { getProblems } from '@/data/commonProblems'
 import { getFAQs } from '@/data/faqs'
 
-export default function CategoryPage({ params }) {
+export default async function CategoryPage({ params }) {
     const { category } = params
+    const pageId = `category-${category}`
 
     // Format category name for display
     const categoryName = category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
-    // Get subcategories for this category
+    // 1. Fetch Dynamic Data from Supabase
+    let dynamicSettings = null;
+    try {
+        const { data: pageSettings } = await supabase
+            .from('page_settings')
+            .select('*')
+            .eq('page_id', pageId)
+            .single();
+
+        if (pageSettings) {
+            // Fetch related data
+            const [
+                { data: problems },
+                { data: services },
+                { data: localities },
+                { data: brandMappings },
+                { data: faqMappings }
+            ] = await Promise.all([
+                supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
+                supabase.from('page_faqs_mapping').select('faq_id').eq('page_id', pageId)
+            ]);
+
+            // Map data to component formats
+            dynamicSettings = {
+                problems: problems?.length > 0 ? problems.map(h => ({ question: h.problem_title, answer: h.problem_description })) : null,
+                services: services?.length > 0 ? services.map(s => ({ name: s.service_name, price: s.price_starts_at })) : null,
+                localities: localities?.length > 0 ? localities.map(l => l.locality_name) : null,
+                brandIds: brandMappings?.map(m => m.brand_id) || [],
+                faqIds: faqMappings?.map(m => m.faq_id) || []
+            };
+
+            // Fetch specific brand and FAQ objects if we have IDs
+            if (dynamicSettings.faqIds.length > 0) {
+                const { data: fullFaqs } = await supabase.from('website_faqs').select('*').in('id', dynamicSettings.faqIds);
+                dynamicSettings.faqs = fullFaqs?.map(f => ({ question: f.question, answer: f.answer }));
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching dynamic settings:', error);
+    }
+
+    // 2. Fallbacks to hardcoded data
     const subcategories = subcategoriesByCategory[category] || []
-
-    // Get problems for this category
-    const problems = getProblems(category)
-
-    // Get FAQs for this category
-    const faqs = getFAQs(category)
+    const problems = dynamicSettings?.problems || getProblems(category)
+    const faqs = dynamicSettings?.faqs || getFAQs(category)
+    // Localities and Brands we'll pass to components (they need to handle dynamic IDs or default behavior)
 
     return (
         <div className="service-page category-page">
+            <Header />
             {/* Hero Section with Gradient Background */}
             <HeroSection
-                title={`${categoryName} Repair Solutions In Mumbai`}
+                title={`${categoryName} Solutions In Mumbai`}
                 subtitle="Expert technicians • Same-day service • 90-day warranty"
                 category={category}
             />
@@ -50,8 +95,8 @@ export default function CategoryPage({ params }) {
 
             {/* Problems We Solve - SEO Important */}
             <ProblemsSection
-                title="We Solve All The Problems"
-                subtitle={`Common ${categoryName.toLowerCase()} issues we fix`}
+                title={dynamicSettings?.problems_title || "We Solve All The Problems"}
+                subtitle={dynamicSettings?.problems_subtitle || `Common ${categoryName.toLowerCase()} issues we fix`}
                 problems={problems}
             />
 
@@ -71,19 +116,22 @@ export default function CategoryPage({ params }) {
             <BrandLogos
                 title="Brands We Serve"
                 subtitle="Trusted by leading appliance manufacturers"
+                selectedBrandIds={dynamicSettings?.brandIds} // Pass specific brands if selected in admin
             />
 
             {/* Location Links */}
             <LocationLinks
-                title="We are Right In your Neighbourhood"
-                subtitle="Find us in your area"
+                title={dynamicSettings?.localities_title || "We are Right In your Neighbourhood"}
+                subtitle={dynamicSettings?.localities_subtitle || "Find us in your area"}
                 category={categoryName}
+                dynamicLocalities={dynamicSettings?.localities} // Pass dynamic localities
             />
 
             {/* Frequently Booked Services Carousel */}
             <FrequentlyBooked
-                title="Frequently Booked Services"
-                subtitle="Popular services in your area"
+                title={dynamicSettings?.services_title || "Frequently Booked Services"}
+                subtitle={dynamicSettings?.services_subtitle || "Popular services in your area"}
+                dynamicServices={dynamicSettings?.services} // Pass dynamic pricing/services
             />
 
             {/* FAQ Section - Category Specific */}
