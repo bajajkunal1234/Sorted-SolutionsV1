@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './WhyChooseUsSection.css';
 
 function WhyChooseUsSection() {
     const [hoveredZone, setHoveredZone] = useState(null);
-
-    const features = {
+    const [features, setFeatures] = useState({
         hero: {
             title: 'Why Choose Sorted Solutions?',
             subtitle: 'Premium features that make us stand out',
@@ -68,7 +67,46 @@ function WhyChooseUsSection() {
             }
         ],
         brands: ['Samsung', 'Daikin', 'Siemens', 'Bosch', 'LG', 'Voltas', 'Bajaj', 'Haier', 'Mitsubishi', 'Faber']
-    };
+    });
+    const [horizontalScroll, setHorizontalScroll] = useState(true);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Fetch dynamic zones/features
+                const resF = await fetch('/api/settings/why-choose-us');
+                const dataF = await resF.json();
+                if (dataF.success && dataF.data?.length > 0) {
+                    const zones = dataF.data.map(f => ({
+                        id: f.id,
+                        title: f.title,
+                        features: [f.description], // Map description to first feature bullet
+                        icon: f.icon,
+                        color: '#6366f1', // Default color, can be enhanced later
+                        size: 'medium'
+                    }));
+                    setFeatures(prev => ({ ...prev, zones }));
+                }
+
+                // Fetch configs
+                const resConfig = await fetch('/api/settings/section-configs?id=why-choose-us');
+                const dataConfig = await resConfig.json();
+                if (dataConfig.success && dataConfig.data) {
+                    setHorizontalScroll(dataConfig.data.extra_config?.horizontal_scroll ?? true);
+                }
+
+                // Fetch brands
+                const resB = await fetch('/api/settings/brands');
+                const dataB = await resB.json();
+                if (dataB.success && dataB.data?.length > 0) {
+                    setFeatures(prev => ({ ...prev, brands: dataB.data }));
+                }
+            } catch (error) {
+                console.error('Error fetching Why Choose Us data:', error);
+            }
+        };
+        fetchData();
+    }, []);
 
     return (
         <section className="why-choose-creative">
@@ -130,9 +168,9 @@ function WhyChooseUsSection() {
                     <div className="ticker-label">Trusted by Leading Brands</div>
                     <div className="ticker-wrapper">
                         <div className="ticker-track">
-                            {[...features.brands, ...features.brands, ...features.brands].map((brand, index) => (
+                            {(features.brands.length > 0 ? [...features.brands, ...features.brands, ...features.brands] : []).map((brand, index) => (
                                 <div key={index} className="ticker-item">
-                                    {brand}
+                                    {typeof brand === 'string' ? brand : brand.name}
                                 </div>
                             ))}
                         </div>

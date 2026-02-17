@@ -11,6 +11,7 @@ import InventoryKanbanView from './inventory/InventoryKanbanView';
 import InventoryDetailsView from './inventory/InventoryDetailsView';
 import ProductDetailModal from './ProductDetailModal';
 import NewProductForm from './inventory/NewProductForm';
+import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 function InventoryTab() {
     const [products, setProducts] = useState([]);
@@ -143,29 +144,33 @@ function InventoryTab() {
                     Inventory
                 </h2>
 
-                <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
-                    <Search
-                        size={16}
-                        style={{
-                            position: 'absolute',
-                            left: 'var(--spacing-sm)',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: 'var(--text-tertiary)'
-                        }}
-                    />
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Search products..."
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                    <AutocompleteSearch
+                        placeholder="Search products, SKUs, brands..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            paddingLeft: '2rem',
-                            paddingTop: '6px',
-                            paddingBottom: '6px',
-                            fontSize: 'var(--font-size-sm)'
-                        }}
+                        onChange={setSearchTerm}
+                        suggestions={products}
+                        onSelect={(item) => setSearchTerm(item.name || item.sku)}
+                        searchKey="name"
+                        renderSuggestion={(product) => (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                        {product.name}
+                                    </span>
+                                    <span style={{
+                                        fontSize: 'var(--font-size-xs)',
+                                        fontWeight: 600,
+                                        color: product.current_stock <= (product.min_stock_level || 5) ? '#ef4444' : 'inherit'
+                                    }}>
+                                        {product.current_stock} in stock
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                    {product.sku && `${product.sku} • `}{product.brand} • {product.category}
+                                </div>
+                            </div>
+                        )}
                     />
                 </div>
 

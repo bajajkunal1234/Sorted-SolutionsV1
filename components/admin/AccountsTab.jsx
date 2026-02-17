@@ -300,7 +300,7 @@ function AccountsTab() {
                                             </span>
                                         </td>
                                         <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                            {getGroupPath(ledger.under, groups)}
+                                            {groups.find(g => g.id === ledger.under)?.name || ledger.under}
                                         </td>
                                         <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace' }}>
                                             {formatCurrency(ledger.openingBalance || 0)}

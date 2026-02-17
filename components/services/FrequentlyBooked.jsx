@@ -7,7 +7,8 @@ import './FrequentlyBooked.css'
 
 export default function FrequentlyBooked({
     title = "Frequently Booked Services",
-    subtitle = "Popular services in your area"
+    subtitle = "Popular services in your area",
+    dynamicServices = null // New prop
 }) {
     const [services, setServices] = useState(frequentlyBookedServices)
     const [loading, setLoading] = useState(true)
@@ -16,6 +17,18 @@ export default function FrequentlyBooked({
     const [canScrollRight, setCanScrollRight] = useState(true)
 
     useEffect(() => {
+        // If dynamic services are passed from the parent (e.g. from page_services table)
+        if (dynamicServices && dynamicServices.length > 0) {
+            setServices(dynamicServices.map((s, i) => ({
+                id: i,
+                title: s.name,
+                description: `Professional ${s.name} at your doorstep`,
+                price: s.price
+            })));
+            setLoading(false);
+            return;
+        }
+
         fetch('/api/settings/frequently-booked')
             .then(res => res.json())
             .then(data => {
@@ -25,7 +38,7 @@ export default function FrequentlyBooked({
             })
             .catch(error => console.error('Error fetching services:', error))
             .finally(() => setLoading(false))
-    }, [])
+    }, [dynamicServices])
 
     const checkScroll = () => {
         if (scrollContainerRef.current) {

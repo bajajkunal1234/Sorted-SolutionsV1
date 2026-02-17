@@ -1,0 +1,202 @@
+/* Booking Form Creative Styles */
+
+.booking-wizard-container {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.booking-card {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    margin-bottom: var(--spacing-xl);
+    transition: all var(--transition-base);
+}
+
+.booking-header {
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-primary);
+    padding: var(--spacing-lg);
+}
+
+.booking-body {
+    padding: var(--spacing-xl);
+}
+
+.booking-footer {
+    background-color: var(--bg-secondary);
+    border-top: 1px solid var(--border-primary);
+    padding: var(--spacing-lg) var(--spacing-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Stepper Styles */
+.stepper-list {
+    display: flex;
+    justify-content: space-between;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    gap: var(--spacing-md);
+}
+
+.step-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    cursor: default;
+}
+
+.step-item::after {
+    content: '';
+    position: absolute;
+    top: 15px;
+    left: calc(50% + 20px);
+    width: calc(100% - 40px);
+    height: 2px;
+    background-color: var(--border-primary);
+    z-index: 1;
+}
+
+.step-item:last-child::after {
+    display: none;
+}
+
+.step-item.completed::after {
+    background-color: var(--color-primary);
+}
+
+.step-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-full);
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--text-tertiary);
+    z-index: 2;
+    transition: all var(--transition-base);
+}
+
+.step-item.active .step-icon {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.step-item.completed .step-icon {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--text-inverse);
+}
+
+.step-label {
+    margin-top: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--text-tertiary);
+    text-align: center;
+}
+
+.step-item.active .step-label {
+    color: var(--color-primary);
+}
+
+.step-item.completed .step-label {
+    color: var(--text-primary);
+}
+
+/* Service Info Card */
+.service-summary {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(96, 165, 250, 0.05));
+    border: 1px solid rgba(37, 99, 235, 0.1);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+}
+
+.summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.summary-row:last-child {
+    border-bottom: none;
+}
+
+.summary-label {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.summary-value {
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: var(--font-size-base);
+}
+
+/* Slot Selection */
+.slots-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
+.slot-button {
+    padding: var(--spacing-md);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.slot-button:hover {
+    border-color: var(--color-primary-light);
+    background-color: var(--bg-secondary);
+}
+
+.slot-button.selected {
+    border-color: var(--color-primary);
+    background-color: rgba(37, 99, 235, 0.05);
+    color: var(--color-primary);
+    font-weight: 600;
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+/* Animations */
+.animate-slide-in {
+    animation: slideUp var(--transition-slow) ease-out;
+}
+
+@media (max-width: 600px) {
+    .stepper-list {
+        gap: var(--spacing-xs);
+    }
+    .step-label {
+        display: none;
+    }
+    .booking-body {
+        padding: var(--spacing-md);
+    }
+    .booking-footer {
+        flex-direction: column-reverse;
+        gap: var(--spacing-md);
+    }
+    .booking-footer button {
+        width: 100%;
+    }
+}

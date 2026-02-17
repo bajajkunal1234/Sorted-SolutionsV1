@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Search, Plus, ChevronDown, Grid, Columns, Table as TableIcon, List } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -35,9 +36,22 @@ function JobsTab() {
         })
     );
 
-    // Fetch jobs from API
+    // Fetch jobs and setup real-time listener
     useEffect(() => {
         fetchJobs();
+
+        // Setup real-time listener
+        const channel = supabase
+            .channel('public:jobs')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, () => {
+                console.log('Real-time update: Jobs changed');
+                fetchJobs();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const fetchJobs = async () => {

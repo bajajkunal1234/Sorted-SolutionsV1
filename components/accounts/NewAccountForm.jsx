@@ -379,176 +379,167 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
                     <form onSubmit={handleSubmit}>
                         <div className="modal-content" style={{ padding: 'var(--spacing-lg)', maxHeight: '70vh', overflowY: 'auto' }}>
 
-                            {/* Common Fields Section */}
-                            <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: '#3b82f6' }}>
-                                    Basic Information
-                                </h3>
+                            {/* Top Section: Name & Group (Tally Style) */}
+                            <div style={{
+                                backgroundColor: 'var(--bg-secondary)',
+                                padding: 'var(--spacing-lg)',
+                                borderRadius: 'var(--radius-lg)',
+                                border: '1px solid var(--border-primary)',
+                                marginBottom: 'var(--spacing-lg)'
+                            }}>
+                                <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                    <label className="form-label" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 600 }}>Name</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        placeholder="Enter Ledger Name"
+                                        autoFocus
+                                        required
+                                        style={{
+                                            fontSize: 'var(--font-size-lg)',
+                                            fontWeight: 600,
+                                            borderColor: duplicateWarning ? '#ef4444' : undefined,
+                                            padding: '12px 16px'
+                                        }}
+                                    />
+                                    {duplicateWarning && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)', color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>
+                                            <AlertCircle size={14} />
+                                            <span>Account "{duplicateWarning.name}" already exists</span>
+                                        </div>
+                                    )}
+                                    {errors.name && (
+                                        <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.name}</span>
+                                    )}
+                                </div>
 
-                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                    {/* SKU */}
-                                    <div className="form-group">
-                                        <label className="form-label">SKU / Alias *</label>
+                                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xl)' }}>
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label className="form-label">Alias / SKU</label>
                                         <input
                                             type="text"
                                             className="form-input"
                                             value={formData.sku}
                                             onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                            placeholder="Auto-generated"
-                                            required
+                                            placeholder="Auto-generated SKU"
                                         />
                                     </div>
 
-                                    {/* Account Name */}
-                                    <div className="form-group">
-                                        <label className="form-label">Account Name *</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            value={formData.name}
-                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                            placeholder="Enter account name"
-                                            required
-                                            style={{ borderColor: duplicateWarning ? '#ef4444' : undefined }}
-                                        />
-                                        {duplicateWarning && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)', color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>
-                                                <AlertCircle size={14} />
-                                                <span>Account "{duplicateWarning.name}" already exists</span>
-                                            </div>
-                                        )}
-                                        {errors.name && (
-                                            <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.name}</span>
-                                        )}
-                                        {errors.submit && (
-                                            <div style={{
-                                                marginTop: 'var(--spacing-xs)',
-                                                padding: 'var(--spacing-sm)',
-                                                backgroundColor: '#fee2e2',
-                                                color: '#b91c1c',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}>
-                                                Error: {errors.submit}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Under (Account Group) */}
-                                <div className="form-group">
-                                    <label className="form-label">Under (Account Group) *</label>
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                        <select
-                                            className="form-select"
-                                            value={formData.under}
-                                            onChange={(e) => setFormData({ ...formData, under: e.target.value })}
-                                            required
-                                            style={{ flex: 1 }}
-                                        >
-                                            <option value="">Select Account Group</option>
-                                            {existingGroups.map(group => (
-                                                <option key={group.id} value={group.id}>
-                                                    {getGroupPath(group.id, existingGroups)}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary"
-                                            onClick={() => setShowGroupForm(true)}
-                                            title="Create new group"
-                                        >
-                                            <Plus size={16} />
-                                            New Group
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Opening Balance */}
-                                <div className="form-grid" style={{ gridTemplateColumns: '2fr 1fr 2fr' }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Opening Balance</label>
-                                        <input
-                                            type="number"
-                                            className="form-input"
-                                            value={formData.openingBalance}
-                                            onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
-                                            step="0.01"
-                                            placeholder="0.00"
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Dr/Cr</label>
-                                        <select
-                                            className="form-select"
-                                            value={formData.balanceType}
-                                            onChange={(e) => setFormData({ ...formData, balanceType: e.target.value })}
-                                        >
-                                            <option value="dr">Dr</option>
-                                            <option value="cr">Cr</option>
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">As on Date</label>
-                                        <input
-                                            type="date"
-                                            className="form-input"
-                                            value={formData.asOnDate}
-                                            onChange={(e) => setFormData({ ...formData, asOnDate: e.target.value })}
-                                        />
+                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <label className="form-label">Under (Account Group)</label>
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                            <select
+                                                className="form-select"
+                                                value={formData.under}
+                                                onChange={(e) => setFormData({ ...formData, under: e.target.value })}
+                                                required
+                                                style={{ flex: 1, backgroundColor: 'var(--bg-primary)' }}
+                                            >
+                                                <option value="">Select Group</option>
+                                                {[...existingGroups]
+                                                    .sort((a, b) => a.name.localeCompare(b.name))
+                                                    .map(group => (
+                                                        <option key={group.id} value={group.id}>
+                                                            {group.name}
+                                                        </option>
+                                                    ))}
+                                            </select>
+                                            <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                onClick={() => setShowGroupForm(true)}
+                                                style={{ padding: '8px' }}
+                                                title="Create new group"
+                                            >
+                                                <Plus size={16} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Dynamic Fields Based on Account Type */}
-                            {formData.under && (
-                                <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                    <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: '#3b82f6' }}>
-                                        Additional Details
-                                    </h3>
+                            {/* Main Body: Split Screen (Tally Style) */}
+                            <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-lg)',
+                                overflow: 'hidden',
+                                minHeight: '400px',
+                                marginBottom: 'var(--spacing-lg)'
+                            }}>
+                                {/* Left Column: Mailing Details */}
+                                <div style={{
+                                    padding: 'var(--spacing-lg)',
+                                    borderRight: '1px solid var(--border-primary)',
+                                    backgroundColor: 'rgba(255,255,255,0.02)'
+                                }}>
+                                    <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-lg)', color: 'var(--color-primary)', borderBottom: '1px solid var(--border-primary)', paddingBottom: '8px' }}>
+                                        Mailing Details
+                                    </h4>
 
-                                    {/* Account Image (for Sundry Debtors/Creditors) */}
-                                    {showField('accountImage') && (
-                                        <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
-                                            <label className="form-label">Account Image</label>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                                                {renderAvatar()}
-                                                <div>
-                                                    <input
-                                                        type="file"
-                                                        accept="image/*"
-                                                        onChange={handleImageUpload}
-                                                        style={{ display: 'none' }}
-                                                        id="account-image-upload"
-                                                    />
-                                                    <label htmlFor="account-image-upload" className="btn btn-secondary" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                                        <Upload size={16} />
-                                                        Upload Image
-                                                    </label>
-                                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: 'var(--spacing-xs)' }}>
-                                                        Max 2MB. JPG, PNG, or GIF
-                                                    </p>
-                                                </div>
-                                            </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Name (for Correspondence)</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.mailingName || ''}
+                                            onChange={(e) => setFormData({ ...formData, mailingName: e.target.value })}
+                                            placeholder={formData.name || "Correspondence Name"}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Address</label>
+                                        <textarea
+                                            className="form-input"
+                                            value={formData.mailingAddress}
+                                            onChange={(e) => setFormData({ ...formData, mailingAddress: e.target.value })}
+                                            rows="4"
+                                            placeholder="Full Address"
+                                        />
+                                    </div>
+
+                                    <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                        <div className="form-group">
+                                            <label className="form-label">State</label>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                value={formData.stateName}
+                                                onChange={(e) => setFormData({ ...formData, stateName: e.target.value })}
+                                                placeholder="e.g. Maharashtra"
+                                            />
                                         </div>
-                                    )}
+                                        <div className="form-group">
+                                            <label className="form-label">Country</label>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                value={formData.country}
+                                                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                                                placeholder="India"
+                                            />
+                                        </div>
+                                    </div>
 
-                                    {/* Contact Fields (for Sundry Debtors/Creditors) */}
-                                    {(showField('contactPerson') || showField('mobile') || showField('email')) && (
-                                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                                            {showField('contactPerson') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Contact Person</label>
-                                                    <input
-                                                        type="text"
-                                                        className="form-input"
-                                                        value={formData.contactPerson}
-                                                        onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                                                        placeholder="Contact name"
-                                                    />
-                                                </div>
-                                            )}
+                                    <div className="form-group">
+                                        <label className="form-label">Pincode</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.pincode || ''}
+                                            onChange={(e) => setFormData({ ...formData, pincode: e.target.value })}
+                                            placeholder="400001"
+                                        />
+                                    </div>
+
+                                    {/* Contact Info (if applicable) */}
+                                    {(showField('mobile') || showField('email')) && (
+                                        <div style={{ marginTop: 'var(--spacing-lg)', paddingTop: 'var(--spacing-md)', borderTop: '1px dashed var(--border-primary)' }}>
+                                            <h5 style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>Contact Information</h5>
                                             {showField('mobile') && (
                                                 <div className="form-group">
                                                     <label className="form-label">Mobile Number</label>
@@ -557,9 +548,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
                                                         className="form-input"
                                                         value={formData.mobile}
                                                         onChange={(e) => handleMobileChange(e.target.value)}
-                                                        placeholder="+91 98765 43210"
-                                                        pattern="[0-9+\s\-()]*"
-                                                        title="Please enter a valid 10-digit mobile number"
+                                                        placeholder="+91"
                                                     />
                                                     {errors.mobile && (
                                                         <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
@@ -570,7 +559,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
                                             )}
                                             {showField('email') && (
                                                 <div className="form-group">
-                                                    <label className="form-label">Email</label>
+                                                    <label className="form-label">Email Address</label>
                                                     <input
                                                         type="email"
                                                         className="form-input"
@@ -578,611 +567,203 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
                                                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                                         placeholder="email@example.com"
                                                     />
-                                                    {errors.email && (
-                                                        <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.email}</span>
-                                                    )}
                                                 </div>
                                             )}
                                         </div>
-                                    )}
-
-                                    {/* Mailing Name */}
-                                    {showField('mailingName') && (
-                                        <div className="form-group">
-                                            <label className="form-label">Mailing Name</label>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                value={formData.mailingName}
-                                                onChange={(e) => setFormData({ ...formData, mailingName: e.target.value })}
-                                                placeholder="Name for correspondence"
-                                            />
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                Leave blank to use account name
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* GST Registration (Optional) */}
-                                    {showField('gstRegistration') && (
-                                        <div style={{
-                                            padding: 'var(--spacing-md)',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: '1px solid var(--border-primary)',
-                                            marginBottom: 'var(--spacing-md)'
-                                        }}>
-                                            <div className="form-group" style={{ marginBottom: formData.gstRegistration ? 'var(--spacing-md)' : 0 }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.gstRegistration}
-                                                        onChange={(e) => setFormData({ ...formData, gstRegistration: e.target.checked })}
-                                                    />
-                                                    <span style={{ fontWeight: 500 }}>Set/Alter GST Details</span>
-                                                </label>
-                                            </div>
-
-                                            {formData.gstRegistration && (
-                                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                                    <div className="form-group">
-                                                        <label className="form-label">GSTIN</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.gstin}
-                                                            onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
-                                                            placeholder="27AABCU9603R1ZM"
-                                                            maxLength={15}
-                                                        />
-                                                        {errors.gstin && (
-                                                            <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.gstin}</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="form-group">
-                                                        <label className="form-label">PAN</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.pan}
-                                                            onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
-                                                            placeholder="ABCDE1234F"
-                                                            maxLength={10}
-                                                        />
-                                                        {errors.pan && (
-                                                            <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.pan}</span>
-                                                        )}
-                                                    </div>
-                                                    <div className="form-group">
-                                                        <label className="form-label">State</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.stateName}
-                                                            onChange={(e) => setFormData({ ...formData, stateName: e.target.value })}
-                                                            placeholder="e.g., Maharashtra"
-                                                        />
-                                                    </div>
-                                                    <div className="form-group">
-                                                        <label className="form-label">Country</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.country}
-                                                            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                                            placeholder="India"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Customer Properties Management (for Sundry Debtors) */}
-                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && (
-                                        <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-                                                <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                                                    Customer Properties
-                                                </h4>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-secondary"
-                                                    onClick={addProperty}
-                                                    style={{ fontSize: 'var(--font-size-xs)', padding: '4px 12px' }}
-                                                >
-                                                    <Plus size={14} style={{ marginRight: '4px' }} />
-                                                    Add Property
-                                                </button>
-                                            </div>
-
-                                            {properties.map((property, index) => (
-                                                <div
-                                                    key={index}
-                                                    style={{
-                                                        padding: 'var(--spacing-md)',
-                                                        backgroundColor: 'var(--bg-secondary)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        border: '1px solid var(--border-primary)',
-                                                        marginBottom: 'var(--spacing-sm)',
-                                                        position: 'relative'
-                                                    }}
-                                                >
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-                                                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
-                                                            Property {index + 1}
-                                                        </span>
-                                                        {properties.length > 1 && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => deleteProperty(index)}
-                                                                style={{
-                                                                    backgroundColor: '#ef4444',
-                                                                    color: 'white',
-                                                                    border: 'none',
-                                                                    borderRadius: '4px',
-                                                                    padding: '4px 8px',
-                                                                    cursor: 'pointer',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '4px',
-                                                                    fontSize: 'var(--font-size-xs)'
-                                                                }}
-                                                            >
-                                                                <Trash2 size={12} />
-                                                                Delete
-                                                            </button>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="form-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                                        <label className="form-label">Property Name/Label</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={property.name}
-                                                            onChange={(e) => updateProperty(index, 'name', e.target.value)}
-                                                            placeholder="e.g., Head Office, Branch 1, Warehouse"
-                                                        />
-                                                    </div>
-
-                                                    <div className="form-group" style={{ marginBottom: 0 }}>
-                                                        <label className="form-label">Property Address</label>
-                                                        <textarea
-                                                            className="form-input"
-                                                            value={property.address}
-                                                            onChange={(e) => updateProperty(index, 'address', e.target.value)}
-                                                            rows="2"
-                                                            placeholder="Enter full property address"
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
-
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                Add multiple properties for this customer (e.g., different branch locations, warehouses, etc.)
-                                            </span>
-                                        </div>
-                                    )}
-
-                                    {/* Multiple Addresses (Tally-style) */}
-                                    {(showField('mailingAddress') || showField('billingAddress') || showField('shippingAddress')) && (
-                                        <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                                            <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                                                Addresses
-                                            </h4>
-
-                                            {showField('mailingAddress') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Mailing Address</label>
-
-                                                    {/* Property Selection Dropdown (for customers) */}
-                                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && properties.length > 0 && (
-                                                        <select
-                                                            className="form-select"
-                                                            onChange={(e) => {
-                                                                const selectedProperty = properties.find(p => p.name === e.target.value);
-                                                                if (selectedProperty) {
-                                                                    setFormData({ ...formData, mailingAddress: selectedProperty.address });
-                                                                }
-                                                            }}
-                                                            style={{ marginBottom: 'var(--spacing-xs)' }}
-                                                        >
-                                                            <option value="">-- Select from Properties --</option>
-                                                            {properties.filter(p => p.name.trim() !== '').map((property, idx) => (
-                                                                <option key={idx} value={property.name}>
-                                                                    {property.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-
-                                                    <textarea
-                                                        className="form-input"
-                                                        value={formData.mailingAddress}
-                                                        onChange={(e) => setFormData({ ...formData, mailingAddress: e.target.value })}
-                                                        rows="2"
-                                                        placeholder="Enter mailing address or select from properties above"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {showField('billingAddress') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">
-                                                        Billing Address
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setFormData({ ...formData, billingAddress: formData.mailingAddress })}
-                                                            style={{
-                                                                marginLeft: 'var(--spacing-sm)',
-                                                                fontSize: 'var(--font-size-xs)',
-                                                                color: '#3b82f6',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                textDecoration: 'underline'
-                                                            }}
-                                                        >
-                                                            Same as Mailing
-                                                        </button>
-                                                    </label>
-
-                                                    {/* Property Selection Dropdown (for customers) */}
-                                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && properties.length > 0 && (
-                                                        <select
-                                                            className="form-select"
-                                                            onChange={(e) => {
-                                                                const selectedProperty = properties.find(p => p.name === e.target.value);
-                                                                if (selectedProperty) {
-                                                                    setFormData({ ...formData, billingAddress: selectedProperty.address });
-                                                                }
-                                                            }}
-                                                            style={{ marginBottom: 'var(--spacing-xs)' }}
-                                                        >
-                                                            <option value="">-- Select from Properties --</option>
-                                                            {properties.filter(p => p.name.trim() !== '').map((property, idx) => (
-                                                                <option key={idx} value={property.name}>
-                                                                    {property.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-
-                                                    <textarea
-                                                        className="form-input"
-                                                        value={formData.billingAddress}
-                                                        onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
-                                                        rows="2"
-                                                        placeholder="Enter billing address or select from properties above"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {showField('shippingAddress') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">
-                                                        Shipping Address
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setFormData({ ...formData, shippingAddress: formData.mailingAddress })}
-                                                            style={{
-                                                                marginLeft: 'var(--spacing-sm)',
-                                                                fontSize: 'var(--font-size-xs)',
-                                                                color: '#3b82f6',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                textDecoration: 'underline'
-                                                            }}
-                                                        >
-                                                            Same as Mailing
-                                                        </button>
-                                                    </label>
-
-                                                    {/* Property Selection Dropdown (for customers) */}
-                                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && properties.length > 0 && (
-                                                        <select
-                                                            className="form-select"
-                                                            onChange={(e) => {
-                                                                const selectedProperty = properties.find(p => p.name === e.target.value);
-                                                                if (selectedProperty) {
-                                                                    setFormData({ ...formData, shippingAddress: selectedProperty.address });
-                                                                }
-                                                            }}
-                                                            style={{ marginBottom: 'var(--spacing-xs)' }}
-                                                        >
-                                                            <option value="">-- Select from Properties --</option>
-                                                            {properties.filter(p => p.name.trim() !== '').map((property, idx) => (
-                                                                <option key={idx} value={property.name}>
-                                                                    {property.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-
-                                                    <textarea
-                                                        className="form-input"
-                                                        value={formData.shippingAddress}
-                                                        onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })}
-                                                        rows="2"
-                                                        placeholder="Enter shipping address or select from properties above"
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Credit Limit & Period */}
-                                    {(showField('creditLimit') || showField('creditPeriod')) && (
-                                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                            {showField('creditLimit') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Credit Limit (₹)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-input"
-                                                        value={formData.creditLimit}
-                                                        onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
-                                                        placeholder="0"
-                                                        step="0.01"
-                                                    />
-                                                </div>
-                                            )}
-                                            {showField('creditPeriod') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Credit Period (days)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-input"
-                                                        value={formData.creditPeriod}
-                                                        onChange={(e) => setFormData({ ...formData, creditPeriod: parseInt(e.target.value) || 0 })}
-                                                        placeholder="0"
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Bank Account Fields */}
-                                    {(showField('accountNumber') || showField('bankName')) && (
-                                        <>
-                                            <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                                {showField('accountNumber') && (
-                                                    <div className="form-group">
-                                                        <label className="form-label">Account Number</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.accountNumber}
-                                                            onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                                                            placeholder="Account number"
-                                                        />
-                                                    </div>
-                                                )}
-                                                {showField('bankName') && (
-                                                    <div className="form-group">
-                                                        <label className="form-label">Bank Name</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.bankName}
-                                                            onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                                                            placeholder="Bank name"
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                                                {showField('branch') && (
-                                                    <div className="form-group">
-                                                        <label className="form-label">Branch</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.branch}
-                                                            onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-                                                            placeholder="Branch name"
-                                                        />
-                                                    </div>
-                                                )}
-                                                {showField('ifscCode') && (
-                                                    <div className="form-group">
-                                                        <label className="form-label">IFSC Code</label>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={formData.ifscCode}
-                                                            onChange={(e) => setFormData({ ...formData, ifscCode: e.target.value.toUpperCase() })}
-                                                            placeholder="SBIN0001234"
-                                                            maxLength={11}
-                                                        />
-                                                        {errors.ifscCode && (
-                                                            <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.ifscCode}</span>
-                                                        )}
-                                                    </div>
-                                                )}
-                                                {showField('accountType') && (
-                                                    <div className="form-group">
-                                                        <label className="form-label">Account Type</label>
-                                                        <select
-                                                            className="form-select"
-                                                            value={formData.accountType}
-                                                            onChange={(e) => setFormData({ ...formData, accountType: e.target.value })}
-                                                        >
-                                                            <option value="savings">Savings</option>
-                                                            <option value="current">Current</option>
-                                                            <option value="od">Overdraft</option>
-                                                        </select>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </>
-                                    )}
-
-                                    {/* GST Applicable (for Income/Expense Accounts) */}
-                                    {showField('gstApplicable') && (
-                                        <div style={{
-                                            padding: 'var(--spacing-md)',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: '1px solid var(--border-primary)',
-                                            marginBottom: 'var(--spacing-md)'
-                                        }}>
-                                            <div className="form-group" style={{ marginBottom: formData.gstApplicable ? 'var(--spacing-md)' : 0 }}>
-                                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData.gstApplicable}
-                                                        onChange={(e) => setFormData({ ...formData, gstApplicable: e.target.checked })}
-                                                    />
-                                                    <span style={{ fontWeight: 500 }}>Is GST Applicable?</span>
-                                                </label>
-                                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
-                                                    Enable if this account is used in GST calculations
-                                                </span>
-                                            </div>
-
-                                            {formData.gstApplicable && showField('gstRegistration') && (
-                                                <>
-                                                    <div className="form-group" style={{ marginBottom: formData.gstRegistration ? 'var(--spacing-md)' : 0 }}>
-                                                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={formData.gstRegistration}
-                                                                onChange={(e) => setFormData({ ...formData, gstRegistration: e.target.checked })}
-                                                            />
-                                                            <span style={{ fontWeight: 500 }}>Set/Alter GST Details</span>
-                                                        </label>
-                                                    </div>
-
-                                                    {formData.gstRegistration && (
-                                                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                                            <div className="form-group">
-                                                                <label className="form-label">GSTIN</label>
-                                                                <input
-                                                                    type="text"
-                                                                    className="form-input"
-                                                                    value={formData.gstin}
-                                                                    onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
-                                                                    placeholder="27AABCU9603R1ZM"
-                                                                    maxLength={15}
-                                                                />
-                                                            </div>
-                                                            <div className="form-group">
-                                                                <label className="form-label">PAN</label>
-                                                                <input
-                                                                    type="text"
-                                                                    className="form-input"
-                                                                    value={formData.pan}
-                                                                    onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
-                                                                    placeholder="ABCDE1234F"
-                                                                    maxLength={10}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Tax Fields */}
-                                    {(showField('taxRate') || showField('roundingMethod')) && (
-                                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                            {showField('taxRate') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Tax Rate (%)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-input"
-                                                        value={formData.taxRate}
-                                                        onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })}
-                                                        placeholder="0"
-                                                        step="0.01"
-                                                    />
-                                                </div>
-                                            )}
-                                            {showField('roundingMethod') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">Rounding Method</label>
-                                                    <select
-                                                        className="form-select"
-                                                        value={formData.roundingMethod}
-                                                        onChange={(e) => setFormData({ ...formData, roundingMethod: e.target.value })}
-                                                    >
-                                                        <option value="normal">Normal Rounding</option>
-                                                        <option value="upward">Upward Rounding</option>
-                                                        <option value="downward">Downward Rounding</option>
-                                                    </select>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {/* Fixed Asset Fields */}
-                                    {showField('assetCategory') && (
-                                        <>
-                                            <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                                <div className="form-group">
-                                                    <label className="form-label">Asset Category</label>
-                                                    <input
-                                                        type="text"
-                                                        className="form-input"
-                                                        value={formData.assetCategory}
-                                                        onChange={(e) => setFormData({ ...formData, assetCategory: e.target.value })}
-                                                        placeholder="e.g., Furniture, Equipment"
-                                                    />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label className="form-label">Purchase Date</label>
-                                                    <input
-                                                        type="date"
-                                                        className="form-input"
-                                                        value={formData.purchaseDate}
-                                                        onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
-                                                <div className="form-group">
-                                                    <label className="form-label">Purchase Value (₹)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-input"
-                                                        value={formData.purchaseValue}
-                                                        onChange={(e) => setFormData({ ...formData, purchaseValue: parseFloat(e.target.value) || 0 })}
-                                                        placeholder="0"
-                                                        step="0.01"
-                                                    />
-                                                </div>
-                                                <div className="form-group">
-                                                    <label className="form-label">Depreciation Method</label>
-                                                    <select
-                                                        className="form-select"
-                                                        value={formData.depreciationMethod}
-                                                        onChange={(e) => setFormData({ ...formData, depreciationMethod: e.target.value })}
-                                                    >
-                                                        <option value="slm">Straight Line Method</option>
-                                                        <option value="wdv">Written Down Value</option>
-                                                    </select>
-                                                </div>
-                                                <div className="form-group">
-                                                    <label className="form-label">Depreciation Rate (%)</label>
-                                                    <input
-                                                        type="number"
-                                                        className="form-input"
-                                                        value={formData.depreciationRate}
-                                                        onChange={(e) => setFormData({ ...formData, depreciationRate: parseFloat(e.target.value) || 0 })}
-                                                        placeholder="0"
-                                                        step="0.01"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </>
                                     )}
                                 </div>
-                            )}
+
+                                {/* Right Column: Tax Registration Details */}
+                                <div style={{
+                                    padding: 'var(--spacing-lg)',
+                                    backgroundColor: 'rgba(0,0,0,0.01)'
+                                }}>
+                                    <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-lg)', color: 'var(--color-primary)', borderBottom: '1px solid var(--border-primary)', paddingBottom: '8px' }}>
+                                        Tax Registration Details
+                                    </h4>
+
+                                    <div className="form-group">
+                                        <label className="form-label">PAN / IT No.</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.pan}
+                                            onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
+                                            placeholder="ABCDE1234F"
+                                            maxLength={10}
+                                        />
+                                        {errors.pan && (
+                                            <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
+                                                {errors.pan}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Registration Type</label>
+                                        <select
+                                            className="form-select"
+                                            value={formData.gstRegistrationType || 'Regular'}
+                                            onChange={(e) => setFormData({ ...formData, gstRegistrationType: e.target.value })}
+                                        >
+                                            <option value="Regular">Regular</option>
+                                            <option value="Composition">Composition</option>
+                                            <option value="Unregistered">Unregistered</option>
+                                            <option value="Consumer">Consumer</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">GSTIN / UIN</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={formData.gstin}
+                                            onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                                            placeholder="27AABCU..."
+                                            maxLength={15}
+                                            disabled={formData.gstRegistrationType === 'Unregistered' || formData.gstRegistrationType === 'Consumer'}
+                                            style={{
+                                                backgroundColor: (formData.gstRegistrationType === 'Unregistered' || formData.gstRegistrationType === 'Consumer') ? 'var(--bg-secondary)' : undefined,
+                                                opacity: (formData.gstRegistrationType === 'Unregistered' || formData.gstRegistrationType === 'Consumer') ? 0.6 : 1
+                                            }}
+                                        />
+                                        {errors.gstin && (
+                                            <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
+                                                {errors.gstin}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Dynamic and Group-Specific Details */}
+                                    {formData.under && (
+                                        <div style={{ marginTop: 'var(--spacing-xl)', paddingTop: 'var(--spacing-md)', borderTop: '1px dashed var(--border-primary)' }}>
+                                            <h5 style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>Group Specific Details</h5>
+
+                                            {/* Bank Details */}
+                                            {(showField('accountNumber')) && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                                                    <div className="form-group">
+                                                        <label className="form-label">A/c No.</label>
+                                                        <input type="text" className="form-input" value={formData.accountNumber} onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })} />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label className="form-label">Bank Name</label>
+                                                        <input type="text" className="form-input" value={formData.bankName} onChange={(e) => setFormData({ ...formData, bankName: e.target.value })} />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Credit Terms */}
+                                            {showField('creditLimit') && (
+                                                <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                                    <div className="form-group">
+                                                        <label className="form-label">Credit Limit</label>
+                                                        <input type="number" className="form-input" value={formData.creditLimit} onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) })} />
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label className="form-label">Period (Days)</label>
+                                                        <input type="number" className="form-input" value={formData.creditPeriod} onChange={(e) => setFormData({ ...formData, creditPeriod: parseInt(e.target.value) })} />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Inventory/Affected (for Income/Expense) */}
+                                            {showField('inventoryAffected') && (
+                                                <div className="form-group">
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                                                        <input type="checkbox" checked={formData.inventoryAffected} onChange={(e) => setFormData({ ...formData, inventoryAffected: e.target.checked })} />
+                                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>Inventory values are affected?</span>
+                                                    </label>
+                                                </div>
+                                            )}
+
+                                            {/* Fixed Asset Details */}
+                                            {showField('assetCategory') && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                                                    <div className="form-group">
+                                                        <label className="form-label">Asset Category</label>
+                                                        <input type="text" className="form-input" value={formData.assetCategory} onChange={(e) => setFormData({ ...formData, assetCategory: e.target.value })} placeholder="e.g. Computers, Furniture" />
+                                                    </div>
+                                                    <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+                                                        <div className="form-group">
+                                                            <label className="form-label">Purchase Date</label>
+                                                            <input type="date" className="form-input" value={formData.purchaseDate} onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })} />
+                                                        </div>
+                                                        <div className="form-group">
+                                                            <label className="form-label">Purchase Value</label>
+                                                            <input type="number" className="form-input" value={formData.purchaseValue} onChange={(e) => setFormData({ ...formData, purchaseValue: parseFloat(e.target.value) || 0 })} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Duties & Taxes Details */}
+                                            {showField('taxType') && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                                                    <div className="form-group">
+                                                        <label className="form-label">Tax Type</label>
+                                                        <select className="form-select" value={formData.taxType} onChange={(e) => setFormData({ ...formData, taxType: e.target.value })}>
+                                                            <option value="GST">GST</option>
+                                                            <option value="Others">Others</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label className="form-label">Percentage of Calculation (e.g. 18)</label>
+                                                        <input type="number" className="form-input" value={formData.taxRate} onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) || 0 })} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Bottom Section: Opening Balance (Tally Style) */}
+                            <div style={{
+                                backgroundColor: 'var(--bg-secondary)',
+                                padding: 'var(--spacing-md) var(--spacing-lg)',
+                                borderRadius: 'var(--radius-lg)',
+                                border: '1px solid var(--border-primary)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: 'var(--spacing-xl)'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flex: 1 }}>
+                                    <label className="form-label" style={{ marginBottom: 0, whiteSpace: 'nowrap', fontWeight: 600 }}>Opening Balance</label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flex: 1, maxWidth: '300px' }}>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={formData.openingBalance}
+                                            onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
+                                            style={{ textAlign: 'right', fontWeight: 600 }}
+                                            placeholder="0.00"
+                                        />
+                                        <select
+                                            className="form-select"
+                                            value={formData.balanceType}
+                                            onChange={(e) => setFormData({ ...formData, balanceType: e.target.value })}
+                                            style={{ width: '80px', fontWeight: 600 }}
+                                        >
+                                            <option value="dr">Dr</option>
+                                            <option value="cr">Cr</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                                    <label className="form-label" style={{ marginBottom: 0, whiteSpace: 'nowrap' }}>As on Date</label>
+                                    <input
+                                        type="date"
+                                        className="form-input"
+                                        value={formData.asOnDate}
+                                        onChange={(e) => setFormData({ ...formData, asOnDate: e.target.value })}
+                                        style={{ width: '160px' }}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         {/* Footer */}

@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Clock,
     MapPin,
@@ -32,11 +32,31 @@ import TechnicianJoinFormSettings from './TechnicianJoinFormSettings';
 import ServiceIconsSettings from './ServiceIconsSettings';
 import StaticPagesSettings from './StaticPagesSettings';
 
-function WebsiteSettings() {
+function WebsiteSettings({ subSection, setSubSection }) {
     const [activeCategory, setActiveCategory] = useState(null);
 
-    // Debug: Verify new version is loading
-    console.log('🔧 WebsiteSettings v2.0 - Reorganized with category groups');
+    // Sync activeCategory with subSection from parent
+    useEffect(() => {
+        if (!subSection) {
+            setActiveCategory(null);
+        }
+    }, [subSection]);
+
+    const handleCategorySelect = (group) => {
+        setActiveCategory(group.id);
+        if (setSubSection) {
+            setSubSection(group.label);
+        }
+    };
+
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            if (setSubSection) setSubSection(null);
+        };
+    }, []);
+
+    // ... (imports and categories remain same)
 
     // Main category groups
     const categoryGroups = [
@@ -190,18 +210,6 @@ function WebsiteSettings() {
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
-            {/* Header */}
-            <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                    <Settings size={28} style={{ color: 'var(--color-primary)' }} />
-                    <h2 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, margin: 0 }}>
-                        Website Settings
-                    </h2>
-                </div>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage all website content, forms, and configurations from one place
-                </p>
-            </div>
 
             {/* Category Grid - Only show when no category is selected */}
             {!activeCategory && (
@@ -215,7 +223,7 @@ function WebsiteSettings() {
                         return (
                             <button
                                 key={group.id}
-                                onClick={() => setActiveCategory(group.id)}
+                                onClick={() => handleCategorySelect(group)}
                                 className="card"
                                 style={{
                                     padding: 'var(--spacing-lg)',
@@ -309,26 +317,7 @@ function WebsiteSettings() {
 
             {/* Show settings within a category group */}
             {activeCategory && categoryGroups.find(g => g.id === activeCategory) && settingsByCategory[activeCategory] && (
-                <div>
-                    {/* Back Button */}
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-lg)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
-
-                    {/* Category Header */}
-                    <div style={{ marginBottom: 'var(--spacing-xl)' }}>
-                        <h3 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-xs)' }}>
-                            {categoryGroups.find(g => g.id === activeCategory)?.label}
-                        </h3>
-                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                            {categoryGroups.find(g => g.id === activeCategory)?.description}
-                        </p>
-                    </div>
-
+                <div style={{ marginTop: 'var(--spacing-md)' }}>
                     {/* Settings Grid */}
                     {settingsByCategory[activeCategory].length > 0 ? (
                         <div style={{
@@ -341,7 +330,7 @@ function WebsiteSettings() {
                                 return (
                                     <button
                                         key={setting.id}
-                                        onClick={() => setActiveCategory(setting.id)}
+                                        onClick={() => handleCategorySelect(setting)}
                                         className="card"
                                         style={{
                                             padding: 'var(--spacing-lg)',
@@ -449,156 +438,58 @@ function WebsiteSettings() {
             {/* Category Content */}
             {activeCategory === 'booking-slots' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <BookingSlots />
                 </div>
             ) : activeCategory === 'header-locations' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <HeaderLocations />
                 </div>
             ) : activeCategory === 'quick-booking' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <QuickBookingFormSettings />
                 </div>
             ) : activeCategory === 'frequent-services' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <FrequentlyBookedServicesSettings />
                 </div>
             ) : activeCategory === 'footer-locations' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <FooterLocationsSettings />
                 </div>
             ) : activeCategory === 'faqs' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <FAQsManagement />
                 </div>
             ) : activeCategory === 'how-it-works' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <HowItWorksSettings />
                 </div>
             ) : activeCategory === 'why-choose-us' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <WhyChooseUsSettings />
                 </div>
             ) : activeCategory === 'brand-logos' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <BrandLogosSettings />
                 </div>
             ) : activeCategory === 'seo-settings' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <SEOSettings />
                 </div>
             ) : activeCategory === 'testimonials' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <CustomerTestimonialsSettings />
                 </div>
             ) : activeCategory === 'technician-join-form' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <TechnicianJoinFormSettings />
                 </div>
             ) : activeCategory === 'service-icons' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <ServiceIconsSettings />
                 </div>
             ) : activeCategory === 'static-pages' || activeCategory === 'terms-conditions' || activeCategory === 'privacy-policy' || activeCategory === 'accessibility' ? (
                 <div>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ marginBottom: 'var(--spacing-md)', padding: '8px 16px' }}
-                    >
-                        ← Back to Website Settings
-                    </button>
                     <StaticPagesSettings />
                 </div>
             ) : activeCategory ? (
@@ -640,57 +531,9 @@ function WebsiteSettings() {
                     }}>
                         This management interface is under development and will be available soon.
                     </p>
-                    <button
-                        onClick={() => setActiveCategory(null)}
-                        className="btn btn-secondary"
-                        style={{ padding: '8px 24px' }}
-                    >
-                        Back to Settings
-                    </button>
                 </div>
             ) : null}
 
-            {/* Info Box */}
-            {!activeCategory && (
-                <div style={{
-                    padding: 'var(--spacing-lg)',
-                    backgroundColor: '#3b82f615',
-                    border: '1px solid #3b82f640',
-                    borderRadius: 'var(--radius-md)',
-                    marginTop: 'var(--spacing-lg)'
-                }}>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
-                        <div style={{
-                            padding: 'var(--spacing-sm)',
-                            borderRadius: 'var(--radius-md)',
-                            backgroundColor: '#3b82f620',
-                            flexShrink: 0
-                        }}>
-                            <Settings size={20} style={{ color: '#3b82f6' }} />
-                        </div>
-                        <div>
-                            <h4 style={{
-                                fontSize: 'var(--font-size-base)',
-                                fontWeight: 600,
-                                marginBottom: 'var(--spacing-xs)',
-                                color: 'var(--text-primary)'
-                            }}>
-                                Centralized Website Management
-                            </h4>
-                            <p style={{
-                                fontSize: 'var(--font-size-sm)',
-                                color: 'var(--text-secondary)',
-                                margin: 0,
-                                lineHeight: 1.6
-                            }}>
-                                All website content and configurations can be managed from this interface.
-                                Click on any category above to access its management panel. Changes made here
-                                will be reflected on your live website immediately.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

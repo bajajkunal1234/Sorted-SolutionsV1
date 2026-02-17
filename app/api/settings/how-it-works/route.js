@@ -1,101 +1,59 @@
-import { supabase } from '@/lib/supabase'
-import { NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase';
+import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic'
-
-// GET - Fetch all How It Works stages
 export async function GET() {
     try {
         const { data, error } = await supabase
-            .from('how_it_works_stages')
+            .from('website_how_it_works')
             .select('*')
-            .eq('active', true)
-            .order('order_index', { ascending: true })
+            .order('display_order', { ascending: true });
 
-        if (error) throw error
+        if (error) throw error;
 
-        return NextResponse.json({ success: true, data })
+        const mappedData = (data || []).map(item => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            icon: item.icon_name,
+            order: item.display_order
+        }));
+
+        return NextResponse.json({ success: true, data: mappedData });
     } catch (error) {
-        console.error('Error fetching How It Works stages:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        console.error('Error fetching How It Works steps:', error);
+        return NextResponse.json({ success: true, data: [] });
     }
 }
 
-// PUT - Update all stages
-export async function PUT(request) {
-    try {
-        const { stages } = await request.json()
-
-        // Update each stage
-        const updates = stages.map(stage =>
-            supabase
-                .from('how_it_works_stages')
-                .update({
-                    title: stage.title,
-                    description: stage.description,
-                    icon: stage.icon,
-                    order_index: stage.order_index,
-                    active: stage.active
-                })
-                .eq('id', stage.id)
-        )
-
-        await Promise.all(updates)
-
-        return NextResponse.json({ success: true, message: 'Stages updated successfully' })
-    } catch (error) {
-        console.error('Error updating How It Works stages:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
-    }
-}
-
-// POST - Create new stage
 export async function POST(request) {
     try {
-        const stage = await request.json()
+        const steps = await request.json();
+
+        // Delete all and re-insert for reordering
+        const { error: deleteError } = await supabase
+            .from('website_how_it_works')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        if (deleteError) throw deleteError;
+
+        const insertData = steps.map((step, index) => ({
+            title: step.title,
+            description: step.description,
+            icon_name: step.icon,
+            display_order: index + 1,
+            step_number: index + 1
+        }));
 
         const { data, error } = await supabase
-            .from('how_it_works_stages')
-            .insert([stage])
-            .select()
+            .from('website_how_it_works')
+            .insert(insertData)
+            .select();
 
-        if (error) throw error
-
-        return NextResponse.json({ success: true, data })
+        if (error) throw error;
+        return NextResponse.json({ success: true, data });
     } catch (error) {
-        console.error('Error creating How It Works stage:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
-    }
-}
-
-// DELETE - Delete a stage
-export async function DELETE(request) {
-    try {
-        const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
-
-        const { error } = await supabase
-            .from('how_it_works_stages')
-            .delete()
-            .eq('id', id)
-
-        if (error) throw error
-
-        return NextResponse.json({ success: true, message: 'Stage deleted successfully' })
-    } catch (error) {
-        console.error('Error deleting How It Works stage:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        console.error('Error saving How It Works steps:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

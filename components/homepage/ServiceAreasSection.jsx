@@ -1,20 +1,50 @@
 'use client'
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { MapPin, Phone, Clock } from 'lucide-react';
+import { MapPin, Phone, Clock, Loader2 } from 'lucide-react';
 import './ServiceAreasSection.css';
 
 function ServiceAreasSection() {
-    const serviceAreas = [
-        { name: 'Andheri', pincode: '400053', phone: '+91-8928895590' },
-        { name: 'Dadar', pincode: '400014', phone: '+91-8928895590' },
-        { name: 'Ghatkopar', pincode: '400077', phone: '+91-8928895590' },
-        { name: 'Goregaon', pincode: '400063', phone: '+91-8928895590' },
-        { name: 'Mumbai Central', pincode: '400008', phone: '+91-8928895590' },
-        { name: 'Kurla', pincode: '400070', phone: '+91-8928895590' },
-        { name: 'Parel', pincode: '400012', phone: '+91-8928895590' },
-        { name: 'Bandra', pincode: '400050', phone: '+91-8928895590' }
-    ];
+    const [serviceAreas, setServiceAreas] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    useEffect(() => {
+        const fetchServiceAreas = async () => {
+            try {
+                const response = await fetch('/api/settings/locations?service_areas=true');
+                const result = await response.json();
+                if (result.success) {
+                    setServiceAreas(result.data);
+                } else {
+                    setError('Failed to load service areas');
+                }
+            } catch (err) {
+                console.error('Error fetching service areas:', err);
+                setError('An error occurred while loading service areas');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchServiceAreas();
+    }, []);
+
+    if (loading) {
+        return (
+            <section className="service-areas-section py-20 bg-background-alt">
+                <div className="section-container text-center">
+                    <Loader2 className="animate-spin mx-auto text-primary mb-4" size={40} />
+                    <p className="text-secondary">Loading service areas...</p>
+                </div>
+            </section>
+        );
+    }
+
+    if (error || serviceAreas.length === 0) {
+        return null; // Or show a default message or fallback
+    }
 
     return (
         <section className="service-areas-section">
@@ -28,7 +58,7 @@ function ServiceAreasSection() {
                 <div className="areas-grid">
                     {serviceAreas.map((area) => (
                         <Link
-                            key={area.name}
+                            key={area.id || area.name}
                             href={`/location/${area.name.toLowerCase().replace(/\s+/g, '-')}`}
                             className="area-card"
                         >
@@ -36,13 +66,13 @@ function ServiceAreasSection() {
                                 <MapPin size={24} />
                             </div>
                             <h3>{area.name}</h3>
-                            <p className="area-pincode">Pincode: {area.pincode}</p>
+                            <p className="area-pincode">{area.pincode ? `Pincode: ${area.pincode}` : 'Serving your area'}</p>
                             <button
                                 className="area-call"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    window.location.href = `tel:${area.phone}`;
+                                    if (area.phone) window.location.href = `tel:${area.phone}`;
                                 }}
                             >
                                 <Phone size={16} />

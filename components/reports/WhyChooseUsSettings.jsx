@@ -1,75 +1,12 @@
 'use client'
 
-import { useState } from 'react';
-import { Award, Plus, Trash2, Edit2, Save, X, GripVertical } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Award, Plus, Trash2, Edit2, Save, X, GripVertical, Loader2 } from 'lucide-react';
 
 function WhyChooseUsSettings() {
-    const [features, setFeatures] = useState([
-        {
-            id: 1,
-            title: 'On-time Service',
-            description: 'We value your time. Our technicians arrive punctually at your scheduled slot.',
-            icon: '⏰',
-            url: '',
-            order: 1
-        },
-        {
-            id: 2,
-            title: 'Complete Service History',
-            description: 'Track all your past services, repairs, and maintenance in one place.',
-            icon: '📋',
-            url: '',
-            order: 2
-        },
-        {
-            id: 3,
-            title: 'Digital Wallet',
-            description: 'Add money to your wallet and get exclusive discounts on services.',
-            icon: '💳',
-            url: '',
-            order: 3
-        },
-        {
-            id: 4,
-            title: 'Multiple Properties',
-            description: 'Manage services for all your properties from a single account.',
-            icon: '🏢',
-            url: '',
-            order: 4
-        },
-        {
-            id: 5,
-            title: 'Map View Dashboard',
-            description: 'See all your properties and service requests on an interactive map.',
-            icon: '🗺️',
-            url: '',
-            order: 5
-        },
-        {
-            id: 6,
-            title: 'Real-time Tracking',
-            description: 'Track your technician in real-time as they travel to your location.',
-            icon: '📍',
-            url: '',
-            order: 6
-        },
-        {
-            id: 7,
-            title: 'Product Registration',
-            description: 'Register all your appliances and get timely service reminders.',
-            icon: '📝',
-            url: '',
-            order: 7
-        },
-        {
-            id: 8,
-            title: 'Priority Booking',
-            description: 'Premium members get priority slots and faster service.',
-            icon: '⭐',
-            url: '',
-            order: 8
-        }
-    ]);
+    const [features, setFeatures] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     const [horizontalScroll, setHorizontalScroll] = useState(true);
     const [editingId, setEditingId] = useState(null);
@@ -81,6 +18,31 @@ function WhyChooseUsSettings() {
         icon: '✨',
         url: ''
     });
+
+    // Load data from backend
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                // Fetch features
+                const resFeatures = await fetch('/api/settings/why-choose-us');
+                const dataFeatures = await resFeatures.json();
+                if (dataFeatures.success) setFeatures(dataFeatures.data);
+
+                // Fetch configs
+                const resConfig = await fetch('/api/settings/section-configs?id=why-choose-us');
+                const dataConfig = await resConfig.json();
+                if (dataConfig.success && dataConfig.data) {
+                    setHorizontalScroll(dataConfig.data.extra_config?.horizontal_scroll ?? true);
+                }
+            } catch (error) {
+                console.error('Error loading Why Choose Us settings:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
 
     const iconOptions = ['⏰', '📋', '💳', '🏢', '🗺️', '📍', '📝', '⭐', '✨', '🔧', '🛡️', '💯', '🎯', '🚀', '💡', '🏆'];
 
@@ -108,17 +70,55 @@ function WhyChooseUsSettings() {
 
     const handleAddFeature = () => {
         if (newFeature.title && newFeature.description) {
-            const newId = Math.max(...features.map(f => f.id), 0) + 1;
-            setFeatures([...features, { ...newFeature, id: newId, order: features.length + 1 }]);
+            const tempId = `temp-${Date.now()}`;
+            setFeatures([...features, { ...newFeature, id: tempId, order: features.length + 1 }]);
             setNewFeature({ title: '', description: '', icon: '✨', url: '' });
             setShowAddForm(false);
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('Why Choose Us settings saved successfully!');
+    const handleSaveAll = async () => {
+        setSaving(true);
+        try {
+            // Save features
+            const resFeatures = await fetch('/api/settings/why-choose-us', {
+                method: 'POST',
+                body: JSON.stringify(features)
+            });
+
+            // Save config
+            const resConfig = await fetch('/api/settings/section-configs', {
+                method: 'POST',
+                body: JSON.stringify({
+                    section_id: 'why-choose-us',
+                    extra_config: { horizontal_scroll: horizontalScroll }
+                })
+            });
+
+            const resultFeatures = await resFeatures.json();
+            const resultConfig = await resConfig.json();
+
+            if (resultFeatures.success && resultConfig.success) {
+                alert('Why Choose Us settings saved successfully!');
+            } else {
+                alert('Error saving settings: ' + (resultFeatures.error || resultConfig.error));
+            }
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            alert('An error occurred while saving.');
+        } finally {
+            setSaving(false);
+        }
     };
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem' }}>
+                <Loader2 className="animate-spin" size={40} style={{ color: 'var(--color-primary)', marginBottom: '1rem' }} />
+                <p>Loading Why Choose Us settings...</p>
+            </div>
+        );
+    }
 
     return (
         <div>

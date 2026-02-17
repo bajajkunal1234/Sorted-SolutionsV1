@@ -1,47 +1,12 @@
 'use client'
 
-import { useState } from 'react';
-import { Star, Plus, Trash2, Edit2, Save, X, ThumbsUp, ExternalLink, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Star, Plus, Trash2, Edit2, Save, X, ThumbsUp, ExternalLink, RefreshCw, Loader2 } from 'lucide-react';
 
 function CustomerTestimonialsSettings() {
-    const [testimonials, setTestimonials] = useState([
-        {
-            id: 1,
-            customerName: 'Rajesh Kumar',
-            location: 'Andheri, Mumbai',
-            rating: 5,
-            review: 'Excellent service! The technician arrived on time and fixed my AC within an hour. Very professional and courteous.',
-            date: '2024-01-15',
-            service: 'AC Repair',
-            verified: true,
-            featured: true,
-            source: 'Google Reviews'
-        },
-        {
-            id: 2,
-            customerName: 'Priya Sharma',
-            location: 'Dadar, Mumbai',
-            rating: 5,
-            review: 'Best appliance repair service in Mumbai! They fixed my washing machine and it works like new. Highly recommended!',
-            date: '2024-01-10',
-            service: 'Washing Machine Repair',
-            verified: true,
-            featured: true,
-            source: 'Google Reviews'
-        },
-        {
-            id: 3,
-            customerName: 'Amit Patel',
-            location: 'Ghatkopar, Mumbai',
-            rating: 4,
-            review: 'Good service and reasonable pricing. The technician was knowledgeable and explained the issue clearly.',
-            date: '2024-01-05',
-            service: 'Refrigerator Repair',
-            verified: true,
-            featured: false,
-            source: 'Manual Entry'
-        }
-    ]);
+    const [testimonials, setTestimonials] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     const [displaySettings, setDisplaySettings] = useState({
         showOnHomepage: true,
@@ -56,7 +21,7 @@ function CustomerTestimonialsSettings() {
     });
 
     const [googleReviewsSettings, setGoogleReviewsSettings] = useState({
-        placeId: 'ChIJXXXXXXXXXXXXXXXXXXXX',
+        placeId: '',
         apiKey: '',
         autoSync: false,
         syncInterval: 24
@@ -75,12 +40,57 @@ function CustomerTestimonialsSettings() {
         featured: false
     });
 
+    // Load data from backend
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                // Fetch testimonials
+                const resT = await fetch('/api/settings/testimonials');
+                const dataT = await resT.json();
+                if (dataT.success) {
+                    const mapped = dataT.data.map(t => ({
+                        id: t.id,
+                        customerName: t.customer_name,
+                        location: t.location,
+                        rating: t.rating,
+                        review: t.review_text,
+                        date: t.date,
+                        service: t.service_type,
+                        verified: t.is_verified,
+                        featured: t.is_featured,
+                        source: t.source
+                    }));
+                    setTestimonials(mapped);
+                }
+
+                // Fetch configs
+                const resConfig = await fetch('/api/settings/section-configs?id=testimonials');
+                const dataConfig = await resConfig.json();
+                if (dataConfig.success && dataConfig.data) {
+                    if (dataConfig.data.extra_config?.display) {
+                        setDisplaySettings(dataConfig.data.extra_config.display);
+                    }
+                    if (dataConfig.data.extra_config?.googleSync) {
+                        setGoogleReviewsSettings(dataConfig.data.extra_config.googleSync);
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading Testimonials settings:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
+
     const handleEdit = (testimonial) => {
         setEditingId(testimonial.id);
         setEditForm({ ...testimonial });
     };
 
-    const handleSaveEdit = () => {
+    const handleSaveEdit = async () => {
+        // Optimistic update locally
         setTestimonials(testimonials.map(t => t.id === editingId ? editForm : t));
         setEditingId(null);
         setEditForm({});
@@ -91,21 +101,29 @@ function CustomerTestimonialsSettings() {
         setEditForm({});
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (confirm('Are you sure you want to delete this testimonial?')) {
-            setTestimonials(testimonials.filter(t => t.id !== id));
+            try {
+                // If it's a real ID (UUID), delete from backend too
+                if (typeof id === 'string' && id.length > 20) {
+                    await fetch(`/api/settings/testimonials?id=${id}`, { method: 'DELETE' });
+                }
+                setTestimonials(testimonials.filter(t => t.id !== id));
+            } catch (error) {
+                console.error('Error deleting testimonial:', error);
+            }
         }
     };
 
     const handleAddTestimonial = () => {
         if (newTestimonial.customerName && newTestimonial.review) {
-            const newId = Math.max(...testimonials.map(t => t.id), 0) + 1;
-            setTestimonials([...testimonials, {
+            const tempId = `temp-${Date.now()}`;
+            setTestimonials([{
                 ...newTestimonial,
-                id: newId,
+                id: tempId,
                 date: new Date().toISOString().split('T')[0],
                 source: 'Manual Entry'
-            }]);
+            }, ...testimonials]);
             setNewTestimonial({
                 customerName: '',
                 location: '',
@@ -120,13 +138,62 @@ function CustomerTestimonialsSettings() {
     };
 
     const handleSyncGoogleReviews = () => {
-        // TODO: Implement Google Reviews API sync
-        alert('Google Reviews sync will be implemented with backend integration');
+        alert('Google Reviews sync will be implemented via edge functions');
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('Testimonials settings saved successfully!');
+    const handleSaveAll = async () => {
+        setSaving(true);
+        try {
+            // Save each testimonial that is new or changed
+            // For simplicity in this Admin UI, we'll just save everything
+            // In a larger app, we'd only save dirty items
+            for (const t of testimonials) {
+                const body = {
+                    customer_name: t.customerName,
+                    location: t.location,
+                    rating: t.rating,
+                    review_text: t.review,
+                    date: t.date,
+                    service_type: t.service,
+                    is_verified: t.verified,
+                    is_featured: t.featured,
+                    source: t.source
+                };
+
+                if (typeof t.id === 'string' && t.id.startsWith('temp-')) {
+                    await fetch('/api/settings/testimonials', {
+                        method: 'POST',
+                        body: JSON.stringify(body)
+                    });
+                } else {
+                    await fetch('/api/settings/testimonials', {
+                        method: 'PUT',
+                        body: JSON.stringify({ id: t.id, ...body })
+                    });
+                }
+            }
+
+            // Save configs
+            await fetch('/api/settings/section-configs', {
+                method: 'POST',
+                body: JSON.stringify({
+                    section_id: 'testimonials',
+                    extra_config: {
+                        display: displaySettings,
+                        googleSync: googleReviewsSettings
+                    }
+                })
+            });
+
+            alert('Testimonials settings saved successfully!');
+            // Reload to get real IDs
+            window.location.reload();
+        } catch (error) {
+            console.error('Error saving testimonials:', error);
+            alert('An error occurred.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const renderStars = (rating) => {

@@ -12,15 +12,12 @@ export async function GET() {
             .eq('active', true)
             .order('order_index', { ascending: true })
 
-        if (error) throw error
+        if (error) throw error;
 
-        return NextResponse.json({ success: true, data })
+        return NextResponse.json({ success: true, data: data || [] })
     } catch (error) {
         console.error('Error fetching frequently booked services:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        return NextResponse.json({ success: true, data: [] });
     }
 }
 

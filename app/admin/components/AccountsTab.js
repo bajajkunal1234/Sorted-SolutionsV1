@@ -13,6 +13,7 @@ import QuotationForm from './accounts/QuotationForm';
 import ReceiptVoucherForm from './accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from './accounts/PaymentVoucherForm';
 import NewAccountForm from './accounts/NewAccountForm';
+import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 function AccountsTab({ customerToOpen, onCustomerOpened }) {
     // Tab state
@@ -579,29 +580,54 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     Accounts
                 </h2>
 
-                <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
-                    <Search
-                        size={16}
-                        style={{
-                            position: 'absolute',
-                            left: 'var(--spacing-sm)',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: 'var(--text-tertiary)'
-                        }}
-                    />
-                    <input
-                        type="text"
-                        className="form-input"
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                    <AutocompleteSearch
                         placeholder={tabConfig[activeTab].searchPlaceholder}
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            paddingLeft: '2rem',
-                            paddingTop: '6px',
-                            paddingBottom: '6px',
-                            fontSize: 'var(--font-size-sm)'
-                        }}
+                        onChange={setSearchTerm}
+                        suggestions={
+                            activeTab === 'accounts' ? ledgers :
+                                activeTab === 'sales' ? salesInvoices :
+                                    activeTab === 'purchases' ? purchaseInvoices :
+                                        activeTab === 'quotations' ? quotations :
+                                            activeTab === 'receipts' ? receipts :
+                                                activeTab === 'payments' ? payments : []
+                        }
+                        onSelect={(item) => setSearchTerm(
+                            activeTab === 'accounts' ? item.name :
+                                activeTab === 'sales' ? item.invoice_number :
+                                    activeTab === 'purchases' ? item.invoice_number :
+                                        activeTab === 'quotations' ? item.quote_number :
+                                            activeTab === 'receipts' ? item.receipt_number :
+                                                activeTab === 'payments' ? item.payment_number : ''
+                        )}
+                        searchKey={activeTab === 'accounts' ? "name" :
+                            activeTab === 'sales' ? "invoice_number" :
+                                activeTab === 'purchases' ? "invoice_number" :
+                                    activeTab === 'quotations' ? "quote_number" :
+                                        activeTab === 'receipts' ? "receipt_number" : "payment_number"}
+                        renderSuggestion={(item) => (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                        {activeTab === 'accounts' ? item.name :
+                                            activeTab === 'sales' ? item.invoice_number :
+                                                activeTab === 'purchases' ? item.invoice_number :
+                                                    activeTab === 'quotations' ? item.quote_number :
+                                                        activeTab === 'receipts' ? item.receipt_number : item.payment_number}
+                                    </span>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
+                                        {activeTab === 'accounts' ?
+                                            formatCurrency(item.current_balance || 0) :
+                                            formatCurrency(item.total_amount || 0)}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                    {activeTab === 'accounts' ? item.group : item.account_name}
+                                    {item.date && ` • ${item.date}`}
+                                </div>
+                            </div>
+                        )}
                     />
                 </div>
 

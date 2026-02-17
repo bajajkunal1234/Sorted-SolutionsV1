@@ -18,22 +18,16 @@ import AMCTab from './reports/AMCTab';
 import InteractionsTab from './InteractionsTab';
 import CompanyDetailsModal from './CompanyDetailsModal';
 import TechnicianManagement from './reports/TechnicianManagement';
+import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+
+import { settingsByCategory } from '@/lib/data/websiteSettingsData';
 
 function ReportsTab() {
     const [activeSection, setActiveSection] = useState(null); // null = homepage
+    const [subSection, setSubSection] = useState(null);
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
-
-    // Toggle dark mode
-    const toggleDarkMode = () => {
-        setIsDarkMode(!isDarkMode);
-        if (isDarkMode) {
-            document.documentElement.setAttribute('data-theme', 'light');
-        } else {
-            document.documentElement.removeAttribute('data-theme');
-        }
-    };
 
     const sections = [
         { id: 'daybook', label: 'Daybook', icon: Calendar, component: DaybookView, color: '#3b82f6', description: 'View daily transaction records' },
@@ -52,6 +46,41 @@ function ReportsTab() {
         { id: 'templates', label: 'WhatsApp Templates', icon: MessageSquare, component: WhatsAppTemplateManager, color: '#22c55e', description: 'Manage WhatsApp message templates' },
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' }
     ];
+
+    // Create searchable index of all settings
+    const searchSuggestions = [
+        ...sections.map(s => ({ ...s, type: 'section' })),
+        ...Object.entries(settingsByCategory).flatMap(([catId, settings]) =>
+            settings.map(s => ({
+                ...s,
+                type: 'website-setting',
+                parentId: 'slots',
+                categoryLabel: catId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+            }))
+        )
+    ];
+
+    // Restore Toggle dark mode
+    const toggleDarkMode = () => {
+        const nextMode = !isDarkMode;
+        setIsDarkMode(nextMode);
+        if (nextMode) {
+            document.documentElement.removeAttribute('data-theme');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+        }
+    };
+
+    const handleSelect = (item) => {
+        if (item.type === 'section') {
+            setActiveSection(item.id);
+            setSubSection(null);
+        } else if (item.type === 'website-setting') {
+            setActiveSection(item.parentId);
+            setSubSection(item.id);
+        }
+        setSearchTerm('');
+    };
 
     const ActiveComponent = sections.find(s => s.id === activeSection)?.component;
     const activeLabel = sections.find(s => s.id === activeSection)?.label;
@@ -72,35 +101,46 @@ function ReportsTab() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
                     <FileText size={24} style={{ color: 'var(--color-primary)' }} />
                     <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, margin: 0 }}>
-                        Reports & Settings
+                        {subSection ? (
+                            searchSuggestions.find(s => s.id === subSection)?.label || subSection
+                        ) : activeLabel || 'Reports & Settings'}
                     </h2>
                 </div>
 
                 {/* Search Bar */}
                 {!activeSection && (
-                    <div style={{ flex: 1, minWidth: '200px', maxWidth: '400px', position: 'relative' }}>
-                        <Search
-                            size={16}
-                            style={{
-                                position: 'absolute',
-                                left: 'var(--spacing-sm)',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                color: 'var(--text-tertiary)'
-                            }}
-                        />
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="Search settings..."
+                    <div style={{ flex: 1, minWidth: '200px', maxWidth: '400px' }}>
+                        <AutocompleteSearch
+                            placeholder="Search settings, reports, locations..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                width: '100%',
-                                paddingLeft: '2rem',
-                                paddingTop: '6px',
-                                paddingBottom: '6px',
-                                fontSize: 'var(--font-size-sm)'
+                            onChange={setSearchTerm}
+                            suggestions={searchSuggestions}
+                            onSelect={handleSelect}
+                            searchKey="label"
+                            renderSuggestion={(item) => {
+                                const Icon = item.icon || Settings;
+                                return (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
+                                        <div style={{
+                                            padding: '6px',
+                                            borderRadius: '6px',
+                                            backgroundColor: `${item.color}15`,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            <Icon size={16} style={{ color: item.color }} />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                                {item.label}
+                                            </span>
+                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                {item.type === 'website-setting' ? `Website Settings > ${item.categoryLabel}` : item.description}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
                             }}
                         />
                     </div>
@@ -150,15 +190,36 @@ function ReportsTab() {
                     }}
                     onMouseEnter={(e) => activeSection && (e.currentTarget.style.color = 'var(--color-primary)')}
                     onMouseLeave={(e) => activeSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
-                    onClick={() => setActiveSection(null)}
+                    onClick={() => {
+                        setActiveSection(null);
+                        setSubSection(null);
+                    }}
                 >
                     Reports
                 </span>
                 {activeSection && (
                     <>
                         <span style={{ color: 'var(--text-tertiary)' }}>›</span>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                        <span
+                            style={{
+                                cursor: subSection ? 'pointer' : 'default',
+                                color: subSection ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                fontWeight: subSection ? 400 : 700,
+                                transition: 'color 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => subSection && (e.currentTarget.style.color = 'var(--color-primary)')}
+                            onMouseLeave={(e) => subSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
+                            onClick={() => setSubSection(null)}
+                        >
                             {activeLabel}
+                        </span>
+                    </>
+                )}
+                {subSection && (
+                    <>
+                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                            {subSection}
                         </span>
                     </>
                 )}
@@ -306,7 +367,10 @@ function ReportsTab() {
                         </div>
                     </div>
                 ) : ActiveComponent ? (
-                    <ActiveComponent />
+                    <ActiveComponent
+                        subSection={subSection}
+                        setSubSection={setSubSection}
+                    />
                 ) : (
                     <div style={{
                         display: 'flex',

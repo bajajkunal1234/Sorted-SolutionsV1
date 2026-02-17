@@ -7,6 +7,7 @@ import BrandLogos from '@/components/services/BrandLogos'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
+import Header from '@/components/common/Header'
 import { getFAQs } from '@/data/faqs'
 
 // Service mapping
@@ -69,6 +70,7 @@ export default function SubLocationPage({ params }) {
 
     return (
         <div className="service-page sub-location-page">
+            <Header />
             {/* Hero Section */}
             <HeroSection
                 title={`${serviceInfo.full} Repair in ${locationName}`}

@@ -8,6 +8,8 @@ import BrandLogos from '@/components/services/BrandLogos'
 import LocationLinks from '@/components/services/LocationLinks'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
+import Link from 'next/link'
+import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import { subcategoriesByCategory } from '@/data/servicePageContent'
 import { getProblems } from '@/data/commonProblems'
@@ -32,6 +34,7 @@ export default function SubCategoryPage({ params }) {
 
     return (
         <div className="service-page subcategory-page">
+            <Header />
             {/* Hero Section */}
             <HeroSection
                 title={`${subcategoryName} Repair Solutions In Mumbai`}

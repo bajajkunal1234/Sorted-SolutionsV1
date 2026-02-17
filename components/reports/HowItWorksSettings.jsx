@@ -1,39 +1,12 @@
 'use client'
 
-import { useState } from 'react';
-import { CheckCircle, Plus, Trash2, Edit2, Save, X, GripVertical, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CheckCircle, Plus, Trash2, Edit2, Save, X, GripVertical, Upload, Loader2 } from 'lucide-react';
 
 function HowItWorksSettings() {
-    const [stages, setStages] = useState([
-        {
-            id: 1,
-            title: 'Book Service',
-            description: 'Book your service online via our website, mobile app, or by calling our customer support. Choose your preferred time slot.',
-            icon: '📅',
-            order: 1
-        },
-        {
-            id: 2,
-            title: 'Track Technician',
-            description: 'Track your assigned technician in real-time on the map. Get live updates on their arrival time and location.',
-            icon: '📍',
-            order: 2
-        },
-        {
-            id: 3,
-            title: 'Technician Visits',
-            description: 'Our certified technician visits your location at the scheduled time and diagnoses the issue with your appliance.',
-            icon: '🔧',
-            order: 3
-        },
-        {
-            id: 4,
-            title: 'Repair & Test',
-            description: 'Technician repairs your appliance using genuine spare parts and tests it thoroughly to ensure everything works perfectly.',
-            icon: '✅',
-            order: 4
-        }
-    ]);
+    const [stages, setStages] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     const [layoutStyle, setLayoutStyle] = useState('grid');
     const [animationType, setAnimationType] = useState('hover');
@@ -48,8 +21,35 @@ function HowItWorksSettings() {
         icon: '⚙️'
     });
 
+    // Load data from backend
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                // Fetch steps
+                const resSteps = await fetch('/api/settings/how-it-works');
+                const dataSteps = await resSteps.json();
+                if (dataSteps.success) setStages(dataSteps.data);
+
+                // Fetch configs
+                const resConfig = await fetch('/api/settings/section-configs?id=how-it-works');
+                const dataConfig = await resConfig.json();
+                if (dataConfig.success && dataConfig.data) {
+                    setLayoutStyle(dataConfig.data.layout_style || 'grid');
+                    setAnimationType(dataConfig.data.animation_type || 'hover');
+                    setPrimaryColor(dataConfig.data.primary_color || '#3b82f6');
+                }
+            } catch (error) {
+                console.error('Error loading How It Works settings:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
+
     const layoutOptions = [
-        { value: 'grid', label: 'Grid (Current)', description: '2x2 or 4-column grid layout' },
+        { value: 'grid', label: 'Grid', description: '2x2 or 4-column grid layout' },
         { value: 'timeline-vertical', label: 'Vertical Timeline', description: 'Steps connected vertically' },
         { value: 'timeline-horizontal', label: 'Horizontal Timeline', description: 'Steps connected horizontally' },
         { value: 'carousel', label: 'Carousel', description: 'Swipeable carousel view' },
@@ -58,7 +58,7 @@ function HowItWorksSettings() {
 
     const animationOptions = [
         { value: 'none', label: 'None', description: 'No animation' },
-        { value: 'hover', label: 'Hover (Current)', description: 'Animate on hover' },
+        { value: 'hover', label: 'Hover', description: 'Animate on hover' },
         { value: 'scroll', label: 'Scroll', description: 'Animate on scroll into view' },
         { value: 'auto', label: 'Auto', description: 'Auto-play animation' }
     ];
@@ -89,17 +89,57 @@ function HowItWorksSettings() {
 
     const handleAddStage = () => {
         if (newStage.title && newStage.description) {
-            const newId = Math.max(...stages.map(s => s.id), 0) + 1;
-            setStages([...stages, { ...newStage, id: newId, order: stages.length + 1 }]);
+            const tempId = `temp-${Date.now()}`;
+            setStages([...stages, { ...newStage, id: tempId, order: stages.length + 1 }]);
             setNewStage({ title: '', description: '', icon: '⚙️' });
             setShowAddForm(false);
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('How It Works settings saved successfully!');
+    const handleSaveAll = async () => {
+        setSaving(true);
+        try {
+            // Save steps
+            const resSteps = await fetch('/api/settings/how-it-works', {
+                method: 'POST',
+                body: JSON.stringify(stages)
+            });
+
+            // Save config
+            const resConfig = await fetch('/api/settings/section-configs', {
+                method: 'POST',
+                body: JSON.stringify({
+                    section_id: 'how-it-works',
+                    layout_style: layoutStyle,
+                    animation_type: animationType,
+                    primary_color: primaryColor
+                })
+            });
+
+            const resultSteps = await resSteps.json();
+            const resultConfig = await resConfig.json();
+
+            if (resultSteps.success && resultConfig.success) {
+                alert('How It Works settings saved successfully!');
+            } else {
+                alert('Error saving settings: ' + (resultSteps.error || resultConfig.error));
+            }
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            alert('An error occurred while saving.');
+        } finally {
+            setSaving(false);
+        }
     };
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem' }}>
+                <Loader2 className="animate-spin" size={40} style={{ color: 'var(--color-primary)', marginBottom: '1rem' }} />
+                <p>Loading How It Works settings...</p>
+            </div>
+        );
+    }
 
     return (
         <div>

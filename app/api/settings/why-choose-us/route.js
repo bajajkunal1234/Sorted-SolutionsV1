@@ -1,100 +1,57 @@
-import { supabase } from '@/lib/supabase'
-import { NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase';
+import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic'
-
-// GET - Fetch all Why Choose Us features
 export async function GET() {
     try {
         const { data, error } = await supabase
-            .from('why_choose_us_features')
+            .from('website_why_choose_us')
             .select('*')
-            .eq('active', true)
-            .order('order_index', { ascending: true })
+            .order('display_order', { ascending: true });
 
-        if (error) throw error
+        if (error) throw error;
 
-        return NextResponse.json({ success: true, data })
+        const mappedData = (data || []).map(item => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            icon: item.icon_name,
+            order: item.display_order
+        }));
+
+        return NextResponse.json({ success: true, data: mappedData });
     } catch (error) {
-        console.error('Error fetching Why Choose Us features:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        console.error('Error fetching Why Choose Us features:', error);
+        return NextResponse.json({ success: true, data: [] });
     }
 }
 
-// PUT - Update features
-export async function PUT(request) {
-    try {
-        const { features } = await request.json()
-
-        const updates = features.map(feature =>
-            supabase
-                .from('why_choose_us_features')
-                .update({
-                    title: feature.title,
-                    description: feature.description,
-                    icon: feature.icon,
-                    order_index: feature.order_index,
-                    active: feature.active
-                })
-                .eq('id', feature.id)
-        )
-
-        await Promise.all(updates)
-
-        return NextResponse.json({ success: true, message: 'Features updated successfully' })
-    } catch (error) {
-        console.error('Error updating Why Choose Us features:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
-    }
-}
-
-// POST - Add new feature
 export async function POST(request) {
     try {
-        const feature = await request.json()
+        const features = await request.json();
+
+        const { error: deleteError } = await supabase
+            .from('website_why_choose_us')
+            .delete()
+            .neq('id', '00000000-0000-0000-0000-000000000000');
+
+        if (deleteError) throw deleteError;
+
+        const insertData = features.map((f, index) => ({
+            title: f.title,
+            description: f.description,
+            icon_name: f.icon,
+            display_order: index + 1
+        }));
 
         const { data, error } = await supabase
-            .from('why_choose_us_features')
-            .insert([feature])
-            .select()
+            .from('website_why_choose_us')
+            .insert(insertData)
+            .select();
 
-        if (error) throw error
-
-        return NextResponse.json({ success: true, data })
+        if (error) throw error;
+        return NextResponse.json({ success: true, data });
     } catch (error) {
-        console.error('Error creating Why Choose Us feature:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
-    }
-}
-
-// DELETE - Delete a feature
-export async function DELETE(request) {
-    try {
-        const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
-
-        const { error } = await supabase
-            .from('why_choose_us_features')
-            .delete()
-            .eq('id', id)
-
-        if (error) throw error
-
-        return NextResponse.json({ success: true, message: 'Feature deleted successfully' })
-    } catch (error) {
-        console.error('Error deleting Why Choose Us feature:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        console.error('Error saving Why Choose Us features:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

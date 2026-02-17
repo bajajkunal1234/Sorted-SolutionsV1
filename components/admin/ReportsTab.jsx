@@ -21,6 +21,7 @@ import TechnicianManager from './technicians/TechnicianManager';
 
 function ReportsTab({ onOpenSettings }) {
     const [activeSection, setActiveSection] = useState(null); // null = homepage
+    const [subSection, setSubSection] = useState(null);
 
     const sections = [
         { id: 'daybook', label: 'Daybook', icon: Calendar, component: DaybookView, color: '#3b82f6', description: 'View daily transaction records' },
@@ -59,7 +60,7 @@ function ReportsTab({ onOpenSettings }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
                     <FileText size={24} style={{ color: 'var(--color-primary)' }} />
                     <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, margin: 0 }}>
-                        Reports & Settings
+                        {subSection || activeLabel || 'Reports & Settings'}
                     </h2>
                 </div>
                 {onOpenSettings && (
@@ -94,15 +95,36 @@ function ReportsTab({ onOpenSettings }) {
                     }}
                     onMouseEnter={(e) => activeSection && (e.currentTarget.style.color = 'var(--color-primary)')}
                     onMouseLeave={(e) => activeSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
-                    onClick={() => setActiveSection(null)}
+                    onClick={() => {
+                        setActiveSection(null);
+                        setSubSection(null);
+                    }}
                 >
                     Reports
                 </span>
                 {activeSection && (
                     <>
-                        <span style={{ color: 'var(--text-tertiary)' }}>â€º</span>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                        <span
+                            style={{
+                                cursor: subSection ? 'pointer' : 'default',
+                                color: subSection ? 'var(--text-secondary)' : 'var(--text-primary)',
+                                fontWeight: subSection ? 400 : 700,
+                                transition: 'color 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => subSection && (e.currentTarget.style.color = 'var(--color-primary)')}
+                            onMouseLeave={(e) => subSection && (e.currentTarget.style.color = 'var(--text-secondary)')}
+                            onClick={() => setSubSection(null)}
+                        >
                             {activeLabel}
+                        </span>
+                    </>
+                )}
+                {subSection && (
+                    <>
+                        <span style={{ color: 'var(--text-tertiary)' }}>›</span>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>
+                            {subSection}
                         </span>
                     </>
                 )}
@@ -250,7 +272,10 @@ function ReportsTab({ onOpenSettings }) {
                         </div>
                     </div>
                 ) : ActiveComponent ? (
-                    <ActiveComponent />
+                    <ActiveComponent
+                        subSection={subSection}
+                        setSubSection={setSubSection}
+                    />
                 ) : (
                     <div style={{
                         display: 'flex',

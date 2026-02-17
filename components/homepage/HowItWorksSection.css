@@ -1,420 +1,129 @@
-/* Creative How It Works Section - Split Screen Interactive */
-.how-it-works-creative {
-    padding: 100px 20px;
-    background: #0f172a;
-    position: relative;
-    overflow: hidden;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
+/* Clean How It Works Section */
+.how-it-works {
+    padding: 60px 16px;
+    background-color: var(--bg-primary);
 }
 
-/* Floating Shapes Background */
-.floating-shapes {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    overflow: hidden;
-    z-index: 0;
-}
-
-.shape {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.15;
-    animation: float 20s infinite ease-in-out;
-}
-
-.shape-1 {
-    width: 400px;
-    height: 400px;
-    background: #6366f1;
-    top: 10%;
-    left: 10%;
-    animation-delay: 0s;
-}
-
-.shape-2 {
-    width: 300px;
-    height: 300px;
-    background: #10b981;
-    top: 60%;
-    right: 15%;
-    animation-delay: 5s;
-}
-
-.shape-3 {
-    width: 350px;
-    height: 350px;
-    background: #f59e0b;
-    bottom: 10%;
-    left: 50%;
-    animation-delay: 10s;
-}
-
-@keyframes float {
-
-    0%,
-    100% {
-        transform: translate(0, 0) scale(1);
-    }
-
-    25% {
-        transform: translate(30px, -30px) scale(1.1);
-    }
-
-    50% {
-        transform: translate(-20px, 20px) scale(0.9);
-    }
-
-    75% {
-        transform: translate(20px, 30px) scale(1.05);
-    }
-}
-
-/* Container */
-.creative-container {
-    max-width: 1400px;
-    margin: 0 auto;
-    position: relative;
-    z-index: 1;
-}
-
-/* Header */
-.creative-header {
+.how-it-works-header {
     text-align: center;
-    margin-bottom: 80px;
-    position: relative;
+    margin-bottom: 48px;
 }
 
-.creative-title {
-    font-size: clamp(2.5rem, 6vw, 4rem);
-    font-weight: 900;
-    color: white;
-    margin-bottom: 16px;
-    letter-spacing: -0.02em;
-}
-
-.creative-subtitle {
-    font-size: 20px;
-    color: #94a3b8;
-    font-weight: 400;
-}
-
-/* Split Screen Layout */
-.split-screen-layout {
-    display: grid;
-    grid-template-columns: 400px 1fr;
-    gap: 60px;
-    align-items: center;
-    margin-bottom: 60px;
-}
-
-@media (max-width: 1024px) {
-    .split-screen-layout {
-        grid-template-columns: 1fr;
-        gap: 40px;
-    }
-}
-
-/* Steps Navigation (Left Side) */
-.steps-navigation {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.step-nav-item {
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 24px;
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    cursor: pointer;
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-}
-
-.step-nav-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-    opacity: 0;
-    transition: opacity 0.4s ease;
-}
-
-.step-nav-item:hover::before,
-.step-nav-item.active::before {
-    opacity: 1;
-}
-
-.step-nav-item.active {
-    border-color: rgba(99, 102, 241, 0.5);
-    transform: translateX(10px);
-    box-shadow: 0 10px 40px rgba(99, 102, 241, 0.3);
-}
-
-.step-nav-number {
-    width: 50px;
-    height: 50px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
+.how-it-works-title {
+    font-size: clamp(2rem, 5vw, 2.5rem);
     font-weight: 800;
-    color: white;
-    flex-shrink: 0;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-}
-
-.step-nav-content {
-    flex: 1;
-}
-
-.step-nav-icon {
-    font-size: 24px;
-    margin-bottom: 8px;
-}
-
-.step-nav-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: white;
-    margin: 0 0 6px 0;
-}
-
-.step-nav-stat {
-    font-size: 13px;
-    color: #94a3b8;
-    font-weight: 600;
-}
-
-.step-nav-arrow {
-    font-size: 24px;
-    color: rgba(255, 255, 255, 0.3);
-    transition: all 0.3s ease;
-}
-
-.step-nav-item.active .step-nav-arrow {
-    color: #6366f1;
-    transform: translateX(5px);
-}
-
-/* Step Display (Right Side) */
-.step-display {
-    position: relative;
-    min-height: 500px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 30px;
-    padding: 60px;
-    backdrop-filter: blur(10px);
-}
-
-.step-display-content {
-    position: absolute;
-    top: 60px;
-    left: 60px;
-    right: 60px;
-    bottom: 60px;
-    display: flex;
-    gap: 40px;
-    align-items: center;
-    opacity: 0;
-    transform: translateX(30px);
-    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    pointer-events: none;
-}
-
-.step-display-content.active {
-    opacity: 1;
-    transform: translateX(0);
-    pointer-events: all;
-}
-
-.step-display-visual {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    flex-shrink: 0;
-}
-
-.step-display-icon {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 120px;
-    height: 120px;
-    border-radius: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 60px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    z-index: 2;
-    animation: iconFloat 3s ease-in-out infinite;
-}
-
-@keyframes iconFloat {
-
-    0%,
-    100% {
-        transform: translate(-50%, -50%) translateY(0);
-    }
-
-    50% {
-        transform: translate(-50%, -50%) translateY(-10px);
-    }
-}
-
-.step-display-circle {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 180px;
-    height: 180px;
-    border: 3px solid;
-    border-radius: 50%;
-    animation: rotate 10s linear infinite;
-}
-
-@keyframes rotate {
-    from {
-        transform: translate(-50%, -50%) rotate(0deg);
-    }
-
-    to {
-        transform: translate(-50%, -50%) rotate(360deg);
-    }
-}
-
-.step-display-pulse {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    opacity: 0.2;
-    animation: pulse 2s ease-out infinite;
-}
-
-@keyframes pulse {
-    0% {
-        transform: translate(-50%, -50%) scale(0.8);
-        opacity: 0.4;
-    }
-
-    100% {
-        transform: translate(-50%, -50%) scale(1.2);
-        opacity: 0;
-    }
-}
-
-.step-display-text {
-    flex: 1;
-}
-
-.step-display-label {
-    display: inline-block;
-    font-size: 14px;
-    color: #94a3b8;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+    color: var(--text-primary) !important;
     margin-bottom: 12px;
 }
 
-.step-display-title {
-    font-size: 36px;
-    font-weight: 800;
-    color: white;
-    margin: 0 0 20px 0;
-    line-height: 1.2;
+.how-it-works-description {
+    font-size: 1.125rem;
+    color: var(--text-secondary) !important;
+    max-width: 600px;
+    margin: 0 auto;
 }
 
-.step-display-description {
-    font-size: 18px;
-    color: #cbd5e1;
-    line-height: 1.7;
-    margin: 0 0 24px 0;
+/* Steps Grid */
+.steps-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-.step-display-badge {
-    display: inline-block;
-    padding: 10px 20px;
-    border-radius: 50px;
-    font-size: 14px;
-    font-weight: 700;
-}
-
-/* Progress Bar */
-.progress-bar-container {
+.step-card {
+    position: relative;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-xl);
+    padding: 40px 32px;
+    transition: all var(--transition-base);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
 }
 
-.progress-bar {
-    width: 100%;
-    max-width: 600px;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50px;
-    margin: 0 auto 16px;
-    overflow: hidden;
+.step-card:hover {
+    transform: translateY(-8px);
+    border-color: var(--color-primary-light);
+    box-shadow: var(--shadow-lg);
 }
 
-.progress-fill {
-    height: 100%;
-    border-radius: 50px;
-    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 0 20px currentColor;
-}
-
-.progress-text {
+.step-number-badge {
+    position: absolute;
+    top: -16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 32px;
+    height: 32px;
+    background-color: var(--color-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
     font-size: 14px;
-    color: #94a3b8;
-    font-weight: 600;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .how-it-works-creative {
-        padding: 60px 20px;
+.step-icon-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin-bottom: 24px;
+    transition: all var(--transition-base);
+}
+
+.step-card:hover .step-icon-circle {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.step-card-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+}
+
+.step-card-description {
+    font-size: 16px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* Connective lines for desktop */
+@media (min-width: 1024px) {
+    .steps-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 24px;
     }
 
-    .step-display {
-        padding: 30px;
-        min-height: 400px;
+    .step-card::after {
+        content: '\2192';
+        /* Right arrow */
+        position: absolute;
+        top: 50%;
+        right: -20px;
+        transform: translateY(-50%);
+        font-size: 24px;
+        color: var(--border-primary);
+        font-weight: bold;
     }
 
-    .step-display-content {
-        flex-direction: column;
-        text-align: center;
-        top: 30px;
-        left: 30px;
-        right: 30px;
-        bottom: 30px;
+    .step-card:last-child::after {
+        display: none;
     }
+}
 
-    .step-display-title {
-        font-size: 28px;
-    }
-
-    .step-display-description {
-        font-size: 16px;
+@media (min-width: 768px) and (max-width: 1023px) {
+    .steps-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 }

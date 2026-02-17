@@ -7,7 +7,8 @@ import './BrandLogos.css'
 
 export default function BrandLogos({
     title = "Brands We Serve",
-    subtitle = "Trusted by leading appliance manufacturers"
+    subtitle = "Trusted by leading appliance manufacturers",
+    selectedBrandIds = [] // New prop
 }) {
     const [logos, setLogos] = useState(brandLogos)
     const [loading, setLoading] = useState(true)
@@ -17,12 +18,18 @@ export default function BrandLogos({
             .then(res => res.json())
             .then(data => {
                 if (data.success && data.data && data.data.length > 0) {
-                    setLogos(data.data)
+                    // Filter logos if specific IDs are provided via admin
+                    if (selectedBrandIds && selectedBrandIds.length > 0) {
+                        const filtered = data.data.filter(b => selectedBrandIds.includes(b.id))
+                        setLogos(filtered)
+                    } else {
+                        setLogos(data.data)
+                    }
                 }
             })
             .catch(error => console.error('Error fetching brand logos:', error))
             .finally(() => setLoading(false))
-    }, [])
+    }, [selectedBrandIds])
 
     const sizeClasses = {
         small: 'logo-small',

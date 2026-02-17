@@ -30,19 +30,30 @@ function PageSettingsManager({ pageId, pageLabel }) {
     }, [pageId]);
 
     const fetchSettings = async () => {
+        console.log('🔍 FETCHING SETTINGS FOR:', pageId);
         setLoading(true);
         try {
             const res = await fetch(`/api/settings/page/${pageId}`);
             const data = await res.json();
+            console.log('✅ API RESPONSE:', data);
             if (data.success) {
-                // Ensure default structure for items
                 const d = data.data;
+                if (!d) {
+                    console.error('❌ API returned success but null data');
+                    return;
+                }
+                if (!d.brands_settings) d.brands_settings = { items: [] };
+                if (!d.faqs_settings) d.faqs_settings = { items: [] };
                 if (!d.brands_settings.items) d.brands_settings.items = [];
                 if (!d.faqs_settings.items) d.faqs_settings.items = [];
+
+                console.log('💾 SETTING STATE:', d);
                 setSettings(d);
+            } else {
+                console.error('❌ API SUCCESS FALSE:', data.error);
             }
         } catch (error) {
-            console.error('Error fetching page settings:', error);
+            console.error('❌ FETCH ERROR:', error);
         } finally {
             setLoading(false);
         }
@@ -139,6 +150,22 @@ function PageSettingsManager({ pageId, pageLabel }) {
             </div>
         );
     }
+
+    if (!settings || !settings.problems_settings) {
+        console.log('⚠️ RENDER BLOCKED: settings is null or missing problems_settings', { settings });
+        return (
+            <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
+                <AlertCircle size={48} color="#ef4444" style={{ marginBottom: '16px' }} />
+                <h3 style={{ marginBottom: '8px' }}>Failed to load settings</h3>
+                <p style={{ color: 'var(--text-secondary)' }}>
+                    {!settings ? 'Could not fetch settings for this page.' : 'Settings data is corrupted (missing problems_settings).'}
+                </p>
+                <button onClick={fetchSettings} className="btn btn-secondary" style={{ marginTop: '16px' }}>Retry</button>
+            </div>
+        );
+    }
+
+    console.log('🎨 RENDERING PageSettingsManager for', pageId);
 
     const tabs = [
         { id: 'problems', label: 'Problems', icon: AlertCircle },

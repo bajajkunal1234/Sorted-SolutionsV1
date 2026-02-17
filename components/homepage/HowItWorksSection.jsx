@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './HowItWorksSection.css';
 
 function HowItWorksSection() {
     const [activeStep, setActiveStep] = useState(1);
-
-    const stages = [
+    const [stages, setStages] = useState([
         {
             id: 1,
             title: 'Book Online',
@@ -43,87 +42,66 @@ function HowItWorksSection() {
             image: '🛡️',
             stats: '90-day warranty'
         }
-    ];
+    ]);
+    const [config, setConfig] = useState({
+        primaryColor: '#3b82f6',
+        layout: 'grid'
+    });
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const resSteps = await fetch('/api/settings/how-it-works');
+                const dataSteps = await resSteps.json();
+                if (dataSteps.success && dataSteps.data?.length > 0) {
+                    setStages(dataSteps.data.map(s => ({
+                        ...s,
+                        color: config.primaryColor // Use config color for steps
+                    })));
+                }
+
+                const resConfig = await fetch('/api/settings/section-configs?id=how-it-works');
+                const dataConfig = await resConfig.json();
+                if (dataConfig.success && dataConfig.data) {
+                    const newConfig = {
+                        primaryColor: dataConfig.data.primary_color || '#3b82f6',
+                        layout: dataConfig.data.layout_style || 'grid'
+                    };
+                    setConfig(newConfig);
+
+                    // Update colors of stages if we didn't get specific colors from API
+                    setStages(prev => prev.map(s => ({ ...s, color: newConfig.primaryColor })));
+                }
+            } catch (error) {
+                console.error('Error fetching dynamic How It Works data:', error);
+            }
+        };
+        fetchData();
+    }, []);
+
+    if (stages.length === 0) return null;
 
     return (
-        <section className="how-it-works-creative">
-            <div className="creative-container">
-                {/* Header with animated background */}
-                <div className="creative-header">
-                    <div className="floating-shapes">
-                        <div className="shape shape-1"></div>
-                        <div className="shape shape-2"></div>
-                        <div className="shape shape-3"></div>
-                    </div>
-                    <h2 className="creative-title">How It Works</h2>
-                    <p className="creative-subtitle">Your repair journey in 4 simple steps</p>
+        <section className="how-it-works">
+            <div className="section-container">
+                <div className="how-it-works-header">
+                    <h2 className="how-it-works-title">How It Works</h2>
+                    <p className="how-it-works-description">Your repair journey in {stages.length} simple steps</p>
                 </div>
 
-                {/* Split Screen Interactive Layout */}
-                <div className="split-screen-layout">
-                    {/* Left Side - Step Navigation */}
-                    <div className="steps-navigation">
-                        {stages.map((stage, index) => (
-                            <div
-                                key={stage.id}
-                                className={`step-nav-item ${activeStep === stage.id ? 'active' : ''}`}
-                                onClick={() => setActiveStep(stage.id)}
-                                onMouseEnter={() => setActiveStep(stage.id)}
-                            >
-                                <div className="step-nav-number" style={{ background: stage.color }}>
-                                    {index + 1}
+                <div className="steps-grid">
+                    {stages.map((stage, index) => (
+                        <div key={stage.id} className="step-card">
+                            <div className="step-number-badge">{index + 1}</div>
+                            <div className="step-content">
+                                <div className="step-icon-circle" style={{ background: `${stage.color}15`, color: stage.color }}>
+                                    {stage.icon}
                                 </div>
-                                <div className="step-nav-content">
-                                    <div className="step-nav-icon">{stage.icon}</div>
-                                    <h3 className="step-nav-title">{stage.title}</h3>
-                                    <div className="step-nav-stat">{stage.stats}</div>
-                                </div>
-                                <div className="step-nav-arrow">→</div>
+                                <h3 className="step-card-title">{stage.title}</h3>
+                                <p className="step-card-description">{stage.description}</p>
                             </div>
-                        ))}
-                    </div>
-
-                    {/* Right Side - Active Step Display */}
-                    <div className="step-display">
-                        {stages.map((stage) => (
-                            <div
-                                key={stage.id}
-                                className={`step-display-content ${activeStep === stage.id ? 'active' : ''}`}
-                            >
-                                <div className="step-display-visual">
-                                    <div className="step-display-icon" style={{ background: stage.color }}>
-                                        {stage.image}
-                                    </div>
-                                    <div className="step-display-circle" style={{ borderColor: stage.color }}></div>
-                                    <div className="step-display-pulse" style={{ background: stage.color }}></div>
-                                </div>
-                                <div className="step-display-text">
-                                    <span className="step-display-label">Step {stage.id}</span>
-                                    <h3 className="step-display-title">{stage.title}</h3>
-                                    <p className="step-display-description">{stage.description}</p>
-                                    <div className="step-display-badge" style={{ background: `${stage.color}20`, color: stage.color }}>
-                                        {stage.stats}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Progress Bar */}
-                <div className="progress-bar-container">
-                    <div className="progress-bar">
-                        <div
-                            className="progress-fill"
-                            style={{
-                                width: `${(activeStep / stages.length) * 100}%`,
-                                background: stages[activeStep - 1]?.color
-                            }}
-                        ></div>
-                    </div>
-                    <div className="progress-text">
-                        Step {activeStep} of {stages.length}
-                    </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </section>

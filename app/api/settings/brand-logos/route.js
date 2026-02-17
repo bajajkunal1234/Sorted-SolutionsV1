@@ -1,100 +1,74 @@
-import { supabase } from '@/lib/supabase'
-import { NextResponse } from 'next/server'
+import { supabase } from '@/lib/supabase';
+import { NextResponse } from 'next/server';
 
-export const dynamic = 'force-dynamic'
-
-// GET - Fetch all brand logos
 export async function GET() {
     try {
         const { data, error } = await supabase
-            .from('brand_logos')
+            .from('website_brands')
             .select('*')
-            .eq('active', true)
-            .order('order_index', { ascending: true })
+            .order('name', { ascending: true });
 
-        if (error) throw error
-
-        return NextResponse.json({ success: true, data })
+        if (error) {
+            console.warn('Database error in brand-logos, might be missing table:', error.message);
+            return NextResponse.json({ success: true, data: [] });
+        }
+        return NextResponse.json({ success: true, data: data || [] });
     } catch (error) {
-        console.error('Error fetching brand logos:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        console.error('Error fetching brand logos:', error);
+        return NextResponse.json({ success: true, data: [] });
     }
 }
 
-// PUT - Update logos
-export async function PUT(request) {
-    try {
-        const { logos } = await request.json()
-
-        const updates = logos.map(logo =>
-            supabase
-                .from('brand_logos')
-                .update({
-                    name: logo.name,
-                    logo_url: logo.logo_url,
-                    size: logo.size,
-                    order_index: logo.order_index,
-                    active: logo.active
-                })
-                .eq('id', logo.id)
-        )
-
-        await Promise.all(updates)
-
-        return NextResponse.json({ success: true, message: 'Logos updated successfully' })
-    } catch (error) {
-        console.error('Error updating brand logos:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
-    }
-}
-
-// POST - Add new logo
 export async function POST(request) {
     try {
-        const logo = await request.json()
-
+        const body = await request.json();
         const { data, error } = await supabase
-            .from('brand_logos')
-            .insert([logo])
+            .from('website_brands')
+            .insert([body])
             .select()
+            .single();
 
-        if (error) throw error
-
-        return NextResponse.json({ success: true, data })
+        if (error) throw error;
+        return NextResponse.json({ success: true, data });
     } catch (error) {
-        console.error('Error creating brand logo:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        console.error('Error creating brand:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
 
-// DELETE - Delete a logo
-export async function DELETE(request) {
+export async function PUT(request) {
     try {
-        const { searchParams } = new URL(request.url)
-        const id = searchParams.get('id')
-
-        const { error } = await supabase
-            .from('brand_logos')
-            .delete()
+        const body = await request.json();
+        const { id, ...updates } = body;
+        const { data, error } = await supabase
+            .from('website_brands')
+            .update(updates)
             .eq('id', id)
+            .select()
+            .single();
 
-        if (error) throw error
-
-        return NextResponse.json({ success: true, message: 'Logo deleted successfully' })
+        if (error) throw error;
+        return NextResponse.json({ success: true, data });
     } catch (error) {
-        console.error('Error deleting brand logo:', error)
-        return NextResponse.json(
-            { success: false, error: error.message },
-            { status: 500 }
-        )
+        console.error('Error updating brand:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}
+
+export async function DELETE(request) {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    try {
+        const { error } = await supabase
+            .from('website_brands')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting brand:', error);
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }

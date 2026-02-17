@@ -79,8 +79,14 @@ function QuickBookingForm({ preSelectedCategory }) {
     const handleSubmit = (e) => {
         e.preventDefault();
         if (isPincodeValid && formData.category && formData.subcategory && formData.issue) {
-            // Redirect to customer login to book service
-            window.location.href = '/customer/login';
+            // Redirect to universal booking wizard
+            const params = new URLSearchParams({
+                category: formData.category,
+                subcategory: formData.subcategory,
+                issue: formData.issue,
+                pincode: formData.pincode
+            });
+            window.location.href = `/booking?${params.toString()}`;
         }
     };
 

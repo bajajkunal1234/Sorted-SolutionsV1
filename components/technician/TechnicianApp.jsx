@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
@@ -117,9 +118,27 @@ function TechnicianApp() {
         fetchIncentives();
         fetchProfile();
 
-        // Refresh jobs every 30 seconds
-        const interval = setInterval(fetchJobs, 30000);
-        return () => clearInterval(interval);
+        // Setup real-time listener
+        const channel = supabase
+            .channel(`technician:jobs:${technicianId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'jobs',
+                    filter: `technician_id=eq.${technicianId}`
+                },
+                (payload) => {
+                    console.log('Real-time job update for technician:', payload);
+                    fetchJobs();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [technicianId, filterStatus]);
 
     // Logout handler

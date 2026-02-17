@@ -12,6 +12,7 @@ import JobsTableView from './jobs/JobsTableView';
 import JobsListView from './jobs/JobsListView';
 import { jobsAPI } from '@/lib/adminAPI';
 import { filterJobs, sortJobs, groupJobsBy } from '@/lib/utils/helpers';
+import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 function JobsTab() {
     const [jobs, setJobs] = useState([]);
@@ -143,29 +144,35 @@ function JobsTab() {
                     Jobs
                 </h2>
 
-                <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
-                    <Search
-                        size={16}
-                        style={{
-                            position: 'absolute',
-                            left: 'var(--spacing-sm)',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: 'var(--text-tertiary)'
-                        }}
-                    />
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Search jobs..."
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                    <AutocompleteSearch
+                        placeholder="Search jobs, customers, IDs..."
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{
-                            paddingLeft: '2rem',
-                            paddingTop: '6px',
-                            paddingBottom: '6px',
-                            fontSize: 'var(--font-size-sm)'
-                        }}
+                        onChange={setSearchTerm}
+                        suggestions={jobs}
+                        onSelect={(item) => setSearchTerm(item.job_number || item.customer?.name || item.description)}
+                        searchKey="description"
+                        renderSuggestion={(job) => (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                        {job.job_number || 'No ID'}
+                                    </span>
+                                    <span style={{
+                                        fontSize: 'var(--font-size-xs)',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        color: 'var(--text-secondary)'
+                                    }}>
+                                        {job.status}
+                                    </span>
+                                </div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                    {job.customer?.name || 'Walk-in'} • {job.description || 'No description'}
+                                </div>
+                            </div>
+                        )}
                     />
                 </div>
 

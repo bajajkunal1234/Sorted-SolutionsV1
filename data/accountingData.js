@@ -1,153 +1,49 @@
 // Account Groups Hierarchy (Tally-compatible)
+// Account Groups Hierarchy (Tally-compatible)
 export const accountGroups = [
-    {
-        id: 'capital-account',
-        name: 'Capital Account',
-        parent: null,
-        nature: 'liability'
-    },
-    {
-        id: 'current-assets',
-        name: 'Current Assets',
-        parent: null,
-        nature: 'asset'
-    },
-    {
-        id: 'cash-in-hand',
-        name: 'Cash in Hand',
-        parent: 'current-assets',
-        nature: 'asset'
-    },
-    {
-        id: 'bank-accounts',
-        name: 'Bank Accounts',
-        parent: 'current-assets',
-        nature: 'asset'
-    },
-    {
-        id: 'sundry-debtors',
-        name: 'Sundry Debtors',
-        parent: 'current-assets',
-        nature: 'asset'
-    },
-    {
-        id: 'customer-accounts',
-        name: 'Customer Accounts',
-        parent: 'sundry-debtors',
-        nature: 'asset'
-    },
-    {
-        id: 'current-liabilities',
-        name: 'Current Liabilities',
-        parent: null,
-        nature: 'liability'
-    },
-    {
-        id: 'sundry-creditors',
-        name: 'Sundry Creditors',
-        parent: 'current-liabilities',
-        nature: 'liability'
-    },
-    {
-        id: 'supplier-accounts',
-        name: 'Supplier Accounts',
-        parent: 'sundry-creditors',
-        nature: 'liability'
-    },
-    {
-        id: 'direct-expenses',
-        name: 'Direct Expenses',
-        parent: null,
-        nature: 'expense'
-    },
-    {
-        id: 'direct-incomes',
-        name: 'Direct Incomes',
-        parent: null,
-        nature: 'income'
-    },
-    {
-        id: 'duties-taxes',
-        name: 'Duties & Taxes',
-        parent: null,
-        nature: 'liability'
-    },
-    {
-        id: 'cgst',
-        name: 'CGST',
-        parent: 'duties-taxes',
-        nature: 'liability'
-    },
-    {
-        id: 'sgst',
-        name: 'SGST',
-        parent: 'duties-taxes',
-        nature: 'liability'
-    },
-    {
-        id: 'igst',
-        name: 'IGST',
-        parent: 'duties-taxes',
-        nature: 'liability'
-    },
-    {
-        id: 'fixed-assets',
-        name: 'Fixed Assets',
-        parent: null,
-        nature: 'asset'
-    },
-    {
-        id: 'indirect-expenses',
-        name: 'Indirect Expenses',
-        parent: null,
-        nature: 'expense'
-    },
-    {
-        id: 'indirect-incomes',
-        name: 'Indirect Incomes',
-        parent: null,
-        nature: 'income'
-    },
-    {
-        id: 'sales-accounts',
-        name: 'Sales Accounts',
-        parent: null,
-        nature: 'income'
-    },
-    {
-        id: 'sales-5',
-        name: 'Sales @ 5%',
-        parent: 'sales-accounts',
-        nature: 'income',
-        gstRate: 5
-    },
-    {
-        id: 'sales-12',
-        name: 'Sales @ 12%',
-        parent: 'sales-accounts',
-        nature: 'income',
-        gstRate: 12
-    },
-    {
-        id: 'sales-18',
-        name: 'Sales @ 18%',
-        parent: 'sales-accounts',
-        nature: 'income',
-        gstRate: 18
-    },
-    {
-        id: 'sales-28',
-        name: 'Sales @ 28%',
-        parent: 'sales-accounts',
-        nature: 'income',
-        gstRate: 28
-    },
-    {
-        id: 'purchase-accounts',
-        name: 'Purchase Accounts',
-        parent: null,
-        nature: 'expense'
-    }
+    // Primary - Assets
+    { id: 'current-assets', name: 'Current Assets', parent: null, nature: 'asset' },
+    { id: 'fixed-assets', name: 'Fixed Assets', parent: null, nature: 'asset' },
+    { id: 'investments', name: 'Investments', parent: null, nature: 'asset' },
+    { id: 'stock-in-hand', name: 'Stock-in-Hand', parent: 'current-assets', nature: 'asset' },
+    { id: 'cash-in-hand', name: 'Cash-in-Hand', parent: 'current-assets', nature: 'asset' },
+    { id: 'bank-accounts', name: 'Bank Accounts', parent: 'current-assets', nature: 'asset' },
+    { id: 'sundry-debtors', name: 'Sundry Debtors', parent: 'current-assets', nature: 'asset' },
+    { id: 'deposits-asset', name: 'Deposits (Asset)', parent: 'current-assets', nature: 'asset' },
+    { id: 'loans-advances-asset', name: 'Loans & Advances (Asset)', parent: 'current-assets', nature: 'asset' },
+    { id: 'misc-expenses-asset', name: 'Misc. Expenses (ASSET)', parent: null, nature: 'asset' },
+
+    // Primary - Liabilities
+    { id: 'capital-account', name: 'Capital Account', parent: null, nature: 'liability' },
+    { id: 'reserves-surplus', name: 'Reserves & Surplus', parent: 'capital-account', nature: 'liability' },
+    { id: 'retained-earnings', name: 'Retained Earnings', parent: 'capital-account', nature: 'liability' },
+    { id: 'current-liabilities', name: 'Current Liabilities', parent: null, nature: 'liability' },
+    { id: 'duties-taxes', name: 'Duties & Taxes', parent: 'current-liabilities', nature: 'liability' },
+    { id: 'provisions', name: 'Provisions', parent: 'current-liabilities', nature: 'liability' },
+    { id: 'sundry-creditors', name: 'Sundry Creditors', parent: 'current-liabilities', nature: 'liability' },
+    { id: 'loans-liability', name: 'Loans (Liability)', parent: null, nature: 'liability' },
+    { id: 'secured-loans', name: 'Secured Loans', parent: 'loans-liability', nature: 'liability' },
+    { id: 'unsecured-loans', name: 'Unsecured Loans', parent: 'loans-liability', nature: 'liability' },
+    { id: 'bank-od-ac', name: 'Bank OD A/c', parent: 'loans-liability', nature: 'liability' },
+    { id: 'bank-occ-ac', name: 'Bank OCC A/c', parent: 'loans-liability', nature: 'liability' },
+
+    // Primary - Incomes
+    { id: 'sales-accounts', name: 'Sales Accounts', parent: null, nature: 'income' },
+    { id: 'direct-incomes', name: 'Direct Incomes', parent: null, nature: 'income' },
+    { id: 'income-direct', name: 'Income (Direct)', parent: 'direct-incomes', nature: 'income' },
+    { id: 'indirect-incomes', name: 'Indirect Incomes', parent: null, nature: 'income' },
+    { id: 'income-indirect', name: 'Income (Indirect)', parent: 'indirect-incomes', nature: 'income' },
+
+    // Primary - Expenses
+    { id: 'purchase-accounts', name: 'Purchase Accounts', parent: null, nature: 'expense' },
+    { id: 'direct-expenses', name: 'Direct Expenses', parent: null, nature: 'expense' },
+    { id: 'expenses-direct', name: 'Expenses (Direct)', parent: 'direct-expenses', nature: 'expense' },
+    { id: 'indirect-expenses', name: 'Indirect Expenses', parent: null, nature: 'expense' },
+    { id: 'expenses-indirect', name: 'Expenses (Indirect)', parent: 'indirect-expenses', nature: 'expense' },
+
+    // Others
+    { id: 'branch-divisions', name: 'Branch / Divisions', parent: null, nature: 'liability' },
+    { id: 'suspense-ac', name: 'Suspense A/c', parent: null, nature: 'liability' }
 ];
 
 // Sample Ledgers
@@ -420,17 +316,7 @@ export const coaFieldMappings = {
         canHaveLedgers: true,
         defaultNature: 'asset'
     },
-    'customer-accounts': {
-        fields: ['accountImage', 'contactPerson', 'mobile', 'email', 'mailingName', 'gstRegistration', 'gstin', 'pan', 'mailingAddress', 'billingAddress', 'shippingAddress', 'creditLimit', 'creditPeriod', 'priceLevel', 'stateName', 'country'],
-        canHaveLedgers: true,
-        defaultNature: 'asset'
-    },
     'sundry-creditors': {
-        fields: ['accountImage', 'contactPerson', 'mobile', 'email', 'mailingName', 'gstRegistration', 'gstin', 'pan', 'mailingAddress', 'billingAddress', 'shippingAddress', 'creditPeriod', 'stateName', 'country'],
-        canHaveLedgers: true,
-        defaultNature: 'liability'
-    },
-    'supplier-accounts': {
         fields: ['accountImage', 'contactPerson', 'mobile', 'email', 'mailingName', 'gstRegistration', 'gstin', 'pan', 'mailingAddress', 'billingAddress', 'shippingAddress', 'creditPeriod', 'stateName', 'country'],
         canHaveLedgers: true,
         defaultNature: 'liability'
@@ -439,6 +325,16 @@ export const coaFieldMappings = {
         fields: ['accountNumber', 'bankName', 'branch', 'ifscCode', 'micrCode', 'accountType', 'enableChequePrinting'],
         canHaveLedgers: true,
         defaultNature: 'asset'
+    },
+    'bank-od-ac': {
+        fields: ['accountNumber', 'bankName', 'branch', 'ifscCode', 'micrCode', 'accountType', 'enableChequePrinting'],
+        canHaveLedgers: true,
+        defaultNature: 'liability'
+    },
+    'bank-occ-ac': {
+        fields: ['accountNumber', 'bankName', 'branch', 'ifscCode', 'micrCode', 'accountType', 'enableChequePrinting'],
+        canHaveLedgers: true,
+        defaultNature: 'liability'
     },
     'cash-in-hand': {
         fields: ['currency'],
@@ -449,24 +345,6 @@ export const coaFieldMappings = {
         fields: ['taxType', 'taxRate', 'roundingMethod'],
         canHaveLedgers: true,
         defaultNature: 'liability'
-    },
-    'cgst': {
-        fields: ['taxRate', 'roundingMethod'],
-        canHaveLedgers: true,
-        defaultNature: 'liability',
-        taxType: 'CGST'
-    },
-    'sgst': {
-        fields: ['taxRate', 'roundingMethod'],
-        canHaveLedgers: true,
-        defaultNature: 'liability',
-        taxType: 'SGST'
-    },
-    'igst': {
-        fields: ['taxRate', 'roundingMethod'],
-        canHaveLedgers: true,
-        defaultNature: 'liability',
-        taxType: 'IGST'
     },
     'direct-expenses': {
         fields: ['gstApplicable', 'gstRegistration', 'gstin', 'costCenterAllocation', 'inventoryAffected'],
@@ -488,10 +366,30 @@ export const coaFieldMappings = {
         canHaveLedgers: true,
         defaultNature: 'income'
     },
+    'sales-accounts': {
+        fields: ['gstApplicable', 'gstRegistration', 'gstin', 'inventoryAffected'],
+        canHaveLedgers: true,
+        defaultNature: 'income'
+    },
+    'purchase-accounts': {
+        fields: ['gstApplicable', 'gstRegistration', 'gstin', 'inventoryAffected'],
+        canHaveLedgers: true,
+        defaultNature: 'expense'
+    },
     'fixed-assets': {
         fields: ['assetCategory', 'purchaseDate', 'purchaseValue', 'depreciationMethod', 'depreciationRate', 'usefulLife'],
         canHaveLedgers: true,
         defaultNature: 'asset'
+    },
+    'capital-account': {
+        fields: ['pan', 'mailingAddress', 'stateName', 'country'],
+        canHaveLedgers: true,
+        defaultNature: 'liability'
+    },
+    'loans-liability': {
+        fields: ['pan', 'mailingAddress', 'stateName', 'country'],
+        canHaveLedgers: true,
+        defaultNature: 'liability'
     }
 };
 

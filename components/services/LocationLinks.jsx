@@ -8,7 +8,8 @@ export default function LocationLinks({
     title = "We are Right In your Neighbourhood",
     subtitle = "Find us in your area",
     category,
-    locations = []
+    locations = [],
+    dynamicLocalities = null // New prop
 }) {
     // Default Mumbai locations if none provided
     const defaultLocations = [
@@ -26,7 +27,16 @@ export default function LocationLinks({
         { name: 'Powai', slug: 'powai' }
     ]
 
-    const locationList = locations.length > 0 ? locations : defaultLocations
+    // Use dynamic localities if provided, else use locations prop, else use defaults
+    let locationList = defaultLocations
+    if (dynamicLocalities && dynamicLocalities.length > 0) {
+        locationList = dynamicLocalities.map(l => ({
+            name: l,
+            slug: l.toLowerCase().replace(/\s+/g, '-')
+        }))
+    } else if (locations && locations.length > 0) {
+        locationList = locations
+    }
 
     return (
         <section className="location-links">

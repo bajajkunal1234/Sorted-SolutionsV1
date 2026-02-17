@@ -1,3 +1,4 @@
+import { supabase } from '@/lib/supabase'
 import HeroSection from '@/components/services/HeroSection'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import CategoryCards from '@/components/services/CategoryCards'
@@ -9,15 +10,68 @@ import LocationLinks from '@/components/services/LocationLinks'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
+import Header from '@/components/common/Header'
 import { getFAQs } from '@/data/faqs'
+import { getProblems } from '@/data/commonProblems'
 
-export default function LocationPage({ params }) {
+export default async function LocationPage({ params }) {
     const { loc } = params
+    const pageId = `loc-${loc}`
 
     // Format location name
     const locationName = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
-    // Main service categories available in this location
+    // 1. Fetch Dynamic Data from Supabase
+    let dynamicSettings = null;
+    try {
+        const { data: pageSettings } = await supabase
+            .from('page_settings')
+            .select('*')
+            .eq('page_id', pageId)
+            .single();
+
+        if (pageSettings) {
+            // Fetch related data
+            const [
+                { data: problems },
+                { data: services },
+                { data: localities },
+                { data: brandMappings },
+                { data: faqMappings }
+            ] = await Promise.all([
+                supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
+                supabase.from('page_faqs_mapping').select('faq_id').eq('page_id', pageId)
+            ]);
+
+            // Map data to component formats
+            dynamicSettings = {
+                problems: problems?.length > 0 ? problems.map(h => ({ question: h.problem_title, answer: h.problem_description })) : null,
+                services: services?.length > 0 ? services.map(s => ({ name: s.service_name, price: s.price_starts_at })) : null,
+                localities: localities?.length > 0 ? localities.map(l => l.locality_name) : null,
+                brandIds: brandMappings?.map(m => m.brand_id) || [],
+                faqIds: faqMappings?.map(m => m.faq_id) || [],
+                problems_title: pageSettings.problems_title,
+                problems_subtitle: pageSettings.problems_subtitle,
+                localities_title: pageSettings.localities_title,
+                localities_subtitle: pageSettings.localities_subtitle,
+                services_title: pageSettings.services_title,
+                services_subtitle: pageSettings.services_subtitle
+            };
+
+            // Fetch specific brand and FAQ objects if we have IDs
+            if (dynamicSettings.faqIds.length > 0) {
+                const { data: fullFaqs } = await supabase.from('website_faqs').select('*').in('id', dynamicSettings.faqIds);
+                dynamicSettings.faqs = fullFaqs?.map(f => ({ question: f.question, answer: f.answer }));
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching dynamic settings:', error);
+    }
+
+    // Main service categories available in this location (Keep static as it's general for all locations)
     const serviceCategories = [
         { slug: 'ac-repair', title: 'AC Repair', description: 'All types of AC repair and servicing', price: 499, icon: '❄️' },
         { slug: 'refrigerator-repair', title: 'Refrigerator Repair', description: 'Fridge repair and gas refilling', price: 599, icon: '🧊' },
@@ -27,32 +81,18 @@ export default function LocationPage({ params }) {
         { slug: 'hob-repair', title: 'Gas Hob Repair', description: 'Gas stove and hob repair', price: 349, icon: '🔥' },
     ]
 
-    // Common problems across all appliances
-    const commonProblems = [
-        'Appliance not working',
-        'Making unusual noise',
-        'Water leakage issues',
-        'Not heating/cooling properly',
-        'Electrical problems',
-        'Gas leakage (for hobs)',
-        'Display not working',
-        'Door/lid issues',
-        'Strange smells',
-        'Performance issues'
+    // Fallbacks
+    const problems = dynamicSettings?.problems || getProblems('ac-repair') // Default to AC problems for locations
+    const faqs = dynamicSettings?.faqs || getFAQs('ac-repair').slice(0, 3)
+    const sublocations = dynamicSettings?.localities || [
+        `${locationName} East`,
+        `${locationName} West`,
+        `${locationName} Central`,
     ]
-
-    // Nearby sublocations
-    const sublocations = [
-        { name: `${locationName} East`, slug: `${loc}-east` },
-        { name: `${locationName} West`, slug: `${loc}-west` },
-        { name: `${locationName} Central`, slug: `${loc}-central` },
-    ]
-
-    // Get general FAQs
-    const faqs = getFAQs('ac-repair').slice(0, 3) // Use first 3 AC FAQs as general
 
     return (
         <div className="service-page location-page">
+            <Header />
             {/* Hero Section */}
             <HeroSection
                 title={`Appliance Repair Services in ${locationName}`}
@@ -74,9 +114,9 @@ export default function LocationPage({ params }) {
 
             {/* Common Problems */}
             <ProblemsSection
-                title="Problems We Solve"
-                subtitle={`Common appliance issues in ${locationName}`}
-                problems={commonProblems}
+                title={dynamicSettings?.problems_title || "Problems We Solve"}
+                subtitle={dynamicSettings?.problems_subtitle || `Common appliance issues in ${locationName}`}
+                problems={problems}
             />
 
             {/* How It Works - Scroll Variant (Layout C) */}
@@ -87,27 +127,29 @@ export default function LocationPage({ params }) {
 
             {/* Why Choose Us */}
             <WhyChooseUs
-                title="Why Choose Us in ${locationName}?"
+                title={`Why Choose Us in ${locationName}?`}
                 subtitle="Local service with premium quality"
             />
 
             {/* Brand Logos */}
             <BrandLogos
-                title="All Brands Serviced"
-                subtitle="We repair all major appliance brands"
+                title="Brands We Serve"
+                subtitle="Trusted by leading appliance manufacturers"
+                selectedBrandIds={dynamicSettings?.brandIds}
             />
 
             {/* Nearby Sublocations */}
             <LocationLinks
-                title={`We Serve All Areas in ${locationName}`}
-                subtitle="Find your specific locality"
-                locations={sublocations}
+                title={dynamicSettings?.localities_title || `We Serve All Areas in ${locationName}`}
+                subtitle={dynamicSettings?.localities_subtitle || "Find your specific locality"}
+                dynamicLocalities={dynamicSettings?.localities}
             />
 
             {/* Frequently Booked Services */}
             <FrequentlyBooked
-                title={`Popular in ${locationName}`}
-                subtitle="Most booked services in your area"
+                title={dynamicSettings?.services_title || `Popular in ${locationName}`}
+                subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
+                dynamicServices={dynamicSettings?.services}
             />
 
             {/* FAQ Section */}
@@ -134,6 +176,7 @@ export async function generateStaticParams() {
         { loc: 'parel' },
         { loc: 'dadar' },
         { loc: 'borivali' },
+        { loc: 'goregaon' },
     ]
 }
 

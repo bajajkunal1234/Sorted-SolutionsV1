@@ -1,53 +1,12 @@
 'use client'
 
-import { useState } from 'react';
-import { Image, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Image as ImageIcon, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink, Loader2 } from 'lucide-react';
 
 function BrandLogosSettings() {
-    const [brands, setBrands] = useState([
-        {
-            id: 1,
-            name: 'LG',
-            logoUrl: '/brands/lg.png',
-            websiteUrl: 'https://www.lg.com',
-            order: 1
-        },
-        {
-            id: 2,
-            name: 'Samsung',
-            logoUrl: '/brands/samsung.png',
-            websiteUrl: 'https://www.samsung.com',
-            order: 2
-        },
-        {
-            id: 3,
-            name: 'Whirlpool',
-            logoUrl: '/brands/whirlpool.png',
-            websiteUrl: 'https://www.whirlpool.com',
-            order: 3
-        },
-        {
-            id: 4,
-            name: 'Godrej',
-            logoUrl: '/brands/godrej.png',
-            websiteUrl: 'https://www.godrej.com',
-            order: 4
-        },
-        {
-            id: 5,
-            name: 'Voltas',
-            logoUrl: '/brands/voltas.png',
-            websiteUrl: 'https://www.voltas.com',
-            order: 5
-        },
-        {
-            id: 6,
-            name: 'Blue Star',
-            logoUrl: '/brands/bluestar.png',
-            websiteUrl: 'https://www.bluestarindia.com',
-            order: 6
-        }
-    ]);
+    const [brands, setBrands] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     const [displaySettings, setDisplaySettings] = useState({
         showOnHomepage: true,
@@ -66,6 +25,37 @@ function BrandLogosSettings() {
         logoUrl: '',
         websiteUrl: ''
     });
+
+    // Load data
+    useEffect(() => {
+        const loadData = async () => {
+            setLoading(true);
+            try {
+                const resB = await fetch('/api/settings/brands');
+                const dataB = await resB.json();
+                if (dataB.success) {
+                    setBrands(dataB.data.map(b => ({
+                        id: b.id,
+                        name: b.name,
+                        logoUrl: b.logo_url,
+                        websiteUrl: b.website_url,
+                        order: b.display_order
+                    })));
+                }
+
+                const resC = await fetch('/api/settings/section-configs?id=brands');
+                const dataC = await resC.json();
+                if (dataC.success && dataC.data) {
+                    setDisplaySettings(dataC.data.extra_config || displaySettings);
+                }
+            } catch (error) {
+                console.error('Error loading brand settings:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        loadData();
+    }, []);
 
     const handleEdit = (brand) => {
         setEditingId(brand.id);
@@ -91,16 +81,39 @@ function BrandLogosSettings() {
 
     const handleAddBrand = () => {
         if (newBrand.name && newBrand.logoUrl) {
-            const newId = Math.max(...brands.map(b => b.id), 0) + 1;
-            setBrands([...brands, { ...newBrand, id: newId, order: brands.length + 1 }]);
+            const tempId = `temp-${Date.now()}`;
+            setBrands([...brands, { ...newBrand, id: tempId, order: brands.length + 1 }]);
             setNewBrand({ name: '', logoUrl: '', websiteUrl: '' });
             setShowAddForm(false);
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('Brand logos settings saved successfully!');
+    const handleSaveAll = async () => {
+        setSaving(true);
+        try {
+            // Save brands
+            await fetch('/api/settings/brands', {
+                method: 'POST',
+                body: JSON.stringify(brands)
+            });
+
+            // Save config
+            await fetch('/api/settings/section-configs', {
+                method: 'POST',
+                body: JSON.stringify({
+                    section_id: 'brands',
+                    extra_config: displaySettings
+                })
+            });
+
+            alert('Brand logos settings saved successfully!');
+            window.location.reload();
+        } catch (error) {
+            console.error('Error saving brands:', error);
+            alert('An error occurred.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
