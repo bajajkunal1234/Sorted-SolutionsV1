@@ -1,0 +1,76 @@
+/* Header Styles - Identical to MobileHomepage.css */
+.mobile-header {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    padding: 12px 16px;
+    width: 100%;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.logo {
+    text-decoration: none;
+}
+
+.logo h1 {
+    font-size: 18px;
+    font-weight: 700;
+    color: #2563eb;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.call-button,
+.login-button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.call-button {
+    background: #10b981;
+    color: white;
+}
+
+.call-button:hover {
+    background: #059669;
+    transform: scale(1.05);
+}
+
+.login-button {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.login-button:hover {
+    background: #e5e7eb;
+}
+
+@media (min-width: 768px) {
+    .logo h1 {
+        font-size: 22px;
+    }
+}
