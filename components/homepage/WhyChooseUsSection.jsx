@@ -77,6 +77,8 @@ function WhyChooseUsSection() {
                 }
 
                 // Fetch configs
+                const resConfig = await fetch('/api/settings/section-configs?id=why-choose-us');
+                const dataConfig = await resConfig.json();
                 if (dataConfig.success && dataConfig.data) {
                     setHorizontalScroll(dataConfig.data.extra_config?.horizontal_scroll ?? true);
                 }
