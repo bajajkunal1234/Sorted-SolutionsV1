@@ -139,27 +139,6 @@ function InventoryTab() {
         }
     };
 
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
-                <div className="loader" style={{ marginRight: 'var(--spacing-sm)' }}></div>
-                Loading inventory...
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ef4444', padding: 'var(--spacing-xl)' }}>
-                <X size={48} style={{ marginBottom: 'var(--spacing-md)' }} />
-                <p>{error}</p>
-                <button className="btn btn-secondary" onClick={() => window.location.reload()} style={{ marginTop: 'var(--spacing-md)' }}>
-                    Retry
-                </button>
-            </div>
-        );
-    }
-
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Row 1: Tab Name + Search + Create Button */}
@@ -331,35 +310,54 @@ function InventoryTab() {
 
             {/* Content Area */}
             <div style={{ flex: 1, overflow: 'auto' }}>
-                {viewType === 'table' && <InventoryTableView products={filteredProducts} onProductClick={setSelectedProduct} />}
-                {viewType === 'card' && <InventoryCardView products={filteredProducts} onProductClick={setSelectedProduct} />}
-                {viewType === 'kanban' && (
-                    <InventoryKanbanView
-                        products={filteredProducts}
-                        onProductClick={setSelectedProduct}
-                        onProductUpdate={handleUpdateProduct}
-                    />
+                {loading ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+                        <div className="loader" style={{ marginRight: 'var(--spacing-sm)' }}></div>
+                        Loading inventory...
+                    </div>
+                ) : error ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ef4444', padding: 'var(--spacing-xl)' }}>
+                        <X size={48} style={{ marginBottom: 'var(--spacing-md)' }} />
+                        <p>{error}</p>
+                        <button className="btn btn-secondary" onClick={() => window.location.reload()} style={{ marginTop: 'var(--spacing-md)' }}>
+                            Retry
+                        </button>
+                    </div>
+                ) : (
+                    <>
+                        {viewType === 'table' && <InventoryTableView products={filteredProducts} onProductClick={setSelectedProduct} />}
+                        {viewType === 'card' && <InventoryCardView products={filteredProducts} onProductClick={setSelectedProduct} />}
+                        {viewType === 'kanban' && (
+                            <InventoryKanbanView
+                                products={filteredProducts}
+                                onProductClick={setSelectedProduct}
+                                onProductUpdate={handleUpdateProduct}
+                            />
+                        )}
+                        {viewType === 'details' && <InventoryDetailsView products={filteredProducts} onProductClick={setSelectedProduct} />}
+                    </>
                 )}
-                {viewType === 'details' && <InventoryDetailsView products={filteredProducts} onProductClick={setSelectedProduct} />}
             </div>
 
             {/* Summary Footer */}
-            <div style={{
-                padding: 'var(--spacing-xs) var(--spacing-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                borderTop: '1px solid var(--border-primary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                fontSize: 'var(--font-size-xs)'
-            }}>
-                <span style={{ color: 'var(--text-secondary)' }}>
-                    Showing {filteredProducts.length} of {products.length} items
-                </span>
-                <span style={{ fontWeight: 600 }}>
-                    Total Stock: {totalStock} units
-                </span>
-            </div>
+            {!loading && !error && (
+                <div style={{
+                    padding: 'var(--spacing-xs) var(--spacing-md)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderTop: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: 'var(--font-size-xs)'
+                }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>
+                        Showing {filteredProducts.length} of {products.length} items
+                    </span>
+                    <span style={{ fontWeight: 600 }}>
+                        Total Stock: {totalStock} units
+                    </span>
+                </div>
+            )}
 
             {/* Product Detail Modal */}
             {selectedProduct && (
