@@ -3,6 +3,23 @@
 import { useState, useEffect } from 'react';
 import { categoryGroups, settingsByCategory } from '@/lib/data/websiteSettingsData';
 
+// Settings Components
+import BookingSlots from './BookingSlots';
+import HeaderLocations from './HeaderLocations';
+import QuickBookingFormSettings from './QuickBookingFormSettings';
+import FrequentlyBookedServicesSettings from './FrequentlyBookedServicesSettings';
+import FooterLocationsSettings from './FooterLocationsSettings';
+import FAQsManagement from './FAQsManagement';
+import HowItWorksSettings from './HowItWorksSettings';
+import WhyChooseUsSettings from './WhyChooseUsSettings';
+import BrandLogosSettings from './BrandLogosSettings';
+import SEOSettings from './SEOSettings';
+import CustomerTestimonialsSettings from './CustomerTestimonialsSettings';
+import TechnicianJoinFormSettings from './TechnicianJoinFormSettings';
+import ServiceIconsSettings from './ServiceIconsSettings';
+import StaticPagesSettings from './StaticPagesSettings';
+import PageSettingsManager from '@/components/reports/PageSettingsManager';
+
 function WebsiteSettings({ subSection, setSubSection }) {
     const [activeCategory, setActiveCategory] = useState(null);
 

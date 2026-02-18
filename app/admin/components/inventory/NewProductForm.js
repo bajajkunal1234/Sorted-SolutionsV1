@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { X, Upload, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
-import { productCategories } from '@/lib/data/inventoryData';
 
-function NewProductForm({ onClose, onSave }) {
+
+function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] }) {
     // Auto-generate SKU
     const generateSKU = () => {
         const timestamp = Date.now().toString().slice(-6);
@@ -45,15 +45,7 @@ function NewProductForm({ onClose, onSave }) {
 
     const [imagePreview, setImagePreview] = useState([]);
 
-    // Sample Terms & Conditions Templates (these would come from Print Setup in Reports tab)
-    const termsTemplates = [
-        { id: 'invoice-std', name: 'Standard Invoice Terms', type: 'invoice' },
-        { id: 'invoice-warranty', name: 'Invoice with Warranty Terms', type: 'invoice' },
-        { id: 'quotation-std', name: 'Standard Quotation Terms', type: 'quotation' },
-        { id: 'quotation-validity', name: 'Quotation with Validity Terms', type: 'quotation' },
-        { id: 'service-general', name: 'General Service Terms', type: 'service' },
-        { id: 'service-amc', name: 'AMC Service Terms', type: 'service' }
-    ];
+
 
     const handleImageUpload = (e) => {
         const files = Array.from(e.target.files);
@@ -191,7 +183,7 @@ function NewProductForm({ onClose, onSave }) {
                                         list="category-suggestions"
                                     />
                                     <datalist id="category-suggestions">
-                                        {productCategories.map(cat => (
+                                        {categories.map(cat => (
                                             <option key={cat.id} value={cat.name} />
                                         ))}
                                     </datalist>

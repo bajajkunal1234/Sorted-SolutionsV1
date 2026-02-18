@@ -9,8 +9,9 @@ import ReportsTab from './components/ReportsTab'
 import './admin.css'
 import './modal-improvements.css'
 
+
 export default function AdminApp() {
-    const [activeTab, setActiveTab] = useState('jobs')
+    const [activeTab, setActiveTab] = useState('dashboard')
     const [customerToOpen, setCustomerToOpen] = useState(null)
 
     // Set up global function to open customer account from Jobs tab
@@ -38,14 +39,14 @@ export default function AdminApp() {
                 return <JobsTab />
             case 'dashboard':
                 return (
-                    <div className="p-md">
+                    <div className="dashboard-placeholder">
                         <h2>Dashboard</h2>
-                        <p style={{ color: 'var(--text-secondary)' }}>Dashboard with ERP features coming soon...</p>
-                        <div style={{ marginTop: 'var(--spacing-md)' }}>
-                            <a href="/technician" style={{ color: '#3b82f6', textDecoration: 'none', marginRight: 'var(--spacing-md)' }}>
+                        <p>Dashboard with ERP features coming soon...</p>
+                        <div className="portal-links">
+                            <a href="/technician" className="portal-link">
                                 → Go to Technician Portal
                             </a>
-                            <a href="/customer" style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                            <a href="/customer" className="portal-link">
                                 → Go to Customer Portal
                             </a>
                         </div>
@@ -63,20 +64,20 @@ export default function AdminApp() {
     }
 
     return (
-        <div className="app-container">
+        <div className="admin-app">
             {/* Main Content */}
-            <div className="main-content">
+            <div className="admin-content-area">
                 {renderTabContent()}
             </div>
 
             {/* Bottom Navigation */}
-            <nav className="bottom-tabs">
+            <nav className="bottom-nav">
                 {tabs.map(tab => {
                     const Icon = tab.icon
                     return (
                         <button
                             key={tab.id}
-                            className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
+                            className={`bottom-nav-item ${activeTab === tab.id ? 'active' : ''}`}
                             onClick={() => setActiveTab(tab.id)}
                         >
                             <Icon size={20} />
@@ -86,5 +87,5 @@ export default function AdminApp() {
                 })}
             </nav>
         </div>
-    )
+    );
 }

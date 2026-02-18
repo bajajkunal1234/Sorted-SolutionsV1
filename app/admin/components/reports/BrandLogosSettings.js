@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Image as ImageIcon, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink, Loader2 } from 'lucide-react';
+import { Image as ImageIcon, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteSettingsAPI, websiteBrandsAPI } from '@/lib/adminAPI';
 
 function BrandLogosSettings() {
     const [brands, setBrands] = useState([]);
@@ -9,25 +10,31 @@ function BrandLogosSettings() {
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        fetchBrands();
+        fetchData();
     }, []);
 
-    const fetchBrands = async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/settings/brand-logos');
-            const data = await res.json();
-            if (data.success) {
-                // Map API fields (logo_url, order_index) to component state fields (logoUrl, order)
-                const mappedBrands = data.data.map(b => ({
+            const [brandsData, configData] = await Promise.all([
+                websiteBrandsAPI.getAll(),
+                websiteSettingsAPI.getByKey('brand-logos-config')
+            ]);
+
+            if (brandsData) {
+                const mappedBrands = brandsData.map(b => ({
                     ...b,
                     logoUrl: b.logo_url || '',
                     order: b.order_index || 0
                 }));
                 setBrands(mappedBrands);
             }
+
+            if (configData && configData.value) {
+                setDisplaySettings(prev => ({ ...prev, ...configData.value }));
+            }
         } catch (error) {
-            console.error('Error fetching brands:', error);
+            console.error('Error fetching brand data:', error);
         } finally {
             setLoading(false);
         }
@@ -70,13 +77,11 @@ function BrandLogosSettings() {
     const handleDelete = async (id) => {
         if (confirm('Are you sure you want to delete this brand?')) {
             try {
-                const res = await fetch(`/api/settings/brand-logos?id=${id}`, { method: 'DELETE' });
-                const data = await res.json();
-                if (data.success) {
-                    setBrands(brands.filter(b => b.id !== id));
-                }
+                await websiteBrandsAPI.delete(id);
+                setBrands(brands.filter(b => b.id !== id));
             } catch (error) {
                 console.error('Error deleting brand:', error);
+                alert('Failed to delete brand');
             }
         }
     };
@@ -84,23 +89,19 @@ function BrandLogosSettings() {
     const handleAddBrand = async () => {
         if (newBrand.name && newBrand.logoUrl) {
             try {
-                const res = await fetch('/api/settings/brand-logos', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: newBrand.name,
-                        logo_url: newBrand.logoUrl,
-                        website_url: newBrand.websiteUrl,
-                        order_index: brands.length + 1,
-                        active: true
-                    })
+                const addedData = await websiteBrandsAPI.create({
+                    name: newBrand.name,
+                    logo_url: newBrand.logoUrl,
+                    website_url: newBrand.websiteUrl,
+                    order_index: brands.length + 1,
+                    active: true
                 });
-                const data = await res.json();
-                if (data.success) {
+
+                if (addedData) {
                     const addedBrand = {
-                        ...data.data[0],
-                        logoUrl: data.data[0].logo_url,
-                        order: data.data[0].order_index
+                        ...(Array.isArray(addedData) ? addedData[0] : addedData),
+                        logoUrl: (Array.isArray(addedData) ? addedData[0] : addedData).logo_url,
+                        order: (Array.isArray(addedData) ? addedData[0] : addedData).order_index
                     };
                     setBrands([...brands, addedBrand]);
                     setNewBrand({ name: '', logoUrl: '', websiteUrl: '' });
@@ -108,6 +109,7 @@ function BrandLogosSettings() {
                 }
             } catch (error) {
                 console.error('Error adding brand:', error);
+                alert('Failed to add brand');
             }
         }
     };
@@ -115,24 +117,21 @@ function BrandLogosSettings() {
     const handleSaveAll = async () => {
         setSaving(true);
         try {
-            const mappedLogos = brands.map(b => ({
+            const mappedLogos = brands.map((b, index) => ({
                 id: b.id,
                 name: b.name,
                 logo_url: b.logoUrl,
                 website_url: b.websiteUrl,
-                order_index: b.order,
+                order_index: index + 1,
                 active: true
             }));
 
-            const res = await fetch('/api/settings/brand-logos', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ logos: mappedLogos })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert('Brand logos settings saved successfully!');
-            }
+            await Promise.all([
+                websiteBrandsAPI.saveAll(mappedLogos),
+                websiteSettingsAPI.save('brand-logos-config', displaySettings, 'Display settings for brand logos')
+            ]);
+
+            alert('Brand logos settings saved successfully!');
         } catch (error) {
             console.error('Error saving brands:', error);
             alert('Failed to save brands');

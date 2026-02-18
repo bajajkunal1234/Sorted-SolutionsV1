@@ -4,15 +4,9 @@ import { useState } from 'react';
 import { X, User, FileText, Bell, History, Receipt, Edit2, Save, MapPin, Phone, Mail, Package, Shield, Upload, Trash2, Plus, AlertCircle } from 'lucide-react';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 import { getRequiredFields, generateInitialsAvatar } from '@/lib/utils/accountHelpers';
-import { accountGroups } from '@/lib/data/accountingData';
 import { validateMobileNumber } from '@/lib/utils/validation';
-import CustomerPropertiesTab from './accounts/CustomerPropertiesTab';
-import RemindersTab from './accounts/RemindersTab';
-import InteractionsTab from './accounts/InteractionsTab';
-import TransactionsTab from './accounts/TransactionsTab';
-import RentAMCTab from './accounts/RentAMCTab';
 
-function AccountDetailModal({ account, onClose, onUpdate }) {
+function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [isEditing, setIsEditing] = useState(false);
     const [editedAccount, setEditedAccount] = useState({
@@ -90,11 +84,11 @@ function AccountDetailModal({ account, onClose, onUpdate }) {
 
     const tabs = [...baseTabs, ...customerOnlyTabs, ...commonTabs, ...rentAmcTabs];
 
-    const groupPath = getGroupPath(account.under, accountGroups);
+    const groupPath = getGroupPath(account.under, groups);
     const isPositive = (account.closingBalance || 0) >= 0;
 
-    // Get required fields for current account type
-    const requiredFields = getRequiredFields(editedAccount.under || account.under);
+    // Get required fields for current account type (with inheritance)
+    const requiredFields = getRequiredFields(editedAccount.under || account.under, groups);
     const showField = (fieldName) => requiredFields.includes(fieldName);
 
     // Handle image upload
@@ -350,15 +344,7 @@ function AccountDetailModal({ account, onClose, onUpdate }) {
                                         />
                                     </div>
 
-                                    <div className="form-group">
-                                        <label className="form-label">Type</label>
-                                        <select className="form-select" value={editedAccount.type} disabled style={{ backgroundColor: 'var(--bg-tertiary)' }}>
-                                            <option value="customer">Customer</option>
-                                            <option value="supplier">Supplier</option>
-                                            <option value="technician">Technician</option>
-                                            <option value="cash">Cash/Bank</option>
-                                        </select>
-                                    </div>
+
 
                                     <div className="form-group">
                                         <label className="form-label">Under Group *</label>
@@ -369,9 +355,9 @@ function AccountDetailModal({ account, onClose, onUpdate }) {
                                             disabled={!isEditing}
                                             style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
                                         >
-                                            {accountGroups.map(group => (
+                                            {groups.map(group => (
                                                 <option key={group.id} value={group.id}>
-                                                    {getGroupPath(group.id, accountGroups)}
+                                                    {getGroupPath(group.id, groups)}
                                                 </option>
                                             ))}
                                         </select>

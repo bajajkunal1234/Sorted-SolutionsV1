@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Users, Plus, Edit2, Power, Save, X, Eye, EyeOff, Shield } from 'lucide-react';
-import { techniciansAPI } from '@/lib/adminAPI';
+import { Users, Plus, Edit2, Power, Save, X, Eye, EyeOff, Shield, Loader2, RefreshCcw } from 'lucide-react';
+import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
 
 function TechnicianManagement() {
     const [technicians, setTechnicians] = useState([]);
@@ -11,14 +11,38 @@ function TechnicianManagement() {
     const [editingTechnician, setEditingTechnician] = useState(null);
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [activeModalTab, setActiveModalTab] = useState('credentials'); // 'credentials' or 'permissions'
+    const [allPermissions, setAllPermissions] = useState({});
+    const [saving, setSaving] = useState(false);
 
     const [formData, setFormData] = useState({
         technician_id: '',
         username: '',
         password: '',
         confirmPassword: '',
-        is_active: true
+        is_active: true,
+        permissions: {
+            viewJobs: true,
+            updateJobStatus: true,
+            submitExpenses: true,
+            viewInventory: true,
+            updateInventory: false,
+            viewCustomerDetails: true,
+            editCustomerDetails: false,
+            viewReports: false
+        }
     });
+
+    const permissionsList = [
+        { id: 'viewJobs', label: 'View Jobs', description: 'Can see assigned jobs' },
+        { id: 'updateJobStatus', label: 'Update Job Status', description: 'Can mark jobs as complete/in-progress' },
+        { id: 'submitExpenses', label: 'Submit Expenses', description: 'Can submit daily expenses' },
+        { id: 'viewInventory', label: 'View Inventory', description: 'Can see inventory items' },
+        { id: 'updateInventory', label: 'Update Inventory', description: 'Can add/remove inventory items' },
+        { id: 'viewCustomerDetails', label: 'View Customer Details', description: 'Can see customer information' },
+        { id: 'editCustomerDetails', label: 'Edit Customer Details', description: 'Can modify customer information' },
+        { id: 'viewReports', label: 'View Reports', description: 'Can access reports and analytics' }
+    ];
 
     const [errors, setErrors] = useState({});
 
@@ -28,10 +52,16 @@ function TechnicianManagement() {
 
     const fetchTechnicians = async () => {
         try {
-            const data = await techniciansAPI.getAll();
-            setTechnicians(data || []);
+            setLoading(true);
+            const [techsData, permsData] = await Promise.all([
+                techniciansAPI.getAll(),
+                websiteSettingsAPI.getByKey('technician-permissions')
+            ]);
+
+            setTechnicians(techsData || []);
+            setAllPermissions(permsData?.value || {});
         } catch (err) {
-            console.error('Error fetching technicians:', err);
+            console.error('Error fetching data:', err);
         } finally {
             setLoading(false);
         }
@@ -69,6 +99,7 @@ function TechnicianManagement() {
         if (!validateForm()) return;
 
         try {
+            setSaving(true);
             const updateData = {
                 username: formData.username,
                 is_active: formData.is_active
@@ -79,30 +110,47 @@ function TechnicianManagement() {
                 updateData.password = formData.password;
             }
 
-            if (editingTechnician) {
-                await techniciansAPI.update(formData.technician_id, updateData);
-            } else {
-                await techniciansAPI.update(formData.technician_id, updateData);
-            }
+            // Save Credentials
+            await techniciansAPI.update(formData.technician_id, updateData);
+
+            // Save Permissions
+            const updatedPermissions = {
+                ...allPermissions,
+                [formData.technician_id]: formData.permissions
+            };
+            await websiteSettingsAPI.save('technician-permissions', updatedPermissions, 'Technician access control permissions');
 
             await fetchTechnicians();
             handleCloseForm();
-            alert('Technician credentials saved successfully!');
+            alert('Technician settings saved successfully!');
         } catch (err) {
             console.error('Error saving technician:', err);
             alert('Failed to save technician: ' + err.message);
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleEdit = (tech) => {
+    const handleEdit = (tech, tab = 'credentials') => {
         setEditingTechnician(tech);
         setFormData({
             technician_id: tech.id,
             username: tech.username || '',
             password: '',
             confirmPassword: '',
-            is_active: tech.is_active !== false
+            is_active: tech.is_active !== false,
+            permissions: allPermissions[tech.id] || {
+                viewJobs: true,
+                updateJobStatus: true,
+                submitExpenses: true,
+                viewInventory: true,
+                updateInventory: false,
+                viewCustomerDetails: true,
+                editCustomerDetails: false,
+                viewReports: false
+            }
         });
+        setActiveModalTab(tab);
         setShowForm(true);
     };
 
@@ -124,11 +172,22 @@ function TechnicianManagement() {
             username: '',
             password: '',
             confirmPassword: '',
-            is_active: true
+            is_active: true,
+            permissions: {
+                viewJobs: true,
+                updateJobStatus: true,
+                submitExpenses: true,
+                viewInventory: true,
+                updateInventory: false,
+                viewCustomerDetails: true,
+                editCustomerDetails: false,
+                viewReports: false
+            }
         });
         setErrors({});
         setShowPassword(false);
         setShowConfirmPassword(false);
+        setActiveModalTab('credentials');
     };
 
     if (loading) {
@@ -229,7 +288,15 @@ function TechnicianManagement() {
                                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
                                             <button
                                                 className="btn-icon"
-                                                onClick={() => handleEdit(tech)}
+                                                onClick={() => handleEdit(tech, 'permissions')}
+                                                title="Edit permissions"
+                                                style={{ color: 'var(--color-primary)' }}
+                                            >
+                                                <Shield size={16} />
+                                            </button>
+                                            <button
+                                                className="btn-icon"
+                                                onClick={() => handleEdit(tech, 'credentials')}
                                                 title="Edit credentials"
                                             >
                                                 <Edit2 size={16} />
@@ -257,161 +324,219 @@ function TechnicianManagement() {
             {showForm && (
                 <div className="modal-overlay" onClick={handleCloseForm}>
                     <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-                        <div className="modal-header">
-                            <div>
-                                <h2 className="modal-title">
-                                    {editingTechnician ? 'Edit' : 'Setup'} Technician Credentials
-                                </h2>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                    {editingTechnician ? 'Update login credentials' : 'Create login credentials for technician'}
-                                </p>
+                        <div className="modal-header" style={{ paddingBottom: 0 }}>
+                            <div style={{ width: '100%' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                                    <h2 className="modal-title">
+                                        {editingTechnician ? 'Edit' : 'Setup'} Technician Profile
+                                    </h2>
+                                    <button className="btn-icon" onClick={handleCloseForm}>
+                                        <X size={20} />
+                                    </button>
+                                </div>
+
+                                {/* Modal Tabs */}
+                                <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                                    <button
+                                        className={`modal-tab ${activeModalTab === 'credentials' ? 'active' : ''}`}
+                                        onClick={() => setActiveModalTab('credentials')}
+                                        style={{ padding: 'var(--spacing-sm) 0', borderBottom: activeModalTab === 'credentials' ? '2px solid var(--color-primary)' : 'none', color: activeModalTab === 'credentials' ? 'var(--color-primary)' : 'var(--text-secondary)', background: 'none', cursor: 'pointer', fontWeight: activeModalTab === 'credentials' ? 600 : 400 }}
+                                    >
+                                        Credentials
+                                    </button>
+                                    <button
+                                        className={`modal-tab ${activeModalTab === 'permissions' ? 'active' : ''}`}
+                                        onClick={() => setActiveModalTab('permissions')}
+                                        style={{ padding: 'var(--spacing-sm) 0', borderBottom: activeModalTab === 'permissions' ? '2px solid var(--color-primary)' : 'none', color: activeModalTab === 'permissions' ? 'var(--color-primary)' : 'var(--text-secondary)', background: 'none', cursor: 'pointer', fontWeight: activeModalTab === 'permissions' ? 600 : 400 }}
+                                    >
+                                        Permissions
+                                    </button>
+                                </div>
                             </div>
-                            <button className="btn-icon" onClick={handleCloseForm}>
-                                <X size={20} />
-                            </button>
                         </div>
 
-                        <div className="modal-body">
-                            {/* Technician Selection */}
-                            <div className="form-group">
-                                <label className="form-label">Technician Account *</label>
-                                <select
-                                    className="form-select"
-                                    value={formData.technician_id}
-                                    onChange={(e) => setFormData({ ...formData, technician_id: e.target.value })}
-                                    disabled={editingTechnician}
-                                >
-                                    <option value="">Select technician...</option>
-                                    {technicians.map(tech => (
-                                        <option key={tech.id} value={tech.id}>
-                                            {tech.name} - {tech.phone}
-                                        </option>
+                        <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto', padding: 'var(--spacing-lg)' }}>
+                            {activeModalTab === 'credentials' ? (
+                                <>
+                                    {/* Technician Selection */}
+                                    <div className="form-group">
+                                        <label className="form-label">Technician Account *</label>
+                                        <select
+                                            className="form-select"
+                                            value={formData.technician_id}
+                                            onChange={(e) => setFormData({ ...formData, technician_id: e.target.value })}
+                                            disabled={editingTechnician}
+                                        >
+                                            <option value="">Select technician...</option>
+                                            {technicians.map(tech => (
+                                                <option key={tech.id} value={tech.id}>
+                                                    {tech.name} - {tech.phone}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {errors.technician_id && (
+                                            <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
+                                                {errors.technician_id}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Username */}
+                                    <div className="form-group">
+                                        <label className="form-label">Username *</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="e.g., john_tech"
+                                            value={formData.username}
+                                            onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
+                                        />
+                                        {errors.username && (
+                                            <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
+                                                {errors.username}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Password */}
+                                    <div className="form-group">
+                                        <label className="form-label">
+                                            Password {editingTechnician ? '(leave blank to keep current)' : '*'}
+                                        </label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                className="form-input"
+                                                placeholder="Minimum 8 characters"
+                                                value={formData.password}
+                                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                                style={{ paddingRight: '40px' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    right: '8px',
+                                                    top: '50%',
+                                                    transform: 'translateY(-50%)',
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    color: 'var(--text-tertiary)',
+                                                    padding: '4px'
+                                                }}
+                                            >
+                                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                        {errors.password && (
+                                            <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
+                                                {errors.password}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Confirm Password */}
+                                    <div className="form-group">
+                                        <label className="form-label">Confirm Password *</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type={showConfirmPassword ? 'text' : 'password'}
+                                                className="form-input"
+                                                placeholder="Re-enter password"
+                                                value={formData.confirmPassword}
+                                                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                                                style={{ paddingRight: '40px' }}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                style={{
+                                                    position: 'absolute',
+                                                    right: '8px',
+                                                    top: '50%',
+                                                    transform: 'translateY(-50%)',
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    color: 'var(--text-tertiary)',
+                                                    padding: '4px'
+                                                }}
+                                            >
+                                                {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                            </button>
+                                        </div>
+                                        {errors.confirmPassword && (
+                                            <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
+                                                {errors.confirmPassword}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Active Status */}
+                                    <div className="form-group">
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.is_active}
+                                                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                                                style={{ width: '18px', height: '18px' }}
+                                            />
+                                            <span className="form-label" style={{ marginBottom: 0 }}>
+                                                <Shield size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
+                                                Active (Allow login)
+                                            </span>
+                                        </label>
+                                    </div>
+                                </>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+                                        Set access permissions for this technician.
+                                    </p>
+                                    {permissionsList.map(permission => (
+                                        <div
+                                            key={permission.id}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: 'var(--spacing-sm)',
+                                                borderRadius: 'var(--radius-md)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border-primary)'
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{permission.label}</div>
+                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{permission.description}</div>
+                                            </div>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.permissions[permission.id]}
+                                                onChange={() => setFormData({
+                                                    ...formData,
+                                                    permissions: {
+                                                        ...formData.permissions,
+                                                        [permission.id]: !formData.permissions[permission.id]
+                                                    }
+                                                })}
+                                                style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--color-primary)' }}
+                                            />
+                                        </div>
                                     ))}
-                                </select>
-                                {errors.technician_id && (
-                                    <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
-                                        {errors.technician_id}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Username */}
-                            <div className="form-group">
-                                <label className="form-label">Username *</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="e.g., john_tech"
-                                    value={formData.username}
-                                    onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
-                                />
-                                {errors.username && (
-                                    <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
-                                        {errors.username}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Password */}
-                            <div className="form-group">
-                                <label className="form-label">
-                                    Password {editingTechnician ? '(leave blank to keep current)' : '*'}
-                                </label>
-                                <div style={{ position: 'relative' }}>
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        className="form-input"
-                                        placeholder="Minimum 8 characters"
-                                        value={formData.password}
-                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                                        style={{ paddingRight: '40px' }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        style={{
-                                            position: 'absolute',
-                                            right: '8px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            color: 'var(--text-tertiary)',
-                                            padding: '4px'
-                                        }}
-                                    >
-                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                    </button>
                                 </div>
-                                {errors.password && (
-                                    <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
-                                        {errors.password}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Confirm Password */}
-                            <div className="form-group">
-                                <label className="form-label">Confirm Password *</label>
-                                <div style={{ position: 'relative' }}>
-                                    <input
-                                        type={showConfirmPassword ? 'text' : 'password'}
-                                        className="form-input"
-                                        placeholder="Re-enter password"
-                                        value={formData.confirmPassword}
-                                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                                        style={{ paddingRight: '40px' }}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        style={{
-                                            position: 'absolute',
-                                            right: '8px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            color: 'var(--text-tertiary)',
-                                            padding: '4px'
-                                        }}
-                                    >
-                                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                    </button>
-                                </div>
-                                {errors.confirmPassword && (
-                                    <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
-                                        {errors.confirmPassword}
-                                    </span>
-                                )}
-                            </div>
-
-                            {/* Active Status */}
-                            <div className="form-group">
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.is_active}
-                                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                                        style={{ width: '18px', height: '18px' }}
-                                    />
-                                    <span className="form-label" style={{ marginBottom: 0 }}>
-                                        <Shield size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                                        Active (Allow login)
-                                    </span>
-                                </label>
-                            </div>
+                            )}
                         </div>
 
                         <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={handleCloseForm}>
+                            <button className="btn btn-secondary" onClick={handleCloseForm} disabled={saving}>
                                 Cancel
                             </button>
-                            <button className="btn btn-primary" onClick={handleSubmit}>
-                                <Save size={16} />
-                                Save Credentials
+                            <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
+                                {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                                {saving ? 'Saving...' : 'Save Settings'}
                             </button>
                         </div>
                     </div>

@@ -84,8 +84,6 @@
     color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.2s;
-    border-radius: 8px;
-    max-width: 100px;
 }
 
 .bottom-nav-item:hover {
@@ -137,12 +135,12 @@
     --text-tertiary: #9ca3af;
 }
 
-/* Responsive */
-@media (min-width: 768px) {
+/* Responsive - Removed "modern" centering to keep it stretched */
+/* @media (min-width: 768px) {
     .bottom-nav {
         max-width: 600px;
         left: 50%;
         transform: translateX(-50%);
         border-radius: 16px 16px 0 0;
     }
-}
+} */

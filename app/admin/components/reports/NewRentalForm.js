@@ -1,25 +1,41 @@
 'use client'
 
-import { useState } from 'react';
-import { X, Plus } from 'lucide-react';
-import { sampleLedgers } from '@/lib/data/accountingData';
-import { rentalPlans } from '@/lib/data/rentalsAmcData';
+import { useState, useEffect } from 'react';
+import { X, Plus, RefreshCcw } from 'lucide-react';
+import { accountsAPI } from '@/lib/adminAPI';
 
-function NewRentalForm({ onClose, onSave, onNewCustomer }) {
-    const customers = sampleLedgers.filter(l => l.type === 'customer');
+function NewRentalForm({ plans = [], onClose, onSave, onNewCustomer }) {
+    const [customers, setCustomers] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     const [formData, setFormData] = useState({
         customerId: '',
         property: null,
         planId: '',
         selectedTenure: null,
-        deliveryAddressId: '',
+        serialNumber: '',
         startDate: new Date().toISOString().split('T')[0],
         depositAmount: 0,
         notes: ''
     });
 
-    const selectedPlan = rentalPlans.find(p => p.id === formData.planId);
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                setLoading(true);
+                const data = await accountsAPI.getAll({ type: 'customer' });
+                // Filter customers if API doesn't already
+                setCustomers(data || []);
+            } catch (err) {
+                console.error('Failed to fetch customers:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchCustomers();
+    }, []);
+
+    const selectedPlan = plans.find(p => p.id === formData.planId);
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -31,9 +47,9 @@ function NewRentalForm({ onClose, onSave, onNewCustomer }) {
 
         const rentalData = {
             ...formData,
-            customerName: customers.find(c => c.id === parseInt(formData.customerId))?.name,
+            customerName: customers.find(c => c.id === formData.customerId)?.name,
             property: formData.property,
-            productName: selectedPlan?.productName,
+            productName: selectedPlan?.product_name,
             monthlyRent: formData.selectedTenure.monthlyRent,
             securityDeposit: formData.selectedTenure.securityDeposit,
             setupFee: formData.selectedTenure.setupFee,
@@ -82,10 +98,10 @@ function NewRentalForm({ onClose, onSave, onNewCustomer }) {
                                     required
                                     style={{ flex: 1 }}
                                 >
-                                    <option value="">Select Customer</option>
+                                    <option value="">{loading ? 'Loading...' : 'Select Customer'}</option>
                                     {customers.map(customer => (
                                         <option key={customer.id} value={customer.id}>
-                                            {customer.name} ({customer.phone})
+                                            {customer.name} ({customer.phone || 'No phone'})
                                         </option>
                                     ))}
                                 </select>
@@ -100,9 +116,10 @@ function NewRentalForm({ onClose, onSave, onNewCustomer }) {
                                             });
                                         }
                                     }}
+                                    disabled={loading}
                                     title="Create new customer"
                                 >
-                                    <Plus size={16} />
+                                    {loading ? <RefreshCcw size={16} className="spin" /> : <Plus size={16} />}
                                     New Customer
                                 </button>
                             </div>
@@ -164,9 +181,9 @@ function NewRentalForm({ onClose, onSave, onNewCustomer }) {
                                 required
                             >
                                 <option value="">Select Rental Plan</option>
-                                {rentalPlans.map(plan => (
+                                {plans.map(plan => (
                                     <option key={plan.id} value={plan.id}>
-                                        {plan.productName}
+                                        {plan.product_name}
                                     </option>
                                 ))}
                             </select>
@@ -177,7 +194,7 @@ function NewRentalForm({ onClose, onSave, onNewCustomer }) {
                             <div className="form-group">
                                 <label className="form-label">Select Tenure *</label>
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--spacing-sm)' }}>
-                                    {selectedPlan.tenureOptions.map((tenure, index) => (
+                                    {Array.isArray(selectedPlan.tenure_options) && selectedPlan.tenure_options.map((tenure, index) => (
                                         <div
                                             key={index}
                                             onClick={() => setFormData({ ...formData, selectedTenure: tenure })}
@@ -209,6 +226,18 @@ function NewRentalForm({ onClose, onSave, onNewCustomer }) {
                                 </div>
                             </div>
                         )}
+
+                        {/* Serial Number */}
+                        <div className="form-group">
+                            <label className="form-label">Serial Number</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.serialNumber}
+                                onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+                                placeholder="Enter product serial number"
+                            />
+                        </div>
 
                         <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                             {/* Start Date */}

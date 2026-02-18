@@ -3,7 +3,10 @@
 import { X, Calendar, DollarSign, Package, User, MapPin } from 'lucide-react';
 
 function RentalDetailsModal({ rental, onClose }) {
-    const progressPercentage = (rental.rentsPaid / (rental.rentsPaid + rental.rentsRemaining)) * 100;
+    const rentsPaid = Number(rental.rents_paid) || 0;
+    const rentsRemaining = Number(rental.rents_remaining) || 0;
+    const totalRents = rentsPaid + rentsRemaining;
+    const progressPercentage = totalRents > 0 ? (rentsPaid / totalRents) * 100 : 0;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -65,7 +68,7 @@ function RentalDetailsModal({ rental, onClose }) {
                                 {rental.productName}
                             </div>
                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                SN: {rental.serialNumber}
+                                SN: {rental.serial_number || 'N/A'}
                             </div>
                         </div>
                     </div>
@@ -84,19 +87,19 @@ function RentalDetailsModal({ rental, onClose }) {
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Monthly Rent</div>
                                 <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: '#10b981' }}>
-                                    ₹{rental.monthlyRent.toLocaleString()}
+                                    ₹{(Number(rental.monthly_rent) || 0).toLocaleString()}
                                 </div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Security Deposit</div>
                                 <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>
-                                    ₹{rental.securityDeposit.toLocaleString()}
+                                    ₹{(Number(rental.security_deposit) || 0).toLocaleString()}
                                 </div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Setup Fee</div>
                                 <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>
-                                    ₹{rental.setupFee?.toLocaleString() || 0}
+                                    ₹{(Number(rental.setup_fee) || 0).toLocaleString()}
                                 </div>
                             </div>
                         </div>
@@ -116,19 +119,19 @@ function RentalDetailsModal({ rental, onClose }) {
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Duration</div>
                                 <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                    {rental.tenure.duration} {rental.tenure.unit}
+                                    {rental.tenure?.duration} {rental.tenure?.unit}
                                 </div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Start Date</div>
                                 <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                    {new Date(rental.tenure.startDate).toLocaleDateString()}
+                                    {rental.tenure?.startDate ? new Date(rental.tenure.startDate).toLocaleDateString() : 'N/A'}
                                 </div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>End Date</div>
                                 <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                    {new Date(rental.tenure.endDate).toLocaleDateString()}
+                                    {rental.tenure?.endDate ? new Date(rental.tenure.endDate).toLocaleDateString() : 'N/A'}
                                 </div>
                             </div>
                         </div>
@@ -137,7 +140,7 @@ function RentalDetailsModal({ rental, onClose }) {
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-xs)' }}>
                                 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                    Payments: {rental.rentsPaid} / {rental.rentsPaid + rental.rentsRemaining}
+                                    Payments: {rentsPaid} / {totalRents}
                                 </span>
                                 <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
                                     {Math.round(progressPercentage)}%
@@ -162,18 +165,18 @@ function RentalDetailsModal({ rental, onClose }) {
                     {/* Next Payment */}
                     <div style={{
                         padding: 'var(--spacing-md)',
-                        backgroundColor: new Date(rental.nextRentDueDate) < new Date() ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                        backgroundColor: (rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                         borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${new Date(rental.nextRentDueDate) < new Date() ? '#ef4444' : '#3b82f6'}`
+                        border: `1px solid ${(rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? '#ef4444' : '#3b82f6'}`
                     }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                            <Calendar size={16} color={new Date(rental.nextRentDueDate) < new Date() ? '#ef4444' : '#3b82f6'} />
+                            <Calendar size={16} color={(rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? '#ef4444' : '#3b82f6'} />
                             <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                                {new Date(rental.nextRentDueDate) < new Date() ? 'Overdue Payment' : 'Next Payment Due'}
+                                {(rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? 'Overdue Payment' : 'Next Payment Due'}
                             </span>
                         </div>
                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 700 }}>
-                            {new Date(rental.nextRentDueDate).toLocaleDateString()} • ₹{rental.monthlyRent.toLocaleString()}
+                            {rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString() : 'N/A'} • ₹{(Number(rental.monthly_rent) || 0).toLocaleString()}
                         </div>
                     </div>
                 </div>

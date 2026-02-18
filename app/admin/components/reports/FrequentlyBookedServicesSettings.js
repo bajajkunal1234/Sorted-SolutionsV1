@@ -1,18 +1,30 @@
 'use client'
 
-import { useState } from 'react';
-import { Package, Plus, Trash2, Edit2, Save, X, Upload, Tag } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Package, Plus, Trash2, Edit2, Save, X, Upload, Tag, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteFrequentlyBookedAPI } from '@/lib/adminAPI';
 
 function FrequentlyBookedServicesSettings() {
-    const [services, setServices] = useState([
-        { id: 1, title: 'AC Cleaning & Service', keywords: 'Air conditioner cleaning Mumbai', url: '/services/ac-cleaning', badge: 'Popular', badgeColor: '#10b981' },
-        { id: 2, title: 'RO Filter Replacement', keywords: 'RO water purifier service', url: '/services/ro-filter', badge: 'Seasonal', badgeColor: '#f59e0b' },
-        { id: 3, title: 'Washing Machine Repair', keywords: 'WM spin issue repair', url: '/services/wm-spin', badge: null, badgeColor: null },
-        { id: 4, title: 'Refrigerator Not Cooling', keywords: 'Fridge cooling problem fix', url: '/services/fridge-cooling', badge: 'Emergency', badgeColor: '#ef4444' },
-        { id: 5, title: 'Microwave Not Heating', keywords: 'Microwave oven repair', url: '/services/microwave-heating', badge: null, badgeColor: null },
-        { id: 6, title: 'Gas Stove Burner Repair', keywords: 'Gas hob service Mumbai', url: '/services/gas-stove', badge: null, badgeColor: null }
-    ]);
-    const [editingId, setEditingId] = useState(null);
+    const [services, setServices] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setLoading(true);
+            const data = await websiteFrequentlyBookedAPI.getAll();
+            if (data) {
+                setServices(data || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch frequent services:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
     const [editForm, setEditForm] = useState({});
     const [showAddForm, setShowAddForm] = useState(false);
     const [newService, setNewService] = useState({
@@ -62,20 +74,40 @@ function FrequentlyBookedServicesSettings() {
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('Services saved successfully!');
+    const handleSaveAll = async () => {
+        try {
+            setSaving(true);
+            await websiteFrequentlyBookedAPI.saveAll(services);
+            alert('Services saved successfully!');
+        } catch (err) {
+            console.error('Failed to save frequent services:', err);
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div>
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    Frequently Booked Services
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage seasonal services displayed on the homepage
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                            Frequently Booked Services
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            Manage seasonal services displayed on the homepage
+                        </p>
+                    </div>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchSettings}
+                        disabled={loading}
+                        style={{ padding: '6px 12px' }}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {/* Add New Service Button */}
@@ -211,189 +243,201 @@ function FrequentlyBookedServicesSettings() {
 
             {/* Services List */}
             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                {services.map((service) => (
-                    <div
-                        key={service.id}
-                        className="card"
-                        style={{
-                            padding: 'var(--spacing-lg)',
-                            border: editingId === service.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
-                        }}
-                    >
-                        {editingId === service.id ? (
-                            // Edit Mode
-                            <div>
-                                <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Service Title
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={editForm.title}
-                                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            SEO Keywords
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={editForm.keywords}
-                                            onChange={(e) => setEditForm({ ...editForm, keywords: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Service URL
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={editForm.url}
-                                            onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Badge
-                                        </label>
-                                        <select
-                                            value={editForm.badge || ''}
-                                            onChange={(e) => {
-                                                const selected = badgeOptions.find(b => b.value === e.target.value);
-                                                setEditForm({
-                                                    ...editForm,
-                                                    badge: selected?.value || null,
-                                                    badgeColor: selected?.color || null
-                                                });
-                                            }}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
-                                        >
-                                            {badgeOptions.map(option => (
-                                                <option key={option.label} value={option.value || ''}>
-                                                    {option.label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
-                                    <button onClick={handleSaveEdit} className="btn btn-primary">
-                                        <Save size={16} />
-                                        Save
-                                    </button>
-                                    <button onClick={handleCancelEdit} className="btn btn-secondary">
-                                        <X size={16} />
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            // View Mode
-                            <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
-                                <div style={{
-                                    width: '48px',
-                                    height: '48px',
-                                    borderRadius: 'var(--radius-md)',
-                                    backgroundColor: '#3b82f615',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    flexShrink: 0
-                                }}>
-                                    <Package size={24} style={{ color: '#3b82f6' }} />
-                                </div>
-
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                            {service.title}
-                                        </h4>
-                                        {service.badge && (
-                                            <span style={{
-                                                padding: '2px 8px',
-                                                borderRadius: '12px',
-                                                fontSize: '10px',
-                                                fontWeight: 700,
-                                                backgroundColor: service.badgeColor,
-                                                color: 'white',
-                                                textTransform: 'uppercase'
-                                            }}>
-                                                {service.badge}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 var(--spacing-xs) 0', fontStyle: 'italic' }}>
-                                        {service.keywords}
-                                    </p>
-                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', margin: 0 }}>
-                                        URL: {service.url}
-                                    </p>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                    <button
-                                        onClick={() => handleEdit(service)}
-                                        className="btn btn-secondary"
-                                        style={{ padding: '6px 12px' }}
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(service.id)}
-                                        className="btn btn-danger"
-                                        style={{ padding: '6px 12px' }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                {loading ? (
+                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center' }}>
+                        <Loader2 className="spin" size={48} style={{ margin: '0 auto var(--spacing-md) auto', display: 'block' }} />
+                        <p style={{ color: 'var(--text-secondary)' }}>Loading services...</p>
                     </div>
-                ))}
+                ) : services.length === 0 ? (
+                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)' }}>
+                        <p style={{ color: 'var(--text-secondary)' }}>No services found. Add one above.</p>
+                    </div>
+                ) : (
+                    services.map((service) => (
+                        <div
+                            key={service.id}
+                            className="card"
+                            style={{
+                                padding: 'var(--spacing-lg)',
+                                border: editingId === service.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
+                            }}
+                        >
+                            {editingId === service.id ? (
+                                // Edit Mode
+                                <div>
+                                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Service Title
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editForm.title}
+                                                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                SEO Keywords
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editForm.keywords}
+                                                onChange={(e) => setEditForm({ ...editForm, keywords: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Service URL
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editForm.url}
+                                                onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)'
+                                                }}
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Badge
+                                            </label>
+                                            <select
+                                                value={editForm.badge || ''}
+                                                onChange={(e) => {
+                                                    const selected = badgeOptions.find(b => b.value === e.target.value);
+                                                    setEditForm({
+                                                        ...editForm,
+                                                        badge: selected?.value || null,
+                                                        badgeColor: selected?.color || null
+                                                    });
+                                                }}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)'
+                                                }}
+                                            >
+                                                {badgeOptions.map(option => (
+                                                    <option key={option.label} value={option.value || ''}>
+                                                        {option.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                                        <button onClick={handleSaveEdit} className="btn btn-primary">
+                                            <Save size={16} />
+                                            Save
+                                        </button>
+                                        <button onClick={handleCancelEdit} className="btn btn-secondary">
+                                            <X size={16} />
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                // View Mode
+                                <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
+                                    <div style={{
+                                        width: '48px',
+                                        height: '48px',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: '#3b82f615',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexShrink: 0
+                                    }}>
+                                        <Package size={24} style={{ color: '#3b82f6' }} />
+                                    </div>
+
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
+                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                                {service.title}
+                                            </h4>
+                                            {service.badge && (
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '12px',
+                                                    fontSize: '10px',
+                                                    fontWeight: 700,
+                                                    backgroundColor: service.badgeColor,
+                                                    color: 'white',
+                                                    textTransform: 'uppercase'
+                                                }}>
+                                                    {service.badge}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 var(--spacing-xs) 0', fontStyle: 'italic' }}>
+                                            {service.keywords}
+                                        </p>
+                                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', margin: 0 }}>
+                                            URL: {service.url}
+                                        </p>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                        <button
+                                            onClick={() => handleEdit(service)}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 12px' }}
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(service.id)}
+                                            className="btn btn-danger"
+                                            style={{ padding: '6px 12px' }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Save All Button */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-lg)' }}>
                 <button
                     onClick={handleSaveAll}
+                    disabled={saving || loading}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
                 >
-                    <Save size={18} />
-                    Save All Changes
+                    {saving ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save All Changes'}
                 </button>
             </div>
         </div>

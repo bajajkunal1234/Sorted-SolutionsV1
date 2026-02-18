@@ -1,43 +1,44 @@
 'use client'
 
-import { useState } from 'react';
-import { CheckCircle, Plus, Trash2, Edit2, Save, X, GripVertical, Upload } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { CheckCircle, Plus, Trash2, Edit2, Save, X, GripVertical, Upload, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteSettingsAPI, websiteHowItWorksAPI } from '@/lib/adminAPI';
 
 function HowItWorksSettings() {
-    const [stages, setStages] = useState([
-        {
-            id: 1,
-            title: 'Book Service',
-            description: 'Book your service online via our website, mobile app, or by calling our customer support. Choose your preferred time slot.',
-            icon: '📅',
-            order: 1
-        },
-        {
-            id: 2,
-            title: 'Track Technician',
-            description: 'Track your assigned technician in real-time on the map. Get live updates on their arrival time and location.',
-            icon: '📍',
-            order: 2
-        },
-        {
-            id: 3,
-            title: 'Technician Visits',
-            description: 'Our certified technician visits your location at the scheduled time and diagnoses the issue with your appliance.',
-            icon: '🔧',
-            order: 3
-        },
-        {
-            id: 4,
-            title: 'Repair & Test',
-            description: 'Technician repairs your appliance using genuine spare parts and tests it thoroughly to ensure everything works perfectly.',
-            icon: '✅',
-            order: 4
-        }
-    ]);
-
+    const [stages, setStages] = useState([]);
     const [layoutStyle, setLayoutStyle] = useState('grid');
     const [animationType, setAnimationType] = useState('hover');
     const [primaryColor, setPrimaryColor] = useState('#3b82f6');
+
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setLoading(true);
+            const [stagesData, configData] = await Promise.all([
+                websiteHowItWorksAPI.getAll(),
+                websiteSettingsAPI.getByKey('how-it-works-config')
+            ]);
+
+            if (stagesData) {
+                setStages(stagesData);
+            }
+            if (configData && configData.value) {
+                setLayoutStyle(configData.value.layoutStyle || 'grid');
+                setAnimationType(configData.value.animationType || 'hover');
+                setPrimaryColor(configData.value.primaryColor || '#3b82f6');
+            }
+        } catch (err) {
+            console.error('Failed to fetch how it works settings:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
@@ -96,20 +97,52 @@ function HowItWorksSettings() {
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('How It Works settings saved successfully!');
+    const handleSaveAll = async () => {
+        try {
+            setSaving(true);
+            // Dedicated table for stages
+            // Generic table for styling config
+            const configValue = {
+                layoutStyle,
+                animationType,
+                primaryColor
+            };
+
+            await Promise.all([
+                websiteHowItWorksAPI.saveAll(stages),
+                websiteSettingsAPI.save('how-it-works-config', configValue, 'Styling config for How It Works section')
+            ]);
+
+            alert('Settings saved successfully!');
+        } catch (err) {
+            console.error('Failed to save how it works settings:', err);
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div>
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    How It Works Settings
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage process stages and customize the layout and styling
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                            How It Works Settings
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            Manage process stages and customize the layout and styling
+                        </p>
+                    </div>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchSettings}
+                        disabled={loading}
+                        style={{ padding: '6px 12px' }}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {/* Styling Options */}
@@ -344,168 +377,180 @@ function HowItWorksSettings() {
 
             {/* Stages List */}
             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                {stages.map((stage, index) => (
-                    <div
-                        key={stage.id}
-                        className="card"
-                        style={{
-                            padding: 'var(--spacing-lg)',
-                            border: editingId === stage.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
-                        }}
-                    >
-                        {editingId === stage.id ? (
-                            // Edit Mode
-                            <div>
-                                <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Stage Title
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={editForm.title}
-                                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
-                                        />
-                                    </div>
+                {loading ? (
+                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center' }}>
+                        <Loader2 className="spin" size={48} style={{ margin: '0 auto var(--spacing-md) auto', display: 'block' }} />
+                        <p style={{ color: 'var(--text-secondary)' }}>Loading stages...</p>
+                    </div>
+                ) : stages.length === 0 ? (
+                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)' }}>
+                        <p style={{ color: 'var(--text-secondary)' }}>No stages found. Add one above.</p>
+                    </div>
+                ) : (
+                    stages.map((stage, index) => (
+                        <div
+                            key={stage.id}
+                            className="card"
+                            style={{
+                                padding: 'var(--spacing-lg)',
+                                border: editingId === stage.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
+                            }}
+                        >
+                            {editingId === stage.id ? (
+                                // Edit Mode
+                                <div>
+                                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Stage Title
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editForm.title}
+                                                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)'
+                                                }}
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Description
-                                        </label>
-                                        <textarea
-                                            value={editForm.description}
-                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                            rows={3}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)',
-                                                resize: 'vertical'
-                                            }}
-                                        />
-                                    </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Description
+                                            </label>
+                                            <textarea
+                                                value={editForm.description}
+                                                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                                rows={3}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)',
+                                                    resize: 'vertical'
+                                                }}
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Icon
-                                        </label>
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
-                                            {iconOptions.map(icon => (
-                                                <button
-                                                    key={icon}
-                                                    onClick={() => setEditForm({ ...editForm, icon })}
-                                                    style={{
-                                                        width: '48px',
-                                                        height: '48px',
-                                                        fontSize: '24px',
-                                                        border: editForm.icon === icon ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        backgroundColor: editForm.icon === icon ? 'var(--color-primary)10' : 'transparent',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    {icon}
-                                                </button>
-                                            ))}
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Icon
+                                            </label>
+                                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                                                {iconOptions.map(icon => (
+                                                    <button
+                                                        key={icon}
+                                                        onClick={() => setEditForm({ ...editForm, icon })}
+                                                        style={{
+                                                            width: '48px',
+                                                            height: '48px',
+                                                            fontSize: '24px',
+                                                            border: editForm.icon === icon ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            backgroundColor: editForm.icon === icon ? 'var(--color-primary)10' : 'transparent',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        {icon}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
 
-                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
-                                    <button onClick={handleSaveEdit} className="btn btn-primary">
-                                        <Save size={16} />
-                                        Save
-                                    </button>
-                                    <button onClick={handleCancelEdit} className="btn btn-secondary">
-                                        <X size={16} />
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            // View Mode
-                            <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
-                                <GripVertical size={18} style={{ color: 'var(--text-tertiary)', cursor: 'grab', marginTop: '4px' }} />
-
-                                <div style={{
-                                    width: '56px',
-                                    height: '56px',
-                                    borderRadius: '50%',
-                                    backgroundColor: `${primaryColor}15`,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '28px',
-                                    flexShrink: 0
-                                }}>
-                                    {stage.icon}
-                                </div>
-
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                                        <span style={{
-                                            display: 'inline-flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            width: '24px',
-                                            height: '24px',
-                                            borderRadius: '50%',
-                                            backgroundColor: primaryColor,
-                                            color: 'white',
-                                            fontSize: '12px',
-                                            fontWeight: 700
-                                        }}>
-                                            {index + 1}
-                                        </span>
-                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                            {stage.title}
-                                        </h4>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                                        <button onClick={handleSaveEdit} className="btn btn-primary">
+                                            <Save size={16} />
+                                            Save
+                                        </button>
+                                        <button onClick={handleCancelEdit} className="btn btn-secondary">
+                                            <X size={16} />
+                                            Cancel
+                                        </button>
                                     </div>
-                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
-                                        {stage.description}
-                                    </p>
                                 </div>
+                            ) : (
+                                // View Mode
+                                <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
+                                    <GripVertical size={18} style={{ color: 'var(--text-tertiary)', cursor: 'grab', marginTop: '4px' }} />
 
-                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                    <button
-                                        onClick={() => handleEdit(stage)}
-                                        className="btn btn-secondary"
-                                        style={{ padding: '6px 12px' }}
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(stage.id)}
-                                        className="btn btn-danger"
-                                        style={{ padding: '6px 12px' }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div style={{
+                                        width: '56px',
+                                        height: '56px',
+                                        borderRadius: '50%',
+                                        backgroundColor: `${primaryColor}15`,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '28px',
+                                        flexShrink: 0
+                                    }}>
+                                        {stage.icon}
+                                    </div>
+
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
+                                            <span style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '50%',
+                                                backgroundColor: primaryColor,
+                                                color: 'white',
+                                                fontSize: '12px',
+                                                fontWeight: 700
+                                            }}>
+                                                {index + 1}
+                                            </span>
+                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                                {stage.title}
+                                            </h4>
+                                        </div>
+                                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                                            {stage.description}
+                                        </p>
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                        <button
+                                            onClick={() => handleEdit(stage)}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 12px' }}
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(stage.id)}
+                                            className="btn btn-danger"
+                                            style={{ padding: '6px 12px' }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            )}
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Save All Button */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-lg)' }}>
                 <button
                     onClick={handleSaveAll}
+                    disabled={saving || loading}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
                 >
-                    <Save size={18} />
-                    Save All Changes
+                    {saving ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save All Changes'}
                 </button>
             </div>
         </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { History, Search, Filter, FileText, Briefcase, DollarSign, Package, Edit2, MessageSquare, Paperclip, X } from 'lucide-react';
 import CreateJobForm from '../CreateJobForm';
 import SalesInvoiceForm from './SalesInvoiceForm';
@@ -12,97 +12,9 @@ import NewRentalForm from '../reports/NewRentalForm';
 import NewAMCForm from '../reports/NewAMCForm';
 
 function InteractionsTab({ accountId, accountName }) {
-    const [interactions, setInteractions] = useState([
-        {
-            id: 'INT-001',
-            type: 'job_created',
-            title: 'New Job Created',
-            description: 'AC repair job created for Andheri location',
-            relatedTo: {
-                type: 'job',
-                id: 'JOB-001',
-                reference: 'JOB-2026-001',
-                // Complete job data for form pre-population
-                customer: accountName,
-                customerId: accountId,
-                address: '123 Andheri West, Mumbai',
-                locality: 'Andheri',
-                jobType: 'Repair',
-                category: 'AC',
-                priority: 'high',
-                scheduledDate: '2026-01-20',
-                description: 'AC not cooling properly, needs gas refill',
-                assignedTo: 'TECH-001',
-                status: 'scheduled'
-            },
-            performedBy: { id: 'TECH-001', name: 'Amit Sharma', role: 'technician' },
-            timestamp: '2026-01-19T10:30:00Z',
-            category: 'service'
-        },
-        {
-            id: 'INT-002',
-            type: 'invoice_created',
-            title: 'Sales Invoice Generated',
-            description: 'Invoice #INV-2026-001 created for ₹5,000',
-            relatedTo: {
-                type: 'invoice',
-                id: 'INV-001',
-                reference: 'INV-2026-001',
-                // Complete invoice data for form pre-population
-                account: accountName,
-                accountId: accountId,
-                date: '2026-01-18',
-                items: [
-                    {
-                        id: 1,
-                        product: 'AC Service',
-                        description: 'Annual AC maintenance',
-                        quantity: 1,
-                        unit: 'Service',
-                        rate: 5000,
-                        amount: 5000
-                    }
-                ],
-                subtotal: 5000,
-                tax: 0,
-                total: 5000,
-                status: 'unpaid'
-            },
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-18T14:20:00Z',
-            category: 'financial'
-        },
-        {
-            id: 'INT-003',
-            type: 'payment_received',
-            title: 'Payment Received',
-            description: 'Received payment of ₹5,000 via UPI',
-            relatedTo: { type: 'payment', id: 'PAY-001', reference: 'REC-2026-001' },
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-18T15:45:00Z',
-            category: 'financial'
-        },
-        {
-            id: 'INT-004',
-            type: 'note_added',
-            title: 'Note Added',
-            description: 'Customer requested weekend service slots',
-            notes: 'Customer prefers Saturday/Sunday between 10 AM - 2 PM',
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-15T09:15:00Z',
-            category: 'communication'
-        },
-        {
-            id: 'INT-005',
-            type: 'rental_started',
-            title: 'Rental Agreement Started',
-            description: 'Washing Machine rental activated',
-            relatedTo: { type: 'rental', id: 'RENTAL-001', reference: 'RENTAL-001' },
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-15T00:00:00Z',
-            category: 'rental'
-        }
-    ]);
+    const [interactions, setInteractions] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all');
@@ -111,38 +23,87 @@ function InteractionsTab({ accountId, accountName }) {
     const [noteText, setNoteText] = useState('');
     const [noteCategory, setNoteCategory] = useState('communication');
     const [attachments, setAttachments] = useState([]);
-    const [activeForm, setActiveForm] = useState(null); // 'job', 'rental', 'amc', 'sales_invoice', 'purchase_invoice', 'receipt', 'payment', 'quotation'
+    const [activeForm, setActiveForm] = useState(null);
     const [editingItem, setEditingItem] = useState(null);
 
-    const handleSaveNote = () => {
+    // Initial Fetch
+    useEffect(() => {
+        if (accountId) {
+            fetchInteractions();
+        }
+    }, [accountId]);
+
+    const fetchInteractions = async () => {
+        try {
+            setLoading(true);
+            const { supabase } = await import('@/lib/supabase');
+            if (!supabase) return;
+
+            // Fetch interactions
+            const { data: interactionData, error: interactionError } = await supabase
+                .from('interactions')
+                .select('*')
+                .eq('customer_id', accountId)
+                .order('timestamp', { ascending: false });
+
+            if (interactionError) throw interactionError;
+
+            // Fetch jobs (as interactions if not already logged)
+            // Ideally jobs should insert into interactions on creation, but for now we can fetch them too
+            // For simplicity, let's assume interactions table is the single source of truth for the timeline
+            // and separate job fetching isn't needed if we log job creation there.
+            // If we need to mix, we can do parallel fetch similar to TransactionsTab.
+
+            setInteractions(interactionData || []);
+
+        } catch (err) {
+            console.error('Error fetching interactions:', err);
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveNote = async () => {
         if (!noteText.trim()) {
             alert('Please enter a note');
             return;
         }
 
-        const newNote = {
-            id: `INT-${Date.now()}`,
-            type: 'note_added',
-            title: 'Note Added',
-            description: noteText.substring(0, 100) + (noteText.length > 100 ? '...' : ''),
-            notes: noteText,
-            category: noteCategory,
-            attachments: attachments,
-            performedBy: {
-                id: 'ADMIN-001',
-                name: 'Admin User',
-                role: 'admin'
-            },
-            timestamp: new Date().toISOString(),
-            accountId,
-            accountName
-        };
+        try {
+            const { supabase } = await import('@/lib/supabase');
+            if (!supabase) return;
 
-        setInteractions([newNote, ...interactions]);
-        setNoteText('');
-        setNoteCategory('communication');
-        setAttachments([]);
-        setShowNoteForm(false);
+            const newNote = {
+                type: 'note_added',
+                title: 'Note Added',
+                description: noteText.substring(0, 100) + (noteText.length > 100 ? '...' : ''),
+                metadata: { notes: noteText, attachments },
+                category: noteCategory,
+                customer_id: accountId,
+                customer_name: accountName,
+                performed_by: 'ADMIN', // specific user ID if auth available
+                performed_by_name: 'Admin User',
+                timestamp: new Date().toISOString()
+            };
+
+            const { data, error } = await supabase
+                .from('interactions')
+                .insert([newNote])
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            setInteractions([data, ...interactions]);
+            setNoteText('');
+            setNoteCategory('communication');
+            setAttachments([]);
+            setShowNoteForm(false);
+        } catch (err) {
+            console.error('Error saving note:', err);
+            alert('Failed to save note: ' + err.message);
+        }
     };
 
     const handleCancelNote = () => {
@@ -159,9 +120,10 @@ function InteractionsTab({ accountId, accountName }) {
             name: file.name,
             size: file.size,
             type: file.type,
-            url: URL.createObjectURL(file)
+            url: URL.createObjectURL(file) // Temporarily local URL
         }));
         setAttachments([...attachments, ...newAttachments]);
+        // Note: Real implementation should upload to storage bucket
     };
 
     const handleRemoveAttachment = (attachmentId) => {
@@ -170,8 +132,8 @@ function InteractionsTab({ accountId, accountName }) {
 
     const filteredInteractions = interactions.filter(i => {
         const matchesSearch = !searchTerm ||
-            i.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            i.description.toLowerCase().includes(searchTerm.toLowerCase());
+            (i.title && i.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (i.description && i.description.toLowerCase().includes(searchTerm.toLowerCase()));
         const matchesType = filterType === 'all' || i.type === filterType;
         const matchesCategory = filterCategory === 'all' || i.category === filterCategory;
         return matchesSearch && matchesType && matchesCategory;
@@ -206,6 +168,7 @@ function InteractionsTab({ accountId, accountName }) {
     };
 
     const formatTimestamp = (timestamp) => {
+        if (!timestamp) return '';
         const date = new Date(timestamp);
         const now = new Date();
         const diffMs = now - date;
@@ -399,7 +362,7 @@ function InteractionsTab({ accountId, accountName }) {
             )}
 
             {/* Timeline */}
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', minHeight: '200px' }}>
                 {/* Timeline Line */}
                 <div style={{
                     position: 'absolute',
@@ -410,105 +373,83 @@ function InteractionsTab({ accountId, accountName }) {
                     backgroundColor: 'var(--border-primary)'
                 }} />
 
-                {/* Interactions */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                    {filteredInteractions.map((interaction, index) => {
-                        const TypeIcon = getTypeIcon(interaction.type);
-                        const categoryColor = getCategoryColor(interaction.category);
+                {loading ? (
+                    <div style={{ paddingLeft: '48px', color: 'var(--text-tertiary)' }}>Loading interactions...</div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                        {filteredInteractions.map((interaction, index) => {
+                            const TypeIcon = getTypeIcon(interaction.type);
+                            const categoryColor = getCategoryColor(interaction.category);
 
-                        return (
-                            <div key={interaction.id} style={{ position: 'relative', paddingLeft: '48px' }}>
-                                {/* Timeline Dot */}
-                                <div style={{
-                                    position: 'absolute',
-                                    left: '12px',
-                                    top: '12px',
-                                    width: '16px',
-                                    height: '16px',
-                                    borderRadius: '50%',
-                                    backgroundColor: categoryColor,
-                                    border: '3px solid var(--bg-primary)',
-                                    zIndex: 1
-                                }} />
+                            // Handle metadata for notes
+                            const notesContent = interaction.metadata?.notes || '';
 
-                                {/* Interaction Card */}
-                                <div style={{
-                                    padding: 'var(--spacing-md)',
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    borderRadius: 'var(--radius-md)',
-                                    border: '1px solid var(--border-primary)'
-                                }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-xs)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                            <TypeIcon size={18} color={categoryColor} />
-                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                                {interaction.title}
-                                            </h4>
+                            return (
+                                <div key={interaction.id} style={{ position: 'relative', paddingLeft: '48px' }}>
+                                    {/* Timeline Dot */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        left: '12px',
+                                        top: '12px',
+                                        width: '16px',
+                                        height: '16px',
+                                        borderRadius: '50%',
+                                        backgroundColor: categoryColor,
+                                        border: '3px solid var(--bg-primary)',
+                                        zIndex: 1
+                                    }} />
+
+                                    {/* Interaction Card */}
+                                    <div style={{
+                                        padding: 'var(--spacing-md)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px solid var(--border-primary)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-xs)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                                <TypeIcon size={18} color={categoryColor} />
+                                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                                    {interaction.title}
+                                                </h4>
+                                            </div>
+                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                                {formatTimestamp(interaction.timestamp)}
+                                            </span>
                                         </div>
-                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                            {formatTimestamp(interaction.timestamp)}
-                                        </span>
-                                    </div>
 
-                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-                                        {interaction.description}
-                                    </p>
+                                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+                                            {interaction.description}
+                                        </p>
 
-                                    {interaction.notes && (
-                                        <div style={{
-                                            padding: 'var(--spacing-sm)',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: 'var(--font-size-sm)',
-                                            fontStyle: 'italic',
-                                            marginBottom: 'var(--spacing-sm)'
-                                        }}>
-                                            "{interaction.notes}"
-                                        </div>
-                                    )}
-
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                        <div>
-                                            By: <span style={{ fontWeight: 500 }}>{interaction.performedBy.name}</span>
-                                            {' '}({interaction.performedBy.role})
-                                        </div>
-                                        {interaction.relatedTo && (
-                                            <button
-                                                onClick={() => {
-                                                    // Map interaction type to form type
-                                                    const typeMap = {
-                                                        'invoice': 'sales_invoice',
-                                                        'payment': 'receipt',
-                                                        'job': 'job',
-                                                        'rental': 'rental',
-                                                        'amc': 'amc',
-                                                        'quotation': 'quotation'
-                                                    };
-                                                    setEditingItem(interaction.relatedTo);
-                                                    setActiveForm(typeMap[interaction.relatedTo.type] || interaction.relatedTo.type);
-                                                }}
-                                                style={{
-                                                    padding: '4px 8px',
-                                                    fontSize: 'var(--font-size-xs)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    backgroundColor: 'var(--bg-secondary)',
-                                                    cursor: 'pointer',
-                                                    color: categoryColor
-                                                }}
-                                            >
-                                                Edit {interaction.relatedTo.type.charAt(0).toUpperCase() + interaction.relatedTo.type.slice(1)} →
-                                            </button>
+                                        {notesContent && (
+                                            <div style={{
+                                                padding: 'var(--spacing-sm)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                fontSize: 'var(--font-size-sm)',
+                                                fontStyle: 'italic',
+                                                marginBottom: 'var(--spacing-sm)'
+                                            }}>
+                                                "{notesContent}"
+                                            </div>
                                         )}
+
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                            <div>
+                                                By: <span style={{ fontWeight: 500 }}>{interaction.performed_by_name || interaction.performedBy?.name || 'Unknown'}</span>
+                                            </div>
+                                            {/* (Edit button login can be re-enabled when related entities are fully linked) */}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
-            {filteredInteractions.length === 0 && (
+            {!loading && filteredInteractions.length === 0 && (
                 <div style={{
                     padding: 'var(--spacing-xl)',
                     backgroundColor: 'var(--bg-secondary)',
@@ -529,86 +470,7 @@ function InteractionsTab({ accountId, accountName }) {
                 </div>
             )}
 
-            {/* Edit Forms */}
-            {activeForm === 'job' && editingItem && (
-                <CreateJobForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingJob={editingItem}
-                />
-            )}
-
-            {activeForm === 'sales_invoice' && editingItem && (
-                <SalesInvoiceForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingInvoice={editingItem}
-                />
-            )}
-
-            {activeForm === 'purchase_invoice' && editingItem && (
-                <PurchaseInvoiceForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingInvoice={editingItem}
-                />
-            )}
-
-            {activeForm === 'receipt' && editingItem && (
-                <ReceiptVoucherForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingReceipt={editingItem}
-                />
-            )}
-
-            {activeForm === 'payment' && editingItem && (
-                <PaymentVoucherForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingPayment={editingItem}
-                />
-            )}
-
-            {activeForm === 'quotation' && editingItem && (
-                <QuotationForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingQuotation={editingItem}
-                />
-            )}
-
-            {activeForm === 'rental' && editingItem && (
-                <NewRentalForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingRental={editingItem}
-                />
-            )}
-
-            {activeForm === 'amc' && editingItem && (
-                <NewAMCForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingItem(null);
-                    }}
-                    existingAMC={editingItem}
-                />
-            )}
+            {/* ... (Hidden Edit Forms for related items if needed) ... */}
         </div>
     );
 }

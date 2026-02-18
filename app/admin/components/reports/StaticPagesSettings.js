@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { FileText, Save, Eye, Clock, History, MapPin, Mail, Phone, Globe, ChevronDown, ChevronUp, RotateCcw, Plus, X } from 'lucide-react';
+import { FileText, Save, Eye, Clock, History, MapPin, Mail, Phone, Globe, ChevronDown, ChevronUp, RotateCcw, Plus, X, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteSettingsAPI } from '@/lib/adminAPI';
 
 function StaticPagesSettings() {
+    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('contact');
     const [showPreview, setShowPreview] = useState(false);
     const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -171,21 +172,44 @@ Phone: +91 XXXXXXXXXX</p>
         }
     });
 
-    // Auto-save every 30 seconds
+    // Fetch settings on mount
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setLoading(true);
+            const data = await websiteSettingsAPI.getByKey('static-pages-content');
+            if (data && data.value) {
+                setPages(data.value);
+            }
+        } catch (err) {
+            console.error('Failed to fetch static pages settings:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Auto-save every 60 seconds (throttled)
     useEffect(() => {
         const interval = setInterval(() => {
             handleAutoSave();
-        }, 30000);
+        }, 60000);
         return () => clearInterval(interval);
     }, [pages]);
 
-    const handleAutoSave = () => {
+    const handleAutoSave = async () => {
+        if (loading || isSaving) return;
         setIsSaving(true);
-        // Simulate save to localStorage or backend
-        setTimeout(() => {
+        try {
+            await websiteSettingsAPI.save('static-pages-content', pages, 'Content for static pages (Contact, Terms, Privacy, etc.)');
             setLastSaved(new Date());
+        } catch (err) {
+            console.error('Auto-save failed:', err);
+        } finally {
             setIsSaving(false);
-        }, 500);
+        }
     };
 
     const handleContentChange = (content) => {
@@ -198,25 +222,42 @@ Phone: +91 XXXXXXXXXX</p>
         });
     };
 
-    const handleSaveDraft = () => {
+    const handleSaveDraft = async () => {
         setIsSaving(true);
-        setTimeout(() => {
+        try {
+            await websiteSettingsAPI.save('static-pages-content', pages, 'Content for static pages (Contact, Terms, Privacy, etc.)');
             setLastSaved(new Date());
-            setIsSaving(false);
             alert('Draft saved successfully!');
-        }, 500);
+        } catch (err) {
+            console.error('Draft save failed:', err);
+            alert('Failed to save draft');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    const handlePublish = () => {
-        setPages({
+    const handlePublish = async () => {
+        const updatedPages = {
             ...pages,
             [activeTab]: {
                 ...pages[activeTab],
                 published: true,
                 lastSaved: new Date()
             }
-        });
-        alert(`${getTabLabel(activeTab)} published successfully!`);
+        };
+        setPages(updatedPages);
+
+        setIsSaving(true);
+        try {
+            await websiteSettingsAPI.save('static-pages-content', updatedPages, 'Content for static pages (Contact, Terms, Privacy, etc.)');
+            setLastSaved(new Date());
+            alert(`${getTabLabel(activeTab)} published successfully!`);
+        } catch (err) {
+            console.error('Publish failed:', err);
+            alert('Failed to publish changes');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleCreateVersion = (notes) => {
@@ -714,155 +755,179 @@ Phone: +91 XXXXXXXXXX</p>
     return (
         <div>
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    Static Pages Management
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage your website's static pages including Contact Us, Terms & Conditions, Privacy Policy, and Accessibility Statement
-                </p>
-            </div>
-
-            {/* Tab Navigation */}
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '2px solid var(--border-primary)' }}>
-                {['contact', 'terms', 'privacy', 'accessibility'].map(tab => {
-                    const Icon = getTabIcon(tab);
-                    return (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            style={{
-                                padding: 'var(--spacing-sm) var(--spacing-md)',
-                                border: 'none',
-                                borderBottom: activeTab === tab ? '3px solid var(--color-primary)' : '3px solid transparent',
-                                backgroundColor: activeTab === tab ? 'var(--color-primary)10' : 'transparent',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 'var(--spacing-xs)',
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: activeTab === tab ? 600 : 400,
-                                color: activeTab === tab ? 'var(--color-primary)' : 'var(--text-secondary)',
-                                transition: 'all 0.2s'
-                            }}
-                        >
-                            <Icon size={16} />
-                            {getTabLabel(tab)}
-                        </button>
-                    );
-                })}
-            </div>
-
-            {/* Editor Toolbar */}
-            <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                        <button onClick={() => insertHtmlTag('bold')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Bold">
-                            <strong>B</strong>
-                        </button>
-                        <button onClick={() => insertHtmlTag('italic')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Italic">
-                            <em>I</em>
-                        </button>
-                        <button onClick={() => insertHtmlTag('h2')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Heading 2">
-                            H2
-                        </button>
-                        <button onClick={() => insertHtmlTag('h3')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Heading 3">
-                            H3
-                        </button>
-                        <button onClick={() => insertHtmlTag('link')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Link">
-                            🔗
-                        </button>
-                        <button onClick={() => insertHtmlTag('ul')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="List">
-                            ≡
-                        </button>
-                        <button onClick={() => insertHtmlTag('p')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Paragraph">
-                            ¶
-                        </button>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                        <button
-                            onClick={() => setShowPreview(!showPreview)}
-                            className="btn btn-secondary"
-                            style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
-                        >
-                            <Eye size={16} />
-                            {showPreview ? 'Hide' : 'Show'} Preview
-                        </button>
-                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                            {isSaving ? '💾 Saving...' : `💾 Last saved: ${formatTimeAgo(lastSaved)}`}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content Editor */}
-            <div style={{ display: 'grid', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: 'var(--spacing-md)' }}>
-                <div>
-                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                        HTML Content
-                    </label>
-                    <textarea
-                        data-tab={activeTab}
-                        value={pages[activeTab].content}
-                        onChange={(e) => handleContentChange(e.target.value)}
-                        rows={20}
-                        style={{
-                            width: '100%',
-                            padding: 'var(--spacing-md)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-md)',
-                            fontSize: 'var(--font-size-sm)',
-                            fontFamily: 'monospace',
-                            resize: 'vertical'
-                        }}
-                    />
-                </div>
-
-                {showPreview && (
                     <div>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Preview
-                        </label>
-                        <div
-                            style={{
-                                padding: 'var(--spacing-md)',
-                                border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                minHeight: '400px',
-                                maxHeight: '600px',
-                                overflowY: 'auto'
-                            }}
-                            dangerouslySetInnerHTML={{ __html: pages[activeTab].content }}
-                        />
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                            Static Pages Management
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            Manage your website's static pages including Contact Us, Terms & Conditions, Privacy Policy, and Accessibility Statement
+                        </p>
                     </div>
-                )}
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchSettings}
+                        disabled={loading}
+                        style={{ padding: '6px 12px' }}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                    </button>
+                </div>
             </div>
 
-            {/* Page-specific Settings */}
-            {activeTab === 'contact' && renderContactSettings()}
-            {(activeTab === 'terms' || activeTab === 'privacy') && renderVersionHistory()}
-            {activeTab === 'accessibility' && renderAccessibilitySettings()}
+            {loading ? (
+                <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center' }}>
+                    <Loader2 className="spin" size={48} style={{ margin: '0 auto var(--spacing-md) auto', display: 'block' }} />
+                    <p style={{ color: 'var(--text-secondary)' }}>Loading pages...</p>
+                </div>
+            ) : (
+                <>
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-lg)' }}>
-                <button
-                    onClick={handleSaveDraft}
-                    className="btn btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
-                >
-                    <Save size={18} />
-                    Save Draft
-                </button>
-                <button
-                    onClick={handlePublish}
-                    className="btn btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
-                >
-                    <Globe size={18} />
-                    Publish
-                </button>
-            </div>
+                    {/* Tab Navigation */}
+                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '2px solid var(--border-primary)' }}>
+                        {['contact', 'terms', 'privacy', 'accessibility'].map(tab => {
+                            const Icon = getTabIcon(tab);
+                            return (
+                                <button
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    style={{
+                                        padding: 'var(--spacing-sm) var(--spacing-md)',
+                                        border: 'none',
+                                        borderBottom: activeTab === tab ? '3px solid var(--color-primary)' : '3px solid transparent',
+                                        backgroundColor: activeTab === tab ? 'var(--color-primary)10' : 'transparent',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 'var(--spacing-xs)',
+                                        fontSize: 'var(--font-size-sm)',
+                                        fontWeight: activeTab === tab ? 600 : 400,
+                                        color: activeTab === tab ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <Icon size={16} />
+                                    {getTabLabel(tab)}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Editor Toolbar */}
+                    <div className="card" style={{ padding: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                <button onClick={() => insertHtmlTag('bold')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Bold">
+                                    <strong>B</strong>
+                                </button>
+                                <button onClick={() => insertHtmlTag('italic')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Italic">
+                                    <em>I</em>
+                                </button>
+                                <button onClick={() => insertHtmlTag('h2')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Heading 2">
+                                    H2
+                                </button>
+                                <button onClick={() => insertHtmlTag('h3')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Heading 3">
+                                    H3
+                                </button>
+                                <button onClick={() => insertHtmlTag('link')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Link">
+                                    🔗
+                                </button>
+                                <button onClick={() => insertHtmlTag('ul')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="List">
+                                    ≡
+                                </button>
+                                <button onClick={() => insertHtmlTag('p')} className="btn btn-secondary" style={{ padding: '6px 12px' }} title="Paragraph">
+                                    ¶
+                                </button>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                                <button
+                                    onClick={() => setShowPreview(!showPreview)}
+                                    className="btn btn-secondary"
+                                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
+                                >
+                                    <Eye size={16} />
+                                    {showPreview ? 'Hide' : 'Show'} Preview
+                                </button>
+                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                    {isSaving ? '💾 Saving...' : `💾 Last saved: ${formatTimeAgo(lastSaved)}`}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Content Editor */}
+                    <div style={{ display: 'grid', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: 'var(--spacing-md)' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                HTML Content
+                            </label>
+                            <textarea
+                                data-tab={activeTab}
+                                value={pages[activeTab].content}
+                                onChange={(e) => handleContentChange(e.target.value)}
+                                rows={20}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--spacing-md)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontSize: 'var(--font-size-sm)',
+                                    fontFamily: 'monospace',
+                                    resize: 'vertical'
+                                }}
+                            />
+                        </div>
+
+                        {showPreview && (
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                    Preview
+                                </label>
+                                <div
+                                    style={{
+                                        padding: 'var(--spacing-md)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        minHeight: '400px',
+                                        maxHeight: '600px',
+                                        overflowY: 'auto'
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: pages[activeTab].content }}
+                                />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Page-specific Settings */}
+                    {activeTab === 'contact' && renderContactSettings()}
+                    {(activeTab === 'terms' || activeTab === 'privacy') && renderVersionHistory()}
+                    {activeTab === 'accessibility' && renderAccessibilitySettings()}
+
+                    {/* Action Buttons */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-lg)' }}>
+                        <button
+                            onClick={handleSaveDraft}
+                            disabled={isSaving || loading}
+                            className="btn btn-secondary"
+                            style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
+                        >
+                            {isSaving ? <Loader2 size={18} className="spin" /> : <Save size={18} />}
+                            Save Draft
+                        </button>
+                        <button
+                            onClick={handlePublish}
+                            disabled={isSaving || loading}
+                            className="btn btn-primary"
+                            style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
+                        >
+                            {isSaving ? <Loader2 size={18} className="spin" /> : <Globe size={18} />}
+                            Publish
+                        </button>
+                    </div>
+                </>
+            )}
         </div>
     );
 }

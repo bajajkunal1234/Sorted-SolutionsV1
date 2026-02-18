@@ -61,12 +61,12 @@
 }
 
 .login-button {
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }
 
 .login-button:hover {
-    background: #e5e7eb;
+    background: var(--border-primary);
 }
 
 @media (min-width: 768px) {

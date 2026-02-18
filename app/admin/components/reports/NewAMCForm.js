@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react';
-import { X } from 'lucide-react';
-import { sampleLedgers } from '@/lib/data/accountingData';
-import { amcPlans } from '@/lib/data/rentalsAmcData';
+import { useState, useEffect } from 'react';
+import { X, RefreshCcw } from 'lucide-react';
+import { accountsAPI } from '@/lib/adminAPI';
+import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
-function NewAMCForm({ onClose, onSave }) {
-    const customers = sampleLedgers.filter(l => l.type === 'customer');
-
+function NewAMCForm({ plans = [], onClose, onSave }) {
+    const [customers, setCustomers] = useState([]);
+    const [loadingCustomers, setLoadingCustomers] = useState(true);
     const [formData, setFormData] = useState({
         customerId: '',
         property: null,
@@ -21,23 +21,35 @@ function NewAMCForm({ onClose, onSave }) {
         notes: ''
     });
 
-    const selectedPlan = amcPlans.find(p => p.id === formData.planId);
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            try {
+                setLoadingCustomers(true);
+                const data = await accountsAPI.getAll();
+                // Filter customers (assuming type or group indicates customer)
+                const customerList = data.filter(acc => acc.group_name === 'Sundry Debtors' || acc.type === 'customer');
+                setCustomers(customerList);
+            } catch (err) {
+                console.error('Failed to fetch customers:', err);
+            } finally {
+                setLoadingCustomers(false);
+            }
+        };
+        fetchCustomers();
+    }, []);
+
+    const selectedPlan = plans.find(p => p.id === formData.planId);
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        if (!selectedPlan) return;
 
         const endDate = calculateEndDate(formData.startDate, selectedPlan.duration.value, selectedPlan.duration.unit);
 
         const amcData = {
             ...formData,
-            customerName: customers.find(c => c.id === parseInt(formData.customerId))?.name,
-            property: formData.property,
-            planName: selectedPlan?.name,
-            amcAmount: selectedPlan?.price,
+            amcAmount: Number(selectedPlan.price),
             endDate,
-            servicesCompleted: [],
-            servicesRemaining: calculateServicesRemaining(selectedPlan.services),
-            nextServiceDate: calculateNextServiceDate(formData.startDate, selectedPlan.services),
             status: 'active'
         };
 
@@ -92,19 +104,32 @@ function NewAMCForm({ onClose, onSave }) {
                         {/* Customer Selection */}
                         <div className="form-group">
                             <label className="form-label">Customer *</label>
-                            <select
-                                className="form-select"
-                                value={formData.customerId}
-                                onChange={(e) => setFormData({ ...formData, customerId: e.target.value })}
-                                required
-                            >
-                                <option value="">Select Customer</option>
-                                {customers.map(customer => (
-                                    <option key={customer.id} value={customer.id}>
-                                        {customer.name} ({customer.phone})
-                                    </option>
-                                ))}
-                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <select
+                                    className="form-select"
+                                    value={formData.customerId}
+                                    onChange={(e) => setFormData({ ...formData, customerId: e.target.value, property: null })}
+                                    required
+                                    disabled={loadingCustomers}
+                                >
+                                    <option value="">{loadingCustomers ? 'Loading customers...' : 'Select Customer'}</option>
+                                    {customers.map(customer => (
+                                        <option key={customer.id} value={customer.id}>
+                                            {customer.name} {customer.phone ? `(${customer.phone})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                {loadingCustomers && (
+                                    <div style={{ position: 'absolute', right: '30px', top: '50%', transform: 'translateY(-50%)' }}>
+                                        <RefreshCcw size={14} className="spin" color="var(--text-tertiary)" />
+                                    </div>
+                                )}
+                            </div>
+                            {!loadingCustomers && customers.length === 0 && (
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: '#f59e0b', marginTop: 'var(--spacing-xs)' }}>
+                                    No customers found. Please create one in the Accounts tab first.
+                                </p>
+                            )}
                         </div>
 
                         {/* Property Selection */}
@@ -163,9 +188,9 @@ function NewAMCForm({ onClose, onSave }) {
                                 required
                             >
                                 <option value="">Select AMC Plan</option>
-                                {amcPlans.map(plan => (
+                                {plans.map(plan => (
                                     <option key={plan.id} value={plan.id}>
-                                        {plan.name} - ₹{plan.price}/{plan.duration.value} {plan.duration.unit}
+                                        {plan.name} - ₹{plan.price}/{plan.duration?.value} {plan.duration?.unit}
                                     </option>
                                 ))}
                             </select>
@@ -303,10 +328,10 @@ function NewAMCForm({ onClose, onSave }) {
                                 </h4>
                                 <div style={{ fontSize: 'var(--font-size-sm)', display: 'grid', gap: '4px' }}>
                                     <div>Plan: <strong>{selectedPlan.name}</strong></div>
-                                    <div>Duration: <strong>{selectedPlan.duration.value} {selectedPlan.duration.unit}</strong></div>
-                                    <div>Amount: <strong>₹{selectedPlan.price}</strong></div>
+                                    <div>Duration: <strong>{selectedPlan.duration?.value} {selectedPlan.duration?.unit}</strong></div>
+                                    <div>Amount: <strong>{formatCurrency(selectedPlan.price)}</strong></div>
                                     {formData.startDate && (
-                                        <div>Contract Period: <strong>{new Date(formData.startDate).toLocaleDateString()} - {new Date(calculateEndDate(formData.startDate, selectedPlan.duration.value, selectedPlan.duration.unit)).toLocaleDateString()}</strong></div>
+                                        <div>Contract Period: <strong>{new Date(formData.startDate).toLocaleDateString()} - {new Date(calculateEndDate(formData.startDate, selectedPlan.duration?.value, selectedPlan.duration?.unit)).toLocaleDateString()}</strong></div>
                                     )}
                                 </div>
                             </div>

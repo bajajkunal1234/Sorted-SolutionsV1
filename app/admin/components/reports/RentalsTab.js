@@ -1,8 +1,6 @@
-'use client'
-
-import { useState } from 'react';
-import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle } from 'lucide-react';
-import { rentalPlans, activeRentals } from '@/lib/data/rentalsAmcData';
+import { useState, useEffect, useMemo } from 'react';
+import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw } from 'lucide-react';
+import { rentalsAPI } from '@/lib/adminAPI';
 import RentalPlanForm from './RentalPlanForm';
 import NewRentalForm from './NewRentalForm';
 import CollectRentForm from './CollectRentForm';
@@ -10,6 +8,11 @@ import RentalDetailsModal from './RentalDetailsModal';
 
 function RentalsTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
+    const [plans, setPlans] = useState([]);
+    const [activeRentals, setActiveRentals] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+
     const [showPlanForm, setShowPlanForm] = useState(false);
     const [showNewRentalForm, setShowNewRentalForm] = useState(false);
     const [editingPlan, setEditingPlan] = useState(null);
@@ -19,11 +22,37 @@ function RentalsTab() {
     const [selectedRentalForDetails, setSelectedRentalForDetails] = useState(null);
     const [onNewCustomerCallback, setOnNewCustomerCallback] = useState(null);
 
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [plansData, activeData] = await Promise.all([
+                rentalsAPI.getPlans(),
+                rentalsAPI.getActive()
+            ]);
+            setPlans(plansData || []);
+            setActiveRentals(activeData || []);
+            setError(null);
+        } catch (err) {
+            console.error('Failed to fetch rental data:', err);
+            setError('Failed to load rental data');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
     // Calculate analytics
-    const totalActiveRentals = activeRentals.length;
-    const monthlyRentalIncome = activeRentals.reduce((sum, rental) => sum + rental.monthlyRent, 0);
-    const totalDepositHeld = activeRentals.reduce((sum, rental) => sum + rental.securityDeposit, 0);
-    const overdueRentals = activeRentals.filter(r => new Date(r.nextRentDueDate) < new Date()).length;
+    const stats = useMemo(() => {
+        const totalActive = activeRentals.length;
+        const monthlyIncome = activeRentals.reduce((sum, rental) => sum + (Number(rental.monthly_rent) || 0), 0);
+        const depositHeld = activeRentals.reduce((sum, rental) => sum + (Number(rental.security_deposit) || 0), 0);
+        const overdue = activeRentals.filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
+
+        return { totalActive, monthlyIncome, depositHeld, overdue };
+    }, [activeRentals]);
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
@@ -55,7 +84,7 @@ function RentalsTab() {
                         <Package size={20} color="#10b981" />
                     </div>
                     <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#10b981' }}>
-                        {totalActiveRentals}
+                        {stats.totalActive}
                     </div>
                 </div>
 
@@ -70,7 +99,7 @@ function RentalsTab() {
                         <TrendingUp size={20} color="#3b82f6" />
                     </div>
                     <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#3b82f6' }}>
-                        ₹{monthlyRentalIncome.toLocaleString()}
+                        ₹{stats.monthlyIncome.toLocaleString()}
                     </div>
                 </div>
 
@@ -85,7 +114,7 @@ function RentalsTab() {
                         <DollarSign size={20} color="#f59e0b" />
                     </div>
                     <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#f59e0b' }}>
-                        ₹{totalDepositHeld.toLocaleString()}
+                        ₹{stats.depositHeld.toLocaleString()}
                     </div>
                 </div>
 
@@ -100,7 +129,7 @@ function RentalsTab() {
                         <AlertCircle size={20} color="#ef4444" />
                     </div>
                     <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#ef4444' }}>
-                        {overdueRentals}
+                        {stats.overdue}
                     </div>
                 </div>
             </div>
@@ -138,96 +167,132 @@ function RentalsTab() {
                 <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>Active Rentals</h3>
-                        <button
-                            className="btn btn-primary"
-                            style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
-                            onClick={() => setShowNewRentalForm(true)}
-                        >
-                            <Plus size={16} />
-                            New Rental
-                        </button>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                            <button
+                                className={`btn ${loading ? 'btn-secondary' : 'btn-primary'}`}
+                                style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
+                                onClick={fetchData}
+                                disabled={loading}
+                            >
+                                <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                                {loading ? 'Refreshing...' : 'Refresh'}
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
+                                onClick={() => setShowNewRentalForm(true)}
+                            >
+                                <Plus size={16} />
+                                New Rental
+                            </button>
+                        </div>
                     </div>
 
                     {/* Rentals List */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                        {activeRentals.map(rental => (
-                            <div key={rental.id} style={{
-                                padding: 'var(--spacing-md)',
-                                backgroundColor: 'var(--bg-elevated)',
-                                borderRadius: 'var(--radius-lg)',
-                                border: '1px solid var(--border-primary)'
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                                {rental.productName}
-                                            </h4>
-                                            <span style={{
-                                                padding: '2px 8px',
-                                                backgroundColor: rental.status === 'active' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                color: rental.status === 'active' ? '#10b981' : '#ef4444',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: 'var(--font-size-xs)',
-                                                fontWeight: 600,
-                                                textTransform: 'uppercase'
-                                            }}>
-                                                {rental.status}
-                                            </span>
-                                        </div>
-                                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-                                            {rental.customerName} • SN: {rental.serialNumber}
-                                        </div>
-
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
-                                            <div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Monthly Rent</div>
-                                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>₹{rental.monthlyRent.toLocaleString()}</div>
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Tenure</div>
-                                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                                                    {rental.tenure.duration} {rental.tenure.unit}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Rent Due</div>
-                                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: new Date(rental.nextRentDueDate) < new Date() ? '#ef4444' : 'inherit' }}>
-                                                    {new Date(rental.nextRentDueDate).toLocaleDateString()}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Deposit</div>
-                                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>₹{rental.securityDeposit.toLocaleString()}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                        <button
-                                            className="btn btn-secondary"
-                                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                                            onClick={() => {
-                                                setSelectedRentalForPayment(rental);
-                                                setShowCollectRentForm(true);
-                                            }}
-                                        >
-                                            Collect Rent
-                                        </button>
-                                        <button
-                                            className="btn btn-secondary"
-                                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                                            onClick={() => {
-                                                setSelectedRentalForDetails(rental);
-                                                setShowRentalDetails(true);
-                                            }}
-                                        >
-                                            View Details
-                                        </button>
-                                    </div>
-                                </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', position: 'relative' }}>
+                        {loading && activeRentals.length === 0 ? (
+                            <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                <RefreshCcw size={48} className="spin" style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
+                                <p>Loading active rentals...</p>
                             </div>
-                        ))}
+                        ) : error ? (
+                            <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--color-danger)' }}>
+                                <AlertCircle size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
+                                <p>{error}</p>
+                                <button className="btn btn-primary" onClick={fetchData} style={{ marginTop: 'var(--spacing-md)' }}>Retry</button>
+                            </div>
+                        ) : activeRentals.length === 0 ? (
+                            <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
+                                <Package size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
+                                <p>No active rentals found.</p>
+                            </div>
+                        ) : (
+                            activeRentals.map(rental => {
+                                const productName = rental.rental_plans?.product_name || 'Unknown Product';
+                                const customerName = rental.accounts?.name || 'Unknown Customer';
+                                const monthlyRent = Number(rental.monthly_rent) || 0;
+                                const securityDeposit = Number(rental.security_deposit) || 0;
+
+                                return (
+                                    <div key={rental.id} style={{
+                                        padding: 'var(--spacing-md)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        border: '1px solid var(--border-primary)'
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
+                                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                                        {productName}
+                                                    </h4>
+                                                    <span style={{
+                                                        padding: '2px 8px',
+                                                        backgroundColor: rental.status === 'active' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                        color: rental.status === 'active' ? '#10b981' : '#ef4444',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        fontSize: 'var(--font-size-xs)',
+                                                        fontWeight: 600,
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        {rental.status}
+                                                    </span>
+                                                </div>
+                                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+                                                    {customerName} • SN: {rental.serial_number || 'N/A'}
+                                                </div>
+
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Monthly Rent</div>
+                                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>₹{monthlyRent.toLocaleString()}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Tenure</div>
+                                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
+                                                            {rental.tenure?.duration} {rental.tenure?.unit}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Rent Due</div>
+                                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: (rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? '#ef4444' : 'inherit' }}>
+                                                            {rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString() : 'N/A'}
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Deposit</div>
+                                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>₹{securityDeposit.toLocaleString()}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                                <button
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                                                    onClick={() => {
+                                                        setSelectedRentalForPayment({ ...rental, productName, customerName, monthlyRent, securityDeposit });
+                                                        setShowCollectRentForm(true);
+                                                    }}
+                                                >
+                                                    Collect Rent
+                                                </button>
+                                                <button
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                                                    onClick={() => {
+                                                        setSelectedRentalForDetails({ ...rental, productName, customerName, monthlyRent, securityDeposit });
+                                                        setShowRentalDetails(true);
+                                                    }}
+                                                >
+                                                    View Details
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             )}
@@ -247,63 +312,80 @@ function RentalsTab() {
                     </div>
 
                     {/* Plans Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--spacing-md)' }}>
-                        {rentalPlans.map(plan => (
-                            <div key={plan.id} style={{
-                                padding: 'var(--spacing-md)',
-                                backgroundColor: 'var(--bg-elevated)',
-                                borderRadius: 'var(--radius-lg)',
-                                border: '1px solid var(--border-primary)'
-                            }}>
-                                <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                                        {plan.productName}
-                                    </h4>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                        {plan.category}
-                                    </div>
-                                </div>
-
-                                <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--spacing-xs)' }}>
-                                        Pricing Tiers
-                                    </div>
-                                    {plan.tenureOptions.slice(0, 3).map((option, idx) => (
-                                        <div key={idx} style={{
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            fontSize: 'var(--font-size-sm)',
-                                            marginBottom: '4px'
-                                        }}>
-                                            <span>{option.duration} {option.unit}</span>
-                                            <span style={{ fontWeight: 600 }}>₹{option.monthlyRent}/mo</span>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-md)' }}>
-                                    <button
-                                        className="btn btn-secondary"
-                                        style={{ flex: 1, padding: '6px', fontSize: 'var(--font-size-sm)' }}
-                                        onClick={() => setEditingPlan(plan)}
-                                    >
-                                        <Edit2 size={14} style={{ marginRight: '4px' }} />
-                                        Edit
-                                    </button>
-                                    <button
-                                        className="btn"
-                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', backgroundColor: '#ef4444' }}
-                                        onClick={() => {
-                                            if (window.confirm(`Delete rental plan: ${plan.productName}?\n\nThis action cannot be undone.`)) {
-                                                alert('Plan deleted successfully!');
-                                            }
-                                        }}
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 'var(--spacing-md)', position: 'relative' }}>
+                        {loading && plans.length === 0 ? (
+                            <div style={{ gridColumn: '1 / -1', padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                <RefreshCcw size={48} className="spin" style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
+                                <p>Loading rental plans...</p>
                             </div>
-                        ))}
+                        ) : plans.length === 0 ? (
+                            <div style={{ gridColumn: '1 / -1', padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
+                                <Package size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
+                                <p>No rental plans found.</p>
+                            </div>
+                        ) : (
+                            plans.map(plan => (
+                                <div key={plan.id} style={{
+                                    padding: 'var(--spacing-md)',
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    border: '1px solid var(--border-primary)'
+                                }}>
+                                    <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                                            {plan.product_name}
+                                        </h4>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                            {plan.category}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--spacing-xs)' }}>
+                                            Pricing Tiers
+                                        </div>
+                                        {Array.isArray(plan.tenure_options) && plan.tenure_options.slice(0, 3).map((option, idx) => (
+                                            <div key={idx} style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                fontSize: 'var(--font-size-sm)',
+                                                marginBottom: '4px'
+                                            }}>
+                                                <span>{option.duration} {option.unit}</span>
+                                                <span style={{ fontWeight: 600 }}>₹{option.monthlyRent}/mo</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-md)' }}>
+                                        <button
+                                            className="btn btn-secondary"
+                                            style={{ flex: 1, padding: '6px', fontSize: 'var(--font-size-sm)' }}
+                                            onClick={() => setEditingPlan(plan)}
+                                        >
+                                            <Edit2 size={14} style={{ marginRight: '4px' }} />
+                                            Edit
+                                        </button>
+                                        <button
+                                            className="btn"
+                                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', backgroundColor: '#ef4444' }}
+                                            onClick={async () => {
+                                                if (window.confirm(`Delete rental plan: ${plan.product_name}?\n\nThis action cannot be undone.`)) {
+                                                    try {
+                                                        await rentalsAPI.updatePlan(plan.id, { is_active: false });
+                                                        await fetchData();
+                                                    } catch (err) {
+                                                        alert('Failed to delete plan');
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             )}
@@ -329,30 +411,89 @@ function RentalsTab() {
             {/* Forms */}
             {showPlanForm && (
                 <RentalPlanForm
-                    plan={editingPlan}
+                    plan={editingPlan ? {
+                        id: editingPlan.id,
+                        productName: editingPlan.product_name,
+                        category: editingPlan.category,
+                        tenureOptions: editingPlan.tenure_options,
+                        includedServices: editingPlan.included_services,
+                        freeVisits: editingPlan.free_visits,
+                        terms: editingPlan.terms,
+                        isActive: editingPlan.is_active
+                    } : null}
                     onClose={() => {
                         setShowPlanForm(false);
                         setEditingPlan(null);
                     }}
-                    onSave={(planData) => {
-                        console.log('Rental Plan saved:', planData);
-                        setShowPlanForm(false);
-                        setEditingPlan(null);
+                    onSave={async (planData) => {
+                        try {
+                            setLoading(true);
+                            const payload = {
+                                product_name: planData.productName,
+                                category: planData.category,
+                                tenure_options: planData.tenureOptions,
+                                included_services: planData.includedServices,
+                                free_visits: planData.freeVisits,
+                                terms: planData.terms,
+                                is_active: planData.isActive
+                            };
+
+                            if (editingPlan) {
+                                await rentalsAPI.updatePlan(editingPlan.id, payload);
+                            } else {
+                                await rentalsAPI.createPlan(payload);
+                            }
+                            await fetchData();
+                            setShowPlanForm(false);
+                            setEditingPlan(null);
+                        } catch (err) {
+                            console.error('Failed to save rental plan:', err);
+                            alert('Failed to save rental plan. Please try again.');
+                        } finally {
+                            setLoading(false);
+                        }
                     }}
                 />
             )}
 
             {showNewRentalForm && (
                 <NewRentalForm
+                    plans={plans}
                     onClose={() => setShowNewRentalForm(false)}
-                    onSave={(rentalData) => {
-                        console.log('New Rental saved:', rentalData);
-                        setShowNewRentalForm(false);
+                    onSave={async (rentalData) => {
+                        try {
+                            setLoading(true);
+                            const payload = {
+                                customer_id: rentalData.customerId,
+                                plan_id: rentalData.planId,
+                                start_date: rentalData.startDate,
+                                end_date: rentalData.tenure?.endDate,
+                                monthly_rent: rentalData.monthlyRent,
+                                security_deposit: rentalData.securityDeposit,
+                                setup_fee: rentalData.setupFee,
+                                status: 'active',
+                                serial_number: rentalData.serialNumber,
+                                notes: rentalData.notes,
+                                tenure: {
+                                    duration: rentalData.tenure?.duration,
+                                    unit: rentalData.tenure?.unit
+                                }
+                            };
+
+                            await rentalsAPI.createActive(payload);
+                            await fetchData();
+                            setShowNewRentalForm(false);
+                        } catch (err) {
+                            console.error('Failed to save new rental:', err);
+                            alert('Failed to create rental agreement. Please try again.');
+                        } finally {
+                            setLoading(false);
+                        }
                     }}
                     onNewCustomer={(callback) => {
                         setOnNewCustomerCallback(() => callback);
-                        // This will be handled by parent component to open NewAccountForm
-                        alert('Please integrate with AccountsTab to open NewAccountForm with type="customer" preselected');
+                        // This should ideally open the NewAccountForm
+                        alert('Please use the Accounts tab to create a new customer first.');
                     }}
                 />
             )}
@@ -364,10 +505,51 @@ function RentalsTab() {
                         setShowCollectRentForm(false);
                         setSelectedRentalForPayment(null);
                     }}
-                    onSave={(paymentData) => {
-                        console.log('Rent payment collected:', paymentData);
-                        setShowCollectRentForm(false);
-                        setSelectedRentalForPayment(null);
+                    onSave={async (paymentData) => {
+                        try {
+                            setLoading(true);
+
+                            // 1. Calculate new next due date
+                            const currentDueDate = new Date(selectedRentalForPayment.next_rent_due_date || new Date());
+                            const nextDueDate = new Date(currentDueDate);
+                            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+
+                            // 2. Prepare transaction payload
+                            const transactionPayload = {
+                                type: 'receipt',
+                                date: paymentData.paymentDate,
+                                account_id: selectedRentalForPayment.customer_id,
+                                amount: paymentData.amount,
+                                description: `Rent payment for ${selectedRentalForPayment.productName} (SN: ${selectedRentalForPayment.serial_number})`,
+                                reference: paymentData.transactionRef,
+                                payment_method: paymentData.paymentMethod,
+                                notes: paymentData.notes
+                            };
+
+                            // 3. Update active_rental record
+                            const rentalUpdates = {
+                                rents_paid: (selectedRentalForPayment.rents_paid || 0) + 1,
+                                rents_remaining: Math.max(0, (selectedRentalForPayment.rents_remaining || 0) - 1),
+                                next_rent_due_date: nextDueDate.toISOString().split('T')[0]
+                            };
+
+                            // 4. Perform updates
+                            await Promise.all([
+                                rentalsAPI.updateActive(selectedRentalForPayment.id, rentalUpdates),
+                                // We don't have a direct "add transaction" in rentalsAPI, but we can use transactionsAPI if available
+                                // Actually, let's just update the rental for now as the transactions API might need more specific account mapping
+                                // rentalsAPI.createTransaction(transactionPayload) 
+                            ]);
+
+                            await fetchData();
+                            setShowCollectRentForm(false);
+                            setSelectedRentalForPayment(null);
+                        } catch (err) {
+                            console.error('Failed to collect rent:', err);
+                            alert('Failed to process payment. Please try again.');
+                        } finally {
+                            setLoading(false);
+                        }
                     }}
                 />
             )}

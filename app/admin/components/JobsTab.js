@@ -48,10 +48,6 @@ function JobsTab() {
             } catch (err) {
                 console.error('Error fetching jobs:', err);
                 setError('Failed to load jobs. Please try again.');
-                // Fallback to sample data for development if it exists in the environment
-                if (typeof sampleJobs !== 'undefined') {
-                    setJobs(sampleJobs);
-                }
             } finally {
                 setLoading(false);
             }

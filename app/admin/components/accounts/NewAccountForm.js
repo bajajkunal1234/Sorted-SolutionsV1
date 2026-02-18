@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { X, Plus, Upload, Trash2, AlertCircle } from 'lucide-react';
-import { accountGroups, coaFieldMappings, sampleLedgers } from '@/lib/data/accountingData';
+import { coaFieldMappings, sampleLedgers } from '@/lib/data/accountingData';
 import { acquisitionSources } from '@/lib/data/interactionTypes';
 import GroupCreationModal from './GroupCreationModal';
+import { accountGroupsAPI } from '@/lib/adminAPI';
 import ConfirmDialog from '@/app/admin/components/common/ConfirmDialog';
 import {
     generateSKU,
@@ -16,7 +17,7 @@ import {
 } from '@/lib/utils/accountHelpers';
 import { validateMobileNumber, validateEmail, validateGSTIN, validatePAN, validateIFSC } from '@/lib/utils/validation';
 
-function NewAccountForm({ onClose, onSave, preselectedType = null }) {
+function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], onGroupCreated }) {
     // Common fields
     const [formData, setFormData] = useState({
         sku: '',
@@ -90,7 +91,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
     const [duplicateWarning, setDuplicateWarning] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
     const [showGroupForm, setShowGroupForm] = useState(false);
-    const [accountGroupsList, setAccountGroupsList] = useState(accountGroups);
+
 
     // Customer Properties (for Sundry Debtors/Creditors)
     const [properties, setProperties] = useState([{ name: '', address: '' }]);
@@ -131,8 +132,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
         setIsFormDirty(hasData);
     }, [formData, properties]);
 
-    // Get required fields for current account type
-    const requiredFields = getRequiredFields(formData.under);
+    // Get required fields for current account type (with inheritance)
+    const requiredFields = getRequiredFields(formData.under, groups);
     const showField = (fieldName) => requiredFields.includes(fieldName);
 
     // Handle image upload
@@ -206,11 +207,77 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
         }
     };
 
+    // GSTIN validation
+    const handleGSTINChange = (value) => {
+        const val = value.toUpperCase();
+        setFormData({ ...formData, gstin: val });
+        if (val.trim()) {
+            const validation = validateGSTIN(val);
+            if (!validation.isValid) {
+                setErrors(prev => ({ ...prev, gstin: validation.error }));
+            } else {
+                setErrors(prev => {
+                    const { gstin, ...rest } = prev;
+                    return rest;
+                });
+            }
+        } else {
+            setErrors(prev => {
+                const { gstin, ...rest } = prev;
+                return rest;
+            });
+        }
+    };
+
+    // PAN validation
+    const handlePANChange = (value) => {
+        const val = value.toUpperCase();
+        setFormData({ ...formData, pan: val });
+        if (val.trim()) {
+            const validation = validatePAN(val);
+            if (!validation.isValid) {
+                setErrors(prev => ({ ...prev, pan: validation.error }));
+            } else {
+                setErrors(prev => {
+                    const { pan, ...rest } = prev;
+                    return rest;
+                });
+            }
+        } else {
+            setErrors(prev => {
+                const { pan, ...rest } = prev;
+                return rest;
+            });
+        }
+    };
+
+    // IFSC validation
+    const handleIFSCChange = (value) => {
+        const val = value.toUpperCase();
+        setFormData({ ...formData, ifscCode: val });
+        if (val.trim()) {
+            const validation = validateIFSC(val);
+            if (!validation.isValid) {
+                setErrors(prev => ({ ...prev, ifscCode: validation.error }));
+            } else {
+                setErrors(prev => {
+                    const { ifscCode, ...rest } = prev;
+                    return rest;
+                });
+            }
+        } else {
+            setErrors(prev => {
+                const { ifscCode, ...rest } = prev;
+                return rest;
+            });
+        }
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        // Validate
-        const validationErrors = validateAccountData(formData, formData.under);
+        // Validate (with inheritance)
+        const validationErrors = validateAccountData(formData, formData.under, groups);
 
         // Validate mobile number
         if (formData.mobile.trim()) {
@@ -235,7 +302,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
             sku: formData.sku,
             alias: formData.alias,
             under: formData.under,
-            type: coaFieldMappings[formData.under]?.defaultNature || 'asset',
+            type: groups.find(g => g.id === formData.under)?.nature || coaFieldMappings[formData.under]?.defaultNature || 'asset',
             opening_balance: parseFloat(formData.openingBalance) || 0,
             balance_type: formData.balanceType,
             as_on_date: formData.asOnDate,
@@ -260,6 +327,13 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
             acquisition_source: formData.acquisitionSource,
             referred_by: formData.referredBy,
             status: 'active',
+            // Fixed Asset Fields
+            asset_category: formData.assetCategory,
+            purchase_date: formData.purchaseDate || null,
+            purchase_value: parseFloat(formData.purchaseValue) || 0,
+            depreciation_method: formData.depreciationMethod,
+            depreciation_rate: parseFloat(formData.depreciationRate) || 0,
+            useful_life: parseFloat(formData.usefulLife) || 0,
             created_at: new Date().toISOString()
         };
 
@@ -417,9 +491,9 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
                                             style={{ flex: 1 }}
                                         >
                                             <option value="">Select Account Group</option>
-                                            {accountGroupsList.map(group => (
+                                            {groups.map(group => (
                                                 <option key={group.id} value={group.id}>
-                                                    {getGroupPath(group.id, accountGroupsList)}
+                                                    {getGroupPath(group.id, groups)}
                                                 </option>
                                             ))}
                                         </select>
@@ -601,9 +675,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
                                                             type="text"
                                                             className="form-input"
                                                             value={formData.gstin}
-                                                            onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                                                            onChange={(e) => handleGSTINChange(e.target.value)}
                                                             placeholder="27AABCU9603R1ZM"
                                                             maxLength={15}
+                                                            style={{ borderColor: errors.gstin ? '#ef4444' : undefined }}
                                                         />
                                                         {errors.gstin && (
                                                             <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.gstin}</span>
@@ -615,9 +690,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
                                                             type="text"
                                                             className="form-input"
                                                             value={formData.pan}
-                                                            onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
+                                                            onChange={(e) => handlePANChange(e.target.value)}
                                                             placeholder="ABCDE1234F"
                                                             maxLength={10}
+                                                            style={{ borderColor: errors.pan ? '#ef4444' : undefined }}
                                                         />
                                                         {errors.pan && (
                                                             <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.pan}</span>
@@ -1170,14 +1246,24 @@ function NewAccountForm({ onClose, onSave, preselectedType = null }) {
                 {/* Group Creation Modal */}
                 {showGroupForm && (
                     <GroupCreationModal
+                        groups={groups}
                         onClose={() => setShowGroupForm(false)}
-                        onSave={(newGroup) => {
-                            // Add new group to the list
-                            setAccountGroupsList([...accountGroupsList, newGroup]);
-                            // Auto-select the new group in the "Under" dropdown
-                            setFormData({ ...formData, under: newGroup.id });
-                            setShowGroupForm(false);
-                            alert(`Group "${newGroup.name}" created successfully!`);
+                        onSave={async (newGroupData) => {
+                            try {
+                                const result = await accountGroupsAPI.create(newGroupData);
+
+                                // Auto-select the new group in the "Under" dropdown
+                                setFormData({ ...formData, under: result.id });
+
+                                // Refresh parental list
+                                if (onGroupCreated) onGroupCreated();
+
+                                setShowGroupForm(false);
+                                alert(`Group "${result.name}" created successfully!`);
+                            } catch (err) {
+                                console.error('Error creating group:', err);
+                                alert(`Failed to create group: ${err.message}`);
+                            }
                         }}
                     />
                 )}

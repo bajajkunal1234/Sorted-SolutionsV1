@@ -1,51 +1,132 @@
 'use client'
 
-import { useState } from 'react';
-import { MapPin, Plus, Trash2, GripVertical, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MapPin, Plus, Trash2, GripVertical, Save, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteSettingsAPI, websiteLocationsAPI } from '@/lib/adminAPI';
 
 function HeaderLocations() {
-    const [locations, setLocations] = useState([
-        { id: 1, name: 'Mumbai', order: 1 },
-        { id: 2, name: 'Andheri', order: 2 },
-        { id: 3, name: 'Dadar', order: 3 },
-        { id: 4, name: 'Ghatkopar', order: 4 },
-        { id: 5, name: 'Goregaon', order: 5 },
-        { id: 6, name: 'Kurla', order: 6 }
-    ]);
+    const [locations, setLocations] = useState([]);
     const [newLocation, setNewLocation] = useState('');
     const [rotationInterval, setRotationInterval] = useState(3);
     const [animationEnabled, setAnimationEnabled] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
-    const handleAddLocation = () => {
-        if (newLocation.trim()) {
-            const newId = Math.max(...locations.map(l => l.id), 0) + 1;
-            setLocations([...locations, {
-                id: newId,
-                name: newLocation.trim(),
-                order: locations.length + 1
-            }]);
-            setNewLocation('');
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setLoading(true);
+            const [locationsData, configData] = await Promise.all([
+                websiteLocationsAPI.getAll({ header: true }),
+                websiteSettingsAPI.getByKey('header-locations-config')
+            ]);
+
+            if (locationsData) {
+                setLocations(locationsData.map(l => ({
+                    id: l.id,
+                    name: l.name,
+                    order: l.header_order
+                })));
+            }
+
+            if (configData && configData.value) {
+                setRotationInterval(configData.value.rotationInterval || 3);
+                setAnimationEnabled(configData.value.animationEnabled ?? true);
+            }
+        } catch (err) {
+            console.error('Failed to fetch header locations:', err);
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleRemoveLocation = (id) => {
-        setLocations(locations.filter(l => l.id !== id));
+    const handleAddLocation = async () => {
+        if (newLocation.trim()) {
+            try {
+                const added = await websiteLocationsAPI.create({
+                    name: newLocation.trim(),
+                    display_in_header: true,
+                    header_order: locations.length + 1,
+                    type: 'Service Area' // Default type
+                });
+
+                if (added) {
+                    setLocations([...locations, {
+                        id: added.id,
+                        name: added.name,
+                        order: added.header_order
+                    }]);
+                    setNewLocation('');
+                }
+            } catch (error) {
+                console.error('Error adding location:', error);
+                alert('Failed to add location');
+            }
+        }
     };
 
-    const handleSave = () => {
-        // TODO: Save to backend
-        alert('Settings saved successfully!');
+    const handleRemoveLocation = async (id) => {
+        if (confirm('Are you sure you want to remove this location from header?')) {
+            try {
+                // We'll update it to not display in header instead of deleting
+                await websiteLocationsAPI.update(id, { display_in_header: false });
+                setLocations(locations.filter(l => l.id !== id));
+            } catch (error) {
+                console.error('Error removing location:', error);
+                alert('Failed to remove location');
+            }
+        }
+    };
+
+    const handleSave = async () => {
+        try {
+            setSaving(true);
+            // Re-order locations
+            const updatePromises = locations.map((loc, index) =>
+                websiteLocationsAPI.update(loc.id, { header_order: index + 1 })
+            );
+
+            await Promise.all([
+                ...updatePromises,
+                websiteSettingsAPI.save('header-locations-config', {
+                    rotationInterval,
+                    animationEnabled
+                }, 'Config for rotating header locations')
+            ]);
+
+            alert('Settings saved successfully!');
+        } catch (err) {
+            console.error('Failed to save header locations:', err);
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div>
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    Homepage Header Locations
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage locations that rotate in the hero section headline
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                            Homepage Header Locations
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            Manage locations that rotate in the hero section headline
+                        </p>
+                    </div>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchSettings}
+                        disabled={loading}
+                        style={{ padding: '6px 12px' }}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {/* Animation Settings */}
@@ -197,11 +278,12 @@ function HeaderLocations() {
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--spacing-sm)' }}>
                 <button
                     onClick={handleSave}
+                    disabled={saving || loading}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
                 >
-                    <Save size={18} />
-                    Save Changes
+                    {saving ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save Changes'}
                 </button>
             </div>
         </div>

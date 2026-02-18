@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Upload, Plus, Loader2, Image as ImageIcon } from 'lucide-react';
 import { customersAPI, techniciansAPI, brandsAPI, issuesAPI, propertiesAPI, productsAPI } from '@/lib/adminAPI';
-import { tagOptions } from '@/lib/data/sampleData';
+
 
 function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [loading, setLoading] = useState(true);

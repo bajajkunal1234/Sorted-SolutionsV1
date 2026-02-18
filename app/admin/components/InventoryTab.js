@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X } from 'lucide-react';
-import { inventoryAPI } from '@/lib/adminAPI';
+import { inventoryAPI, inventoryCategoriesAPI, printTemplatesAPI } from '@/lib/adminAPI';
 import { productCategories, stockStatuses } from '@/lib/data/inventoryData';
 import { filterProducts, sortProducts, getUniqueBrands } from '@/lib/utils/inventoryHelpers';
 import InventoryTableView from './inventory/InventoryTableView';
@@ -16,6 +16,8 @@ import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 function InventoryTab() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [categories, setCategories] = useState([]);
+    const [termsTemplates, setTermsTemplates] = useState([]);
     const [error, setError] = useState(null);
     const [viewType, setViewType] = useState('table');
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,8 +34,14 @@ function InventoryTab() {
         const fetchInventory = async () => {
             try {
                 setLoading(true);
-                const data = await inventoryAPI.getAll();
-                setProducts(data || []);
+                const [productData, categoryData, templateData] = await Promise.all([
+                    inventoryAPI.getAll(),
+                    inventoryCategoriesAPI.getAll(),
+                    printTemplatesAPI.getAll()
+                ]);
+                setProducts(productData || []);
+                setCategories(categoryData || []);
+                setTermsTemplates(templateData || []);
                 setError(null);
             } catch (err) {
                 console.error('Error fetching inventory:', err);
@@ -242,7 +250,7 @@ function InventoryTab() {
                         style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
                     >
                         <option value="all">All Categories</option>
-                        {productCategories.map(cat => (
+                        {categories.map(cat => (
                             <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                     </select>
@@ -344,6 +352,8 @@ function InventoryTab() {
                 <NewProductForm
                     onClose={() => setShowCreateForm(false)}
                     onSave={handleCreateProduct}
+                    categories={categories}
+                    termsTemplates={termsTemplates}
                 />
             )}
         </div>

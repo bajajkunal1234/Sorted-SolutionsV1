@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Search, ChevronDown, Download, Calendar, Edit2 } from 'lucide-react';
 import { sampleInteractions } from '@/lib/data/interactionsData';
 import { sampleSalesInvoices, samplePurchaseInvoices, sampleQuotations, sampleReceipts, samplePayments } from '@/lib/data/transactionsData';
@@ -11,8 +11,62 @@ import QuotationForm from './accounts/QuotationForm';
 import ReceiptVoucherForm from './accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from './accounts/PaymentVoucherForm';
 
+import { supabase } from '@/lib/supabase';
+
 function InteractionsTab() {
-    const [interactions, setInteractions] = useState(sampleInteractions);
+    const [interactions, setInteractions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Load interactions from Supabase and merge with sample data
+    useEffect(() => {
+        const fetchInteractions = async () => {
+            setIsLoading(true);
+            try {
+                // Fetch from Supabase
+                const { data, error } = await supabase
+                    .from('interactions')
+                    .select('*')
+                    .order('timestamp', { ascending: false })
+                    .limit(100);
+
+                if (error) throw error;
+
+                // Map database fields to the UI format if necessary
+                const dbInteractions = (data || []).map(item => ({
+                    ...item,
+                    customerId: item.customer_id,
+                    customerName: item.customer_name || 'System',
+                    jobId: item.job_id,
+                    invoiceId: item.invoice_id,
+                    performedBy: item.performed_by,
+                    performedByName: item.performed_by_name
+                }));
+
+                // Load fallback from localStorage if any
+                const localLogs = JSON.parse(localStorage.getItem('system_interactions_fallback') || '[]');
+
+                // Merge and sort by timestamp
+                const combined = [...dbInteractions, ...localLogs, ...sampleInteractions].sort((a, b) =>
+                    new Date(b.timestamp) - new Date(a.timestamp)
+                );
+
+                setInteractions(combined);
+            } catch (err) {
+                console.error('Failed to fetch interactions from Supabase:', err);
+                // Fallback to sample data and local logs
+                const localLogs = JSON.parse(localStorage.getItem('system_interactions') || '[]');
+                const combined = [...localLogs, ...sampleInteractions].sort((a, b) =>
+                    new Date(b.timestamp) - new Date(a.timestamp)
+                );
+                setInteractions(combined);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchInteractions();
+    }, []);
+
     const [searchTerm, setSearchTerm] = useState('');
     const [searchField, setSearchField] = useState('all'); // all, customer, job, invoice, description
     const [groupBy, setGroupBy] = useState('none'); // none, customer, date, type, category, performedBy

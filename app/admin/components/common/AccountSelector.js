@@ -111,7 +111,18 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                 <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{acc.name}</span>
-                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{acc.group}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{acc.group}</span>
+                                    {acc.current_balance !== undefined && (
+                                        <span style={{
+                                            fontSize: 'var(--font-size-xs)',
+                                            fontWeight: 600,
+                                            color: acc.current_balance >= 0 ? '#10b981' : '#ef4444'
+                                        }}>
+                                            ₹{Math.abs(acc.current_balance).toLocaleString()} {acc.current_balance >= 0 ? 'Dr' : 'Cr'}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <span style={{

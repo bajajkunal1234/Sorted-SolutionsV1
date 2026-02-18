@@ -1,14 +1,13 @@
 'use client'
 
 import { useState } from 'react';
-import { FileText, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users } from 'lucide-react';
+import { FileText, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import DailyExpenses from './reports/DailyExpenses';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
 import PrevisitRequirements from './reports/PrevisitRequirements';
 import WebsiteSettings from './reports/WebsiteSettings';
 import PrintSetup from './reports/PrintSetup';
-import TechnicianPermissions from './reports/TechnicianPermissions';
 import IncentivesManagement from './reports/IncentivesManagement';
 import FinancialReports from './reports/FinancialReports';
 import WhatsAppTemplateManager from './admin/WhatsAppTemplateManager';
@@ -21,6 +20,8 @@ import TechnicianManagement from './reports/TechnicianManagement';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 import { settingsByCategory } from '@/lib/data/websiteSettingsData';
+
+import SQLRunnerPage from '../system/sql/page';
 
 function ReportsTab() {
     const [activeSection, setActiveSection] = useState(null); // null = homepage
@@ -39,12 +40,12 @@ function ReportsTab() {
         { id: 'previsit', label: 'Pre-visit Checklist', icon: Clipboard, component: PrevisitRequirements, color: '#14b8a6', description: 'Manage pre-visit requirements' },
         { id: 'slots', label: 'Website Settings', icon: Clock, component: WebsiteSettings, color: '#f97316', description: 'Manage website content & forms' },
         { id: 'print', label: 'Print Setup', icon: Printer, component: PrintSetup, color: '#84cc16', description: 'Configure print templates' },
-        { id: 'technicians', label: 'Technician Management', icon: Users, component: TechnicianManagement, color: '#3b82f6', description: 'Manage technician accounts and credentials' },
-        { id: 'permissions', label: 'Permissions', icon: Shield, component: TechnicianPermissions, color: '#64748b', description: 'Manage user permissions' },
+        { id: 'technicians', label: 'Technician Management', icon: Users, component: TechnicianManagement, color: '#3b82f6', description: 'Manage technician accounts, credentials and permissions' },
         { id: 'incentives', label: 'Incentives', icon: Award, component: IncentivesManagement, color: '#0ea5e9', description: 'Configure incentive programs' },
         { id: 'financial', label: 'Financial Reports', icon: TrendingUp, component: FinancialReports, color: '#a855f7', description: 'View financial analytics' },
         { id: 'templates', label: 'WhatsApp Templates', icon: MessageSquare, component: WhatsAppTemplateManager, color: '#22c55e', description: 'Manage WhatsApp message templates' },
-        { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' }
+        { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
+        { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' }
     ];
 
     // Create searchable index of all settings

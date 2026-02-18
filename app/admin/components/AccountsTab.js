@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, ChevronDown, Grid, Table as TableIcon } from 'lucide-react';
-import { accountsAPI, transactionsAPI } from '@/lib/adminAPI';
+import { accountsAPI, transactionsAPI, accountGroupsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
 import AccountsKanbanView from './accounts/AccountsKanbanView';
@@ -14,6 +14,7 @@ import ReceiptVoucherForm from './accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from './accounts/PaymentVoucherForm';
 import NewAccountForm from './accounts/NewAccountForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 
 function AccountsTab({ customerToOpen, onCustomerOpened }) {
     // Tab state
@@ -21,6 +22,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     // Data states
     const [ledgers, setLedgers] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [salesInvoices, setSalesInvoices] = useState([]);
     const [purchaseInvoices, setPurchaseInvoices] = useState([]);
     const [quotations, setQuotations] = useState([]);
@@ -48,15 +50,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [activeForm, setActiveForm] = useState(null);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
 
-    // Account groups for filtering
-    const accountGroups = [
-        { id: 'customers', name: 'Customers' },
-        { id: 'suppliers', name: 'Suppliers' },
-        { id: 'expenses', name: 'Expenses' },
-        { id: 'income', name: 'Income' },
-        { id: 'assets', name: 'Assets' },
-        { id: 'liabilities', name: 'Liabilities' }
-    ];
+
 
 
     // Fetch data for the current tab
@@ -65,8 +59,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             try {
                 setLoading(true);
                 if (activeTab === 'accounts') {
-                    const data = await accountsAPI.getAll();
-                    setLedgers(data || []);
+                    const [ledgerData, groupData] = await Promise.all([
+                        accountsAPI.getAll(),
+                        accountGroupsAPI.getAll()
+                    ]);
+                    setLedgers(ledgerData || []);
+                    setGroups(groupData || []);
                 } else {
                     const type = tabToTypeMap[activeTab];
                     const data = await transactionsAPI.getAll({ type });
@@ -250,6 +248,15 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             }
         }) : [];
 
+    const refreshGroups = async () => {
+        try {
+            const data = await accountGroupsAPI.getAll();
+            setGroups(data || []);
+        } catch (err) {
+            console.error('Error refreshing groups:', err);
+        }
+    };
+
     const handleFormSave = async (data, action) => {
         try {
             if (activeTab === 'accounts') {
@@ -267,31 +274,31 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 }
             }
 
-            // Refresh data
-            const fetchData = async () => {
-                if (activeTab === 'accounts') {
-                    const res = await accountsAPI.getAll();
-                    setLedgers(res || []);
-                } else {
-                    const type = tabToTypeMap[activeTab];
-                    const res = await transactionsAPI.getAll({ type });
-                    switch (activeTab) {
-                        case 'sales': setSalesInvoices(res || []); break;
-                        case 'purchases': setPurchaseInvoices(res || []); break;
-                        case 'quotations': setQuotations(res || []); break;
-                        case 'receipts': setReceipts(res || []); break;
-                        case 'payments': setPayments(res || []); break;
-                    }
+            // ALWAYS refresh ledgers when a transaction is saved because balances change
+            const [ledgerRes, transRes] = await Promise.all([
+                accountsAPI.getAll(),
+                activeTab !== 'accounts' ? transactionsAPI.getAll({ type: tabToTypeMap[activeTab] }) : Promise.resolve(null)
+            ]);
+
+            setLedgers(ledgerRes || []);
+
+            if (transRes) {
+                switch (activeTab) {
+                    case 'sales': setSalesInvoices(transRes || []); break;
+                    case 'purchases': setPurchaseInvoices(transRes || []); break;
+                    case 'quotations': setQuotations(transRes || []); break;
+                    case 'receipts': setReceipts(transRes || []); break;
+                    case 'payments': setPayments(transRes || []); break;
                 }
-            };
-            await fetchData();
+            }
 
             alert(`${tabConfig[activeTab].label} saved successfully!`);
             setActiveForm(null);
             setSelectedTransaction(null);
         } catch (err) {
             console.error('Error saving form:', err);
-            alert(`Failed to save ${tabConfig[activeTab].label}. Please try again.`);
+            // Show more specific error
+            alert(`Failed to save ${tabConfig[activeTab].label}: ${err.message || 'Unknown error'}`);
         }
     };
 
@@ -339,24 +346,37 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Opening Balance</th>
                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Closing Balance</th>
                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Jobs Done</th>
+                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredLedgers.map(ledger => (
                                     <tr
                                         key={ledger.id}
-                                        onClick={() => setSelectedAccount(ledger)}
                                         style={{
                                             borderBottom: '1px solid var(--border-primary)',
-                                            cursor: 'pointer',
+                                            cursor: 'default',
                                             transition: 'background-color var(--transition-fast)'
                                         }}
                                         onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                     >
-                                        <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{ledger.sku || '-'}</td>
-                                        <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>{ledger.name}</td>
-                                        <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>
+                                        <td
+                                            onClick={() => setSelectedAccount(ledger)}
+                                            style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', cursor: 'pointer' }}
+                                        >
+                                            {ledger.sku || '-'}
+                                        </td>
+                                        <td
+                                            onClick={() => setSelectedAccount(ledger)}
+                                            style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: 'pointer' }}
+                                        >
+                                            {ledger.name}
+                                        </td>
+                                        <td
+                                            onClick={() => setSelectedAccount(ledger)}
+                                            style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}
+                                        >
                                             <span style={{
                                                 padding: '2px 8px',
                                                 borderRadius: 'var(--radius-sm)',
@@ -366,17 +386,47 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                 {ledger.type}
                                             </span>
                                         </td>
-                                        <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                            {getGroupPath(ledger.under, accountGroups)}
+                                        <td
+                                            onClick={() => setSelectedAccount(ledger)}
+                                            style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                                        >
+                                            {getGroupPath(ledger.under, groups)}
                                         </td>
-                                        <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace' }}>
+                                        <td
+                                            onClick={() => setSelectedAccount(ledger)}
+                                            style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', cursor: 'pointer' }}
+                                        >
                                             {formatCurrency(ledger.openingBalance || 0)}
                                         </td>
-                                        <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>
+                                        <td
+                                            onClick={() => setSelectedAccount(ledger)}
+                                            style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, cursor: 'pointer' }}
+                                        >
                                             {formatCurrency(ledger.closingBalance || 0)}
                                         </td>
-                                        <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'center' }}>
+                                        <td
+                                            onClick={() => setSelectedAccount(ledger)}
+                                            style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'center', cursor: 'pointer' }}
+                                        >
                                             {ledger.jobsDone || 0}
+                                        </td>
+                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                <button
+                                                    title="New Receipt"
+                                                    onClick={(e) => { e.stopPropagation(); setActiveTab('receipts'); setActiveForm('receipt-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }}
+                                                    style={{ background: '#10b98115', border: 'none', borderRadius: '4px', color: '#10b981', padding: '4px', cursor: 'pointer' }}
+                                                >
+                                                    Rec
+                                                </button>
+                                                <button
+                                                    title="New Payment"
+                                                    onClick={(e) => { e.stopPropagation(); setActiveTab('payments'); setActiveForm('payment-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }}
+                                                    style={{ background: '#ef444415', border: 'none', borderRadius: '4px', color: '#ef4444', padding: '4px', cursor: 'pointer' }}
+                                                >
+                                                    Pay
+                                                </button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -763,7 +813,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                             }}
                         >
                             <option value="all">All Groups</option>
-                            {accountGroups.map(group => (
+                            {groups.map(group => (
                                 <option key={group.id} value={group.id}>
                                     {group.name}
                                 </option>
@@ -807,6 +857,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             {selectedAccount && (
                 <AccountDetailModal
                     account={selectedAccount}
+                    groups={groups}
                     onClose={() => setSelectedAccount(null)}
                     onUpdate={handleUpdateAccount}
                 />
@@ -852,6 +903,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 <NewAccountForm
                     onSave={handleFormSave}
                     onClose={handleFormClose}
+                    groups={groups}
+                    onGroupCreated={refreshGroups}
                 />
             )}
         </div>

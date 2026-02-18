@@ -1,37 +1,37 @@
 :root {
-  /* Color Palette - Light Mode */
+  /* Color Palette - Light Mode (Premium Blue & White) */
   --color-primary: #2563eb;
-  --color-primary-dark: #1e40af;
+  --color-primary-dark: #1d4ed8;
   --color-primary-light: #60a5fa;
-  --color-secondary: #ec4899;
+  --color-secondary: #f43f5e;
   --color-success: #10b981;
-  --color-warning: #fbbf24;
+  --color-warning: #f59e0b;
   --color-danger: #ef4444;
   --color-info: #3b82f6;
 
   /* Background Colors */
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --bg-tertiary: #f3f4f6;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
   --bg-elevated: #ffffff;
-  --bg-hover: #f3f4f6;
+  --bg-hover: #f1f5f9;
 
   /* Text Colors */
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-tertiary: #64748b;
   --text-inverse: #ffffff;
 
   /* Border Colors */
-  --border-primary: #e5e7eb;
-  --border-secondary: #d1d5db;
+  --border-primary: #e2e8f0;
+  --border-secondary: #cbd5e1;
   --border-focus: var(--color-primary);
 
   /* Shadow */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -74,7 +74,7 @@
 }
 
 [data-theme="dark"] {
-  /* Background Colors - Dark Mode */
+  /* Background Colors - Dark Mode (Slate/Admin Theme) */
   --bg-primary: #0f172a;
   --bg-secondary: #1e293b;
   --bg-tertiary: #334155;
@@ -82,7 +82,7 @@
   --bg-hover: #334155;
 
   /* Text Colors - Dark Mode */
-  --text-primary: #f1f5f9;
+  --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-tertiary: #94a3b8;
   --text-inverse: #0f172a;
@@ -91,11 +91,16 @@
   --border-primary: #334155;
   --border-secondary: #475569;
 
+  /* Palette Adjustments */
+  --color-primary: #6366f1;
+  --color-primary-dark: #4f46e5;
+  --color-primary-light: #818cf8;
+
   /* Shadows - Dark Mode */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
 /* Reset & Base Styles */
@@ -436,7 +441,7 @@ p {
   color: var(--color-primary);
 }
 
-.tab-item.active::before {
+/* .tab-item.active::before {
   content: '';
   position: absolute;
   top: 0;
@@ -446,7 +451,7 @@ p {
   height: 3px;
   background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-}
+} */
 
 .tab-icon {
   width: 24px;

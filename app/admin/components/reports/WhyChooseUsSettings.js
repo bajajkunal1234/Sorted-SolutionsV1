@@ -1,77 +1,40 @@
 'use client'
 
-import { useState } from 'react';
-import { Award, Plus, Trash2, Edit2, Save, X, GripVertical } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Award, Plus, Trash2, Edit2, Save, X, GripVertical, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteSettingsAPI, websiteWhyChooseUsAPI } from '@/lib/adminAPI';
 
 function WhyChooseUsSettings() {
-    const [features, setFeatures] = useState([
-        {
-            id: 1,
-            title: 'On-time Service',
-            description: 'We value your time. Our technicians arrive punctually at your scheduled slot.',
-            icon: '⏰',
-            url: '',
-            order: 1
-        },
-        {
-            id: 2,
-            title: 'Complete Service History',
-            description: 'Track all your past services, repairs, and maintenance in one place.',
-            icon: '📋',
-            url: '',
-            order: 2
-        },
-        {
-            id: 3,
-            title: 'Digital Wallet',
-            description: 'Add money to your wallet and get exclusive discounts on services.',
-            icon: '💳',
-            url: '',
-            order: 3
-        },
-        {
-            id: 4,
-            title: 'Multiple Properties',
-            description: 'Manage services for all your properties from a single account.',
-            icon: '🏢',
-            url: '',
-            order: 4
-        },
-        {
-            id: 5,
-            title: 'Map View Dashboard',
-            description: 'See all your properties and service requests on an interactive map.',
-            icon: '🗺️',
-            url: '',
-            order: 5
-        },
-        {
-            id: 6,
-            title: 'Real-time Tracking',
-            description: 'Track your technician in real-time as they travel to your location.',
-            icon: '📍',
-            url: '',
-            order: 6
-        },
-        {
-            id: 7,
-            title: 'Product Registration',
-            description: 'Register all your appliances and get timely service reminders.',
-            icon: '📝',
-            url: '',
-            order: 7
-        },
-        {
-            id: 8,
-            title: 'Priority Booking',
-            description: 'Premium members get priority slots and faster service.',
-            icon: '⭐',
-            url: '',
-            order: 8
-        }
-    ]);
-
+    const [features, setFeatures] = useState([]);
     const [horizontalScroll, setHorizontalScroll] = useState(true);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setLoading(true);
+            const [featuresData, configData] = await Promise.all([
+                websiteWhyChooseUsAPI.getAll(),
+                websiteSettingsAPI.getByKey('why-choose-us-config')
+            ]);
+
+            if (featuresData) {
+                setFeatures(featuresData);
+            }
+            if (configData && configData.value) {
+                setHorizontalScroll(configData.value.horizontalScroll !== undefined ? configData.value.horizontalScroll : true);
+            }
+        } catch (err) {
+            console.error('Failed to fetch why choose us settings:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [showAddForm, setShowAddForm] = useState(false);
@@ -115,20 +78,45 @@ function WhyChooseUsSettings() {
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('Why Choose Us settings saved successfully!');
+    const handleSaveAll = async () => {
+        try {
+            setSaving(true);
+            // Dedicated table for features
+            // Generic table for simple display config
+            await Promise.all([
+                websiteWhyChooseUsAPI.saveAll(features),
+                websiteSettingsAPI.save('why-choose-us-config', { horizontalScroll }, 'Display config for Why Choose Us section')
+            ]);
+            alert('Settings saved successfully!');
+        } catch (err) {
+            console.error('Failed to save why choose us settings:', err);
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div>
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    Why Choose Us Settings
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage feature cards that highlight your unique selling points
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                            Why Choose Us Settings
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            Manage feature cards that highlight your unique selling points
+                        </p>
+                    </div>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchSettings}
+                        disabled={loading}
+                        style={{ padding: '6px 12px' }}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {/* Display Options */}
@@ -284,175 +272,187 @@ function WhyChooseUsSettings() {
 
             {/* Features List */}
             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                {features.map((feature, index) => (
-                    <div
-                        key={feature.id}
-                        className="card"
-                        style={{
-                            padding: 'var(--spacing-lg)',
-                            border: editingId === feature.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
-                        }}
-                    >
-                        {editingId === feature.id ? (
-                            // Edit Mode
-                            <div>
-                                <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Feature Title
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={editForm.title}
-                                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
-                                        />
-                                    </div>
+                {loading ? (
+                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center' }}>
+                        <Loader2 className="spin" size={48} style={{ margin: '0 auto var(--spacing-md) auto', display: 'block' }} />
+                        <p style={{ color: 'var(--text-secondary)' }}>Loading features...</p>
+                    </div>
+                ) : features.length === 0 ? (
+                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)' }}>
+                        <p style={{ color: 'var(--text-secondary)' }}>No features found. Add one above.</p>
+                    </div>
+                ) : (
+                    features.map((feature, index) => (
+                        <div
+                            key={feature.id}
+                            className="card"
+                            style={{
+                                padding: 'var(--spacing-lg)',
+                                border: editingId === feature.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
+                            }}
+                        >
+                            {editingId === feature.id ? (
+                                // Edit Mode
+                                <div>
+                                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Feature Title
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editForm.title}
+                                                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)'
+                                                }}
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Description
-                                        </label>
-                                        <textarea
-                                            value={editForm.description}
-                                            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                                            rows={2}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)',
-                                                resize: 'vertical'
-                                            }}
-                                        />
-                                    </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Description
+                                            </label>
+                                            <textarea
+                                                value={editForm.description}
+                                                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                                                rows={2}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)',
+                                                    resize: 'vertical'
+                                                }}
+                                            />
+                                        </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Icon
-                                        </label>
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
-                                            {iconOptions.map(icon => (
-                                                <button
-                                                    key={icon}
-                                                    onClick={() => setEditForm({ ...editForm, icon })}
-                                                    style={{
-                                                        width: '48px',
-                                                        height: '48px',
-                                                        fontSize: '24px',
-                                                        border: editForm.icon === icon ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        backgroundColor: editForm.icon === icon ? 'var(--color-primary)10' : 'transparent',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    {icon}
-                                                </button>
-                                            ))}
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Icon
+                                            </label>
+                                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                                                {iconOptions.map(icon => (
+                                                    <button
+                                                        key={icon}
+                                                        onClick={() => setEditForm({ ...editForm, icon })}
+                                                        style={{
+                                                            width: '48px',
+                                                            height: '48px',
+                                                            fontSize: '24px',
+                                                            border: editForm.icon === icon ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            backgroundColor: editForm.icon === icon ? 'var(--color-primary)10' : 'transparent',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        {icon}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                Link URL
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={editForm.url}
+                                                onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: 'var(--spacing-sm)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    fontSize: 'var(--font-size-sm)'
+                                                }}
+                                            />
                                         </div>
                                     </div>
 
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Link URL
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={editForm.url}
-                                            onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
-                                        />
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                                        <button onClick={handleSaveEdit} className="btn btn-primary">
+                                            <Save size={16} />
+                                            Save
+                                        </button>
+                                        <button onClick={handleCancelEdit} className="btn btn-secondary">
+                                            <X size={16} />
+                                            Cancel
+                                        </button>
                                     </div>
                                 </div>
+                            ) : (
+                                // View Mode
+                                <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
+                                    <GripVertical size={18} style={{ color: 'var(--text-tertiary)', cursor: 'grab', marginTop: '4px' }} />
 
-                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
-                                    <button onClick={handleSaveEdit} className="btn btn-primary">
-                                        <Save size={16} />
-                                        Save
-                                    </button>
-                                    <button onClick={handleCancelEdit} className="btn btn-secondary">
-                                        <X size={16} />
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        ) : (
-                            // View Mode
-                            <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
-                                <GripVertical size={18} style={{ color: 'var(--text-tertiary)', cursor: 'grab', marginTop: '4px' }} />
+                                    <div style={{
+                                        width: '56px',
+                                        height: '56px',
+                                        borderRadius: 'var(--radius-lg)',
+                                        backgroundColor: '#ec489915',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '28px',
+                                        flexShrink: 0
+                                    }}>
+                                        {feature.icon}
+                                    </div>
 
-                                <div style={{
-                                    width: '56px',
-                                    height: '56px',
-                                    borderRadius: 'var(--radius-lg)',
-                                    backgroundColor: '#ec489915',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '28px',
-                                    flexShrink: 0
-                                }}>
-                                    {feature.icon}
-                                </div>
-
-                                <div style={{ flex: 1 }}>
-                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 var(--spacing-xs) 0' }}>
-                                        {feature.title}
-                                    </h4>
-                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 var(--spacing-xs) 0', lineHeight: 1.5 }}>
-                                        {feature.description}
-                                    </p>
-                                    {feature.url && (
-                                        <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', margin: 0, fontFamily: 'monospace' }}>
-                                            URL: {feature.url}
+                                    <div style={{ flex: 1 }}>
+                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 var(--spacing-xs) 0' }}>
+                                            {feature.title}
+                                        </h4>
+                                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 var(--spacing-xs) 0', lineHeight: 1.5 }}>
+                                            {feature.description}
                                         </p>
-                                    )}
-                                </div>
+                                        {feature.url && (
+                                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', margin: 0, fontFamily: 'monospace' }}>
+                                                URL: {feature.url}
+                                            </p>
+                                        )}
+                                    </div>
 
-                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                    <button
-                                        onClick={() => handleEdit(feature)}
-                                        className="btn btn-secondary"
-                                        style={{ padding: '6px 12px' }}
-                                    >
-                                        <Edit2 size={16} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleDelete(feature.id)}
-                                        className="btn btn-danger"
-                                        style={{ padding: '6px 12px' }}
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                        <button
+                                            onClick={() => handleEdit(feature)}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 12px' }}
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(feature.id)}
+                                            className="btn btn-danger"
+                                            style={{ padding: '6px 12px' }}
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                            )}
+                        </div>
+                    ))
+                )}
             </div>
 
             {/* Save All Button */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-lg)' }}>
                 <button
                     onClick={handleSaveAll}
+                    disabled={saving || loading}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
                 >
-                    <Save size={18} />
-                    Save All Changes
+                    {saving ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save All Changes'}
                 </button>
             </div>
         </div>

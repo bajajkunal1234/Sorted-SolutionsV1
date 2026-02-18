@@ -14,16 +14,36 @@ const tableMap = {
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
-        const type = searchParams.get('type') // sales, purchase, quotation, receipt, payment
+        const type = searchParams.get('type') // sales, purchase, quotation, receipt, payment, all
         const customerId = searchParams.get('customer_id')
         const accountId = searchParams.get('account_id')
         const startDate = searchParams.get('start_date')
         const endDate = searchParams.get('end_date')
 
-        if (!type || !tableMap[type]) {
+        if (!type) {
+            return NextResponse.json({ success: false, error: 'Missing type' }, { status: 400 });
+        }
+
+        if (type === 'all') {
+            // Fetch from all relevant financial tables
+            const tables = ['sales_invoices', 'purchase_invoices', 'receipt_vouchers', 'payment_vouchers'];
+            const results = await Promise.all(tables.map(async (table) => {
+                let query = supabase.from(table).select('*')
+                if (accountId) query = query.eq('account_id', accountId)
+                if (startDate) query = query.gte('date', startDate)
+                if (endDate) query = query.lte('date', endDate)
+                const { data } = await query
+                return (data || []).map(item => ({ ...item, type: table.split('_')[0] }))
+            }));
+
+            const merged = results.flat().sort((a, b) => new Date(b.date) - new Date(a.date))
+            return NextResponse.json({ success: true, data: merged })
+        }
+
+        if (!tableMap[type]) {
             return NextResponse.json({
                 success: false,
-                error: 'Invalid or missing transaction type. Must be one of: sales, purchase, quotation, receipt, payment'
+                error: 'Invalid transaction type'
             }, { status: 400 });
         }
 
@@ -34,19 +54,10 @@ export async function GET(request) {
             .select('*')
             .order('date', { ascending: false })
 
-        if (customerId) {
-            // Note: In our schema, we use account_id for the ledger/customer link
-            query = query.eq('account_id', customerId)
-        }
-        if (accountId) {
-            query = query.eq('account_id', accountId)
-        }
-        if (startDate) {
-            query = query.gte('date', startDate)
-        }
-        if (endDate) {
-            query = query.lte('date', endDate)
-        }
+        if (customerId) query = query.eq('account_id', customerId)
+        if (accountId) query = query.eq('account_id', accountId)
+        if (startDate) query = query.gte('date', startDate)
+        if (endDate) query = query.lte('date', endDate)
 
         const { data, error } = await query
 

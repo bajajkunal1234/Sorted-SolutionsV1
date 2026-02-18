@@ -26,7 +26,7 @@
 }
 
 .faq-container {
-    max-width: 900px;
+    max-width: 800px;
     margin: 0 auto var(--spacing-2xl);
     display: flex;
     flex-direction: column;
@@ -35,7 +35,7 @@
 
 .faq-item {
     background: var(--bg-elevated);
-    border: 2px solid var(--border-primary);
+    border: 1px solid var(--border-primary);
     border-radius: var(--radius-lg);
     overflow: hidden;
     transition: all var(--transition-base);
@@ -67,7 +67,7 @@
 }
 
 .question-text {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
     font-weight: 600;
     color: var(--text-primary);
     flex: 1;
@@ -109,7 +109,7 @@
     text-align: center;
     padding: var(--spacing-xl);
     background: var(--bg-elevated);
-    border: 2px solid var(--border-primary);
+    border: 1px solid var(--border-primary);
     border-radius: var(--radius-xl);
     max-width: 600px;
     margin: 0 auto;

@@ -1,58 +1,71 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Plus, Calendar, DollarSign, Wrench, RefreshCw, Check, X, Filter } from 'lucide-react';
 import AddReminderModal from './AddReminderModal';
 
 function RemindersTab({ accountId, accountName }) {
-    const [reminders, setReminders] = useState([
-        {
-            id: 'REM-001',
-            type: 'rent_payment',
-            title: 'Monthly Rent Due',
-            description: 'Washing Machine rental payment due',
-            dueDate: '2026-02-15',
-            priority: 'high',
-            status: 'pending',
-            relatedTo: { type: 'rental', id: 'RENTAL-001' },
-            isRecurring: true,
-            recurrencePattern: { frequency: 'monthly', interval: 1 }
-        },
-        {
-            id: 'REM-002',
-            type: 'amc_service',
-            title: 'AMC Service Due',
-            description: 'RO filter change scheduled',
-            dueDate: '2026-04-19',
-            priority: 'medium',
-            status: 'pending',
-            relatedTo: { type: 'amc', id: 'AMC-001' },
-            isRecurring: false
-        },
-        {
-            id: 'REM-003',
-            type: 'follow_up',
-            title: 'Payment Follow-up',
-            description: 'Follow up on pending invoice payment',
-            dueDate: '2026-01-25',
-            priority: 'high',
-            status: 'pending',
-            relatedTo: null,
-            isRecurring: false
-        }
-    ]);
-
+    const [reminders, setReminders] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterType, setFilterType] = useState('all');
     const [showAddModal, setShowAddModal] = useState(false);
 
-    const handleSaveReminder = (newReminder) => {
-        setReminders([newReminder, ...reminders]);
+    useEffect(() => {
+        if (accountId) {
+            fetchReminders();
+        }
+    }, [accountId]);
+
+    const fetchReminders = async () => {
+        try {
+            setLoading(true);
+            const { supabase } = await import('@/lib/supabase');
+            if (!supabase) return;
+
+            const { data, error } = await supabase
+                .from('reminders')
+                .select('*')
+                .eq('account_id', accountId)
+                .order('due_date', { ascending: true });
+
+            if (error) throw error;
+            setReminders(data || []);
+        } catch (err) {
+            console.error('Error fetching reminders:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSaveReminder = async (newReminderData) => {
+        try {
+            const { supabase } = await import('@/lib/supabase');
+            if (!supabase) return;
+
+            const reminderToSave = {
+                ...newReminderData,
+                account_id: accountId
+            };
+
+            const { data, error } = await supabase
+                .from('reminders')
+                .insert([reminderToSave])
+                .select()
+                .single();
+
+            if (error) throw error;
+            setReminders([data, ...reminders]);
+            setShowAddModal(false);
+        } catch (err) {
+            console.error('Error saving reminder:', err);
+            alert('Failed to save reminder');
+        }
     };
 
     const filteredReminders = reminders.filter(r => {
         const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
-        const matchesType = filterType === 'all' || r.type === filterType;
+        const matchesType = filterType === 'all' || (r.related_to_type || r.type) === filterType;
         return matchesStatus && matchesType;
     });
 
@@ -74,17 +87,47 @@ function RemindersTab({ accountId, accountName }) {
         }
     };
 
-    const handleComplete = (reminderId) => {
-        setReminders(reminders.map(r =>
-            r.id === reminderId ? { ...r, status: 'completed', completedAt: new Date().toISOString() } : r
-        ));
+    const handleComplete = async (reminderId) => {
+        try {
+            const { supabase } = await import('@/lib/supabase');
+            if (!supabase) return;
+
+            const { error } = await supabase
+                .from('reminders')
+                .update({ status: 'completed', completed_at: new Date().toISOString() })
+                .eq('id', reminderId);
+
+            if (error) throw error;
+
+            setReminders(reminders.map(r =>
+                r.id === reminderId ? { ...r, status: 'completed', completed_at: new Date().toISOString() } : r
+            ));
+        } catch (err) {
+            console.error('Error completing reminder:', err);
+            alert('Failed to update status');
+        }
     };
 
-    const handleCancel = (reminderId) => {
+    const handleCancel = async (reminderId) => {
         if (window.confirm('Are you sure you want to cancel this reminder?')) {
-            setReminders(reminders.map(r =>
-                r.id === reminderId ? { ...r, status: 'cancelled' } : r
-            ));
+            try {
+                const { supabase } = await import('@/lib/supabase');
+                if (!supabase) return;
+
+                const { error } = await supabase
+                    .from('reminders')
+                    .update({ status: 'cancelled' })
+                    .eq('id', reminderId);
+
+                if (error) throw error;
+
+                setReminders(reminders.map(r =>
+                    r.id === reminderId ? { ...r, status: 'cancelled' } : r
+                ));
+            } catch (err) {
+                console.error('Error cancelling reminder:', err);
+                alert('Failed to update status');
+            }
         }
     };
 
@@ -147,149 +190,132 @@ function RemindersTab({ accountId, accountName }) {
             </div>
 
             {/* Reminders List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                {filteredReminders.map(reminder => {
-                    const TypeIcon = getTypeIcon(reminder.type);
-                    const isOverdue = new Date(reminder.dueDate) < new Date() && reminder.status === 'pending';
-                    const daysUntilDue = Math.ceil((new Date(reminder.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', minHeight: '200px' }}>
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-lg)' }}>Loading reminders...</div>
+                ) : (
+                    filteredReminders.map(reminder => {
+                        const TypeIcon = getTypeIcon(reminder.related_to_type || reminder.type); // Handle inconsistent naming if any
+                        const isOverdue = new Date(reminder.due_date) < new Date() && reminder.status === 'pending';
+                        const daysUntilDue = Math.ceil((new Date(reminder.due_date) - new Date()) / (1000 * 60 * 60 * 24));
 
-                    return (
-                        <div
-                            key={reminder.id}
-                            style={{
-                                padding: 'var(--spacing-md)',
-                                backgroundColor: 'var(--bg-elevated)',
-                                borderRadius: 'var(--radius-md)',
-                                border: `2px solid ${isOverdue ? '#ef4444' : 'var(--border-primary)'}`,
-                                opacity: reminder.status === 'completed' || reminder.status === 'cancelled' ? 0.6 : 1
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                                        <TypeIcon size={18} color={getPriorityColor(reminder.priority)} />
-                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                            {reminder.title}
-                                        </h4>
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            backgroundColor: `${getPriorityColor(reminder.priority)}20`,
-                                            color: getPriorityColor(reminder.priority),
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: 'var(--font-size-xs)',
-                                            fontWeight: 600,
-                                            textTransform: 'uppercase'
-                                        }}>
-                                            {reminder.priority}
-                                        </span>
-                                        {reminder.isRecurring && (
+                        return (
+                            <div
+                                key={reminder.id}
+                                style={{
+                                    padding: 'var(--spacing-md)',
+                                    backgroundColor: 'var(--bg-elevated)',
+                                    borderRadius: 'var(--radius-md)',
+                                    border: `2px solid ${isOverdue ? '#ef4444' : 'var(--border-primary)'}`,
+                                    opacity: reminder.status === 'completed' || reminder.status === 'cancelled' ? 0.6 : 1
+                                }}
+                            >
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
+                                            <TypeIcon size={18} color={getPriorityColor(reminder.priority)} />
+                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                                {reminder.title}
+                                            </h4>
                                             <span style={{
                                                 padding: '2px 8px',
-                                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                                color: '#3b82f6',
+                                                backgroundColor: `${getPriorityColor(reminder.priority)}20`,
+                                                color: getPriorityColor(reminder.priority),
                                                 borderRadius: 'var(--radius-sm)',
                                                 fontSize: 'var(--font-size-xs)',
-                                                fontWeight: 600
+                                                fontWeight: 600,
+                                                textTransform: 'uppercase'
                                             }}>
-                                                <RefreshCw size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                                                RECURRING
+                                                {reminder.priority}
                                             </span>
-                                        )}
-                                    </div>
-
-                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-                                        {reminder.description}
-                                    </p>
-
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                        <div>
-                                            <Calendar size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                                            <span style={{ color: isOverdue ? '#ef4444' : 'var(--text-primary)', fontWeight: 500 }}>
-                                                {new Date(reminder.dueDate).toLocaleDateString()}
-                                            </span>
-                                            {reminder.status === 'pending' && (
-                                                <span style={{ marginLeft: '8px', color: 'var(--text-tertiary)' }}>
-                                                    {isOverdue ? `${Math.abs(daysUntilDue)} days overdue` : `in ${daysUntilDue} days`}
+                                            {reminder.is_recurring && (
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                                    color: '#3b82f6',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    fontWeight: 600
+                                                }}>
+                                                    <RefreshCw size={12} style={{ display: 'inline', marginRight: '4px' }} />
+                                                    RECURRING
                                                 </span>
                                             )}
                                         </div>
-                                        {reminder.relatedTo && (
-                                            <div style={{ color: 'var(--text-tertiary)' }}>
-                                                Related: {reminder.relatedTo.type.toUpperCase()} ({reminder.relatedTo.id})
+
+                                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
+                                            {reminder.description}
+                                        </p>
+
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
+                                            <div>
+                                                <Calendar size={14} style={{ display: 'inline', marginRight: '4px' }} />
+                                                <span style={{ color: isOverdue ? '#ef4444' : 'var(--text-primary)', fontWeight: 500 }}>
+                                                    {new Date(reminder.due_date).toLocaleDateString()}
+                                                </span>
+                                                {reminder.status === 'pending' && (
+                                                    <span style={{ marginLeft: '8px', color: 'var(--text-tertiary)' }}>
+                                                        {isOverdue ? `${Math.abs(daysUntilDue)} days overdue` : `in ${daysUntilDue} days`}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {reminder.related_to_type && (
+                                                <div style={{ color: 'var(--text-tertiary)' }}>
+                                                    Related: {reminder.related_to_type.toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {reminder.status !== 'pending' && (
+                                            <div style={{
+                                                marginTop: 'var(--spacing-sm)',
+                                                padding: 'var(--spacing-xs)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                fontSize: 'var(--font-size-xs)',
+                                                color: 'var(--text-tertiary)'
+                                            }}>
+                                                Status: {reminder.status.toUpperCase()}
+                                                {reminder.completed_at && ` on ${new Date(reminder.completed_at).toLocaleDateString()}`}
                                             </div>
                                         )}
                                     </div>
 
-                                    {reminder.status !== 'pending' && (
-                                        <div style={{
-                                            marginTop: 'var(--spacing-sm)',
-                                            padding: 'var(--spacing-xs)',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: 'var(--font-size-xs)',
-                                            color: 'var(--text-tertiary)'
-                                        }}>
-                                            Status: {reminder.status.toUpperCase()}
-                                            {reminder.completedAt && ` on ${new Date(reminder.completedAt).toLocaleDateString()}`}
+                                    {reminder.status === 'pending' && (
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                            <button
+                                                onClick={() => handleComplete(reminder.id)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    border: 'none',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    backgroundColor: '#10b981',
+                                                    color: 'white',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px'
+                                                }}
+                                            >
+                                                <Check size={14} />
+                                                Complete
+                                            </button>
+                                            <button
+                                                onClick={() => handleCancel(reminder.id)}
+                                                className="btn-icon"
+                                                style={{ padding: '6px' }}
+                                            >
+                                                <X size={14} />
+                                            </button>
                                         </div>
                                     )}
                                 </div>
-
-                                {reminder.status === 'pending' && (
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                        <button
-                                            onClick={() => handleComplete(reminder.id)}
-                                            style={{
-                                                padding: '6px 12px',
-                                                fontSize: 'var(--font-size-xs)',
-                                                border: 'none',
-                                                borderRadius: 'var(--radius-sm)',
-                                                backgroundColor: '#10b981',
-                                                color: 'white',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '4px'
-                                            }}
-                                        >
-                                            <Check size={14} />
-                                            Complete
-                                        </button>
-                                        <button
-                                            onClick={() => handleCancel(reminder.id)}
-                                            className="btn-icon"
-                                            style={{ padding: '6px' }}
-                                        >
-                                            <X size={14} />
-                                        </button>
-                                    </div>
-                                )}
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })
+                )}
             </div>
-
-            {filteredReminders.length === 0 && (
-                <div style={{
-                    padding: 'var(--spacing-xl)',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderRadius: 'var(--radius-md)',
-                    textAlign: 'center',
-                    color: 'var(--text-tertiary)',
-                    border: '2px dashed var(--border-primary)'
-                }}>
-                    <Bell size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
-                    <p style={{ fontSize: 'var(--font-size-md)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                        No Reminders Found
-                    </p>
-                    <p style={{ fontSize: 'var(--font-size-sm)' }}>
-                        {filterStatus !== 'all' || filterType !== 'all'
-                            ? 'Try adjusting your filters'
-                            : 'Set reminders for follow-ups, payments, and important dates'}
-                    </p>
-                </div>
-            )}
 
             {/* Add Reminder Modal */}
             {showAddModal && (

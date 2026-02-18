@@ -367,7 +367,7 @@ p {
 }
 
 .modal-tab:hover {
-  color: var(--text-primary);
+  color: var(--color-primary);
   background-color: var(--bg-tertiary);
 }
 

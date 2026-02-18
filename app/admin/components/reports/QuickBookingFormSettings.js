@@ -5,6 +5,7 @@ import {
     Calendar, Plus, Trash2, Edit2, Save, X, Upload, Loader2,
     Package, Layers, AlertCircle, Eye, EyeOff, ChevronDown, ChevronUp
 } from 'lucide-react';
+import { quickBookingAPI } from '@/lib/adminAPI';
 
 function QuickBookingFormSettings() {
     const [settings, setSettings] = useState({
@@ -31,11 +32,10 @@ function QuickBookingFormSettings() {
     const fetchSettings = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/settings/quick-booking');
-            const data = await res.json();
-            if (data.success) {
-                setSettings(data.data);
-                setPincodeText((data.data.serviceable_pincodes || []).join(', '));
+            const data = await quickBookingAPI.getSettings();
+            if (data) {
+                setSettings(data);
+                setPincodeText((data.serviceable_pincodes || []).join(', '));
             }
         } catch (error) {
             console.error('Error fetching quick booking settings:', error);
@@ -53,15 +53,10 @@ function QuickBookingFormSettings() {
                 serviceable_pincodes: pincodeArray
             };
 
-            const res = await fetch('/api/settings/quick-booking', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedSettings)
-            });
-            const data = await res.json();
-            if (data.success) {
+            const data = await quickBookingAPI.updateSettings(updatedSettings);
+            if (data) {
                 alert('Settings saved successfully!');
-                setSettings(data.data);
+                setSettings(data);
             }
         } catch (error) {
             console.error('Error saving settings:', error);
@@ -131,29 +126,15 @@ function QuickBookingFormSettings() {
         if (!name?.trim()) return;
 
         try {
-            console.log('Sending request to create category:', name.trim());
-            const res = await fetch('/api/settings/quick-booking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'category',
-                    data: {
-                        name: name.trim(),
-                        showOnBookingForm: true,
-                        displayOrder: settings.categories.length
-                    }
-                })
+            const result = await quickBookingAPI.createItem('category', {
+                name: name.trim(),
+                showOnBookingForm: true,
+                displayOrder: settings.categories.length
             });
 
-            const result = await res.json();
-            console.log('API Response:', result);
-
-            if (result.success) {
+            if (result) {
                 await fetchSettings();
                 alert('Appliance added successfully!');
-            } else {
-                console.error('API Error:', result.error);
-                alert(`Failed to add appliance: ${result.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error adding appliance:', error);
@@ -165,24 +146,16 @@ function QuickBookingFormSettings() {
         const newName = prompt('Rename to:', name);
         if (!newName?.trim() || newName === name) return;
         try {
-            const res = await fetch('/api/settings/quick-booking', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, id, data: { name: newName.trim() } })
-            });
-            if ((await res.json()).success) { await fetchSettings(); alert('Renamed!'); }
+            const result = await quickBookingAPI.updateItem(type, id, { name: newName.trim() });
+            if (result) { await fetchSettings(); alert('Renamed!'); }
         } catch (e) { alert('Failed'); }
     };
 
     const handleDelete = async (type, id, name) => {
         if (!confirm(`Delete "${name}"?`)) return;
         try {
-            const res = await fetch('/api/settings/quick-booking', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type, id })
-            });
-            if ((await res.json()).success) { await fetchSettings(); alert('Deleted!'); }
+            const result = await quickBookingAPI.deleteItem(type, id);
+            if (result) { await fetchSettings(); alert('Deleted!'); }
         } catch (e) { alert('Failed'); }
     };
 
@@ -204,26 +177,16 @@ function QuickBookingFormSettings() {
         if (!name?.trim()) return;
 
         try {
-            const res = await fetch('/api/settings/quick-booking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'subcategory',
-                    data: {
-                        categoryId: selectedCategory.id,
-                        name: name.trim(),
-                        showOnBookingForm: true,
-                        displayOrder: (selectedCategory.subcategories || []).length
-                    }
-                })
+            const result = await quickBookingAPI.createItem('subcategory', {
+                categoryId: selectedCategory.id,
+                name: name.trim(),
+                showOnBookingForm: true,
+                displayOrder: (selectedCategory.subcategories || []).length
             });
 
-            const result = await res.json();
-            if (result.success) {
+            if (result) {
                 await fetchSettings();
                 alert('Appliance type added successfully!');
-            } else {
-                alert(`Failed to add type: ${result.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error adding type:', error);
@@ -269,26 +232,16 @@ function QuickBookingFormSettings() {
         if (!name?.trim()) return;
 
         try {
-            const res = await fetch('/api/settings/quick-booking', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'issue',
-                    data: {
-                        subcategoryId: selectedSubcategory.id,
-                        name: name.trim(),
-                        showOnBookingForm: true,
-                        displayOrder: (selectedSubcategory.issues || []).length
-                    }
-                })
+            const result = await quickBookingAPI.createItem('issue', {
+                subcategoryId: selectedSubcategory.id,
+                name: name.trim(),
+                showOnBookingForm: true,
+                displayOrder: (selectedSubcategory.issues || []).length
             });
 
-            const result = await res.json();
-            if (result.success) {
+            if (result) {
                 await fetchSettings();
                 alert('Issue added successfully!');
-            } else {
-                alert(`Failed to add issue: ${result.error || 'Unknown error'}`);
             }
         } catch (error) {
             console.error('Error adding issue:', error);

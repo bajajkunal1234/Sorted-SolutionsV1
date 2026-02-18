@@ -1,97 +1,84 @@
 'use client'
 
-import { useState } from 'react';
-import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3, Loader2, RefreshCcw } from 'lucide-react';
+import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
 
 function IncentivesManagement() {
     const [activeView, setActiveView] = useState('configure'); // configure, performance, history
     const [showPolicyPdf, setShowPolicyPdf] = useState(false);
     const [showTechPdf, setShowTechPdf] = useState(false);
     const [selectedTechForPdf, setSelectedTechForPdf] = useState(null);
-    const [activeMonth, setActiveMonth] = useState('2026-01');
+    const [activeMonth, setActiveMonth] = useState('2026-02');
     const [isFinalized, setIsFinalized] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     // Incentive Parameters Configuration
-    const [parameters, setParameters] = useState([
-        // Positive Parameters
-        { id: 'p1', name: 'On-Time Visits %', type: 'positive', threshold: 95, rewardType: 'fixed', rewardValue: 5000, enabled: true },
-        { id: 'p2', name: 'Customer Feedback (4+ stars)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 3000, enabled: true },
-        { id: 'p3', name: 'Revenue Per Customer', type: 'positive', threshold: 2000, rewardType: 'percentage', rewardValue: 5, enabled: true },
-        { id: 'p4', name: 'Revenue Per Day', type: 'positive', threshold: 5000, rewardType: 'percentage', rewardValue: 3, enabled: true },
-        { id: 'p5', name: 'Monthly Revenue', type: 'positive', threshold: 100000, rewardType: 'fixed', rewardValue: 10000, enabled: true },
-
-        // Negative Parameters
-        { id: 'n1', name: 'Feedback Below 4 Stars', type: 'negative', threshold: 10, rewardType: 'fixed', rewardValue: 4000, enabled: true },
-        { id: 'n2', name: 'Repeat Call %', type: 'negative', threshold: 15, rewardType: 'fixed', rewardValue: 2000, enabled: true },
-        { id: 'n3', name: 'Late Arrivals %', type: 'negative', threshold: 10, rewardType: 'percentage', rewardValue: 10, enabled: true }
-    ]);
+    const [parameters, setParameters] = useState([]);
 
     // Technician Performance Data with 3-month history
-    const [technicians, setTechnicians] = useState([
-        {
-            id: 't1',
-            name: 'Amit Patel',
-            currentMetrics: {
-                onTimeVisits: 96,
-                feedbackAbove4: 92,
-                revenuePerCustomer: 2500,
-                revenuePerDay: 6000,
-                monthlyRevenue: 120000,
-                feedbackBelow4: 8,
-                repeatCallPercent: 12,
-                lateArrivals: 4
-            },
-            history: [
-                { month: '2025-12', incentive: 18500, onTimeVisits: 94, feedbackAbove4: 90, monthlyRevenue: 115000 },
-                { month: '2025-11', incentive: 16000, onTimeVisits: 92, feedbackAbove4: 88, monthlyRevenue: 105000 },
-                { month: '2025-10', incentive: 17500, onTimeVisits: 95, feedbackAbove4: 91, monthlyRevenue: 118000 }
-            ],
-            calculatedIncentive: 0,
-            breakdown: []
-        },
-        {
-            id: 't2',
-            name: 'Rahul Singh',
-            currentMetrics: {
-                onTimeVisits: 88,
-                feedbackAbove4: 85,
-                revenuePerCustomer: 1800,
-                revenuePerDay: 4500,
-                monthlyRevenue: 90000,
-                feedbackBelow4: 15,
-                repeatCallPercent: 18,
-                lateArrivals: 12
-            },
-            history: [
-                { month: '2025-12', incentive: 12000, onTimeVisits: 86, feedbackAbove4: 83, monthlyRevenue: 88000 },
-                { month: '2025-11', incentive: 11500, onTimeVisits: 85, feedbackAbove4: 82, monthlyRevenue: 85000 },
-                { month: '2025-10', incentive: 13000, onTimeVisits: 89, feedbackAbove4: 86, monthlyRevenue: 92000 }
-            ],
-            calculatedIncentive: 0,
-            breakdown: []
-        },
-        {
-            id: 't3',
-            name: 'Vikram Kumar',
-            currentMetrics: {
-                onTimeVisits: 98,
-                feedbackAbove4: 95,
-                revenuePerCustomer: 2800,
-                revenuePerDay: 7000,
-                monthlyRevenue: 140000,
-                feedbackBelow4: 5,
-                repeatCallPercent: 8,
-                lateArrivals: 2
-            },
-            history: [
-                { month: '2025-12', incentive: 22000, onTimeVisits: 97, feedbackAbove4: 94, monthlyRevenue: 135000 },
-                { month: '2025-11', incentive: 21000, onTimeVisits: 96, feedbackAbove4: 93, monthlyRevenue: 130000 },
-                { month: '2025-10', incentive: 23500, onTimeVisits: 98, feedbackAbove4: 96, monthlyRevenue: 145000 }
-            ],
-            calculatedIncentive: 0,
-            breakdown: []
+    const [technicians, setTechnicians] = useState([]);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [techsData, paramsData] = await Promise.all([
+                techniciansAPI.getAll(),
+                websiteSettingsAPI.getByKey('incentive-parameters')
+            ]);
+
+            if (paramsData && paramsData.value) {
+                setParameters(paramsData.value);
+            } else {
+                // Default parameters if none found
+                setParameters([
+                    { id: 'p1', name: 'On-Time Visits %', type: 'positive', threshold: 95, rewardType: 'fixed', rewardValue: 5000, enabled: true },
+                    { id: 'p2', name: 'Customer Feedback (4+ stars)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 3000, enabled: true },
+                    { id: 'p3', name: 'Revenue Per Customer', type: 'positive', threshold: 2000, rewardType: 'percentage', rewardValue: 5, enabled: true },
+                    { id: 'p4', name: 'Revenue Per Day', type: 'positive', threshold: 5000, rewardType: 'percentage', rewardValue: 3, enabled: true },
+                    { id: 'p5', name: 'Monthly Revenue', type: 'positive', threshold: 100000, rewardType: 'fixed', rewardValue: 10000, enabled: true },
+                    { id: 'n1', name: 'Feedback Below 4 Stars', type: 'negative', threshold: 10, rewardType: 'fixed', rewardValue: 4000, enabled: true },
+                    { id: 'n2', name: 'Repeat Call %', type: 'negative', threshold: 15, rewardType: 'fixed', rewardValue: 2000, enabled: true },
+                    { id: 'n3', name: 'Late Arrivals %', type: 'negative', threshold: 10, rewardType: 'percentage', rewardValue: 10, enabled: true }
+                ]);
+            }
+
+            if (techsData) {
+                // Mock metrics for now as they require complex aggregation
+                const processedTechs = techsData.map(tech => ({
+                    id: tech.id,
+                    name: tech.name,
+                    currentMetrics: {
+                        onTimeVisits: Math.floor(Math.random() * 15) + 85, // 85-100
+                        feedbackAbove4: Math.floor(Math.random() * 20) + 80, // 80-100
+                        revenuePerCustomer: Math.floor(Math.random() * 1000) + 1800,
+                        revenuePerDay: Math.floor(Math.random() * 3000) + 4000,
+                        monthlyRevenue: Math.floor(Math.random() * 50000) + 80000,
+                        feedbackBelow4: Math.floor(Math.random() * 10),
+                        repeatCallPercent: Math.floor(Math.random() * 15),
+                        lateArrivals: Math.floor(Math.random() * 8)
+                    },
+                    history: [
+                        { month: '2026-01', incentive: Math.floor(Math.random() * 10000) + 10000, onTimeVisits: 94, feedbackAbove4: 90, monthlyRevenue: 115000 },
+                        { month: '2025-12', incentive: Math.floor(Math.random() * 10000) + 8000, onTimeVisits: 92, feedbackAbove4: 88, monthlyRevenue: 105000 },
+                        { month: '2025-11', incentive: Math.floor(Math.random() * 10000) + 12000, onTimeVisits: 95, feedbackAbove4: 91, monthlyRevenue: 118000 }
+                    ],
+                    calculatedIncentive: 0,
+                    breakdown: []
+                }));
+                setTechnicians(processedTechs);
+            }
+        } catch (err) {
+            console.error('Failed to fetch incentives data:', err);
+        } finally {
+            setLoading(false);
         }
-    ]);
+    };
 
     const calculateIncentives = () => {
         const updated = technicians.map(tech => {
@@ -173,15 +160,45 @@ function IncentivesManagement() {
         }
     };
 
-    const finalizeMonth = () => {
+    const finalizeMonth = async () => {
         const day = new Date().getDate();
         if (day > 5) {
             alert('Monthly incentives can only be finalized before the 5th of the month!');
             return;
         }
         if (window.confirm('Finalize incentives for this month? This cannot be undone.')) {
-            calculateIncentives();
-            setIsFinalized(true);
+            try {
+                setSaving(true);
+                calculateIncentives();
+                setIsFinalized(true);
+
+                // Persist parameters when finalizing too
+                await websiteSettingsAPI.save('incentive-parameters', parameters, 'Technician incentive policy parameters');
+
+                // In a real app, we would also save the calculated incentives for this month to a dedicated table
+                // For now, we'll just save the finalized status to settings for demo
+                await websiteSettingsAPI.save(`incentives-finalized-${activeMonth}`, true, `Incentives finalized status for ${activeMonth}`);
+
+                alert('Incentives finalized successfully!');
+            } catch (err) {
+                console.error('Failed to finalize incentives:', err);
+                alert('Failed to finalize');
+            } finally {
+                setSaving(false);
+            }
+        }
+    };
+
+    const handleSaveParameters = async () => {
+        try {
+            setSaving(true);
+            await websiteSettingsAPI.save('incentive-parameters', parameters, 'Technician incentive policy parameters');
+            alert('Parameters saved successfully!');
+        } catch (err) {
+            console.error('Failed to save incentive parameters:', err);
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -238,9 +255,10 @@ function IncentivesManagement() {
                             <button
                                 className="btn btn-primary"
                                 onClick={finalizeMonth}
-                                style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
+                                disabled={saving || loading}
+                                style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}
                             >
-                                <Lock size={16} />
+                                {saving ? <Loader2 size={16} className="spin" /> : <Lock size={16} />}
                                 Finalize Month
                             </button>
                         )}
@@ -378,74 +396,97 @@ function IncentivesManagement() {
                             <button
                                 className="btn btn-primary"
                                 onClick={calculateIncentives}
-                                disabled={isFinalized}
+                                disabled={isFinalized || loading}
                                 style={{ width: '100%', marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)' }}
                             >
                                 Calculate Incentives
                             </button>
+
+                            {!isFinalized && (
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={handleSaveParameters}
+                                    disabled={saving || loading}
+                                    style={{ width: '100%', marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                                >
+                                    {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                                    Save Config Parameters
+                                </button>
+                            )}
                         </div>
                     </div>
 
                     {/* Technician Results */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                        {technicians.map(tech => (
-                            <div
-                                key={tech.id}
-                                style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    padding: 'var(--spacing-md)'
-                                }}
-                            >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                        {tech.name}
-                                    </h4>
-                                    <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>
-                                        ₹{tech.calculatedIncentive.toLocaleString()}
-                                    </div>
-                                </div>
-
-                                {tech.breakdown.length > 0 && (
-                                    <>
-                                        <div style={{ fontSize: 'var(--font-size-xs)' }}>
-                                            <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>Breakdown:</div>
-                                            {tech.breakdown.map((item, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    style={{
-                                                        display: 'flex',
-                                                        justifyContent: 'space-between',
-                                                        padding: '4px 0',
-                                                        borderBottom: '1px solid var(--border-primary)'
-                                                    }}
-                                                >
-                                                    <span style={{ color: item.type === 'positive' ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                        {item.type === 'positive' ? '✓' : '✗'} {item.parameter}
-                                                    </span>
-                                                    <span style={{ fontWeight: 600, color: item.amount >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                        {item.amount >= 0 ? '+' : ''}₹{item.amount.toLocaleString()}
-                                                    </span>
-                                                </div>
-                                            ))}
-                                        </div>
-
-                                        <button
-                                            className="btn btn-secondary"
-                                            onClick={() => {
-                                                setSelectedTechForPdf(tech);
-                                                setShowTechPdf(true);
-                                            }}
-                                            style={{ width: '100%', marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)' }}
-                                        >
-                                            <FileText size={14} />
-                                            View Incentive Sheet (PDF)
-                                        </button>
-                                    </>
-                                )}
+                        {loading ? (
+                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+                                <Loader2 className="spin" size={40} style={{ margin: '0 auto' }} />
+                                <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--spacing-sm)' }}>Fetching technicians...</p>
                             </div>
-                        ))}
+                        ) : technicians.length === 0 ? (
+                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+                                <p style={{ color: 'var(--text-secondary)' }}>No technicians found.</p>
+                            </div>
+                        ) : (
+                            technicians.map(tech => (
+                                <div
+                                    key={tech.id}
+                                    style={{
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        padding: 'var(--spacing-md)'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                            {tech.name}
+                                        </h4>
+                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>
+                                            ₹{tech.calculatedIncentive.toLocaleString()}
+                                        </div>
+                                    </div>
+
+                                    {tech.breakdown.length > 0 && (
+                                        <>
+                                            <div style={{ fontSize: 'var(--font-size-xs)' }}>
+                                                <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>Breakdown:</div>
+                                                {tech.breakdown.map((item, idx) => (
+                                                    <div
+                                                        key={idx}
+                                                        style={{
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            padding: '4px 0',
+                                                            borderBottom: '1px solid var(--border-primary)'
+                                                        }}
+                                                    >
+                                                        <span style={{ color: item.type === 'positive' ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                                            {item.type === 'positive' ? '✓' : '✗'} {item.parameter}
+                                                        </span>
+                                                        <span style={{ fontWeight: 600, color: item.amount >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                                            {item.amount >= 0 ? '+' : ''}₹{item.amount.toLocaleString()}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <button
+                                                className="btn btn-secondary"
+                                                onClick={() => {
+                                                    setSelectedTechForPdf(tech);
+                                                    setShowTechPdf(true);
+                                                }}
+                                                style={{ width: '100%', marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)' }}
+                                            >
+                                                <FileText size={14} />
+                                                View Incentive Sheet (PDF)
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             )}

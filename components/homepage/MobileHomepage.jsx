@@ -11,6 +11,7 @@ import ServiceAreasSection from './ServiceAreasSection';
 import TestimonialsSection from './TestimonialsSection';
 import FAQSection from './FAQSection';
 import FooterSection from './FooterSection';
+import Header from '../common/Header';
 import './MobileHomepage.css';
 
 function MobileHomepage() {
@@ -86,23 +87,7 @@ function MobileHomepage() {
     return (
         <div className="mobile-homepage">
             {/* Header */}
-            <header className="mobile-header">
-                <div className="header-content">
-                    <div className="logo">
-                        <h1>SORTED SOLUTIONS</h1>
-                    </div>
-                    <div className="header-actions">
-                        <a href="tel:+918928895590" className="call-button" aria-label="Call us now">
-                            <Phone size={18} />
-                            <span>Call Now</span>
-                        </a>
-                        <button className="login-button" aria-label="Customer login">
-                            <User size={18} />
-                            <span>Login</span>
-                        </button>
-                    </div>
-                </div>
-            </header>
+            <Header />
 
             {/* Hero Section - SEO Optimized */}
             <section className="hero-section">

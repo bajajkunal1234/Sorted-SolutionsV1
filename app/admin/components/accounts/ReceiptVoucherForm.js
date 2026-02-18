@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
+import NewAccountForm from './NewAccountForm';
 
 function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
     const [formData, setFormData] = useState({
@@ -13,6 +14,8 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         reference_number: existingReceipt?.reference_number || '',
         narration: existingReceipt?.narration || ''
     });
+
+    const [showNewAccountForm, setShowNewAccountForm] = useState(false);
 
     const paymentModes = [
         { value: 'cash', label: 'Cash' },
@@ -43,8 +46,6 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
 
         if (onSave) {
             onSave(voucher);
-        } else {
-            console.log('Receipt Voucher:', voucher);
         }
         onClose();
     };
@@ -69,25 +70,23 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                 width: '100%',
                 maxWidth: '600px',
                 maxHeight: '90vh',
-                overflow: 'auto',
-                boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: 'var(--shadow-xl)',
+                overflow: 'hidden'
             }}>
                 {/* Header */}
                 <div style={{
-                    padding: 'var(--spacing-lg)',
+                    padding: 'var(--spacing-md)',
                     borderBottom: '1px solid var(--border-primary)',
                     display: 'flex',
-                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    position: 'sticky',
-                    top: 0,
-                    backgroundColor: 'var(--bg-primary)',
-                    zIndex: 1
+                    justifyContent: 'space-between'
                 }}>
                     <div>
-                        <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, margin: 0, color: '#10b981' }}>
-                            {existingReceipt ? 'Edit Receipt Voucher' : 'Receipt Voucher'}
-                        </h2>
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#10b981' }}>
+                            {existingReceipt ? 'Edit Receipt Voucher' : 'Create Receipt Voucher'}
+                        </h3>
                     </div>
                     <button
                         onClick={onClose}
@@ -95,6 +94,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                             background: 'none',
                             border: 'none',
                             cursor: 'pointer',
+                            padding: 'var(--spacing-xs)',
                             color: 'var(--text-secondary)'
                         }}
                     >
@@ -102,115 +102,142 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                     </button>
                 </div>
 
-                {/* Form */}
-                <div style={{ padding: 'var(--spacing-lg)' }}>
-                    {/* Date */}
-                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Date *
-                        </label>
-                        <input
-                            type="date"
-                            value={formData.date}
-                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                            className="form-input"
-                            style={{ width: '100%' }}
-                        />
-                    </div>
+                {/* Content */}
+                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-lg)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                        {/* Date */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Voucher Date *
+                            </label>
+                            <input
+                                type="date"
+                                className="form-input"
+                                value={formData.date}
+                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
 
-                    {/* Account */}
-                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <AccountSelector
-                            value={formData.account_id}
-                            onChange={(id) => setFormData({ ...formData, account_id: id })}
-                            accountType="all"
-                            label="Received From (Account)"
-                        />
-                    </div>
+                        {/* Account Selector */}
+                        <div>
+                            <AccountSelector
+                                value={formData.account_id}
+                                onChange={(id) => setFormData({ ...formData, account_id: id })}
+                                onCreateNew={() => setShowNewAccountForm(true)}
+                                accountType="customer"
+                                label="Received From"
+                            />
+                        </div>
 
-                    {/* Amount */}
-                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Amount *
-                        </label>
-                        <input
-                            type="number"
-                            value={formData.amount}
-                            onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                            placeholder="Enter amount"
-                            className="form-input"
-                            style={{ width: '100%' }}
-                            min="0"
-                            step="0.01"
-                        />
-                    </div>
+                        {/* Amount & ModeRow */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                    Amount *
+                                </label>
+                                <div style={{ position: 'relative' }}>
+                                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', fontWeight: 600, color: 'var(--text-tertiary)' }}>₹</span>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        value={formData.amount}
+                                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                                        placeholder="0.00"
+                                        style={{ width: '100%', paddingLeft: '28px' }}
+                                        min="0"
+                                        step="0.01"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                    Payment Mode *
+                                </label>
+                                <select
+                                    className="form-input"
+                                    value={formData.payment_mode}
+                                    onChange={(e) => setFormData({ ...formData, payment_mode: e.target.value })}
+                                    style={{ width: '100%' }}
+                                >
+                                    {paymentModes.map(mode => (
+                                        <option key={mode.value} value={mode.value}>{mode.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
 
-                    {/* Payment Mode */}
-                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Payment Mode *
-                        </label>
-                        <select
-                            value={formData.payment_mode}
-                            onChange={(e) => setFormData({ ...formData, payment_mode: e.target.value })}
-                            className="form-input"
-                            style={{ width: '100%' }}
-                        >
-                            {paymentModes.map(mode => (
-                                <option key={mode.value} value={mode.value}>{mode.label}</option>
-                            ))}
-                        </select>
-                    </div>
+                        {/* Reference Number */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Reference Number
+                            </label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.reference_number}
+                                onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
+                                placeholder="Transaction ID, Cheque No. etc."
+                                style={{ width: '100%' }}
+                            />
+                        </div>
 
-                    {/* Reference Number */}
-                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Reference Number
-                        </label>
-                        <input
-                            type="text"
-                            value={formData.reference_number}
-                            onChange={(e) => setFormData({ ...formData, reference_number: e.target.value })}
-                            placeholder="Transaction ID, Cheque No., etc."
-                            className="form-input"
-                            style={{ width: '100%' }}
-                        />
-                    </div>
-
-                    {/* Narration */}
-                    <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Narration *
-                        </label>
-                        <textarea
-                            value={formData.narration}
-                            onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
-                            placeholder="Description of the receipt..."
-                            className="form-input"
-                            rows="3"
-                            style={{ width: '100%', resize: 'vertical' }}
-                        />
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
-                        <button
-                            onClick={onClose}
-                            className="btn btn-secondary"
-                            style={{ padding: 'var(--spacing-md)' }}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSubmit}
-                            className="btn btn-primary"
-                            style={{ padding: 'var(--spacing-md)', backgroundColor: '#10b981' }}
-                        >
-                            {existingReceipt ? 'Update Receipt' : 'Save Receipt'}
-                        </button>
+                        {/* Narration */}
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Narration *
+                            </label>
+                            <textarea
+                                className="form-input"
+                                value={formData.narration}
+                                onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
+                                rows="3"
+                                placeholder="Details of the payment received..."
+                                style={{ width: '100%', resize: 'vertical' }}
+                            />
+                        </div>
                     </div>
                 </div>
+
+                {/* Footer */}
+                <div style={{
+                    padding: 'var(--spacing-md)',
+                    borderTop: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    gap: 'var(--spacing-sm)',
+                    justifyContent: 'flex-end'
+                }}>
+                    <button
+                        onClick={onClose}
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 16px' }}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onClick={handleSubmit}
+                        className="btn btn-primary"
+                        style={{ padding: '8px 24px', backgroundColor: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <Save size={18} />
+                        {existingReceipt ? 'Update Receipt' : 'Save Receipt'}
+                    </button>
+                </div>
             </div>
+
+            {/* New Account Form Modal */}
+            {showNewAccountForm && (
+                <NewAccountForm
+                    onClose={() => setShowNewAccountForm(false)}
+                    onSave={(account) => {
+                        setFormData({
+                            ...formData,
+                            account_id: account.id
+                        });
+                        setShowNewAccountForm(false);
+                    }}
+                />
+            )}
         </div>
     );
 }

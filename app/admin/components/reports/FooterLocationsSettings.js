@@ -1,26 +1,62 @@
 'use client'
 
-import { useState } from 'react';
-import { Building2, Plus, Trash2, Edit2, Save, X, MapPin } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building2, Plus, Trash2, Edit2, Save, X, MapPin, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteSettingsAPI, websiteLocationsAPI } from '@/lib/adminAPI';
 
 function FooterLocationsSettings() {
     const [headOffice, setHeadOffice] = useState({
-        name: 'Head Office',
-        address: 'A138 Orchard Mall, Royal Palms',
-        area: 'Goregaon East',
-        city: 'Mumbai',
-        pincode: '400063',
-        phone: '+91-8928895590'
+        name: '',
+        address: '',
+        area: '',
+        city: '',
+        pincode: '',
+        phone: ''
     });
 
-    const [otherLocations, setOtherLocations] = useState([
-        { id: 1, name: 'Andheri', address: '', phone: '+91-8928895590' },
-        { id: 2, name: 'Dadar', address: '', phone: '+91-8928895590' },
-        { id: 3, name: 'Ghatkopar', address: '', phone: '+91-8928895590' },
-        { id: 4, name: 'Mumbai Central', address: '', phone: '+91-8928895590' },
-        { id: 5, name: 'Kurla', address: '', phone: '+91-8928895590' },
-        { id: 6, name: 'Parel', address: '', phone: '+91-8928895590' }
-    ]);
+    const [otherLocations, setOtherLocations] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setLoading(true);
+            const [locationsData, headOfficeData] = await Promise.all([
+                websiteLocationsAPI.getAll({ footer: true }),
+                websiteSettingsAPI.getByKey('footer-head-office')
+            ]);
+
+            if (locationsData) {
+                setOtherLocations(locationsData.filter(l => !l.is_head_office).map(l => ({
+                    id: l.id,
+                    name: l.name,
+                    address: l.address || '',
+                    phone: l.phone || ''
+                })));
+            }
+
+            if (headOfficeData && headOfficeData.value) {
+                setHeadOffice(headOfficeData.value);
+            } else {
+                setHeadOffice({
+                    name: 'Head Office',
+                    address: '',
+                    area: '',
+                    city: '',
+                    pincode: '',
+                    phone: ''
+                });
+            }
+        } catch (err) {
+            console.error('Failed to fetch footer locations:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
@@ -49,35 +85,95 @@ function FooterLocationsSettings() {
         setEditForm({});
     };
 
-    const handleDeleteLocation = (id) => {
+    const handleDeleteLocation = async (id) => {
         if (confirm('Are you sure you want to delete this location?')) {
-            setOtherLocations(otherLocations.filter(loc => loc.id !== id));
+            try {
+                await websiteLocationsAPI.update(id, { display_in_footer: false });
+                setOtherLocations(otherLocations.filter(loc => loc.id !== id));
+            } catch (error) {
+                console.error('Error deleting location:', error);
+                alert('Failed to delete location');
+            }
         }
     };
 
-    const handleAddLocation = () => {
+    const handleAddLocation = async () => {
         if (newLocation.name.trim()) {
-            const newId = Math.max(...otherLocations.map(l => l.id), 0) + 1;
-            setOtherLocations([...otherLocations, { ...newLocation, id: newId }]);
-            setNewLocation({ name: '', address: '', phone: '+91-8928895590' });
-            setShowAddForm(false);
+            try {
+                const added = await websiteLocationsAPI.create({
+                    name: newLocation.name.trim(),
+                    address: newLocation.address,
+                    phone: newLocation.phone,
+                    display_in_footer: true,
+                    type: 'Office'
+                });
+
+                if (added) {
+                    setOtherLocations([...otherLocations, {
+                        id: added.id,
+                        name: added.name,
+                        address: added.address,
+                        phone: added.phone
+                    }]);
+                    setNewLocation({ name: '', address: '', phone: '+91-8928895590' });
+                    setShowAddForm(false);
+                }
+            } catch (error) {
+                console.error('Error adding location:', error);
+                alert('Failed to add location');
+            }
         }
     };
 
-    const handleSaveAll = () => {
-        // TODO: Save to backend
-        alert('Footer locations saved successfully!');
+    const handleSaveAll = async () => {
+        try {
+            setSaving(true);
+            // Save Head Office to generic settings
+            // Other locations are already updated in real-time or via reconcile
+            // Re-syncing other locations to ensure all edits are saved
+            const updatePromises = otherLocations.map(loc =>
+                websiteLocationsAPI.update(loc.id, {
+                    name: loc.name,
+                    address: loc.address,
+                    phone: loc.phone
+                })
+            );
+
+            await Promise.all([
+                ...updatePromises,
+                websiteSettingsAPI.save('footer-head-office', headOffice, 'Head office location details')
+            ]);
+
+            alert('Footer settings saved successfully!');
+        } catch (err) {
+            console.error('Failed to save footer settings:', err);
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div>
             <div style={{ marginBottom: 'var(--spacing-lg)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                    Footer Office Locations
-                </h3>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                    Manage head office and other office locations displayed in the footer
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                            Footer Office Locations
+                        </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            Manage head office and other office locations displayed in the footer
+                        </p>
+                    </div>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchSettings}
+                        disabled={loading}
+                        style={{ padding: '6px 12px' }}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                    </button>
+                </div>
             </div>
 
             {/* Head Office */}
@@ -312,147 +408,155 @@ function FooterLocationsSettings() {
 
                 {/* Locations List */}
                 <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                    {otherLocations.map((location) => (
-                        <div
-                            key={location.id}
-                            className="card"
-                            style={{
-                                padding: 'var(--spacing-md)',
-                                border: editingId === location.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
-                            }}
-                        >
-                            {editingId === location.id ? (
-                                // Edit Mode
-                                <div>
-                                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                                Location Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={editForm.name}
-                                                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: 'var(--spacing-sm)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    fontSize: 'var(--font-size-sm)'
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                                Address
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={editForm.address}
-                                                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: 'var(--spacing-sm)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    fontSize: 'var(--font-size-sm)'
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                                Phone
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={editForm.phone}
-                                                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: 'var(--spacing-sm)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    fontSize: 'var(--font-size-sm)'
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
-                                        <button onClick={handleSaveEdit} className="btn btn-primary" style={{ padding: '6px 12px' }}>
-                                            <Save size={14} />
-                                            Save
-                                        </button>
-                                        <button onClick={handleCancelEdit} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
-                                            <X size={14} />
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            ) : (
-                                // View Mode
-                                <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
-                                    <div style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '50%',
-                                        backgroundColor: '#10b98115',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        flexShrink: 0
-                                    }}>
-                                        <MapPin size={20} style={{ color: '#10b981' }} />
-                                    </div>
-
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: '2px' }}>
-                                            {location.name}
-                                        </div>
-                                        {location.address && (
-                                            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: '2px' }}>
-                                                {location.address}
-                                            </div>
-                                        )}
-                                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>
-                                            {location.phone}
-                                        </div>
-                                    </div>
-
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                        <button
-                                            onClick={() => handleEditLocation(location)}
-                                            className="btn btn-secondary"
-                                            style={{ padding: '6px 12px' }}
-                                        >
-                                            <Edit2 size={14} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteLocation(location.id)}
-                                            className="btn btn-danger"
-                                            style={{ padding: '6px 12px' }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
+                    {loading ? (
+                        <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center' }}>
+                            <Loader2 className="spin" size={48} style={{ margin: '0 auto var(--spacing-md) auto', display: 'block' }} />
+                            <p style={{ color: 'var(--text-secondary)' }}>Loading locations...</p>
                         </div>
-                    ))}
+                    ) : (
+                        otherLocations.map((location) => (
+                            <div
+                                key={location.id}
+                                className="card"
+                                style={{
+                                    padding: 'var(--spacing-md)',
+                                    border: editingId === location.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
+                                }}
+                            >
+                                {editingId === location.id ? (
+                                    // Edit Mode
+                                    <div>
+                                        <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                    Location Name
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.name}
+                                                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: 'var(--spacing-sm)',
+                                                        border: '1px solid var(--border-primary)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        fontSize: 'var(--font-size-sm)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                    Address
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.address}
+                                                    onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: 'var(--spacing-sm)',
+                                                        border: '1px solid var(--border-primary)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        fontSize: 'var(--font-size-sm)'
+                                                    }}
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                                    Phone
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={editForm.phone}
+                                                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: 'var(--spacing-sm)',
+                                                        border: '1px solid var(--border-primary)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        fontSize: 'var(--font-size-sm)'
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                                            <button onClick={handleSaveEdit} className="btn btn-primary" style={{ padding: '6px 12px' }}>
+                                                <Save size={14} />
+                                                Save
+                                            </button>
+                                            <button onClick={handleCancelEdit} className="btn btn-secondary" style={{ padding: '6px 12px' }}>
+                                                <X size={14} />
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // View Mode
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
+                                        <div style={{
+                                            width: '40px',
+                                            height: '40px',
+                                            borderRadius: '50%',
+                                            backgroundColor: '#10b98115',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            flexShrink: 0
+                                        }}>
+                                            <MapPin size={20} style={{ color: '#10b981' }} />
+                                        </div>
+
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: '2px' }}>
+                                                {location.name}
+                                            </div>
+                                            {location.address && (
+                                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: '2px' }}>
+                                                    {location.address}
+                                                </div>
+                                            )}
+                                            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>
+                                                {location.phone}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                            <button
+                                                onClick={() => handleEditLocation(location)}
+                                                className="btn btn-secondary"
+                                                style={{ padding: '6px 12px' }}
+                                            >
+                                                <Edit2 size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteLocation(location.id)}
+                                                className="btn btn-danger"
+                                                style={{ padding: '6px 12px' }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 
             {/* Save All Button */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--spacing-md)' }}>
                 <button
                     onClick={handleSaveAll}
+                    disabled={saving || loading}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
                 >
-                    <Save size={18} />
-                    Save All Changes
+                    {saving ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
+                    {saving ? 'Saving...' : 'Save All Changes'}
                 </button>
             </div>
         </div>

@@ -1,22 +1,13 @@
 'use client'
 
-import { useState } from 'react';
-import { Clock, Plus, Edit2, Trash2, Save, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, Plus, Edit2, Trash2, Save, Calendar, Loader2, RefreshCcw } from 'lucide-react';
+import { websiteSettingsAPI } from '@/lib/adminAPI';
 
 function BookingSlots() {
-    const [slots, setSlots] = useState([
-        { id: 's1', day: 'monday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true },
-        { id: 's2', day: 'monday', startTime: '14:00', endTime: '18:00', maxBookings: 6, active: true },
-        { id: 's3', day: 'tuesday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true },
-        { id: 's4', day: 'tuesday', startTime: '14:00', endTime: '18:00', maxBookings: 6, active: true },
-        { id: 's5', day: 'wednesday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true },
-        { id: 's6', day: 'wednesday', startTime: '14:00', endTime: '18:00', maxBookings: 6, active: true },
-        { id: 's7', day: 'thursday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true },
-        { id: 's8', day: 'thursday', startTime: '14:00', endTime: '18:00', maxBookings: 6, active: true },
-        { id: 's9', day: 'friday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true },
-        { id: 's10', day: 'friday', startTime: '14:00', endTime: '18:00', maxBookings: 6, active: true },
-        { id: 's11', day: 'saturday', startTime: '09:00', endTime: '13:00', maxBookings: 3, active: true }
-    ]);
+    const [slots, setSlots] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     const [editingSlot, setEditingSlot] = useState(null);
     const [showForm, setShowForm] = useState(false);
@@ -38,18 +29,51 @@ function BookingSlots() {
         { id: 'sunday', label: 'Sunday' }
     ];
 
+    useEffect(() => {
+        fetchSlots();
+    }, []);
+
+    const fetchSlots = async () => {
+        try {
+            setLoading(true);
+            const data = await websiteSettingsAPI.getByKey('booking-slots');
+            if (data && data.value) {
+                setSlots(data.value);
+            }
+        } catch (err) {
+            console.error('Failed to fetch slots:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const saveSlots = async (updatedSlots) => {
+        try {
+            setSaving(true);
+            await websiteSettingsAPI.save('booking-slots', updatedSlots, 'Weekly booking time slots');
+            setSlots(updatedSlots);
+        } catch (err) {
+            console.error('Failed to save slots:', err);
+            alert('Failed to save changes');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     const handleAdd = () => {
         const newSlot = {
             id: `s${Date.now()}`,
             ...formData
         };
-        setSlots([...slots, newSlot]);
+        const updatedSlots = [...slots, newSlot];
+        saveSlots(updatedSlots);
         setShowForm(false);
         setFormData({ day: 'monday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true });
     };
 
     const handleUpdate = () => {
-        setSlots(slots.map(s => s.id === editingSlot.id ? { ...editingSlot, ...formData } : s));
+        const updatedSlots = slots.map(s => s.id === editingSlot.id ? { ...editingSlot, ...formData } : s);
+        saveSlots(updatedSlots);
         setEditingSlot(null);
         setFormData({ day: 'monday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true });
     };
@@ -67,12 +91,14 @@ function BookingSlots() {
 
     const handleDelete = (slotId) => {
         if (confirm('Are you sure you want to delete this time slot?')) {
-            setSlots(slots.filter(s => s.id !== slotId));
+            const updatedSlots = slots.filter(s => s.id !== slotId);
+            saveSlots(updatedSlots);
         }
     };
 
     const handleToggleActive = (slotId) => {
-        setSlots(slots.map(s => s.id === slotId ? { ...s, active: !s.active } : s));
+        const updatedSlots = slots.map(s => s.id === slotId ? { ...s, active: !s.active } : s);
+        saveSlots(updatedSlots);
     };
 
     const getDayLabel = (dayId) => {
@@ -108,14 +134,24 @@ function BookingSlots() {
                         Configure available time slots for customer bookings
                     </p>
                 </div>
-                <button
-                    className="btn btn-primary"
-                    onClick={() => setShowForm(true)}
-                    style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
-                >
-                    <Plus size={16} />
-                    Add Time Slot
-                </button>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={fetchSlots}
+                        disabled={loading}
+                        style={{ padding: '6px 12px' }}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                    </button>
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => setShowForm(true)}
+                        style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
+                    >
+                        <Plus size={16} />
+                        Add Time Slot
+                    </button>
+                </div>
             </div>
 
             {/* Stats */}
@@ -172,103 +208,110 @@ function BookingSlots() {
 
             {/* Slots by Day */}
             <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
-                    {days.map(day => {
-                        const daySlots = groupedSlots[day.id];
-                        if (daySlots.length === 0) return null;
+                {loading ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)' }}>
+                        <Loader2 className="spin" size={48} style={{ marginBottom: 'var(--spacing-md)' }} />
+                        <p>Loading slots...</p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
+                        {days.map(day => {
+                            const daySlots = groupedSlots[day.id];
+                            if (daySlots.length === 0) return null;
 
-                        return (
-                            <div key={day.id}>
-                                <h4 style={{
-                                    fontSize: 'var(--font-size-base)',
-                                    fontWeight: 600,
-                                    marginBottom: 'var(--spacing-sm)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 'var(--spacing-xs)'
-                                }}>
-                                    <Calendar size={16} />
-                                    {day.label}
-                                    <span style={{
-                                        fontSize: 'var(--font-size-xs)',
-                                        fontWeight: 500,
-                                        color: 'var(--text-tertiary)',
-                                        backgroundColor: 'var(--bg-tertiary)',
-                                        padding: '2px 8px',
-                                        borderRadius: 'var(--radius-sm)'
+                            return (
+                                <div key={day.id}>
+                                    <h4 style={{
+                                        fontSize: 'var(--font-size-base)',
+                                        fontWeight: 600,
+                                        marginBottom: 'var(--spacing-sm)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 'var(--spacing-xs)'
                                     }}>
-                                        {daySlots.filter(s => s.active).length} active
-                                    </span>
-                                </h4>
+                                        <Calendar size={16} />
+                                        {day.label}
+                                        <span style={{
+                                            fontSize: 'var(--font-size-xs)',
+                                            fontWeight: 500,
+                                            color: 'var(--text-tertiary)',
+                                            backgroundColor: 'var(--bg-tertiary)',
+                                            padding: '2px 8px',
+                                            borderRadius: 'var(--radius-sm)'
+                                        }}>
+                                            {daySlots.filter(s => s.active).length} active
+                                        </span>
+                                    </h4>
 
-                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                    {daySlots.map(slot => (
-                                        <div
-                                            key={slot.id}
-                                            style={{
-                                                padding: 'var(--spacing-md)',
-                                                backgroundColor: 'var(--bg-elevated)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                opacity: slot.active ? 1 : 0.5,
-                                                transition: 'all var(--transition-fast)'
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                                                <Clock size={20} style={{ color: 'var(--color-primary)' }} />
-                                                <div>
-                                                    <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, fontFamily: 'monospace' }}>
-                                                        {slot.startTime} - {slot.endTime}
-                                                    </div>
-                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                        Max {slot.maxBookings} bookings
-                                                        {!slot.active && <span style={{ color: 'var(--color-danger)', marginLeft: '8px' }}>● Inactive</span>}
+                                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                                        {daySlots.map(slot => (
+                                            <div
+                                                key={slot.id}
+                                                style={{
+                                                    padding: 'var(--spacing-md)',
+                                                    backgroundColor: 'var(--bg-elevated)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    opacity: slot.active ? 1 : 0.5,
+                                                    transition: 'all var(--transition-fast)'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                                                    <Clock size={20} style={{ color: 'var(--color-primary)' }} />
+                                                    <div>
+                                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, fontFamily: 'monospace' }}>
+                                                            {slot.startTime} - {slot.endTime}
+                                                        </div>
+                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                            Max {slot.maxBookings} bookings
+                                                            {!slot.active && <span style={{ color: 'var(--color-danger)', marginLeft: '8px' }}>● Inactive</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
 
-                                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                                <button
-                                                    className="btn btn-secondary"
-                                                    onClick={() => handleToggleActive(slot.id)}
-                                                    style={{
-                                                        padding: '6px 10px',
-                                                        fontSize: 'var(--font-size-xs)',
-                                                        backgroundColor: slot.active ? 'var(--bg-tertiary)' : 'var(--color-success)',
-                                                        color: slot.active ? 'var(--text-secondary)' : 'var(--text-inverse)'
-                                                    }}
-                                                >
-                                                    {slot.active ? 'Disable' : 'Enable'}
-                                                </button>
-                                                <button
-                                                    className="btn btn-secondary"
-                                                    onClick={() => handleEdit(slot)}
-                                                    style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)' }}
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
-                                                <button
-                                                    className="btn btn-secondary"
-                                                    onClick={() => handleDelete(slot.id)}
-                                                    style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)', color: 'var(--color-danger)' }}
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
+                                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                                    <button
+                                                        className="btn btn-secondary"
+                                                        onClick={() => handleToggleActive(slot.id)}
+                                                        style={{
+                                                            padding: '6px 10px',
+                                                            fontSize: 'var(--font-size-xs)',
+                                                            backgroundColor: slot.active ? 'var(--bg-tertiary)' : 'var(--color-success)',
+                                                            color: slot.active ? 'var(--text-secondary)' : 'var(--text-inverse)'
+                                                        }}
+                                                    >
+                                                        {slot.active ? 'Disable' : 'Enable'}
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-secondary"
+                                                        onClick={() => handleEdit(slot)}
+                                                        style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)' }}
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-secondary"
+                                                        onClick={() => handleDelete(slot.id)}
+                                                        style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)', color: 'var(--color-danger)' }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
-                {slots.length === 0 && (
+                {!loading && slots.length === 0 && (
                     <div style={{
                         padding: 'var(--spacing-2xl)',
                         textAlign: 'center',
@@ -391,10 +434,11 @@ function BookingSlots() {
                                 <button
                                     className="btn btn-primary"
                                     onClick={editingSlot ? handleUpdate : handleAdd}
-                                    style={{ flex: 1, padding: 'var(--spacing-sm)' }}
+                                    disabled={saving}
+                                    style={{ flex: 1, padding: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                                 >
-                                    <Save size={16} />
-                                    {editingSlot ? 'Update' : 'Add'} Slot
+                                    {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
+                                    {saving ? 'Saving...' : (editingSlot ? 'Update' : 'Add')} Slot
                                 </button>
                                 <button
                                     className="btn btn-secondary"
