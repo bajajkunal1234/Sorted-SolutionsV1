@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Package, Plus, Trash2, Edit2, Save, X, Upload, Tag, Loader2, RefreshCcw } from 'lucide-react';
-import { websiteFrequentlyBookedAPI } from '@/lib/adminAPI';
+import { websiteFrequentlyBookedAPI, websiteSettingsAPI } from '@/lib/adminAPI';
 
 function FrequentlyBookedServicesSettings() {
     const [services, setServices] = useState([]);
