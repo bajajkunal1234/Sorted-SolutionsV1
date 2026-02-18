@@ -5,6 +5,11 @@ import { X, User, FileText, Bell, History, Receipt, Edit2, Save, MapPin, Phone, 
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 import { getRequiredFields, generateInitialsAvatar } from '@/lib/utils/accountHelpers';
 import { validateMobileNumber } from '@/lib/utils/validation';
+import CustomerPropertiesTab from './accounts/CustomerPropertiesTab';
+import RemindersTab from './accounts/RemindersTab';
+import InteractionsTab from './accounts/InteractionsTab';
+import TransactionsTab from './accounts/TransactionsTab';
+import RentAMCTab from './accounts/RentAMCTab';
 
 function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [activeTab, setActiveTab] = useState('details');
