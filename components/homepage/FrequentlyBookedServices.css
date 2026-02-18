@@ -58,10 +58,10 @@
 }
 
 .service-icon-wrapper {
-    width: 140px;
-    /* Increased from 80px */
-    height: 140px;
-    /* Increased from 80px */
+    width: 160px;
+    /* Increased from 140px */
+    height: 160px;
+    /* Increased from 140px */
     background: transparent;
     border-radius: 16px;
     display: flex;

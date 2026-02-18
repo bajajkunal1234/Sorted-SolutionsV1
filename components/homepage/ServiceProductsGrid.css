@@ -45,10 +45,10 @@
 }
 
 .service-product-icon {
-    width: 110px;
-    /* Increased from 72px */
-    height: 110px;
-    /* Increased from 72px */
+    width: 130px;
+    /* Increased from 110px */
+    height: 130px;
+    /* Increased from 110px */
     border-radius: 16px;
     display: flex;
     align-items: center;
