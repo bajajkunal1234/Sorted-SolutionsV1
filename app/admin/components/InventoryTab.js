@@ -34,11 +34,9 @@ function InventoryTab() {
         const fetchInventory = async () => {
             try {
                 setLoading(true);
-                const [productData, categoryData, templateData] = await Promise.all([
-                    inventoryAPI.getAll(),
-                    inventoryCategoriesAPI.getAll(),
-                    printTemplatesAPI.getAll()
-                ]);
+                // Fetch products first for faster initial load
+                const productData = await inventoryAPI.getAll();
+
                 const normalizedProducts = (productData || []).map(p => {
                     const currentStock = p.current_stock !== undefined ? p.current_stock : (p.currentStock !== undefined ? p.currentStock : p.quantity);
                     const minStockLevel = p.min_stock_level !== undefined ? p.min_stock_level : (p.minStockLevel !== undefined ? p.minStockLevel : p.reorder_level);
@@ -58,9 +56,17 @@ function InventoryTab() {
                     };
                 });
                 setProducts(normalizedProducts);
-                setCategories(categoryData || []);
-                setTermsTemplates(templateData || []);
                 setError(null);
+                setLoading(false); // Immediate stop for products
+
+                // Background fetch for non-critical data
+                Promise.all([
+                    inventoryCategoriesAPI.getAll(),
+                    printTemplatesAPI.getAll()
+                ]).then(([catData, tempData]) => {
+                    setCategories(catData || []);
+                    setTermsTemplates(tempData || []);
+                }).catch(err => console.error('Secondary fetching failed:', err));
             } catch (err) {
                 console.error('Error fetching inventory:', err);
                 setError('Failed to load inventory. Please try again.');
