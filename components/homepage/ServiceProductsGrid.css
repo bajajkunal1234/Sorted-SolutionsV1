@@ -45,33 +45,29 @@
 }
 
 .service-product-icon {
-    width: 84px;
-    height: 84px;
-    border-radius: 20px;
+    width: 72px;
+    height: 72px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 12px;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    background: #ffffff !important;
-    /* Force white background to hide image bg */
-    padding: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    background: transparent;
+    padding: 0;
     position: relative;
     z-index: 2;
 }
 
 [data-theme="dark"] .service-product-icon {
-    background: #ffffff !important;
-    /* Keep white tile in dark mode for clean icon look */
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    background: transparent;
 }
 
 .service-product-icon img {
     width: 100% !important;
     height: 100% !important;
     object-fit: contain;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.15));
 }
 
 /* Ensure no blend mode issues in dark mode if needed, but multiply on white to dark background usually works well */

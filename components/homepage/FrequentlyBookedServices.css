@@ -58,33 +58,30 @@
 }
 
 .service-icon-wrapper {
-    width: 96px;
-    height: 96px;
-    background: #ffffff !important;
-    border-radius: 20px;
+    width: 80px;
+    height: 80px;
+    background: transparent;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin: 0 auto 16px auto;
     color: var(--color-primary);
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    padding: 12px;
+    padding: 0;
     position: relative;
     z-index: 5;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="dark"] .service-icon-wrapper {
-    background: #ffffff !important;
-    /* Keep white background for clean icon merge */
-    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
+    background: transparent;
 }
 
 .service-icon-wrapper img {
     width: 100% !important;
     height: 100% !important;
     object-fit: contain;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
+    filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.2));
 }
 
 .service-card:hover .service-icon-wrapper {
