@@ -1,23 +1,24 @@
 /* Quick Booking Form Styles - Enhanced */
 .quick-booking-form {
-    background: white;
+    background: var(--bg-elevated);
     border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border-primary);
     margin-top: 24px;
 }
 
 .form-title {
     font-size: 20px;
     font-weight: 700;
-    color: #1f2937;
+    color: var(--text-primary);
     margin: 0 0 8px 0;
     text-align: center;
 }
 
 .form-subtitle {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--text-secondary);
     text-align: center;
     margin: 0 0 20px 0;
     line-height: 1.5;
@@ -31,7 +32,7 @@
     display: block;
     font-size: 14px;
     font-weight: 600;
-    color: #374151;
+    color: var(--text-primary);
     margin-bottom: 8px;
 }
 
@@ -39,18 +40,18 @@
 .form-group input {
     width: 100%;
     padding: 12px;
-    border: 2px solid #e5e7eb;
+    border: 2px solid var(--border-primary);
     border-radius: 8px;
     font-size: 15px;
-    color: #1f2937;
-    background: white;
+    color: var(--text-primary);
+    background: var(--bg-primary);
     transition: all 0.2s ease;
 }
 
 .form-group select:focus,
 .form-group input:focus {
     outline: none;
-    border-color: #2563eb;
+    border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
@@ -63,7 +64,7 @@
     left: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #9ca3af;
+    color: var(--text-tertiary);
 }
 
 .pincode-input-wrapper input {
@@ -84,12 +85,12 @@
 
 .pincode-status.valid {
     color: #10b981;
-    background: #d1fae5;
+    background: rgba(16, 185, 129, 0.1);
 }
 
 .pincode-status.invalid {
     color: #ef4444;
-    background: #fee2e2;
+    background: rgba(239, 68, 68, 0.1);
 }
 
 .pincode-help {
@@ -98,10 +99,10 @@
     gap: 6px;
     margin-top: 6px;
     padding: 8px;
-    background: #fef3c7;
+    background: rgba(245, 158, 11, 0.1);
     border-radius: 6px;
     font-size: 11px;
-    color: #92400e;
+    color: var(--color-warning);
 }
 
 .pincode-help svg {
@@ -149,9 +150,9 @@
     justify-content: space-around;
     margin-top: 16px;
     padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border-primary);
     font-size: 11px;
-    color: #6b7280;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 

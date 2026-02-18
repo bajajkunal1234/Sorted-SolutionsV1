@@ -9,6 +9,7 @@ function FrequentlyBookedServices() {
             id: 1,
             title: 'AC Cleaning & Service',
             icon: Wind,
+            image: '/images/services/ac_3d.png',
             keywords: 'Air conditioner cleaning Mumbai',
             url: '/services/ac-cleaning',
             badge: 'Popular'
@@ -17,6 +18,7 @@ function FrequentlyBookedServices() {
             id: 2,
             title: 'RO Filter Replacement',
             icon: Filter,
+            image: '/images/services/water_purifier_3d.png',
             keywords: 'RO water purifier service',
             url: '/services/ro-filter',
             badge: 'Seasonal'
@@ -25,6 +27,7 @@ function FrequentlyBookedServices() {
             id: 3,
             title: 'Washing Machine Repair',
             icon: Droplets,
+            image: '/images/services/washing_machine_3d.png',
             keywords: 'WM spin issue repair',
             url: '/services/wm-spin',
             badge: null
@@ -33,6 +36,7 @@ function FrequentlyBookedServices() {
             id: 4,
             title: 'Refrigerator Not Cooling',
             icon: Refrigerator,
+            image: '/images/services/fridge_3d.png',
             keywords: 'Fridge cooling problem fix',
             url: '/services/fridge-cooling',
             badge: 'Emergency'
@@ -41,6 +45,7 @@ function FrequentlyBookedServices() {
             id: 5,
             title: 'Microwave Not Heating',
             icon: Microwave,
+            image: '/images/services/oven_3d.png',
             keywords: 'Microwave oven repair',
             url: '/services/microwave-heating',
             badge: null
@@ -49,6 +54,7 @@ function FrequentlyBookedServices() {
             id: 6,
             title: 'Gas Stove Burner Repair',
             icon: Flame,
+            image: '/images/services/hob_3d.png',
             keywords: 'Gas hob service Mumbai',
             url: '/services/gas-stove',
             badge: null
@@ -58,7 +64,7 @@ function FrequentlyBookedServices() {
     return (
         <section className="frequently-booked">
             <div className="section-container">
-                <h2 className="section-title">Most Frequently Booked Appliance Repairs</h2>
+                <h2 className="section-title">Frequently Booked Appliance Repairs</h2>
                 <p className="section-description">
                     Quick solutions for common appliance problems. Same day service available across Mumbai.
                 </p>
@@ -72,8 +78,22 @@ function FrequentlyBookedServices() {
                                         {service.badge}
                                     </span>
                                 )}
-                                <div className="service-icon-wrapper">
-                                    <IconComponent size={32} />
+                                <div className="service-icon-wrapper" style={{ background: service.image ? 'transparent' : 'var(--bg-secondary)' }}>
+                                    {service.image ? (
+                                        <img
+                                            src={service.image}
+                                            alt={service.title}
+                                            style={{ width: '56px', height: '56px', objectFit: 'contain' }}
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                e.target.nextSibling.style.display = 'block';
+                                            }}
+                                        />
+                                    ) : null}
+                                    <IconComponent
+                                        size={32}
+                                        style={{ display: service.image ? 'none' : 'block' }}
+                                    />
                                 </div>
                                 <h3 className="service-title">{service.title}</h3>
                                 <p className="service-keywords">{service.keywords}</p>

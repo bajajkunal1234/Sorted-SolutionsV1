@@ -95,11 +95,10 @@ function MobileHomepage() {
                 <div className="hero-content">
                     {/* H1 - Primary SEO Keyword */}
                     <h1 className="hero-title">
-                        Technicians Available in{' '}
+                        Same Day Appliances Repair Now In{' '}
                         <span className="location-animated">
                             {locations[currentLocation]}
                         </span>
-                        {' '}within 90mins
                     </h1>
 
                     {/* H2 - Secondary Keywords */}

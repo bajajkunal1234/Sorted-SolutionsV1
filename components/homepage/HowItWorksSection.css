@@ -1,6 +1,9 @@
-/* Clean How It Works Section */
 .how-it-works {
     padding: 60px 16px;
+    background-color: #ecedf2;
+}
+
+[data-theme="dark"] .how-it-works {
     background-color: var(--bg-primary);
 }
 
@@ -26,18 +29,18 @@
 /* Steps Grid */
 .steps-grid {
     display: grid;
-    grid-template-columns: repeat(1, 1fr);
-    gap: 32px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
     max-width: 1200px;
     margin: 0 auto;
 }
 
 .step-card {
     position: relative;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-elevated);
     border: 1px solid var(--border-primary);
-    border-radius: var(--radius-xl);
-    padding: 40px 32px;
+    border-radius: var(--radius-lg);
+    padding: 24px 16px;
     transition: all var(--transition-base);
     display: flex;
     flex-direction: column;
@@ -53,11 +56,11 @@
 
 .step-number-badge {
     position: absolute;
-    top: -16px;
+    top: -12px;
     left: 50%;
     transform: translateX(-50%);
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     background-color: var(--color-primary);
     color: white;
     border-radius: 50%;
@@ -65,19 +68,19 @@
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    font-size: 14px;
+    font-size: 12px;
     box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
 }
 
 .step-icon-circle {
-    width: 64px;
-    height: 64px;
-    border-radius: var(--radius-lg);
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
-    margin-bottom: 24px;
+    font-size: 24px;
+    margin-bottom: 16px;
     transition: all var(--transition-base);
 }
 
@@ -86,16 +89,16 @@
 }
 
 .step-card-title {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .step-card-description {
-    font-size: 16px;
+    font-size: 13px;
     color: var(--text-secondary);
-    line-height: 1.6;
+    line-height: 1.4;
 }
 
 /* Connective lines for desktop */
@@ -103,6 +106,24 @@
     .steps-grid {
         grid-template-columns: repeat(4, 1fr);
         gap: 24px;
+    }
+
+    .step-card {
+        padding: 40px 32px;
+    }
+
+    .step-icon-circle {
+        width: 64px;
+        height: 64px;
+        font-size: 32px;
+    }
+
+    .step-card-title {
+        font-size: 20px;
+    }
+
+    .step-card-description {
+        font-size: 16px;
     }
 
     .step-card::after {
@@ -122,8 +143,12 @@
     }
 }
 
-@media (min-width: 768px) and (max-width: 1023px) {
+@media (max-width: 480px) {
     .steps-grid {
-        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    .step-card {
+        padding: 20px 10px;
     }
 }

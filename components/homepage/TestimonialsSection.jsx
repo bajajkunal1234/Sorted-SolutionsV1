@@ -33,16 +33,18 @@ function TestimonialsSection() {
         <section className="testimonials">
             <div className="section-container">
                 <h2 className="section-title">What Our Customers Say</h2>
-                <div className="testimonials-scroll">
-                    {testimonials.map((testimonial) => (
-                        <div key={testimonial.id} className="testimonial-card">
-                            <div className="rating">
-                                {Array(testimonial.rating).fill('⭐').join('')}
+                <div className="ticker-wrapper-testimonials">
+                    <div className="ticker-track-testimonials">
+                        {(testimonials.length > 0 ? [...testimonials, ...testimonials, ...testimonials] : []).map((testimonial, index) => (
+                            <div key={`${testimonial.id}-${index}`} className="testimonial-card">
+                                <div className="rating">
+                                    {Array(testimonial.rating).fill('⭐').join('')}
+                                </div>
+                                <p className="testimonial-text">"{testimonial.text}"</p>
+                                <p className="testimonial-author">- {testimonial.name}</p>
                             </div>
-                            <p className="testimonial-text">"{testimonial.text}"</p>
-                            <p className="testimonial-author">- {testimonial.name}</p>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </div>
         </section>

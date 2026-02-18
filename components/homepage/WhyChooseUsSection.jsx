@@ -18,30 +18,6 @@ function WhyChooseUsSection() {
         },
         zones: [
             {
-                id: 'tech',
-                title: 'Smart Technology',
-                features: ['Real-time Tracking', 'Live Map View', 'GPS Navigation'],
-                icon: '📍',
-                color: '#6366f1',
-                size: 'large'
-            },
-            {
-                id: 'wallet',
-                title: 'Digital Wallet',
-                features: ['Cashless Payments', 'Auto Invoicing', 'Transaction History'],
-                icon: '💳',
-                color: '#10b981',
-                size: 'medium'
-            },
-            {
-                id: 'property',
-                title: 'Multi-Property',
-                features: ['Manage All Homes', 'Separate Histories', 'Quick Switch'],
-                icon: '🏠',
-                color: '#f59e0b',
-                size: 'medium'
-            },
-            {
                 id: 'service',
                 title: 'Premium Service',
                 features: ['On-time Guarantee', 'Certified Techs', 'Quality Parts'],
@@ -51,11 +27,19 @@ function WhyChooseUsSection() {
             },
             {
                 id: 'warranty',
-                title: 'Extended Warranty',
-                features: ['90-Day Coverage', 'Free Callbacks', 'Parts Guarantee'],
+                title: '90-Day Warranty',
+                features: ['Parts Coverage', 'Free Callbacks', 'Genuine Spares'],
                 icon: '🛡️',
                 color: '#ec4899',
                 size: 'medium'
+            },
+            {
+                id: 'tech',
+                title: 'Smart Technology',
+                features: ['Real-time Tracking', 'Live Map View', 'Instant Updates'],
+                icon: '📍',
+                color: '#6366f1',
+                size: 'large'
             },
             {
                 id: 'support',
@@ -66,7 +50,11 @@ function WhyChooseUsSection() {
                 size: 'small'
             }
         ],
-        brands: ['Samsung', 'Daikin', 'Siemens', 'Bosch', 'LG', 'Voltas', 'Bajaj', 'Haier', 'Mitsubishi', 'Faber']
+        brands: ['Samsung', 'Daikin', 'Siemens', 'Bosch', 'LG', 'Voltas', 'Bajaj', 'Haier', 'Mitsubishi', 'Faber'],
+        brandsConfig: {
+            sectionTitle: 'Trusted by Leading Brands',
+            disclaimerText: '*These trademarks or logos are used for illustration purposes only & we disclaim any specific connection with the brand in this regard.'
+        }
     });
     const [horizontalScroll, setHorizontalScroll] = useState(true);
 
@@ -100,6 +88,13 @@ function WhyChooseUsSection() {
                 const dataB = await resB.json();
                 if (dataB.success && dataB.data?.length > 0) {
                     setFeatures(prev => ({ ...prev, brands: dataB.data }));
+                }
+
+                // Fetch brands config
+                const resBC = await fetch('/api/settings/section-configs?id=brand-logos-config');
+                const dataBC = await resBC.json();
+                if (dataBC.success && dataBC.data?.value) {
+                    setFeatures(prev => ({ ...prev, brandsConfig: dataBC.data.value }));
                 }
             } catch (error) {
                 console.error('Error fetching Why Choose Us data:', error);
@@ -165,7 +160,7 @@ function WhyChooseUsSection() {
 
                 {/* Brands Ticker */}
                 <div className="brands-ticker">
-                    <div className="ticker-label">Trusted by Leading Brands</div>
+                    <div className="ticker-label">{features.brandsConfig?.sectionTitle || 'Trusted by Leading Brands'}</div>
                     <div className="ticker-wrapper">
                         <div className="ticker-track">
                             {(features.brands.length > 0 ? [...features.brands, ...features.brands, ...features.brands] : []).map((brand, index) => (
@@ -175,6 +170,11 @@ function WhyChooseUsSection() {
                             ))}
                         </div>
                     </div>
+                    {features.brandsConfig?.disclaimerText && (
+                        <div className="ticker-disclaimer">
+                            {features.brandsConfig.disclaimerText}
+                        </div>
+                    )}
                 </div>
             </div>
         </section>

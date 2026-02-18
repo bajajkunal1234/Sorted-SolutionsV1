@@ -1,7 +1,7 @@
 /* Mobile Homepage Styles - SEO Optimized & Professional Design */
 .mobile-homepage {
     min-height: 100vh;
-    background: #f9fafb;
+    background: var(--bg-primary);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
 }
 
@@ -160,12 +160,12 @@
 
 /* Trust Bar */
 .trust-bar {
-    background: white;
+    background: var(--bg-elevated);
     padding: 24px 16px;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 16px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border-primary);
 }
 
 .trust-stat {
@@ -189,19 +189,23 @@
 .trust-stat strong {
     font-size: 20px;
     font-weight: 700;
-    color: #1f2937;
+    color: var(--text-primary);
 }
 
 .trust-stat span {
     font-size: 11px;
-    color: #6b7280;
+    color: var(--text-secondary);
     font-weight: 500;
 }
 
 /* Services Section */
 .services-section {
     padding: 40px 16px 0 16px;
-    background: white;
+    background-color: #ecedf2;
+}
+
+[data-theme="dark"] .services-section {
+    background-color: var(--bg-primary);
 }
 
 .section-container {
@@ -212,14 +216,14 @@
 .section-title {
     font-size: 24px;
     font-weight: 700;
-    color: #1f2937;
+    color: var(--text-primary);
     text-align: center;
     margin: 0 0 12px 0;
 }
 
 .section-description {
     font-size: 14px;
-    color: #6b7280;
+    color: var(--text-secondary);
     text-align: center;
     margin: 0 0 32px 0;
     line-height: 1.6;

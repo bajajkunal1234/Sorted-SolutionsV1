@@ -3,6 +3,10 @@
     background: var(--bg-primary);
 }
 
+.faq-section .section-title {
+    color: var(--text-primary) !important;
+}
+
 .faq-list {
     max-width: 800px;
     margin: 0 auto;

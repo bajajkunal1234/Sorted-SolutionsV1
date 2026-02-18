@@ -29,7 +29,7 @@ export default function ThemeToggle() {
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
         >
             <div className={`theme-toggle-icon ${theme === 'dark' ? 'is-dark' : 'is-light'}`}>
-                {theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
+                {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
             </div>
         </button>
     )

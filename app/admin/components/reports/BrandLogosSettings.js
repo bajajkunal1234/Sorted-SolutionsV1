@@ -46,7 +46,9 @@ function BrandLogosSettings() {
         autoScroll: true,
         scrollSpeed: 3,
         grayscale: true,
-        colorOnHover: true
+        colorOnHover: true,
+        sectionTitle: 'Trusted by Leading Brands',
+        disclaimerText: '*These trademarks or logos are used for illustration purposes only & we disclaim any specific connection with the brand in this regard.'
     });
 
     const [editingId, setEditingId] = useState(null);
@@ -176,6 +178,49 @@ function BrandLogosSettings() {
                 <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
                     Display Settings
                 </h4>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                            Section Title (on Homepage)
+                        </label>
+                        <input
+                            type="text"
+                            value={displaySettings.sectionTitle}
+                            onChange={(e) => setDisplaySettings({ ...displaySettings, sectionTitle: e.target.value })}
+                            placeholder="e.g., Trusted by Leading Brands"
+                            style={{
+                                width: '100%',
+                                padding: 'var(--spacing-sm)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: 'var(--font-size-sm)',
+                                backgroundColor: 'var(--bg-primary)',
+                                color: 'var(--text-primary)'
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                            Disclaimer Text
+                        </label>
+                        <input
+                            type="text"
+                            value={displaySettings.disclaimerText}
+                            onChange={(e) => setDisplaySettings({ ...displaySettings, disclaimerText: e.target.value })}
+                            placeholder="*Disclaimer about trademarks..."
+                            style={{
+                                width: '100%',
+                                padding: 'var(--spacing-sm)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: 'var(--font-size-sm)',
+                                backgroundColor: 'var(--bg-primary)',
+                                color: 'var(--text-primary)'
+                            }}
+                        />
+                    </div>
+                </div>
 
                 <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                     {/* Show on Pages */}

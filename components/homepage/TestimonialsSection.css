@@ -1,56 +1,78 @@
 .testimonials {
-    padding: 40px 16px;
-    background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    padding: 60px 16px;
+    background-color: #ecedf2;
 }
 
-.testimonials-scroll {
+[data-theme="dark"] .testimonials {
+    background-color: var(--bg-secondary);
+}
+
+.testimonials .section-title {
+    color: var(--text-primary) !important;
+}
+
+.ticker-wrapper-testimonials {
+    overflow: hidden;
+    padding: 20px 0;
+    mask-image: linear-gradient(90deg, transparent 0%, black 10%, black 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 10%, black 90%, transparent 100%);
+}
+
+.ticker-track-testimonials {
     display: flex;
-    gap: 16px;
-    overflow-x: auto;
-    padding-bottom: 16px;
-    scrollbar-width: thin;
+    gap: 24px;
+    animation: testimonialScroll 40s linear infinite;
+    width: fit-content;
 }
 
-.testimonials-scroll::-webkit-scrollbar {
-    height: 6px;
+.ticker-track-testimonials:hover {
+    animation-play-state: paused;
 }
 
-.testimonials-scroll::-webkit-scrollbar-thumb {
-    background: #667eea;
-    border-radius: 3px;
+@keyframes testimonialScroll {
+    0% {
+        transform: translateX(0);
+    }
+
+    100% {
+        transform: translateX(-33.33%);
+    }
 }
 
 .testimonial-card {
-    min-width: 280px;
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    border: 2px solid #e5e7eb;
+    min-width: 300px;
+    background: var(--bg-elevated);
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px solid var(--border-primary);
     transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .testimonial-card:hover {
-    border-color: #667eea;
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+    border-color: var(--color-primary-light);
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-xl);
 }
 
 .rating {
-    font-size: 18px;
+    font-size: 16px;
     margin-bottom: 12px;
 }
 
 .testimonial-text {
     font-size: 14px;
-    color: #374151;
-    margin: 0 0 12px 0;
+    color: var(--text-primary);
+    margin: 0 0 16px 0;
     line-height: 1.6;
     font-style: italic;
+    flex: 1;
 }
 
 .testimonial-author {
     font-size: 13px;
-    font-weight: 600;
-    color: #6b7280;
+    font-weight: 700;
+    color: var(--color-primary);
     margin: 0;
 }

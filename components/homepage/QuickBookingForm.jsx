@@ -58,11 +58,11 @@ function QuickBookingForm({ preSelectedCategory }) {
     }, []);
 
     // Get filtered data (only items with showOnBookingForm: true)
-    const visibleCategories = (settings.categories || []).filter(c => c.showOnBookingForm) || [];
+    const visibleCategories = (settings.categories || []).filter(c => c.showOnBookingForm !== false);
     const selectedCategory = visibleCategories.find(c => c.id === parseInt(formData.category));
-    const visibleSubcategories = (selectedCategory?.subcategories || []).filter(s => s.showOnBookingForm) || [];
+    const visibleSubcategories = (selectedCategory?.subcategories || []).filter(s => s.showOnBookingForm !== false);
     const selectedSubcategory = visibleSubcategories.find(s => s.id === parseInt(formData.subcategory));
-    const visibleIssues = (selectedSubcategory?.issues || []).filter(i => i.showOnBookingForm) || [];
+    const visibleIssues = (selectedSubcategory?.issues || []).filter(i => i.showOnBookingForm !== false);
 
 
     const handlePincodeChange = (e) => {

@@ -1,7 +1,7 @@
 /* Creative Why Choose Us - Bento Grid Layout */
 .why-choose-creative {
-    padding: 100px 20px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    padding: 60px 20px;
+    background: var(--bg-primary);
     position: relative;
     overflow: hidden;
 }
@@ -58,13 +58,13 @@
 /* Hero Stats Bar */
 .stats-hero {
     text-align: center;
-    margin-bottom: 60px;
+    margin-bottom: 30px;
 }
 
 .why-title {
-    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-size: clamp(2rem, 6vw, 3.5rem);
     font-weight: 900;
-    background: linear-gradient(135deg, #1e293b 0%, #6366f1 100%);
+    background: linear-gradient(135deg, var(--text-primary) 0%, #6366f1 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -73,15 +73,15 @@
 }
 
 .why-subtitle {
-    font-size: 20px;
-    color: #64748b;
+    font-size: 18px;
+    color: var(--text-secondary);
     margin-bottom: 40px;
 }
 
 .stats-bar {
     display: flex;
     justify-content: center;
-    gap: 40px;
+    gap: 20px;
     flex-wrap: wrap;
 }
 
@@ -89,15 +89,15 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 20px 30px;
-    background: white;
+    padding: 16px 20px;
+    background: var(--bg-elevated);
     border-radius: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-md);
     animation: fadeInUp 0.6s ease-out both;
 }
 
 .stat-icon {
-    font-size: 32px;
+    font-size: 24px;
 }
 
 .stat-content {
@@ -105,16 +105,16 @@
 }
 
 .stat-value {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 800;
-    color: #1e293b;
+    color: var(--text-primary);
     line-height: 1;
     margin-bottom: 4px;
 }
 
 .stat-label {
-    font-size: 13px;
-    color: #64748b;
+    font-size: 11px;
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
@@ -122,24 +122,24 @@
 .bento-grid {
     display: grid;
     grid-template-columns: repeat(12, 1fr);
-    gap: 20px;
+    gap: 16px;
     margin-bottom: 60px;
 }
 
 /* Bento Zone Sizes */
 .bento-large {
     grid-column: span 6;
-    min-height: 320px;
+    min-height: 200px;
 }
 
 .bento-medium {
     grid-column: span 4;
-    min-height: 280px;
+    min-height: 180px;
 }
 
 .bento-small {
-    grid-column: span 4;
-    min-height: 240px;
+    grid-column: span 3;
+    min-height: 160px;
 }
 
 @media (max-width: 1024px) {
@@ -156,19 +156,48 @@
     .bento-large,
     .bento-medium,
     .bento-small {
-        grid-column: span 12;
-        min-height: 240px;
+        grid-column: span 6;
+        /* 2 columns on mobile */
+        min-height: 160px;
+    }
+}
+
+@media (max-width: 480px) {
+    .bento-grid {
+        gap: 12px;
+    }
+
+    .bento-large,
+    .bento-medium,
+    .bento-small {
+        padding: 16px;
+        min-height: 140px;
+    }
+
+    .bento-icon {
+        font-size: 28px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .bento-title {
+        font-size: 15px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .bento-features li {
+        font-size: 11px !important;
+        margin-bottom: 4px !important;
     }
 }
 
 /* Bento Zone */
 .bento-zone {
     position: relative;
-    background: white;
-    border-radius: 30px;
-    padding: 40px;
+    background: var(--bg-elevated);
+    border-radius: 20px;
+    padding: 24px;
     overflow: hidden;
-    border: 2px solid #e2e8f0;
+    border: 2px solid var(--border-primary);
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     cursor: pointer;
 }
@@ -176,7 +205,7 @@
 .bento-zone:hover {
     transform: translateY(-8px) rotate(1deg);
     border-color: var(--zone-color);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Background */
@@ -192,7 +221,7 @@
 }
 
 .bento-zone:hover .bento-bg {
-    opacity: 0.05;
+    opacity: 0.1;
 }
 
 /* Content */
@@ -202,7 +231,7 @@
 }
 
 .bento-icon {
-    font-size: 48px;
+    font-size: 36px;
     margin-bottom: 20px;
     display: inline-block;
     transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -213,9 +242,9 @@
 }
 
 .bento-title {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 800;
-    color: #1e293b;
+    color: var(--text-primary);
     margin: 0 0 20px 0;
     transition: color 0.3s ease;
 }
@@ -231,9 +260,9 @@
 }
 
 .bento-features li {
-    font-size: 15px;
-    color: #64748b;
-    margin-bottom: 12px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -241,13 +270,13 @@
 }
 
 .bento-zone:hover .bento-features li {
-    color: #1e293b;
+    color: var(--text-primary);
     transform: translateX(4px);
 }
 
 .feature-dot {
     color: var(--zone-color);
-    font-size: 20px;
+    font-size: 16px;
     line-height: 1;
 }
 
@@ -335,6 +364,21 @@
     transform: scale(1.05);
 }
 
+.ticker-disclaimer {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 11px;
+    margin-top: 24px;
+    font-weight: 500;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    font-style: italic;
+    line-height: 1.4;
+    padding: 0 20px;
+    letter-spacing: 0.2px;
+}
+
 /* Animations */
 @keyframes fadeInUp {
     from {
@@ -351,7 +395,7 @@
 /* Responsive */
 @media (max-width: 768px) {
     .why-choose-creative {
-        padding: 60px 20px;
+        padding: 40px 16px;
     }
 
     .stats-bar {
@@ -371,7 +415,7 @@
     }
 
     .bento-zone {
-        padding: 30px;
+        padding: 24px;
     }
 
     .bento-icon {
