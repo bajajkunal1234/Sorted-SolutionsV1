@@ -17,7 +17,8 @@ export async function GET(request) {
             query = query.eq('category', category)
         }
         if (lowStock === 'true') {
-            query = query.lt('quantity', supabase.raw('min_stock_level'))
+            // Updated to handle both column names if needed, but current_stock is the new standard
+            query = query.or('current_stock.lt.min_stock_level,quantity.lt.reorder_level')
         }
 
         const { data, error } = await query

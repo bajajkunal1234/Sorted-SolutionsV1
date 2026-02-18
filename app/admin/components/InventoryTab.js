@@ -39,7 +39,25 @@ function InventoryTab() {
                     inventoryCategoriesAPI.getAll(),
                     printTemplatesAPI.getAll()
                 ]);
-                setProducts(productData || []);
+                const normalizedProducts = (productData || []).map(p => {
+                    const currentStock = p.current_stock !== undefined ? p.current_stock : (p.currentStock !== undefined ? p.currentStock : p.quantity);
+                    const minStockLevel = p.min_stock_level !== undefined ? p.min_stock_level : (p.minStockLevel !== undefined ? p.minStockLevel : p.reorder_level);
+                    const isService = p.type === 'service';
+
+                    return {
+                        ...p,
+                        // Normalize snake_case to camelCase for helper & component compatibility
+                        currentStock,
+                        minStockLevel,
+                        reorderLevel: minStockLevel,
+                        salePrice: p.sale_price !== undefined ? p.sale_price : (p.salePrice !== undefined ? p.salePrice : p.selling_price),
+                        purchasePrice: p.purchase_price !== undefined ? p.purchase_price : (p.purchasePrice !== undefined ? p.purchasePrice : p.cost_price),
+                        unitOfMeasure: p.unit_of_measure !== undefined ? p.unit_of_measure : (p.unitOfMeasure !== undefined ? p.unitOfMeasure : p.unit),
+                        hsnCode: p.hsn_code !== undefined ? p.hsn_code : p.hsnCode,
+                        stockStatus: getStockStatus(currentStock, minStockLevel, isService)
+                    };
+                });
+                setProducts(normalizedProducts);
                 setCategories(categoryData || []);
                 setTermsTemplates(templateData || []);
                 setError(null);
@@ -117,7 +135,7 @@ function InventoryTab() {
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyCenter: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
                 <div className="loader" style={{ marginRight: 'var(--spacing-sm)' }}></div>
                 Loading inventory...
             </div>
@@ -126,7 +144,7 @@ function InventoryTab() {
 
     if (error) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyCenter: 'center', height: '100%', color: '#ef4444', padding: 'var(--spacing-xl)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#ef4444', padding: 'var(--spacing-xl)' }}>
                 <X size={48} style={{ marginBottom: 'var(--spacing-md)' }} />
                 <p>{error}</p>
                 <button className="btn btn-secondary" onClick={() => window.location.reload()} style={{ marginTop: 'var(--spacing-md)' }}>
