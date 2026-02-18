@@ -1,9 +1,33 @@
 'use client'
 
+import { useState, useEffect } from 'react';
 import { Wind, Droplets, Microwave, Refrigerator, Filter, Flame } from 'lucide-react';
 import './FrequentlyBookedServices.css';
 
 function FrequentlyBookedServices() {
+    const [displaySettings, setDisplaySettings] = useState({
+        sectionTitle: 'Frequently Booked Appliance Repairs',
+        sectionDescription: 'Quick solutions for common appliance problems. Same day service available across Mumbai.'
+    });
+
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await fetch('/api/settings/section-configs?id=frequently-booked-config');
+                const data = await res.json();
+                if (data.success && data.data?.value) {
+                    setDisplaySettings({
+                        sectionTitle: data.data.value.sectionTitle || 'Frequently Booked Appliance Repairs',
+                        sectionDescription: data.data.value.sectionDescription || 'Quick solutions for common appliance problems. Same day service available across Mumbai.'
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching Frequently Booked display settings:', error);
+            }
+        };
+        fetchConfig();
+    }, []);
+
     const services = [
         {
             id: 1,
@@ -64,9 +88,9 @@ function FrequentlyBookedServices() {
     return (
         <section className="frequently-booked">
             <div className="section-container">
-                <h2 className="section-title">Frequently Booked Appliance Repairs</h2>
+                <h2 className="section-title">{displaySettings.sectionTitle}</h2>
                 <p className="section-description">
-                    Quick solutions for common appliance problems. Same day service available across Mumbai.
+                    {displaySettings.sectionDescription}
                 </p>
                 <div className="services-grid">
                     {services.map((service) => {

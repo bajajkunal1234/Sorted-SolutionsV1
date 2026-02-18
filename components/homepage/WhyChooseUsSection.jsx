@@ -77,10 +77,22 @@ function WhyChooseUsSection() {
                 }
 
                 // Fetch configs
-                const resConfig = await fetch('/api/settings/section-configs?id=why-choose-us');
-                const dataConfig = await resConfig.json();
                 if (dataConfig.success && dataConfig.data) {
                     setHorizontalScroll(dataConfig.data.extra_config?.horizontal_scroll ?? true);
+                }
+
+                // Fetch Why Choose Us title/description config
+                const resWC = await fetch('/api/settings/section-configs?id=why-choose-us-config');
+                const dataWC = await resWC.json();
+                if (dataWC.success && dataWC.data?.value) {
+                    setFeatures(prev => ({
+                        ...prev,
+                        hero: {
+                            ...prev.hero,
+                            title: dataWC.data.value.sectionTitle || prev.hero.title,
+                            subtitle: dataWC.data.value.sectionDescription || prev.hero.subtitle
+                        }
+                    }));
                 }
 
                 // Fetch brands

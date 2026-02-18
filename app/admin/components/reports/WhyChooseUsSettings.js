@@ -9,6 +9,10 @@ function WhyChooseUsSettings() {
     const [horizontalScroll, setHorizontalScroll] = useState(true);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [displaySettings, setDisplaySettings] = useState({
+        sectionTitle: 'Why Choose Us?',
+        sectionDescription: 'Experience the premium quality and reliability of our service network.'
+    });
 
     useEffect(() => {
         fetchSettings();
@@ -27,6 +31,10 @@ function WhyChooseUsSettings() {
             }
             if (configData && configData.value) {
                 setHorizontalScroll(configData.value.horizontalScroll !== undefined ? configData.value.horizontalScroll : true);
+                setDisplaySettings({
+                    sectionTitle: configData.value.sectionTitle || 'Why Choose Us?',
+                    sectionDescription: configData.value.sectionDescription || 'Experience the premium quality and reliability of our service network.'
+                });
             }
         } catch (err) {
             console.error('Failed to fetch why choose us settings:', err);
@@ -85,7 +93,7 @@ function WhyChooseUsSettings() {
             // Generic table for simple display config
             await Promise.all([
                 websiteWhyChooseUsAPI.saveAll(features),
-                websiteSettingsAPI.save('why-choose-us-config', { horizontalScroll }, 'Display config for Why Choose Us section')
+                websiteSettingsAPI.save('why-choose-us-config', { ...displaySettings, horizontalScroll }, 'Display config for Why Choose Us section')
             ]);
             alert('Settings saved successfully!');
         } catch (err) {
@@ -116,6 +124,48 @@ function WhyChooseUsSettings() {
                     >
                         <RefreshCcw size={16} className={loading ? 'spin' : ''} />
                     </button>
+                </div>
+
+                <div className="card" style={{ padding: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)' }}>
+                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                        Display Settings
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Section Title (on Homepage)
+                            </label>
+                            <input
+                                type="text"
+                                value={displaySettings.sectionTitle}
+                                onChange={(e) => setDisplaySettings({ ...displaySettings, sectionTitle: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--spacing-sm)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontSize: 'var(--font-size-sm)'
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Section Description
+                            </label>
+                            <input
+                                type="text"
+                                value={displaySettings.sectionDescription}
+                                onChange={(e) => setDisplaySettings({ ...displaySettings, sectionDescription: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--spacing-sm)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontSize: 'var(--font-size-sm)'
+                                }}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 

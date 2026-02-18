@@ -8,6 +8,10 @@ function FrequentlyBookedServicesSettings() {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [displaySettings, setDisplaySettings] = useState({
+        sectionTitle: 'Frequently Booked Appliance Repairs',
+        sectionDescription: 'Quick solutions for common appliance problems. Same day service available across Mumbai.'
+    });
     useEffect(() => {
         fetchSettings();
     }, []);
@@ -15,9 +19,19 @@ function FrequentlyBookedServicesSettings() {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const data = await websiteFrequentlyBookedAPI.getAll();
+            const [data, configData] = await Promise.all([
+                websiteFrequentlyBookedAPI.getAll(),
+                websiteSettingsAPI.getByKey('frequently-booked-config')
+            ]);
+
             if (data) {
                 setServices(data || []);
+            }
+            if (configData && configData.value) {
+                setDisplaySettings({
+                    sectionTitle: configData.value.sectionTitle || 'Frequently Booked Appliance Repairs',
+                    sectionDescription: configData.value.sectionDescription || 'Quick solutions for common appliance problems. Same day service available across Mumbai.'
+                });
             }
         } catch (err) {
             console.error('Failed to fetch frequent services:', err);
@@ -77,7 +91,10 @@ function FrequentlyBookedServicesSettings() {
     const handleSaveAll = async () => {
         try {
             setSaving(true);
-            await websiteFrequentlyBookedAPI.saveAll(services);
+            await Promise.all([
+                websiteFrequentlyBookedAPI.saveAll(services),
+                websiteSettingsAPI.save('frequently-booked-config', displaySettings, 'Display config for Frequently Booked Services section')
+            ]);
             alert('Services saved successfully!');
         } catch (err) {
             console.error('Failed to save frequent services:', err);
@@ -107,6 +124,48 @@ function FrequentlyBookedServicesSettings() {
                     >
                         <RefreshCcw size={16} className={loading ? 'spin' : ''} />
                     </button>
+                </div>
+
+                <div className="card" style={{ padding: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)' }}>
+                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                        Display Settings
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Section Title (on Homepage)
+                            </label>
+                            <input
+                                type="text"
+                                value={displaySettings.sectionTitle}
+                                onChange={(e) => setDisplaySettings({ ...displaySettings, sectionTitle: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--spacing-sm)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontSize: 'var(--font-size-sm)'
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Section Description
+                            </label>
+                            <input
+                                type="text"
+                                value={displaySettings.sectionDescription}
+                                onChange={(e) => setDisplaySettings({ ...displaySettings, sectionDescription: e.target.value })}
+                                style={{
+                                    width: '100%',
+                                    padding: 'var(--spacing-sm)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontSize: 'var(--font-size-sm)'
+                                }}
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
