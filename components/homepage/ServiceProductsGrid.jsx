@@ -8,7 +8,7 @@ function ServiceProductsGrid() {
     const services = [
         {
             id: 'ac',
-            name: 'AC',
+            name: 'Air Conditioner',
             fullName: 'Air Conditioner',
             icon: Wind,
             image: '/images/services/ac_3d.png',
@@ -17,7 +17,7 @@ function ServiceProductsGrid() {
         },
         {
             id: 'fridge',
-            name: 'Fridge',
+            name: 'Refrigerator',
             fullName: 'Refrigerator',
             icon: Refrigerator,
             image: '/images/services/fridge_3d.png',
@@ -35,7 +35,7 @@ function ServiceProductsGrid() {
         },
         {
             id: 'oven',
-            name: 'Ovens',
+            name: 'Microwave Oven',
             fullName: 'Microwave Oven',
             icon: Microwave,
             image: '/images/services/oven_3d.png',
@@ -44,7 +44,7 @@ function ServiceProductsGrid() {
         },
         {
             id: 'hob',
-            name: 'Hob Tops',
+            name: 'Gas Stove / Hob',
             fullName: 'Gas Stove',
             icon: Flame,
             image: '/images/services/hob_3d.png',
@@ -53,7 +53,7 @@ function ServiceProductsGrid() {
         },
         {
             id: 'water-purifier',
-            name: 'Water Purifiers',
+            name: 'Water Purifier',
             fullName: 'RO Water Purifier',
             icon: Filter,
             image: '/images/services/water_purifier_3d.png',
@@ -96,7 +96,6 @@ function ServiceProductsGrid() {
                             />
                         </div>
                         <h3 className="service-product-name">{service.name}</h3>
-                        <p className="service-product-subtitle">{service.fullName}</p>
                     </Link>
                 );
             })}

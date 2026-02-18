@@ -9,8 +9,8 @@
 .service-product-card {
     background: var(--bg-elevated);
     border: 1px solid var(--border-primary);
-    border-radius: 16px;
-    padding: 24px 16px;
+    border-radius: 20px;
+    padding: 20px 12px;
     text-align: center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     text-decoration: none;
@@ -45,13 +45,15 @@
 }
 
 .service-product-icon {
-    width: 72px;
-    height: 72px;
+    width: 110px;
+    /* Increased from 72px */
+    height: 110px;
+    /* Increased from 72px */
     border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     background: transparent;
     padding: 0;
@@ -77,12 +79,13 @@
 }
 
 .service-product-name {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 15px;
+    font-weight: 800;
     color: var(--text-primary);
-    margin: 0 0 4px 0;
+    margin: 0;
     position: relative;
     z-index: 1;
+    line-height: 1.2;
 }
 
 .service-product-subtitle {

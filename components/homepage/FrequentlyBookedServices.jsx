@@ -96,7 +96,6 @@ function FrequentlyBookedServices() {
                                     />
                                 </div>
                                 <h3 className="service-title">{service.title}</h3>
-                                <p className="service-keywords">{service.keywords}</p>
                             </a>
                         );
                     })}
