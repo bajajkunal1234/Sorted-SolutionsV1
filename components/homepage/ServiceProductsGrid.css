@@ -45,25 +45,39 @@
 }
 
 .service-product-icon {
-    width: 64px;
-    height: 64px;
-    border-radius: 16px;
+    width: 84px;
+    height: 84px;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 12px;
-    transition: transform 0.3s ease;
-    background: var(--bg-secondary);
-    /* Fallback/Container background */
-    padding: 8px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: #ffffff !important;
+    /* Force white background to hide image bg */
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    position: relative;
+    z-index: 2;
 }
 
 [data-theme="dark"] .service-product-icon {
-    background: rgba(255, 255, 255, 0.05);
+    background: #ffffff !important;
+    /* Keep white tile in dark mode for clean icon look */
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 .service-product-icon img {
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
+}
+
+/* Ensure no blend mode issues in dark mode if needed, but multiply on white to dark background usually works well */
+[data-theme="dark"] .service-product-icon img {
+    mix-blend-mode: normal;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
 }
 
 .service-product-name {

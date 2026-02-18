@@ -29,14 +29,17 @@
 
 .service-badge {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 10px;
+    right: 10px;
     padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 10px;
-    font-weight: 700;
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    z-index: 20;
+    /* Ensure it stays above everything */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .service-badge.popular {
@@ -55,25 +58,33 @@
 }
 
 .service-icon-wrapper {
-    width: 64px;
-    height: 64px;
-    background: var(--bg-tertiary);
-    border-radius: 12px;
+    width: 96px;
+    height: 96px;
+    background: #ffffff !important;
+    border-radius: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 12px auto;
+    margin: 0 auto 16px auto;
     color: var(--color-primary);
-    transition: all 0.3s ease;
-    padding: 8px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    padding: 12px;
+    position: relative;
+    z-index: 5;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="dark"] .service-icon-wrapper {
-    background: rgba(255, 255, 255, 0.05);
+    background: #ffffff !important;
+    /* Keep white background for clean icon merge */
+    box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
 }
 
 .service-icon-wrapper img {
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.1));
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.05));
 }
 
 .service-card:hover .service-icon-wrapper {
