@@ -14,7 +14,7 @@ import FooterSection from './FooterSection';
 import Header from '../common/Header';
 import './MobileHomepage.css';
 
-function MobileHomepage() {
+function MobileHomepage({ initialBookingData }) {
     const [currentLocation, setCurrentLocation] = useState(0);
     const locations = ['Mumbai', 'Andheri', 'Dadar', 'Ghatkopar', 'Goregaon', 'Kurla'];
 
@@ -123,7 +123,7 @@ function MobileHomepage() {
                     </div>
 
                     {/* Quick Booking Form */}
-                    <QuickBookingForm />
+                    <QuickBookingForm initialData={initialBookingData} />
                 </div>
             </section>
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, MapPin, AlertCircle } from 'lucide-react';
 import './QuickBookingForm.css';
 
-function QuickBookingForm({ preSelectedCategory }) {
+function QuickBookingForm({ preSelectedCategory, initialData }) {
     // Map slugs to IDs
     const categoryMapping = {
         'ac-repair': '2',
@@ -25,7 +25,7 @@ function QuickBookingForm({ preSelectedCategory }) {
         pincode: ''
     });
     const [isPincodeValid, setIsPincodeValid] = useState(false);
-    const [settings, setSettings] = useState({
+    const [settings, setSettings] = useState(initialData || {
         title: 'Book A Technician Now',
         subtitle: 'Get same day service | Transparent pricing | Licensed technicians',
         serviceable_pincodes: [],
@@ -34,10 +34,12 @@ function QuickBookingForm({ preSelectedCategory }) {
         help_text: 'We currently serve Mumbai areas. Call us for other locations.',
         categories: []
     });
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!initialData);
 
     // Load hierarchical data and global settings
     useEffect(() => {
+        if (initialData) return; // Skip fetch if data passed via props
+
         const loadData = async () => {
             setLoading(true);
             try {
@@ -55,7 +57,7 @@ function QuickBookingForm({ preSelectedCategory }) {
         };
 
         loadData();
-    }, []);
+    }, [initialData]);
 
     // Get filtered data (only items with showOnBookingForm: true)
     const visibleCategories = (settings.categories || []).filter(c => c.showOnBookingForm !== false);
