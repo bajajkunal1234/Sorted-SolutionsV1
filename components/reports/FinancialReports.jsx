@@ -1,46 +1,117 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, ShoppingCart, FileText, Calculator, BarChart3, PieChart, Download, Calendar, Filter } from 'lucide-react';
-import { salesInvoices, purchaseInvoices, balanceSheetData, profitLossData, monthlySalesTrends } from '../../data/reportsData';
+import { balanceSheetData, profitLossData, monthlySalesTrends } from '../../data/reportsData';
 
 function FinancialReports() {
     const [activeReport, setActiveReport] = useState('sales');
     const [dateRange, setDateRange] = useState({
-        from: '2026-01-01',
-        to: '2026-01-31'
+        from: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+        to: new Date().toISOString().split('T')[0]
     });
+    const [salesInvoices, setSalesInvoices] = useState([]);
+    const [purchaseInvoices, setPurchaseInvoices] = useState([]);
+    const [quotations, setQuotations] = useState([]);
+    const [receipts, setReceipts] = useState([]);
+    const [payments, setPayments] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchFinancialData = async () => {
+            setLoading(true);
+            try {
+                const fetchTransaction = async (type) => {
+                    const res = await fetch(`/api/admin/transactions?type=${type}&start_date=${dateRange.from}&end_date=${dateRange.to}`);
+                    return res.json();
+                };
+
+                const [salesJson, purchaseJson, quotationJson, receiptJson, paymentJson] = await Promise.all([
+                    fetchTransaction('sales'),
+                    fetchTransaction('purchase'),
+                    fetchTransaction('quotation'),
+                    fetchTransaction('receipt'),
+                    fetchTransaction('payment')
+                ]);
+
+                if (salesJson.success) {
+                    setSalesInvoices(salesJson.data.map(inv => ({
+                        ...inv,
+                        total: parseFloat(inv.total_amount) || 0,
+                        subtotal: parseFloat(inv.subtotal) || 0,
+                        paymentStatus: inv.status === 'draft' ? 'pending' : (inv.payment_status || 'paid'),
+                        invoiceType: inv.account_name?.toLowerCase().includes('pvt') ? 'B2B' : 'B2C'
+                    })));
+                }
+
+                if (purchaseJson.success) {
+                    setPurchaseInvoices(purchaseJson.data.map(inv => ({
+                        ...inv,
+                        total: parseFloat(inv.total_amount) || 0,
+                        subtotal: parseFloat(inv.subtotal) || 0,
+                        paymentStatus: inv.payment_status || 'paid'
+                    })));
+                }
+
+                if (quotationJson.success) {
+                    setQuotations(quotationJson.data.map(q => ({
+                        ...q,
+                        total: parseFloat(q.total_amount) || 0,
+                        subtotal: parseFloat(q.subtotal) || 0
+                    })));
+                }
+
+                if (receiptJson.success) {
+                    setReceipts(receiptJson.data.map(r => ({
+                        ...r,
+                        amount: parseFloat(r.amount) || 0
+                    })));
+                }
+
+                if (paymentJson.success) {
+                    setPayments(paymentJson.data.map(p => ({
+                        ...p,
+                        amount: parseFloat(p.amount) || 0
+                    })));
+                }
+            } catch (error) {
+                console.error('Failed to fetch financial data:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchFinancialData();
+    }, [dateRange]);
 
     const reports = [
         { id: 'sales', name: 'Sales Report', icon: TrendingUp, color: '#10b981' },
         { id: 'purchase', name: 'Purchase Report', icon: ShoppingCart, color: '#3b82f6' },
+        { id: 'quotation', name: 'Quotations', icon: FileText, color: '#8b5cf6' },
+        { id: 'receipt', name: 'Receipts', icon: Calculator, color: '#f59e0b' },
+        { id: 'payment', name: 'Payments', icon: FileText, color: '#ef4444' },
         { id: 'gstr1', name: 'GSTR-1', icon: FileText, color: '#8b5cf6' },
         { id: 'gstr3b', name: 'GSTR-3B', icon: Calculator, color: '#f59e0b' },
         { id: 'balancesheet', name: 'Balance Sheet', icon: BarChart3, color: '#06b6d4' },
         { id: 'profitloss', name: 'Profit & Loss', icon: PieChart, color: '#ec4899' }
     ];
 
-    // Filter invoices by date range
-    const filterByDateRange = (invoices) => {
-        return invoices.filter(inv => {
-            const invDate = new Date(inv.date);
-            const from = new Date(dateRange.from);
-            const to = new Date(dateRange.to);
-            return invDate >= from && invDate <= to;
-        });
-    };
-
-    const filteredSales = filterByDateRange(salesInvoices);
-    const filteredPurchases = filterByDateRange(purchaseInvoices);
+    // Filter by date range (additional safety check)
+    const filteredSales = salesInvoices;
+    const filteredPurchases = purchaseInvoices;
 
     // Calculate totals
-    const salesTotal = filteredSales.reduce((sum, inv) => sum + inv.total, 0);
-    const salesSubtotal = filteredSales.reduce((sum, inv) => sum + inv.subtotal, 0);
+    const salesTotal = filteredSales.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const salesSubtotal = filteredSales.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
     const salesGST = salesTotal - salesSubtotal;
 
-    const purchaseTotal = filteredPurchases.reduce((sum, inv) => sum + inv.total, 0);
-    const purchaseSubtotal = filteredPurchases.reduce((sum, inv) => sum + inv.subtotal, 0);
+    const purchaseTotal = filteredPurchases.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const purchaseSubtotal = filteredPurchases.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
     const purchaseGST = purchaseTotal - purchaseSubtotal;
+
+    const quotationTotal = quotations.reduce((sum, q) => sum + (q.total || 0), 0);
+    const receiptTotal = receipts.reduce((sum, r) => sum + (r.amount || 0), 0);
+    const paymentTotal = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -351,6 +422,215 @@ function FinancialReports() {
                                                         {invoice.paymentStatus}
                                                     </span>
                                                 </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Quotations Report */}
+                {activeReport === 'quotation' && (
+                    <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+                            <div style={{
+                                padding: 'var(--spacing-md)',
+                                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                                border: '1px solid rgba(139, 92, 246, 0.3)',
+                                borderRadius: 'var(--radius-lg)'
+                            }}>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total Quotations</div>
+                                <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#8b5cf6' }}>
+                                    ₹{quotationTotal.toLocaleString()}
+                                </div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                    {quotations.length} quotes generated
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                    Quotations History
+                                </h4>
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Quote #</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Date</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Customer</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Subtotal</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Total</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {quotations.map(quote => (
+                                            <tr key={quote.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{quote.quote_number || quote.id}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                    {new Date(quote.date).toLocaleDateString('en-IN')}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>{quote.account_name}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
+                                                    ₹{quote.subtotal.toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700 }}>
+                                                    ₹{quote.total.toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                    <span style={{
+                                                        padding: '2px 8px',
+                                                        backgroundColor: quote.status === 'accepted' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                                        color: quote.status === 'accepted' ? '#10b981' : '#f59e0b',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        fontSize: 'var(--font-size-xs)',
+                                                        fontWeight: 600,
+                                                        textTransform: 'capitalize'
+                                                    }}>
+                                                        {quote.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Receipts Report */}
+                {activeReport === 'receipt' && (
+                    <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+                            <div style={{
+                                padding: 'var(--spacing-md)',
+                                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                borderRadius: 'var(--radius-lg)'
+                            }}>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total Receipts</div>
+                                <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#f59e0b' }}>
+                                    ₹{receiptTotal.toLocaleString()}
+                                </div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                    {receipts.length} vouchers
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                    Receipt Vouchers
+                                </h4>
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Receipt #</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Date</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>From Account</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Mode</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Amount</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Narration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {receipts.map(receipt => (
+                                            <tr key={receipt.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{receipt.receipt_number}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                    {new Date(receipt.date).toLocaleDateString('en-IN')}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>{receipt.account_name}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>{receipt.payment_mode}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700 }}>
+                                                    ₹{receipt.amount.toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>{receipt.narration}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Payments Report */}
+                {activeReport === 'payment' && (
+                    <div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+                            <div style={{
+                                padding: 'var(--spacing-md)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                borderRadius: 'var(--radius-lg)'
+                            }}>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total Payments</div>
+                                <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#ef4444' }}>
+                                    ₹{paymentTotal.toLocaleString()}
+                                </div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                                    {payments.length} vouchers
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            overflow: 'hidden'
+                        }}>
+                            <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                    Payment Vouchers
+                                </h4>
+                            </div>
+                            <div style={{ overflowX: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                    <thead>
+                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Payment #</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Date</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>To Account</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Mode</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Amount</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Narration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {payments.map(payment => (
+                                            <tr key={payment.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{payment.payment_number}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                    {new Date(payment.date).toLocaleDateString('en-IN')}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>{payment.account_name}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)' }}>{payment.payment_mode}</td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700 }}>
+                                                    ₹{payment.amount.toLocaleString()}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>{payment.narration}</td>
                                             </tr>
                                         ))}
                                     </tbody>

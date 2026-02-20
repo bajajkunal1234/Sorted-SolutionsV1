@@ -82,6 +82,66 @@ export async function PUT(request) {
 
         if (error) throw error
 
+        // Side effect: If job is marked as completed, generate a draft invoice
+        if (updates.status === 'completed') {
+            try {
+                // 1. Fetch customer to get ledger_id
+                const { data: customerData } = await supabase
+                    .from('customers')
+                    .select('ledger_id, name')
+                    .eq('id', data.customer_id)
+                    .single()
+
+                if (customerData?.ledger_id) {
+                    // 2. Check for existing invoice for this job
+                    const { data: existing } = await supabase
+                        .from('sales_invoices')
+                        .select('id')
+                        .eq('job_id', id)
+                        .single()
+
+                    if (!existing) {
+                        // 3. Create Draft Invoice
+                        const year = new Date().getFullYear();
+                        const invoiceNumber = `INV-${year}-${Math.floor(Math.random() * 9000) + 1000}`;
+                        const baseAmount = data.amount || 800;
+                        const gstRate = 18;
+                        const taxAmount = (baseAmount * gstRate) / 100;
+
+                        await supabase.from('sales_invoices').insert({
+                            invoice_number: invoiceNumber,
+                            reference: invoiceNumber,
+                            account_id: customerData.ledger_id,
+                            account_name: customerData.name,
+                            job_id: id,
+                            date: new Date().toISOString().split('T')[0],
+                            status: 'draft',
+                            subtotal: baseAmount,
+                            total_tax: taxAmount,
+                            total_amount: baseAmount + taxAmount,
+                            items: [{
+                                description: `${data.category || 'Repair'} Service - ${data.job_number}`,
+                                qty: 1,
+                                rate: baseAmount,
+                                taxRate: gstRate,
+                                total: baseAmount + taxAmount
+                            }]
+                        })
+
+                        // 4. Log Interaction
+                        await supabase.from('job_interactions').insert([{
+                            job_id: id,
+                            type: 'sales-invoice-created-draft',
+                            message: `Automated draft invoice ${invoiceNumber} generated on job completion.`,
+                            user_name: 'System'
+                        }])
+                    }
+                }
+            } catch (automatedError) {
+                console.error('Failed to generate automated invoice:', automatedError)
+            }
+        }
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })

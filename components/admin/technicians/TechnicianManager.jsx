@@ -13,7 +13,7 @@ function TechnicianManager() {
         name: '',
         username: '',
         password: '',
-        account_id: '' // Link to ledger account
+        ledger_id: '' // Link to ledger account
     });
 
     const [errors, setErrors] = useState({});
@@ -88,7 +88,7 @@ function TechnicianManager() {
             // Success
             fetchData();
             setShowForm(false);
-            setFormData({ name: '', username: '', password: '', account_id: '' });
+            setFormData({ name: '', username: '', password: '', ledger_id: '' });
         } catch (error) {
             console.error('Submit error:', error);
             setErrors({ submit: error.message });
@@ -170,9 +170,9 @@ function TechnicianManager() {
                             <div className="form-group">
                                 <label className="form-label">Link Layout Account (Optional)</label>
                                 <select
-                                    name="account_id"
+                                    name="ledger_id"
                                     className="form-select"
-                                    value={formData.account_id}
+                                    value={formData.ledger_id}
                                     onChange={handleInputChange}
                                 >
                                     <option value="">Select Account</option>
@@ -224,7 +224,7 @@ function TechnicianManager() {
                                     <td style={{ padding: 'var(--spacing-md)', fontWeight: 500 }}>{tech.name}</td>
                                     <td style={{ padding: 'var(--spacing-md)' }}>{tech.username}</td>
                                     <td style={{ padding: 'var(--spacing-md)' }}>
-                                        {accounts.find(a => a.id === tech.account_id)?.name || <span style={{ color: 'var(--text-tertiary)' }}>- Not Linked -</span>}
+                                        {accounts.find(a => a.id === tech.ledger_id)?.name || <span style={{ color: 'var(--text-tertiary)' }}>- Not Linked -</span>}
                                     </td>
                                     <td style={{ padding: 'var(--spacing-md)' }}>
                                         <span style={{ padding: '2px 8px', borderRadius: '12px', backgroundColor: '#dcfce7', color: '#166534', fontSize: '12px' }}>Active</span>

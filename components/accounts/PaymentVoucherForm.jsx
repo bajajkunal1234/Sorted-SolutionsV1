@@ -4,12 +4,28 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import AccountSelector from '../common/AccountSelector';
 
-function PaymentVoucherForm({ onClose, existingPayment }) {
+function PaymentVoucherForm({ onClose, existingPayment, onSuccess }) {
+    const [accounts, setAccounts] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const res = await fetch('/api/admin/accounts');
+                const data = await res.json();
+                if (data.success) setAccounts(data.data || []);
+            } catch (error) {
+                console.error('Error fetching accounts:', error);
+            }
+        };
+        fetchAccounts();
+    }, []);
+
     const [date, setDate] = useState(existingPayment?.date || new Date().toISOString().split('T')[0]);
-    const [accountId, setAccountId] = useState(existingPayment?.accountId || '');
+    const [accountId, setAccountId] = useState(existingPayment?.accountId || existingPayment?.account_id || '');
     const [amount, setAmount] = useState(existingPayment?.amount?.toString() || '');
-    const [paymentMode, setPaymentMode] = useState(existingPayment?.paymentMode || 'cash');
-    const [referenceNumber, setReferenceNumber] = useState(existingPayment?.referenceNumber || '');
+    const [paymentMode, setPaymentMode] = useState(existingPayment?.paymentMode || existingPayment?.payment_mode || 'bank_transfer');
+    const [referenceNumber, setReferenceNumber] = useState(existingPayment?.referenceNumber || existingPayment?.reference_number || '');
     const [narration, setNarration] = useState(existingPayment?.narration || '');
 
     const paymentModes = [
@@ -19,7 +35,7 @@ function PaymentVoucherForm({ onClose, existingPayment }) {
         { value: 'cheque', label: 'Cheque' }
     ];
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!accountId) {
             alert('Please select an account');
             return;
@@ -33,21 +49,39 @@ function PaymentVoucherForm({ onClose, existingPayment }) {
             return;
         }
 
-        const voucher = {
-            id: `PV-${Date.now()}`,
-            type: 'payment',
-            date,
-            accountId,
-            amount: parseFloat(amount),
-            paymentMode,
-            referenceNumber,
-            narration,
-            createdAt: new Date().toISOString()
-        };
+        setIsLoading(true);
+        try {
+            const voucher = {
+                date,
+                account_id: accountId,
+                account_name: accounts.find(a => a.id === accountId)?.name || 'Unknown',
+                amount: parseFloat(amount),
+                payment_mode: paymentMode,
+                reference_number: referenceNumber,
+                narration,
+                status: 'paid'
+            };
 
-        console.log('Payment Voucher:', voucher);
-        alert('Payment Voucher saved successfully!');
-        onClose();
+            const response = await fetch('/api/admin/transactions?type=payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(voucher)
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert('Payment Voucher saved successfully!');
+                if (onSuccess) onSuccess(result.data);
+                onClose();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Error saving payment:', error);
+            alert('Error saving payment voucher: ' + error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

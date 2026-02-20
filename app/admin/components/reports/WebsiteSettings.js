@@ -1,7 +1,8 @@
 ﻿'use client'
 
 import { useState, useEffect } from 'react';
-import { categoryGroups, settingsByCategory } from '@/lib/data/websiteSettingsData';
+import { categoryGroups } from '@/lib/data/websiteSettingsData';
+import * as Icons from 'lucide-react';
 
 // Settings Components
 import BookingSlots from './BookingSlots';
@@ -19,52 +20,157 @@ import TechnicianJoinFormSettings from './TechnicianJoinFormSettings';
 import ServiceIconsSettings from './ServiceIconsSettings';
 import StaticPagesSettings from './StaticPagesSettings';
 import PageSettingsManager from '@/components/reports/PageSettingsManager';
+import PageBuilderTool from './PageBuilderTool';
+
+const LOCATIONS = [
+    "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
+    "ville-parle", "santacruz", "bandra", "khar", "mahim",
+    "dadar", "powai", "saki-naka", "ghatkopar", "kurla"
+];
+
+// Static settings (homepage, global) that never change
+import { staticSettingsByCategory } from '@/lib/data/websiteSettingsData';
+
+/**
+ * Build the dynamic settingsByCategory object from live appliance data fetched from the API.
+ * Category/subcategory/location/sublocation entries come from DB; homepage & global are static.
+ */
+function buildDynamicSettings(applianceData, staticSettings) {
+    const result = { ...(staticSettings || {}) };
+
+    const categoryPages = [];
+    const subcategoryPages = [];
+    const locationPages = [];
+    const sublocationPages = [];
+
+    (applianceData || []).forEach(appliance => {
+        const slug = appliance.slug;
+        const color = appliance.color || '#10b981';
+        const IconComp = Icons[appliance.icon_name] || Icons.Package;
+
+        // Category page entry
+        categoryPages.push({
+            id: `cat-${slug}`,
+            label: `${appliance.name} Page Settings`,
+            url: `/services/${slug}`,
+            icon: IconComp,
+            description: `Manage settings for the main ${appliance.name} category page`,
+            color
+        });
+
+        // Subcategory page entries
+        (appliance.subcategories || []).forEach(sub => {
+            const subSlug = sub.slug || sub.name.toLowerCase().replace(/\s+/g, '-');
+            subcategoryPages.push({
+                id: `sub-${slug}-${subSlug}`,
+                label: `${sub.name} Page Settings`,
+                url: `/services/${slug}/${subSlug}`,
+                icon: IconComp,
+                description: `Configure ${sub.name} service page under ${appliance.name}`,
+                color
+            });
+        });
+
+        // Sub-location pages (15 locations × this appliance)
+        LOCATIONS.forEach(loc => {
+            const locName = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            sublocationPages.push({
+                id: `sloc-${loc}-${slug}`,
+                label: `${appliance.name} in ${locName}`,
+                url: `/location/${loc}/${slug}`,
+                icon: Icons.MapPin,
+                description: `Manage ${appliance.name} service content for ${locName}`,
+                color: '#8b5cf6'
+            });
+        });
+    });
+
+    // All 15 location pages (one per location, not per appliance)
+    LOCATIONS.forEach(loc => {
+        const locName = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        locationPages.push({
+            id: `loc-${loc}`,
+            label: `${locName} Page Settings`,
+            url: `/location/${loc}`,
+            icon: Icons.MapPin,
+            description: `Manage content for ${locName} location page`,
+            color: '#8b5cf6'
+        });
+    });
+
+    // Helper to merge and deduplicate by ID
+    const mergePages = (staticKey, dynamicList) => {
+        const pageMap = new Map();
+        // Add static ones first
+        (staticSettings[staticKey] || []).forEach(p => pageMap.set(p.id, p));
+        // Add dynamic ones (can overwrite static if same ID)
+        dynamicList.forEach(p => pageMap.set(p.id, p));
+        return Array.from(pageMap.values());
+    };
+
+    result['category-pages'] = mergePages('category-pages', categoryPages);
+    result['subcategory-pages'] = mergePages('subcategory-pages', subcategoryPages);
+    result['location-pages'] = mergePages('location-pages', locationPages);
+    result['sublocation-pages'] = mergePages('sublocation-pages', sublocationPages);
+
+    return result;
+}
 
 function WebsiteSettings({ subSection, setSubSection }) {
     const [activeCategory, setActiveCategory] = useState(null);
+    const [settingsByCategory, setSettingsByCategory] = useState(staticSettingsByCategory || {});
+    const [loadingAppliances, setLoadingAppliances] = useState(true);
+
+    // Fetch live appliance data to build dynamic settings menu
+    useEffect(() => {
+        fetchApplianceData();
+    }, []);
+
+    const fetchApplianceData = async () => {
+        setLoadingAppliances(true);
+        try {
+            const res = await fetch('/api/settings/appliances');
+            const data = await res.json();
+            if (data.success) {
+                const dynamicSettings = buildDynamicSettings(data.data, staticSettingsByCategory);
+                setSettingsByCategory(dynamicSettings);
+            }
+        } catch (e) {
+            console.error('Failed to fetch appliance data for WebsiteSettings:', e);
+        } finally {
+            setLoadingAppliances(false);
+        }
+    };
 
     // Sync activeCategory with subSection from parent
     useEffect(() => {
         if (!subSection) {
             setActiveCategory(null);
         } else {
-            // If subSection matches a group label/ID, set that group as active
             const group = categoryGroups.find(g => g.label === subSection || g.id === subSection);
             if (group) {
                 setActiveCategory(group.id);
             } else {
-                // Check if it's a specific setting ID
                 const allSettings = Object.values(settingsByCategory).flat();
                 const setting = allSettings.find(s => s.id === subSection || s.label === subSection);
-                if (setting) {
-                    setActiveCategory(setting.id);
-                }
+                if (setting) setActiveCategory(setting.id);
             }
         }
-    }, [subSection]);
+    }, [subSection, settingsByCategory]);
 
     const handleCategorySelect = (group) => {
         setActiveCategory(group.id);
-        if (setSubSection) {
-            setSubSection(group.label);
-        }
+        if (setSubSection) setSubSection(group.label);
     };
 
-    // Cleanup on unmount
     useEffect(() => {
-        return () => {
-            if (setSubSection) setSubSection(null);
-        };
+        return () => { if (setSubSection) setSubSection(null); };
     }, []);
-
-    // Debug: Verify new version is loading
-    console.log('🔧 WebsiteSettings v2.0 - Reorganized with category groups');
-
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
 
-            {/* Category Grid - Only show when no category is selected */}
+            {/* Category Grid - only when no category selected */}
             {!activeCategory && (
                 <div style={{
                     display: 'grid',
@@ -72,358 +178,195 @@ function WebsiteSettings({ subSection, setSubSection }) {
                     gap: 'var(--spacing-md)',
                     marginBottom: 'var(--spacing-xl)'
                 }}>
-                    {categoryGroups.map(group => {
-                        return (
-                            <button
-                                key={group.id}
-                                onClick={() => handleCategorySelect(group)}
-                                className="card"
-                                style={{
-                                    padding: 'var(--spacing-lg)',
-                                    border: '2px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
-                                    textAlign: 'left',
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.borderColor = group.color;
-                                    e.currentTarget.style.transform = 'translateY(-4px)';
-                                    e.currentTarget.style.boxShadow = `0 8px 24px ${group.color}20`;
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.borderColor = 'var(--border-primary)';
-                                    e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = 'none';
-                                }}
-                            >
-                                {/* Icon Background */}
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '-20px',
-                                    right: '-20px',
-                                    width: '100px',
-                                    height: '100px',
-                                    borderRadius: '50%',
-                                    backgroundColor: group.color,
-                                    opacity: 0.1
-                                }} />
-
-                                {/* Content */}
-                                <div style={{ position: 'relative', zIndex: 1 }}>
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        marginBottom: 'var(--spacing-sm)'
-                                    }}>
-                                        <h3 style={{
-                                            fontSize: 'var(--font-size-base)',
-                                            fontWeight: 600,
-                                            margin: 0,
-                                            color: 'var(--text-primary)'
+                    {categoryGroups.map(group => (
+                        <button
+                            key={group.id}
+                            onClick={() => handleCategorySelect(group)}
+                            className="card"
+                            style={{
+                                padding: 'var(--spacing-lg)',
+                                border: '2px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-lg)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease',
+                                textAlign: 'left',
+                                position: 'relative',
+                                overflow: 'hidden'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = group.color;
+                                e.currentTarget.style.transform = 'translateY(-4px)';
+                                e.currentTarget.style.boxShadow = `0 8px 24px ${group.color}20`;
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = 'none';
+                            }}
+                        >
+                            <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', backgroundColor: group.color, opacity: 0.1 }} />
+                            <div style={{ position: 'relative', zIndex: 1 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
+                                    <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+                                        {group.label}
+                                    </h3>
+                                    {/* Show count badges for dynamic groups */}
+                                    {['category-pages', 'subcategory-pages', 'location-pages', 'sublocation-pages'].includes(group.id) && (
+                                        <span style={{
+                                            fontSize: 'var(--font-size-xs)',
+                                            padding: '4px 8px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            backgroundColor: `${group.color}20`,
+                                            color: group.color,
+                                            fontWeight: 600
                                         }}>
-                                            {group.label}
-                                        </h3>
-                                        {group.hasAddNew && (
-                                            <span style={{
-                                                fontSize: 'var(--font-size-xs)',
-                                                padding: '4px 8px',
-                                                borderRadius: 'var(--radius-sm)',
-                                                backgroundColor: `${group.color}20`,
-                                                color: group.color,
-                                                fontWeight: 600
-                                            }}>
-                                                Add New
-                                            </span>
-                                        )}
-                                    </div>
-                                    <p style={{
-                                        fontSize: 'var(--font-size-sm)',
-                                        color: 'var(--text-secondary)',
-                                        margin: 0,
-                                        lineHeight: 1.5
-                                    }}>
-                                        {group.description}
-                                    </p>
+                                            {loadingAppliances ? '...' : `${(settingsByCategory[group.id] || []).length} pages`}
+                                        </span>
+                                    )}
                                 </div>
-
-                                {/* Arrow Indicator */}
-                                <div style={{
-                                    position: 'absolute',
-                                    bottom: 'var(--spacing-md)',
-                                    right: 'var(--spacing-md)',
-                                    fontSize: 'var(--font-size-xl)',
-                                    color: group.color,
-                                    opacity: 0.5
-                                }}>
-                                    →
-                                </div>
-                            </button>
-                        );
-                    })}
+                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
+                                    {group.description}
+                                </p>
+                            </div>
+                            <div style={{ position: 'absolute', bottom: 'var(--spacing-md)', right: 'var(--spacing-md)', fontSize: 'var(--font-size-xl)', color: group.color, opacity: 0.5 }}>→</div>
+                        </button>
+                    ))}
                 </div>
             )}
 
-            {/* Show settings within a category group */}
+            {/* Settings grid within a group */}
             {activeCategory && categoryGroups.find(g => g.id === activeCategory) && settingsByCategory[activeCategory] && (
                 <>
-                    {/* Settings Grid */}
+                    {/* Back button */}
+                    <button
+                        onClick={() => { setActiveCategory(null); if (setSubSection) setSubSection(null); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)', color: 'var(--text-secondary)' }}
+                    >
+                        ← Back to all settings
+                    </button>
+
+                    {loadingAppliances && ['category-pages', 'subcategory-pages', 'location-pages', 'sublocation-pages'].includes(activeCategory) && (
+                        <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
+                            Loading pages...
+                        </div>
+                    )}
+
                     {settingsByCategory[activeCategory].length > 0 ? (
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                            gap: 'var(--spacing-md)'
-                        }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 'var(--spacing-md)' }}>
                             {settingsByCategory[activeCategory].map(setting => {
-                                const Icon = setting.icon;
+                                const RawIcon = setting.icon;
+                                const Icon = typeof RawIcon === 'string' ? (Icons[RawIcon] || Icons.Package) : RawIcon;
                                 return (
                                     <button
                                         key={setting.id}
                                         onClick={() => handleCategorySelect(setting)}
                                         className="card"
-                                        style={{
-                                            padding: 'var(--spacing-lg)',
-                                            border: '2px solid var(--border-primary)',
-                                            borderRadius: 'var(--radius-lg)',
-                                            backgroundColor: 'var(--bg-elevated)',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            textAlign: 'left',
-                                            position: 'relative',
-                                            overflow: 'hidden'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            e.currentTarget.style.borderColor = setting.color;
-                                            e.currentTarget.style.transform = 'translateY(-4px)';
-                                            e.currentTarget.style.boxShadow = `0 8px 24px ${setting.color}20`;
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            e.currentTarget.style.borderColor = 'var(--border-primary)';
-                                            e.currentTarget.style.transform = 'translateY(0)';
-                                            e.currentTarget.style.boxShadow = 'none';
-                                        }}
+                                        style={{ padding: 'var(--spacing-lg)', border: '2px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', transition: 'all 0.2s ease', textAlign: 'left', position: 'relative', overflow: 'hidden' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = setting.color; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 8px 24px ${setting.color}20`; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-primary)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}
                                     >
-                                        {/* Icon Background */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '-20px',
-                                            right: '-20px',
-                                            width: '100px',
-                                            height: '100px',
-                                            borderRadius: '50%',
-                                            backgroundColor: setting.color,
-                                            opacity: 0.1
-                                        }} />
-
-                                        {/* Content */}
+                                        <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', backgroundColor: setting.color, opacity: 0.1 }} />
                                         <div style={{ position: 'relative', zIndex: 1 }}>
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 'var(--spacing-sm)',
-                                                marginBottom: 'var(--spacing-sm)'
-                                            }}>
-                                                <div style={{
-                                                    padding: 'var(--spacing-sm)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    backgroundColor: `${setting.color}15`,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center'
-                                                }}>
-                                                    <Icon size={24} style={{ color: setting.color }} />
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+                                                <div style={{ padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', backgroundColor: `${setting.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    {Icon && <Icon size={24} style={{ color: setting.color }} />}
                                                 </div>
                                                 <div style={{ flex: 1 }}>
-                                                    <h3 style={{
-                                                        fontSize: 'var(--font-size-base)',
-                                                        fontWeight: 600,
-                                                        margin: 0,
-                                                        color: 'var(--text-primary)'
-                                                    }}>
-                                                        {setting.label}
-                                                    </h3>
+                                                    <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{setting.label}</h3>
                                                     {setting.url && (
-                                                        <p style={{
-                                                            fontSize: '11px',
-                                                            fontFamily: 'monospace',
-                                                            color: 'var(--color-primary)',
-                                                            opacity: 0.8,
-                                                            margin: '2px 0 0 0'
-                                                        }}>
+                                                        <p style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--color-primary)', opacity: 0.8, margin: '2px 0 0 0' }}>
                                                             URL :: {setting.url}
                                                         </p>
                                                     )}
                                                 </div>
                                             </div>
-                                            <p style={{
-                                                fontSize: 'var(--font-size-sm)',
-                                                color: 'var(--text-secondary)',
-                                                margin: 0,
-                                                lineHeight: 1.5
-                                            }}>
-                                                {setting.description}
-                                            </p>
+                                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>{setting.description}</p>
                                         </div>
-
-                                        {/* Arrow Indicator */}
-                                        <div style={{
-                                            position: 'absolute',
-                                            bottom: 'var(--spacing-md)',
-                                            right: 'var(--spacing-md)',
-                                            fontSize: 'var(--font-size-xl)',
-                                            color: setting.color,
-                                            opacity: 0.5
-                                        }}>
-                                            →
-                                        </div>
+                                        <div style={{ position: 'absolute', bottom: 'var(--spacing-md)', right: 'var(--spacing-md)', fontSize: 'var(--font-size-xl)', color: setting.color, opacity: 0.5 }}>→</div>
                                     </button>
                                 );
                             })}
                         </div>
                     ) : (
-                        <div className="card" style={{
-                            padding: 'var(--spacing-xl)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '2px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            textAlign: 'center'
-                        }}>
+                        <div className="card" style={{ padding: 'var(--spacing-xl)', backgroundColor: 'var(--bg-elevated)', border: '2px dashed var(--border-primary)', borderRadius: 'var(--radius-lg)', textAlign: 'center' }}>
+                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 8px 0' }}>
+                                No pages registered yet.
+                            </p>
                             <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                                No settings available in this category yet. Click "Add New" to create one.
+                                Go to <strong>Global Settings → Quick Booking Form → Appliances</strong> tab and use the <strong>🌐 Page Builder</strong> on each appliance to register its pages here.
                             </p>
                         </div>
                     )}
                 </>
             )}
 
-            {/* Category Content */}
+            {/* Specific component renderers */}
             {activeCategory === 'booking-slots' ? (
-                <div>
-                    <BookingSlots />
-                </div>
+                <BookingSlots />
             ) : activeCategory === 'header-locations' ? (
-                <div>
-                    <HeaderLocations />
-                </div>
+                <HeaderLocations />
             ) : activeCategory === 'quick-booking' ? (
-                <div>
-                    <QuickBookingFormSettings />
-                </div>
+                <QuickBookingFormSettings />
             ) : activeCategory === 'frequent-services' ? (
-                <div>
-                    <FrequentlyBookedServicesSettings />
-                </div>
+                <FrequentlyBookedServicesSettings />
             ) : activeCategory === 'footer-locations' ? (
-                <div>
-                    <FooterLocationsSettings />
-                </div>
+                <FooterLocationsSettings />
             ) : activeCategory === 'faqs' ? (
-                <div>
-                    <FAQsManagement />
-                </div>
+                <FAQsManagement />
             ) : activeCategory === 'how-it-works' ? (
-                <div>
-                    <HowItWorksSettings />
-                </div>
+                <HowItWorksSettings />
             ) : activeCategory === 'why-choose-us' ? (
-                <div>
-                    <WhyChooseUsSettings />
-                </div>
+                <WhyChooseUsSettings />
             ) : activeCategory === 'brand-logos' ? (
-                <div>
-                    <BrandLogosSettings />
-                </div>
+                <BrandLogosSettings />
             ) : activeCategory === 'seo-settings' ? (
-                <div>
-                    <SEOSettings />
-                </div>
+                <SEOSettings />
             ) : activeCategory === 'testimonials' ? (
-                <div>
-                    <CustomerTestimonialsSettings />
-                </div>
+                <CustomerTestimonialsSettings />
             ) : activeCategory === 'technician-join-form' ? (
-                <div>
-                    <TechnicianJoinFormSettings />
-                </div>
+                <TechnicianJoinFormSettings />
+            ) : activeCategory === 'page-builder' ? (
+                <PageBuilderTool />
             ) : activeCategory === 'service-icons' ? (
-                <div>
-                    <ServiceIconsSettings />
-                </div>
+                <ServiceIconsSettings />
             ) : activeCategory === 'static-pages' || activeCategory === 'terms-conditions' || activeCategory === 'privacy-policy' || activeCategory === 'accessibility' ? (
-                <div>
-                    <StaticPagesSettings />
-                </div>
-            ) : activeCategory ? (
-                <div>
-                    {(() => {
-                        const setting = Object.values(settingsByCategory).flat().find(s => s.id === activeCategory);
-                        console.log('📂 WebsiteSettings Category Selection:', { activeCategory, setting });
-
-                        if (activeCategory.startsWith('cat-') ||
-                            activeCategory.startsWith('sub-') ||
-                            activeCategory.startsWith('loc-') ||
-                            activeCategory.startsWith('sloc-')) {
-                            console.log('📑 Rendering PageSettingsManager for:', activeCategory);
-                            return (
-                                <PageSettingsManager
-                                    pageId={activeCategory}
-                                    pageLabel={setting?.label || activeCategory}
-                                />
-                            );
-                        }
-
-                        // Fallback for other non-implemented settings
-                        return (
-                            <div className="card" style={{
-                                padding: 'var(--spacing-xl)',
-                                backgroundColor: 'var(--bg-elevated)',
-                                border: '2px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-lg)',
-                                textAlign: 'center'
-                            }}>
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: '64px',
-                                    height: '64px',
-                                    borderRadius: '50%',
-                                    backgroundColor: 'var(--color-primary)15',
-                                    marginBottom: 'var(--spacing-md)'
-                                }}>
-                                    {setting?.icon && <setting.icon size={32} style={{ color: 'var(--color-primary)' }} />}
-                                </div>
-                                <h3 style={{
-                                    fontSize: 'var(--font-size-lg)',
-                                    fontWeight: 600,
-                                    marginBottom: 'var(--spacing-sm)',
-                                    color: 'var(--text-primary)'
-                                }}>
-                                    {setting?.label}
-                                </h3>
-                                <p style={{
-                                    fontSize: 'var(--font-size-sm)',
-                                    color: 'var(--text-secondary)',
-                                    marginBottom: 'var(--spacing-lg)'
-                                }}>
-                                    This management interface is under development and will be available soon.
-                                </p>
-                            </div>
-                        );
-                    })()}
-                </div>
+                <StaticPagesSettings />
+            ) : activeCategory &&
+                (activeCategory.startsWith('cat-') ||
+                    activeCategory.startsWith('sub-') ||
+                    activeCategory.startsWith('loc-') ||
+                    activeCategory.startsWith('sloc-')) ? (
+                (() => {
+                    const allSettings = Object.values(settingsByCategory).flat();
+                    const setting = allSettings.find(s => s.id === activeCategory);
+                    return (
+                        <div>
+                            <button
+                                onClick={() => {
+                                    // Go back to the group this setting belongs to
+                                    let groupId = 'category-pages';
+                                    if (activeCategory.startsWith('sub-')) groupId = 'subcategory-pages';
+                                    else if (activeCategory.startsWith('sloc-')) groupId = 'sublocation-pages';
+                                    else if (activeCategory.startsWith('loc-')) groupId = 'location-pages';
+                                    setActiveCategory(groupId);
+                                    if (setSubSection) setSubSection(groupId);
+                                }}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)', color: 'var(--text-secondary)' }}
+                            >
+                                ← Back
+                            </button>
+                            <PageSettingsManager
+                                pageId={activeCategory}
+                                pageLabel={setting?.label || activeCategory}
+                                pageUrl={setting?.url}
+                            />
+                        </div>
+                    );
+                })()
             ) : null}
         </div>
     );
 }
 
 export default WebsiteSettings;
-
-
-
-
-

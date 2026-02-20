@@ -15,6 +15,7 @@ import WhatsAppTemplateManager from '@/components/admin/WhatsAppTemplateManager'
 import QRCodeManager from '@/components/admin/QRCodeManager';
 import RentalsTab from '@/components/reports/RentalsTab';
 import AMCTab from '@/components/reports/AMCTab';
+import BankStatementReconciler from '@/components/reports/BankStatementReconciler';
 
 import InteractionsTab from '@/components/accounts/InteractionsTab';
 import TechnicianManager from './technicians/TechnicianManager';
@@ -39,7 +40,8 @@ function ReportsTab({ onOpenSettings }) {
         { id: 'templates', label: 'WhatsApp Templates', icon: MessageSquare, component: WhatsAppTemplateManager, color: '#22c55e', description: 'Manage WhatsApp message templates' },
         { id: 'templates', label: 'WhatsApp Templates', icon: MessageSquare, component: WhatsAppTemplateManager, color: '#22c55e', description: 'Manage WhatsApp message templates' },
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
-        { id: 'technician-users', label: 'Technician Users', icon: User, component: TechnicianManager, color: '#f43f5e', description: 'Manage technician logins & accounts' }
+        { id: 'technician-users', label: 'Technician Users', icon: User, component: TechnicianManager, color: '#f43f5e', description: 'Manage technician logins & accounts' },
+        { id: 'bank-reconciler', label: 'Bank Reconciler', icon: FileText, component: BankStatementReconciler, color: '#3b82f6', description: 'Reconcile bank statements with accounting' }
     ];
 
     const ActiveComponent = sections.find(s => s.id === activeSection)?.component;

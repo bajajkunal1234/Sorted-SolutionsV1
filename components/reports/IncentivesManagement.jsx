@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react';
-import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3, Loader2 } from 'lucide-react';
 
 function IncentivesManagement() {
     const [activeView, setActiveView] = useState('configure'); // configure, performance, history
@@ -10,6 +10,8 @@ function IncentivesManagement() {
     const [selectedTechForPdf, setSelectedTechForPdf] = useState(null);
     const [activeMonth, setActiveMonth] = useState('2026-01');
     const [isFinalized, setIsFinalized] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
 
     // Incentive Parameters Configuration
     const [parameters, setParameters] = useState([
@@ -92,6 +94,43 @@ function IncentivesManagement() {
             breakdown: []
         }
     ]);
+
+    // Fetch parameters and technicians
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                const [paramRes, techRes] = await Promise.all([
+                    fetch('/api/admin/website-settings?key=incentive_parameters'),
+                    fetch('/api/admin/technicians')
+                ]);
+
+                const paramData = await paramRes.json();
+                const techData = await techRes.json();
+
+                if (paramData.success && paramData.data && paramData.data.value) {
+                    setParameters(paramData.data.value);
+                }
+
+                if (techData.success && techData.data && techData.data.length > 0) {
+                    // We merge real technicians with mock metrics for simulation
+                    const merged = techData.data.map((t, idx) => ({
+                        ...t,
+                        currentMetrics: technicians[idx % technicians.length].currentMetrics,
+                        history: technicians[idx % technicians.length].history,
+                        calculatedIncentive: 0,
+                        breakdown: []
+                    }));
+                    setTechnicians(merged);
+                }
+            } catch (error) {
+                console.error('Error fetching incentives management data:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
 
     const calculateIncentives = () => {
         const updated = technicians.map(tech => {
@@ -375,20 +414,46 @@ function IncentivesManagement() {
                                 ))}
                             </div>
 
-                            <button
-                                className="btn btn-primary"
-                                onClick={calculateIncentives}
-                                disabled={isFinalized}
-                                style={{ width: '100%', marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)' }}
-                            >
-                                Calculate Incentives
-                            </button>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={handleSaveParameters}
+                                    disabled={isFinalized || isSaving}
+                                    style={{ flex: 1, padding: 'var(--spacing-sm)' }}
+                                >
+                                    {isSaving ? <Loader2 className="animate-spin" size={16} /> : <Save size={16} />}
+                                    {isSaving ? 'Saving...' : 'Save Configuration'}
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={calculateIncentives}
+                                    disabled={isFinalized}
+                                    style={{ flex: 1, padding: 'var(--spacing-sm)' }}
+                                >
+                                    Calculate Incentives
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     {/* Technician Results */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                        {technicians.map(tech => (
+                        {isLoading ? (
+                            <div style={{
+                                padding: '40px',
+                                textAlign: 'center',
+                                backgroundColor: 'var(--bg-elevated)',
+                                borderRadius: 'var(--radius-lg)',
+                                border: '1px solid var(--border-primary)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '12px'
+                            }}>
+                                <Loader2 className="animate-spin" size={32} color="var(--color-primary)" />
+                                <span style={{ color: 'var(--text-secondary)' }}>Fetching live data...</span>
+                            </div>
+                        ) : technicians.map(tech => (
                             <div
                                 key={tech.id}
                                 style={{

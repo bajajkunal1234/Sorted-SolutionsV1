@@ -1,15 +1,34 @@
 'use client'
 
-import { useState, useMemo } from 'react';
-import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown } from 'lucide-react';
-import { sampleTransactions } from '../../data/reportsData';
+import { useState, useMemo, useEffect } from 'react';
+import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/accountingHelpers';
 
 function DaybookView() {
-    const [transactions, setTransactions] = useState(sampleTransactions);
+    const [transactions, setTransactions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [filterType, setFilterType] = useState('all');
+
+    // Fetch transactions based on filters
+    useEffect(() => {
+        const fetchTransactions = async () => {
+            setIsLoading(true);
+            try {
+                const response = await fetch(`/api/admin/transactions?type=${filterType}&startDate=${startDate}&endDate=${endDate}`);
+                const result = await response.json();
+                if (result.success) {
+                    setTransactions(result.data || []);
+                }
+            } catch (error) {
+                console.error('Error fetching transactions:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchTransactions();
+    }, [startDate, endDate, filterType]);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [editMode, setEditMode] = useState(false);
 
@@ -188,7 +207,8 @@ function DaybookView() {
                             fontWeight: 700,
                             color: (totals.credit - totals.debit) >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
                         }}>
-                            {formatCurrency(totals.credit - totals.debit)}
+                            {formatCurrency(Math.abs(totals.credit - totals.debit))}
+                            {(totals.credit - totals.debit) >= 0 ? ' Cr' : ' Dr'}
                         </span>
                     </div>
                 </div>
@@ -215,12 +235,10 @@ function DaybookView() {
                     borderCollapse: 'collapse',
                     fontSize: 'var(--font-size-sm)'
                 }}>
-                    <thead>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                         <tr style={{
                             backgroundColor: 'var(--bg-secondary)',
-                            borderBottom: '2px solid var(--border-primary)',
-                            position: 'sticky',
-                            top: 0
+                            borderBottom: '2px solid var(--border-primary)'
                         }}>
                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Date</th>
                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Type</th>
@@ -233,63 +251,82 @@ function DaybookView() {
                         </tr>
                     </thead>
                     <tbody>
-                        {processedTransactions.map(txn => (
-                            <tr
-                                key={txn.id}
-                                onClick={() => setSelectedTransaction(txn)}
-                                style={{
-                                    borderBottom: '1px solid var(--border-primary)',
-                                    transition: 'background-color var(--transition-fast)',
-                                    cursor: 'pointer'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                                <td style={{ padding: 'var(--spacing-sm)' }}>
-                                    {new Date(txn.date).toLocaleDateString('en-IN', {
-                                        day: '2-digit',
-                                        month: 'short',
-                                        year: 'numeric'
-                                    })}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)' }}>
-                                    <span style={{
-                                        padding: '4px 8px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontSize: 'var(--font-size-xs)',
-                                        fontWeight: 600,
-                                        backgroundColor: `${getTypeColor(txn.type)}20`,
-                                        color: getTypeColor(txn.type),
-                                        textTransform: 'capitalize'
-                                    }}>
-                                        {getTypeLabel(txn.type)}
-                                    </span>
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace', fontSize: 'var(--font-size-xs)' }}>
-                                    {txn.voucherNo}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
-                                    {txn.account}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
-                                    {txn.narration}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-danger)' }}>
-                                    {txn.debit > 0 ? formatCurrency(txn.debit) : '-'}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>
-                                    {txn.credit > 0 ? formatCurrency(txn.credit) : '-'}
-                                </td>
-                                <td style={{
-                                    padding: 'var(--spacing-sm)',
-                                    textAlign: 'right',
-                                    fontWeight: 700,
-                                    color: txn.balance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
-                                }}>
-                                    {formatCurrency(Math.abs(txn.balance))}
+                        {isLoading ? (
+                            <tr>
+                                <td colSpan="8" style={{ padding: 'var(--spacing-2xl)', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                        <Loader2 className="animate-spin" size={32} color="var(--color-primary)" />
+                                        <span>Loading transactions...</span>
+                                    </div>
                                 </td>
                             </tr>
-                        ))}
+                        ) : processedTransactions.length === 0 ? (
+                            <tr>
+                                <td colSpan="8" style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                    No transactions found for the selected date range and filters.
+                                </td>
+                            </tr>
+                        ) : (
+                            processedTransactions.map(txn => (
+                                <tr
+                                    key={txn.id}
+                                    onClick={() => setSelectedTransaction(txn)}
+                                    style={{
+                                        borderBottom: '1px solid var(--border-primary)',
+                                        transition: 'background-color var(--transition-fast)',
+                                        cursor: 'pointer',
+                                        backgroundColor: selectedTransaction?.id === txn.id ? 'var(--bg-secondary)' : 'transparent'
+                                    }}
+                                    onMouseEnter={(e) => !selectedTransaction && (e.currentTarget.style.backgroundColor = 'var(--bg-secondary)')}
+                                    onMouseLeave={(e) => !selectedTransaction && (e.currentTarget.style.backgroundColor = 'transparent')}
+                                >
+                                    <td style={{ padding: 'var(--spacing-sm)' }}>
+                                        {new Date(txn.date).toLocaleDateString('en-IN', {
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric'
+                                        })}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-sm)' }}>
+                                        <span style={{
+                                            padding: '4px 8px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 'var(--font-size-xs)',
+                                            fontWeight: 600,
+                                            backgroundColor: `${getTypeColor(txn.type)}20`,
+                                            color: getTypeColor(txn.type),
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {getTypeLabel(txn.type)}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace', fontSize: 'var(--font-size-xs)' }}>
+                                        {txn.voucherNo}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
+                                        {txn.account_name || txn.account || '-'}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
+                                        {txn.description || txn.narration}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-danger)' }}>
+                                        {txn.debit > 0 ? formatCurrency(txn.debit) : '-'}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>
+                                        {txn.credit > 0 ? formatCurrency(txn.credit) : '-'}
+                                    </td>
+                                    <td style={{
+                                        padding: 'var(--spacing-sm)',
+                                        textAlign: 'right',
+                                        fontWeight: 700,
+                                        color: txn.balance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
+                                    }}>
+                                        {formatCurrency(Math.abs(txn.balance))}
+                                        {txn.balance >= 0 ? ' Cr' : ' Dr'}
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                     <tfoot>
                         <tr style={{
@@ -312,23 +349,14 @@ function DaybookView() {
                                 color: (totals.credit - totals.debit) >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
                             }}>
                                 {formatCurrency(Math.abs(totals.credit - totals.debit))}
+                                {(totals.credit - totals.debit) >= 0 ? ' Cr' : ' Dr'}
                             </td>
                         </tr>
                     </tfoot>
                 </table>
-
-                {processedTransactions.length === 0 && (
-                    <div style={{
-                        padding: 'var(--spacing-2xl)',
-                        textAlign: 'center',
-                        color: 'var(--text-tertiary)'
-                    }}>
-                        No transactions found for the selected date range and filters.
-                    </div>
-                )}
             </div>
 
-            {/* Transaction Edit Modal */}
+            {/* Transaction Detail Modal */}
             {selectedTransaction && (
                 <div style={{
                     position: 'fixed',
@@ -361,162 +389,89 @@ function DaybookView() {
                             <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0 }}>
                                 Transaction Details
                             </h3>
-                            <span style={{
-                                padding: '4px 10px',
-                                borderRadius: 'var(--radius-sm)',
-                                fontSize: 'var(--font-size-xs)',
-                                fontWeight: 600,
-                                backgroundColor: `${getTypeColor(selectedTransaction.type)}20`,
-                                color: getTypeColor(selectedTransaction.type),
-                                textTransform: 'capitalize'
-                            }}>
-                                {getTypeLabel(selectedTransaction.type)}
-                            </span>
+                            <button
+                                onClick={() => setSelectedTransaction(null)}
+                                className="btn-icon"
+                            >
+                                <X size={20} />
+                            </button>
                         </div>
 
                         <div style={{ padding: 'var(--spacing-lg)' }}>
                             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Voucher No
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={selectedTransaction.voucherNo}
-                                        readOnly={!editMode}
-                                        className="form-input"
-                                        style={{ width: '100%', fontFamily: 'monospace' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Date
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={new Date(selectedTransaction.date).toISOString().split('T')[0]}
-                                        readOnly={!editMode}
-                                        className="form-input"
-                                        style={{ width: '100%' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Account
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={selectedTransaction.account}
-                                        readOnly={!editMode}
-                                        className="form-input"
-                                        style={{ width: '100%' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Narration
-                                    </label>
-                                    <textarea
-                                        value={selectedTransaction.narration}
-                                        readOnly={!editMode}
-                                        className="form-input"
-                                        style={{ width: '100%', minHeight: '60px', resize: 'vertical' }}
-                                    />
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                    <div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Voucher Type</div>
+                                        <span style={{
+                                            padding: '4px 10px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 'var(--font-size-xs)',
+                                            fontWeight: 600,
+                                            backgroundColor: `${getTypeColor(selectedTransaction.type)}20`,
+                                            color: getTypeColor(selectedTransaction.type),
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {getTypeLabel(selectedTransaction.type)}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Voucher No.</div>
+                                        <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{selectedTransaction.voucherNo}</div>
+                                    </div>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Debit
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={selectedTransaction.debit}
-                                            readOnly={!editMode}
-                                            className="form-input"
-                                            style={{ width: '100%', color: 'var(--color-danger)', fontWeight: 600 }}
-                                        />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Date</div>
+                                        <div>{new Date(selectedTransaction.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                                     </div>
-
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Credit
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={selectedTransaction.credit}
-                                            readOnly={!editMode}
-                                            className="form-input"
-                                            style={{ width: '100%', color: 'var(--color-success)', fontWeight: 600 }}
-                                        />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Account</div>
+                                        <div style={{ fontWeight: 500 }}>{selectedTransaction.account_name || selectedTransaction.account}</div>
                                     </div>
                                 </div>
 
-                                {selectedTransaction.reference && (
+                                <div>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Description / Narration</div>
+                                    <div style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', minHeight: '60px' }}>
+                                        {selectedTransaction.description || selectedTransaction.narration || 'No description provided.'}
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Reference
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={selectedTransaction.reference}
-                                            readOnly
-                                            className="form-input"
-                                            style={{ width: '100%', fontFamily: 'monospace', backgroundColor: 'var(--bg-secondary)' }}
-                                        />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Debit Amount</div>
+                                        <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--color-danger)' }}>{formatCurrency(selectedTransaction.debit)}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Credit Amount</div>
+                                        <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: 'var(--color-success)' }}>{formatCurrency(selectedTransaction.credit)}</div>
+                                    </div>
+                                </div>
+
+                                {selectedTransaction.job_id && (
+                                    <div style={{ padding: 'var(--spacing-sm)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>Linked to Job ID: <span style={{ fontFamily: 'monospace' }}>{selectedTransaction.job_id.slice(0, 8)}...</span></span>
+                                        <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '12px' }}>View Job</button>
                                     </div>
                                 )}
                             </div>
 
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-lg)' }}>
-                                {!editMode ? (
-                                    <>
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={() => setEditMode(true)}
-                                            style={{ flex: 1, padding: 'var(--spacing-sm)' }}
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            className="btn btn-secondary"
-                                            onClick={() => {
-                                                setSelectedTransaction(null);
-                                                setEditMode(false);
-                                            }}
-                                            style={{ padding: 'var(--spacing-sm)' }}
-                                        >
-                                            Close
-                                        </button>
-                                    </>
-                                ) : (
-                                    <>
-                                        <button
-                                            className="btn btn-primary"
-                                            onClick={() => {
-                                                // Save logic here
-                                                setEditMode(false);
-                                                setSelectedTransaction(null);
-                                            }}
-                                            style={{ flex: 1, padding: 'var(--spacing-sm)' }}
-                                        >
-                                            Save Changes
-                                        </button>
-                                        <button
-                                            className="btn btn-secondary"
-                                            onClick={() => {
-                                                setEditMode(false);
-                                                setSelectedTransaction(null);
-                                            }}
-                                            style={{ padding: 'var(--spacing-sm)' }}
-                                        >
-                                            Cancel
-                                        </button>
-                                    </>
-                                )}
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-xl)' }}>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ flex: 1 }}
+                                    onClick={() => window.print()}
+                                >
+                                    <Printer size={16} />
+                                    Print Voucher
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => setSelectedTransaction(null)}
+                                >
+                                    Close
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -527,8 +482,3 @@ function DaybookView() {
 }
 
 export default DaybookView;
-
-
-
-
-

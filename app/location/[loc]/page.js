@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import HeroSection from '@/components/services/HeroSection'
+
+export const dynamic = 'force-dynamic'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import CategoryCards from '@/components/services/CategoryCards'
 import ProblemsSection from '@/components/services/ProblemsSection'

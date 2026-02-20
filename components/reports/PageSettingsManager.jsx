@@ -5,24 +5,428 @@ import {
     Save,
     Plus,
     Trash2,
-    Settings,
     AlertCircle,
     HelpCircle,
-    Layers,
     MapPin,
     Tag,
     Image as ImageIcon,
     ChevronRight,
-    Loader2
+    Loader2,
+    Layout,
+    Palette,
+    Eye,
+    EyeOff,
+    ExternalLink
 } from 'lucide-react';
 
-function PageSettingsManager({ pageId, pageLabel }) {
-    const [activeTab, setActiveTab] = useState('problems');
+// ── Hero Background Preview ──────────────────────────────────────────────────
+function HeroPreview({ hero }) {
+    const getBg = () => {
+        if (hero.bg_type === 'image' && hero.bg_image_url) {
+            return {
+                backgroundImage: `url(${hero.bg_image_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center'
+            };
+        }
+        if (hero.bg_type === 'solid') {
+            return { backgroundColor: hero.bg_color_from };
+        }
+        return {
+            background: `linear-gradient(135deg, ${hero.bg_color_from} 0%, ${hero.bg_color_to} 100%)`
+        };
+    };
+
+    const overlayStyle = {
+        position: 'absolute', inset: 0,
+        backgroundColor: `rgba(0,0,0,${hero.overlay_opacity ?? 0})`,
+        zIndex: 1
+    };
+
+    return (
+        <div style={{
+            position: 'relative',
+            borderRadius: 'var(--radius-lg)',
+            overflow: 'hidden',
+            height: '140px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '2px solid var(--border-primary)',
+            ...getBg()
+        }}>
+            {(hero.bg_type === 'image' && hero.bg_image_url) && <div style={overlayStyle} />}
+            <div style={{ position: 'relative', zIndex: 2, textAlign: 'center', padding: '16px', pointerEvents: 'none' }}>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#fff', textShadow: '0 2px 8px rgba(0,0,0,0.4)', marginBottom: '6px' }}>
+                    {hero.title || <span style={{ opacity: 0.5 }}>Hero Title</span>}
+                </div>
+                <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)', textShadow: '0 1px 4px rgba(0,0,0,0.3)' }}>
+                    {hero.subtitle || <span style={{ opacity: 0.5 }}>Hero Subtitle</span>}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Hero Tab Content ─────────────────────────────────────────────────────────
+function HeroTab({ settings, updateSection }) {
+    const hero = settings.hero_settings || {};
+    const update = (key, val) => updateSection('hero_settings', key, val);
+
+    return (
+        <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
+            {/* Live Preview */}
+            <div>
+                <label style={{ display: 'block', fontWeight: 700, marginBottom: '12px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <Eye size={16} /> Live Preview
+                </label>
+                <HeroPreview hero={hero} />
+                <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px', textAlign: 'center' }}>
+                    Preview updates as you type — actual page may differ slightly due to full CSS
+                </p>
+            </div>
+
+            {/* Text Fields */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Hero Title</label>
+                    <input
+                        type="text"
+                        value={hero.title || ''}
+                        onChange={(e) => update('title', e.target.value)}
+                        className="form-control"
+                        placeholder="e.g. AC Repair Solutions In Mumbai"
+                    />
+                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                        Leave blank to use the auto-generated title
+                    </p>
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Hero Subtitle</label>
+                    <input
+                        type="text"
+                        value={hero.subtitle || ''}
+                        onChange={(e) => update('subtitle', e.target.value)}
+                        className="form-control"
+                        placeholder="e.g. Expert repair & 90-day warranty"
+                    />
+                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                        Leave blank to use the auto-generated subtitle
+                    </p>
+                </div>
+            </div>
+
+            {/* Background Type */}
+            <div>
+                <label style={{ display: 'block', marginBottom: '12px', fontWeight: 600 }}>Background Type</label>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    {[
+                        { id: 'gradient', label: '🎨 Gradient' },
+                        { id: 'solid', label: '🟦 Solid Color' },
+                        { id: 'image', label: '🖼 Image' }
+                    ].map(opt => (
+                        <button
+                            key={opt.id}
+                            onClick={() => update('bg_type', opt.id)}
+                            style={{
+                                flex: 1,
+                                padding: '12px',
+                                border: `2px solid ${hero.bg_type === opt.id ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                borderRadius: 'var(--radius-md)',
+                                backgroundColor: hero.bg_type === opt.id ? 'var(--color-primary)10' : 'var(--bg-secondary)',
+                                color: hero.bg_type === opt.id ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                cursor: 'pointer',
+                                fontWeight: hero.bg_type === opt.id ? 700 : 500,
+                                fontSize: '13px',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            {opt.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            {/* Gradient / Solid controls */}
+            {(hero.bg_type === 'gradient' || hero.bg_type === 'solid') && (
+                <div style={{ display: 'grid', gridTemplateColumns: hero.bg_type === 'gradient' ? '1fr 1fr' : '1fr', gap: 'var(--spacing-lg)' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
+                            {hero.bg_type === 'gradient' ? 'Gradient Start Color' : 'Background Color'}
+                        </label>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <input
+                                type="color"
+                                value={hero.bg_color_from || '#6366f1'}
+                                onChange={(e) => update('bg_color_from', e.target.value)}
+                                style={{ width: '56px', height: '44px', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', padding: '2px' }}
+                            />
+                            <input
+                                type="text"
+                                value={hero.bg_color_from || '#6366f1'}
+                                onChange={(e) => update('bg_color_from', e.target.value)}
+                                className="form-control"
+                                placeholder="#6366f1"
+                                style={{ fontFamily: 'monospace' }}
+                            />
+                        </div>
+                    </div>
+                    {hero.bg_type === 'gradient' && (
+                        <div>
+                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Gradient End Color</label>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <input
+                                    type="color"
+                                    value={hero.bg_color_to || '#4f46e5'}
+                                    onChange={(e) => update('bg_color_to', e.target.value)}
+                                    style={{ width: '56px', height: '44px', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', padding: '2px' }}
+                                />
+                                <input
+                                    type="text"
+                                    value={hero.bg_color_to || '#4f46e5'}
+                                    onChange={(e) => update('bg_color_to', e.target.value)}
+                                    className="form-control"
+                                    placeholder="#4f46e5"
+                                    style={{ fontFamily: 'monospace' }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Image controls */}
+            {hero.bg_type === 'image' && (
+                <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Background Image URL</label>
+                        <input
+                            type="url"
+                            value={hero.bg_image_url || ''}
+                            onChange={(e) => update('bg_image_url', e.target.value)}
+                            className="form-control"
+                            placeholder="https://example.com/hero-bg.jpg"
+                        />
+                        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                            Use a high-resolution image (≥1920×600px) for best results
+                        </p>
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>
+                            Image Overlay Darkness — {Math.round((hero.overlay_opacity ?? 0) * 100)}%
+                        </label>
+                        <input
+                            type="range"
+                            min="0" max="0.95" step="0.05"
+                            value={hero.overlay_opacity ?? 0}
+                            onChange={(e) => update('overlay_opacity', parseFloat(e.target.value))}
+                            style={{ width: '100%', accentColor: 'var(--color-primary)' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                            <span>No overlay (full image)</span>
+                            <span>Dark overlay (text readable)</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Quick color presets */}
+            <div>
+                <label style={{ display: 'block', marginBottom: '10px', fontWeight: 600 }}>Quick Gradient Presets</label>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {[
+                        { label: 'Indigo', from: '#6366f1', to: '#4f46e5' },
+                        { label: 'Teal', from: '#0ea5e9', to: '#0891b2' },
+                        { label: 'Emerald', from: '#10b981', to: '#059669' },
+                        { label: 'Violet', from: '#8b5cf6', to: '#7c3aed' },
+                        { label: 'Rose', from: '#f43f5e', to: '#e11d48' },
+                        { label: 'Amber', from: '#f59e0b', to: '#d97706' },
+                        { label: 'Dark Navy', from: '#1e3a5f', to: '#111827' },
+                        { label: 'Slate', from: '#475569', to: '#1e293b' }
+                    ].map(preset => (
+                        <button
+                            key={preset.label}
+                            onClick={() => {
+                                update('bg_type', 'gradient');
+                                update('bg_color_from', preset.from);
+                                update('bg_color_to', preset.to);
+                            }}
+                            title={`${preset.from} → ${preset.to}`}
+                            style={{
+                                width: '48px',
+                                height: '48px',
+                                borderRadius: 'var(--radius-md)',
+                                border: '3px solid white',
+                                outline: `2px solid ${hero.bg_color_from === preset.from && hero.bg_color_to === preset.to ? 'var(--color-primary)' : 'transparent'}`,
+                                background: `linear-gradient(135deg, ${preset.from}, ${preset.to})`,
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                                transition: 'all 0.2s ease',
+                                position: 'relative'
+                            }}
+                        />
+                    ))}
+                </div>
+                <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '6px' }}>
+                    Click a preset to apply that gradient — then fine-tune the colors above
+                </p>
+            </div>
+        </div>
+    );
+}
+
+// ── Subcategories Tab Content ───────────────────────────────────────────────
+function SubcategoriesTab({ settings, updateSection, addItem, removeItem, updateItem }) {
+    const subcats = settings.subcategories_settings || { items: [] };
+
+    return (
+        <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
+                    <input
+                        type="text"
+                        value={subcats.title || ''}
+                        onChange={(e) => updateSection('subcategories_settings', 'title', e.target.value)}
+                        className="form-control"
+                        placeholder="e.g. Washing Machine Services"
+                    />
+                </div>
+                <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                    <input
+                        type="text"
+                        value={subcats.subtitle || ''}
+                        onChange={(e) => updateSection('subcategories_settings', 'subtitle', e.target.value)}
+                        className="form-control"
+                        placeholder="e.g. Choose your specific appliance type"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                    <label style={{ fontWeight: 600 }}>Subcategory Cards</label>
+                    <button onClick={() => addItem('subcategories_settings')} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }}>
+                        <Plus size={14} /> Add Subcategory
+                    </button>
+                </div>
+                <div style={{ display: 'grid', gap: '16px' }}>
+                    {subcats.items.map((item, index) => (
+                        <div key={index} style={{
+                            padding: '16px',
+                            backgroundColor: 'var(--bg-secondary)',
+                            borderRadius: 'var(--radius-lg)',
+                            border: '1px solid var(--border-primary)',
+                            display: 'grid',
+                            gridTemplateColumns: '120px 1fr auto',
+                            gap: '16px',
+                            alignItems: 'start'
+                        }}>
+                            {/* Image Preview / Input */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{
+                                    width: '120px',
+                                    height: '80px',
+                                    backgroundColor: 'var(--bg-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    overflow: 'hidden',
+                                    border: '1px solid var(--border-primary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    {item.image ? (
+                                        <img src={item.image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                        <ImageIcon size={24} style={{ opacity: 0.3 }} />
+                                    )}
+                                </div>
+                                <input
+                                    type="text"
+                                    placeholder="Image URL"
+                                    value={item.image || ''}
+                                    onChange={(e) => updateItem('subcategories_settings', index, 'image', e.target.value)}
+                                    style={{ fontSize: '11px', padding: '4px', width: '100%' }}
+                                />
+                            </div>
+
+                            {/* Content Fields */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Title</label>
+                                    <input
+                                        type="text"
+                                        value={item.title || ''}
+                                        onChange={(e) => updateItem('subcategories_settings', index, 'title', e.target.value)}
+                                        className="form-control"
+                                        placeholder="e.g. Front Load Repair"
+                                    />
+                                </div>
+                                <div style={{ gridColumn: 'span 2' }}>
+                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Description / Subtitle</label>
+                                    <input
+                                        type="text"
+                                        value={item.description || ''}
+                                        onChange={(e) => updateItem('subcategories_settings', index, 'description', e.target.value)}
+                                        className="form-control"
+                                        placeholder="Brief details about this type"
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Price (₹)</label>
+                                    <input
+                                        type="number"
+                                        value={item.price || ''}
+                                        onChange={(e) => updateItem('subcategories_settings', index, 'price', e.target.value)}
+                                        className="form-control"
+                                        placeholder="599"
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Slug / Path</label>
+                                    <input
+                                        type="text"
+                                        value={item.slug || ''}
+                                        onChange={(e) => updateItem('subcategories_settings', index, 'slug', e.target.value)}
+                                        className="form-control"
+                                        placeholder="front-load"
+                                    />
+                                </div>
+                            </div>
+
+                            <button onClick={() => removeItem('subcategories_settings', index)} className="btn btn-danger" style={{ marginTop: '4px' }}>
+                                <Trash2 size={16} />
+                            </button>
+                        </div>
+                    ))}
+                    {subcats.items.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
+                            <p style={{ color: 'var(--text-tertiary)', margin: 0 }}>No custom subcategories added. The page will use default fallbacks.</p>
+                            <button onClick={() => addItem('subcategories_settings')} className="btn btn-secondary" style={{ marginTop: '12px' }}>
+                                <Plus size={14} /> Add First Subcategory
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Main PageSettingsManager ─────────────────────────────────────────────────
+function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
+    const [activeTab, setActiveTab] = useState('hero');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [settings, setSettings] = useState(null);
     const [globalFaqs, setGlobalFaqs] = useState([]);
     const [globalBrands, setGlobalBrands] = useState([]);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+
+    // Search states
+    const [brandSearch, setBrandSearch] = useState('');
+    const [faqSearch, setFaqSearch] = useState('');
 
     useEffect(() => {
         fetchSettings();
@@ -30,30 +434,23 @@ function PageSettingsManager({ pageId, pageLabel }) {
     }, [pageId]);
 
     const fetchSettings = async () => {
-        console.log('🔍 FETCHING SETTINGS FOR:', pageId);
         setLoading(true);
         try {
             const res = await fetch(`/api/settings/page/${pageId}`);
             const data = await res.json();
-            console.log('✅ API RESPONSE:', data);
             if (data.success) {
                 const d = data.data;
-                if (!d) {
-                    console.error('❌ API returned success but null data');
-                    return;
-                }
+                if (!d) return;
                 if (!d.brands_settings) d.brands_settings = { items: [] };
                 if (!d.faqs_settings) d.faqs_settings = { items: [] };
                 if (!d.brands_settings.items) d.brands_settings.items = [];
                 if (!d.faqs_settings.items) d.faqs_settings.items = [];
-
-                console.log('💾 SETTING STATE:', d);
+                if (!d.subcategories_settings) d.subcategories_settings = { title: '', subtitle: '', items: [] };
+                if (!d.hero_settings) d.hero_settings = {};
                 setSettings(d);
-            } else {
-                console.error('❌ API SUCCESS FALSE:', data.error);
             }
         } catch (error) {
-            console.error('❌ FETCH ERROR:', error);
+            console.error('Fetch error:', error);
         } finally {
             setLoading(false);
         }
@@ -67,7 +464,6 @@ function PageSettingsManager({ pageId, pageLabel }) {
             ]);
             const faqData = await faqRes.json();
             const brandData = await brandRes.json();
-
             if (faqData.success) setGlobalFaqs(faqData.data);
             if (brandData.success) setGlobalBrands(brandData.data);
         } catch (error) {
@@ -77,6 +473,7 @@ function PageSettingsManager({ pageId, pageLabel }) {
 
     const handleSave = async () => {
         setSaving(true);
+        setSaveSuccess(false);
         try {
             const res = await fetch(`/api/settings/page/${pageId}`, {
                 method: 'PUT',
@@ -85,7 +482,8 @@ function PageSettingsManager({ pageId, pageLabel }) {
             });
             const data = await res.json();
             if (data.success) {
-                alert('Settings saved successfully!');
+                setSaveSuccess(true);
+                setTimeout(() => setSaveSuccess(false), 3000);
             }
         } catch (error) {
             console.error('Error saving settings:', error);
@@ -96,13 +494,10 @@ function PageSettingsManager({ pageId, pageLabel }) {
     };
 
     const updateSection = (section, key, value) => {
-        setSettings({
-            ...settings,
-            [section]: {
-                ...settings[section],
-                [key]: value
-            }
-        });
+        setSettings(prev => ({
+            ...prev,
+            [section]: { ...prev[section], [key]: value }
+        }));
     };
 
     const addItem = (section) => {
@@ -115,6 +510,12 @@ function PageSettingsManager({ pageId, pageLabel }) {
         } else if (section === 'localities_settings') {
             const items = [...settings.localities_settings.items, ''];
             updateSection(section, 'items', items);
+        } else if (section === 'subcategories_settings') {
+            const items = [
+                ...(settings.subcategories_settings?.items || []),
+                { title: '', description: '', price: '', image: '', slug: '', icon: '🔧' }
+            ];
+            updateSection(section, 'items', items);
         }
     };
 
@@ -126,9 +527,7 @@ function PageSettingsManager({ pageId, pageLabel }) {
 
     const toggleSelection = (section, id) => {
         const items = settings[section].items || [];
-        const newItems = items.includes(id)
-            ? items.filter(i => i !== id)
-            : [...items, id];
+        const newItems = items.includes(id) ? items.filter(i => i !== id) : [...items, id];
         updateSection(section, 'items', newItems);
     };
 
@@ -152,26 +551,25 @@ function PageSettingsManager({ pageId, pageLabel }) {
     }
 
     if (!settings || !settings.problems_settings) {
-        console.log('⚠️ RENDER BLOCKED: settings is null or missing problems_settings', { settings });
         return (
             <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
                 <AlertCircle size={48} color="#ef4444" style={{ marginBottom: '16px' }} />
                 <h3 style={{ marginBottom: '8px' }}>Failed to load settings</h3>
                 <p style={{ color: 'var(--text-secondary)' }}>
-                    {!settings ? 'Could not fetch settings for this page.' : 'Settings data is corrupted (missing problems_settings).'}
+                    {!settings ? 'Could not fetch settings for this page.' : 'Settings data is corrupted.'}
                 </p>
                 <button onClick={fetchSettings} className="btn btn-secondary" style={{ marginTop: '16px' }}>Retry</button>
             </div>
         );
     }
 
-    console.log('🎨 RENDERING PageSettingsManager for', pageId);
-
     const tabs = [
+        { id: 'hero', label: 'Hero Section', icon: Layout },
         { id: 'problems', label: 'Problems', icon: AlertCircle },
-        { id: 'brands', label: 'Brands', icon: ImageIcon },
-        { id: 'localities', label: 'Localities', icon: MapPin },
         { id: 'services', label: 'Services', icon: Tag },
+        { id: 'localities', label: 'Localities', icon: MapPin },
+        { id: 'brands', label: 'Brands', icon: ImageIcon },
+        ...(pageId.startsWith('cat-') ? [{ id: 'subcategories', label: 'Subcategories', icon: Layout }] : []),
         { id: 'faqs', label: 'FAQs', icon: HelpCircle }
     ];
 
@@ -192,18 +590,54 @@ function PageSettingsManager({ pageId, pageLabel }) {
                     <h2 style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
                         {pageLabel}
                     </h2>
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-                        ID: <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>{pageId}</span>
-                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '6px' }}>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                            ID: <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>{pageId}</span>
+                        </p>
+                        {pageUrl && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>
+                                    URL: <span style={{ fontFamily: 'monospace' }}>{pageUrl}</span>
+                                </p>
+                                <a
+                                    href={pageUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '4px',
+                                        fontSize: '11px',
+                                        color: 'white',
+                                        backgroundColor: 'var(--color-primary)',
+                                        padding: '2px 8px',
+                                        borderRadius: '99px',
+                                        textDecoration: 'none',
+                                        fontWeight: 700
+                                    }}
+                                >
+                                    <ExternalLink size={12} />
+                                    View Live Page
+                                </a>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <button
                     onClick={handleSave}
                     disabled={saving}
                     className="btn btn-primary"
-                    style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                    style={{
+                        padding: '12px 24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        backgroundColor: saveSuccess ? '#10b981' : undefined,
+                        transition: 'background-color 0.3s ease'
+                    }}
                 >
                     {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-                    {saving ? 'Saving...' : 'Save All Changes'}
+                    {saving ? 'Saving...' : saveSuccess ? '✓ Saved!' : 'Save All Changes'}
                 </button>
             </div>
 
@@ -213,7 +647,8 @@ function PageSettingsManager({ pageId, pageLabel }) {
                 gap: '4px',
                 marginBottom: 'var(--spacing-lg)',
                 borderBottom: '1px solid var(--border-primary)',
-                padding: '0 8px'
+                padding: '0 8px',
+                overflowX: 'auto'
             }}>
                 {tabs.map(tab => (
                     <button
@@ -232,7 +667,8 @@ function PageSettingsManager({ pageId, pageLabel }) {
                             fontSize: 'var(--font-size-sm)',
                             fontWeight: 600,
                             transition: 'all 0.2s ease',
-                            marginTop: '3px'
+                            marginTop: '3px',
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         <tab.icon size={18} />
@@ -243,6 +679,13 @@ function PageSettingsManager({ pageId, pageLabel }) {
 
             {/* Tab Content */}
             <div className="card" style={{ padding: 'var(--spacing-xl)', minHeight: '400px' }}>
+
+                {/* ── HERO TAB ── */}
+                {activeTab === 'hero' && (
+                    <HeroTab settings={settings} updateSection={updateSection} />
+                )}
+
+                {/* ── PROBLEMS TAB ── */}
                 {activeTab === 'problems' && (
                     <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
@@ -265,7 +708,6 @@ function PageSettingsManager({ pageId, pageLabel }) {
                                 />
                             </div>
                         </div>
-
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                 <label style={{ fontWeight: 600 }}>Problems We Solve</label>
@@ -275,14 +717,7 @@ function PageSettingsManager({ pageId, pageLabel }) {
                             </div>
                             <div style={{ display: 'grid', gap: '12px' }}>
                                 {settings.problems_settings.items.map((item, index) => (
-                                    <div key={index} style={{
-                                        display: 'flex',
-                                        gap: '12px',
-                                        padding: '12px',
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: '1px solid var(--border-primary)'
-                                    }}>
+                                    <div key={index} style={{ display: 'flex', gap: '12px', padding: '12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                                         <div style={{ flex: 1 }}>
                                             <input
                                                 type="text"
@@ -303,74 +738,35 @@ function PageSettingsManager({ pageId, pageLabel }) {
                                         </button>
                                     </div>
                                 ))}
+                                {settings.problems_settings.items.length === 0 && (
+                                    <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '24px' }}>No problems added yet.</p>
+                                )}
                             </div>
                         </div>
                     </div>
                 )}
 
-                {activeTab === 'brands' && (
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', padding: '16px', backgroundColor: '#3b82f615', borderRadius: 'var(--radius-md)', color: '#3b82f6' }}>
-                            <ImageIcon size={20} />
-                            <p style={{ margin: 0, fontSize: '14px' }}>Select brand logos from the global library to display on this page.</p>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '16px' }}>
-                            {globalBrands.map(brand => {
-                                const isSelected = settings.brands_settings.items.includes(brand.id);
-                                return (
-                                    <div
-                                        key={brand.id}
-                                        onClick={() => toggleSelection('brands_settings', brand.id)}
-                                        style={{
-                                            padding: '16px',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
-                                            backgroundColor: isSelected ? 'var(--color-primary)05' : 'var(--bg-secondary)',
-                                            cursor: 'pointer',
-                                            textAlign: 'center',
-                                            transition: 'all 0.2s ease',
-                                            position: 'relative'
-                                        }}
-                                    >
-                                        {isSelected && (
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '-8px',
-                                                right: '-8px',
-                                                backgroundColor: 'var(--color-primary)',
-                                                color: 'white',
-                                                borderRadius: '50%',
-                                                width: '20px',
-                                                height: '20px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <Save size={12} />
-                                            </div>
-                                        )}
-                                        <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
-                                            <img src={brand.logo_url} alt={brand.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                                        </div>
-                                        <div style={{ fontSize: '12px', fontWeight: 600 }}>{brand.name}</div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        {globalBrands.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '40px' }}>No brands found in global library.</p>}
-                    </div>
+                {/* ── SUBCATEGORIES TAB ── */}
+                {activeTab === 'subcategories' && pageId.startsWith('cat-') && (
+                    <SubcategoriesTab
+                        settings={settings}
+                        updateSection={updateSection}
+                        addItem={addItem}
+                        removeItem={removeItem}
+                        updateItem={updateItem}
+                    />
                 )}
 
-                {activeTab === 'localities' && (
+                {/* ── SERVICES TAB ── */}
+                {activeTab === 'services' && (
                     <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
                             <div>
                                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
                                 <input
                                     type="text"
-                                    value={settings.localities_settings.title}
-                                    onChange={(e) => updateSection('localities_settings', 'title', e.target.value)}
+                                    value={settings.services_settings.title}
+                                    onChange={(e) => updateSection('services_settings', 'title', e.target.value)}
                                     className="form-control"
                                 />
                             </div>
@@ -378,13 +774,66 @@ function PageSettingsManager({ pageId, pageLabel }) {
                                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
                                 <input
                                     type="text"
-                                    value={settings.localities_settings.subtitle}
-                                    onChange={(e) => updateSection('localities_settings', 'subtitle', e.target.value)}
+                                    value={settings.services_settings.subtitle}
+                                    onChange={(e) => updateSection('services_settings', 'subtitle', e.target.value)}
                                     className="form-control"
                                 />
                             </div>
                         </div>
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <label style={{ fontWeight: 600 }}>Popular Services & Pricing</label>
+                                <button onClick={() => addItem('services_settings')} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }}>
+                                    <Plus size={14} /> Add Service
+                                </button>
+                            </div>
+                            <div style={{ display: 'grid', gap: '12px' }}>
+                                {settings.services_settings.items.map((item, index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '12px', padding: '12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', alignItems: 'center' }}>
+                                        <div style={{ flex: 2 }}>
+                                            <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Service Name</label>
+                                            <input
+                                                type="text"
+                                                value={item.name}
+                                                onChange={(e) => updateItem('services_settings', index, 'name', e.target.value)}
+                                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Starts From (₹)</label>
+                                            <input
+                                                type="number"
+                                                value={item.price}
+                                                onChange={(e) => updateItem('services_settings', index, 'price', e.target.value)}
+                                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}
+                                            />
+                                        </div>
+                                        <button onClick={() => removeItem('services_settings', index)} className="btn btn-danger" style={{ marginTop: '20px' }}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                                {settings.services_settings.items.length === 0 && (
+                                    <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '24px' }}>No services added yet.</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
+                {/* ── LOCALITIES TAB ── */}
+                {activeTab === 'localities' && (
+                    <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
+                                <input type="text" value={settings.localities_settings.title} onChange={(e) => updateSection('localities_settings', 'title', e.target.value)} className="form-control" />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                                <input type="text" value={settings.localities_settings.subtitle} onChange={(e) => updateSection('localities_settings', 'subtitle', e.target.value)} className="form-control" />
+                            </div>
+                        </div>
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                 <label style={{ fontWeight: 600 }}>Localities / Areas served</label>
@@ -412,124 +861,149 @@ function PageSettingsManager({ pageId, pageLabel }) {
                     </div>
                 )}
 
-                {activeTab === 'services' && (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
-                                <input
-                                    type="text"
-                                    value={settings.services_settings.title}
-                                    onChange={(e) => updateSection('services_settings', 'title', e.target.value)}
-                                    className="form-control"
-                                />
+                {/* ── BRANDS TAB ── */}
+                {activeTab === 'brands' && (
+                    <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: '#3b82f615', borderRadius: 'var(--radius-md)', color: '#3b82f6', flex: 1 }}>
+                                <ImageIcon size={20} />
+                                <p style={{ margin: 0, fontSize: '14px' }}>Select {settings.brands_settings.items.length} brands for this page</p>
                             </div>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                            <div style={{ position: 'relative', width: '300px' }}>
                                 <input
                                     type="text"
-                                    value={settings.services_settings.subtitle}
-                                    onChange={(e) => updateSection('services_settings', 'subtitle', e.target.value)}
+                                    placeholder="Search brands library..."
+                                    value={brandSearch}
+                                    onChange={(e) => setBrandSearch(e.target.value)}
                                     className="form-control"
+                                    style={{ paddingLeft: '36px' }}
                                 />
+                                <HelpCircle size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
                             </div>
                         </div>
 
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                <label style={{ fontWeight: 600 }}>Popular Services & Pricing</label>
-                                <button onClick={() => addItem('services_settings')} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }}>
-                                    <Plus size={14} /> Add Service
-                                </button>
-                            </div>
-                            <div style={{ display: 'grid', gap: '12px' }}>
-                                {settings.services_settings.items.map((item, index) => (
-                                    <div key={index} style={{
-                                        display: 'flex',
-                                        gap: '12px',
-                                        padding: '12px',
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: '1px solid var(--border-primary)',
-                                        alignItems: 'center'
-                                    }}>
-                                        <div style={{ flex: 2 }}>
-                                            <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Service Name</label>
-                                            <input
-                                                type="text"
-                                                value={item.name}
-                                                onChange={(e) => updateItem('services_settings', index, 'name', e.target.value)}
-                                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}
-                                            />
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '16px', maxHeight: '500px', overflowY: 'auto', padding: '4px' }}>
+                            {globalBrands
+                                .filter(b => b.name.toLowerCase().includes(brandSearch.toLowerCase()))
+                                .map(brand => {
+                                    const isSelected = settings.brands_settings.items.includes(brand.id);
+                                    return (
+                                        <div
+                                            key={brand.id}
+                                            onClick={() => toggleSelection('brands_settings', brand.id)}
+                                            style={{
+                                                padding: '16px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                                backgroundColor: isSelected ? 'var(--color-primary)08' : 'var(--bg-secondary)',
+                                                cursor: 'pointer',
+                                                textAlign: 'center',
+                                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                position: 'relative',
+                                                transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                                                boxShadow: isSelected ? '0 4px 12px rgba(99, 102, 241, 0.15)' : 'none'
+                                            }}
+                                        >
+                                            {isSelected && (
+                                                <div style={{ position: 'absolute', top: '-8px', right: '-8px', backgroundColor: 'var(--color-primary)', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.2)', zIndex: 10 }}>
+                                                    <Save size={12} strokeWidth={3} />
+                                                </div>
+                                            )}
+                                            <div style={{ height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                                                <img
+                                                    src={brand.logo_url}
+                                                    alt={brand.name}
+                                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: isSelected ? 'none' : 'grayscale(1)' }}
+                                                />
+                                            </div>
+                                            <div style={{ fontSize: '11px', fontWeight: 700, opacity: isSelected ? 1 : 0.6 }}>{brand.name}</div>
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Starts From (₹)</label>
-                                            <input
-                                                type="number"
-                                                value={item.price}
-                                                onChange={(e) => updateItem('services_settings', index, 'price', e.target.value)}
-                                                style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}
-                                            />
-                                        </div>
-                                        <button onClick={() => removeItem('services_settings', index)} className="btn btn-danger" style={{ marginTop: '20px' }}>
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
+                                    );
+                                })}
+                            {globalBrands.length > 0 && globalBrands.filter(b => b.name.toLowerCase().includes(brandSearch.toLowerCase())).length === 0 && (
+                                <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
+                                    No brands match "{brandSearch}"
+                                </div>
+                            )}
+                        </div>
+                        {globalBrands.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '40px' }}>No brands found in global library.</p>}
+
+                        <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                            <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                Need a brand not listed here?
+                                <span style={{ color: 'var(--color-primary)', cursor: 'pointer', marginLeft: '4px', fontWeight: 600 }}>Create in Global Brands Library →</span>
+                            </p>
                         </div>
                     </div>
                 )}
 
+                {/* ── FAQs TAB ── */}
                 {activeTab === 'faqs' && (
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', padding: '16px', backgroundColor: '#8b5cf615', borderRadius: 'var(--radius-md)', color: '#8b5cf6' }}>
-                            <HelpCircle size={20} />
-                            <p style={{ margin: 0, fontSize: '14px' }}>Select FAQs from the global library to display on this page.</p>
+                    <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: '#8b5cf615', borderRadius: 'var(--radius-md)', color: '#8b5cf6', flex: 1 }}>
+                                <HelpCircle size={20} />
+                                <p style={{ margin: 0, fontSize: '14px' }}>Selected {settings.faqs_settings.items.length} FAQs for this page</p>
+                            </div>
+                            <div style={{ position: 'relative', width: '300px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search FAQs..."
+                                    value={faqSearch}
+                                    onChange={(e) => setFaqSearch(e.target.value)}
+                                    className="form-control"
+                                    style={{ paddingLeft: '36px' }}
+                                />
+                                <HelpCircle size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+                            </div>
                         </div>
 
-                        <div style={{ display: 'grid', gap: '12px' }}>
-                            {globalFaqs.map(faq => {
-                                const isSelected = settings.faqs_settings.items.includes(faq.id);
-                                return (
-                                    <div
-                                        key={faq.id}
-                                        onClick={() => toggleSelection('faqs_settings', faq.id)}
-                                        style={{
-                                            padding: '16px',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: `1px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
-                                            backgroundColor: isSelected ? 'var(--color-primary)05' : 'var(--bg-secondary)',
-                                            cursor: 'pointer',
-                                            transition: 'all 0.2s ease',
-                                            display: 'flex',
-                                            gap: '16px',
-                                            alignItems: 'flex-start'
-                                        }}
-                                    >
-                                        <div style={{
-                                            flexShrink: 0,
-                                            width: '24px',
-                                            height: '24px',
-                                            borderRadius: '50%',
-                                            border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-tertiary)'}`,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: 'var(--color-primary)',
-                                            backgroundColor: isSelected ? 'white' : 'transparent'
-                                        }}>
-                                            {isSelected && <ChevronRight size={16} />}
+                        <div style={{ display: 'grid', gap: '12px', maxHeight: '500px', overflowY: 'auto', padding: '4px' }}>
+                            {globalFaqs
+                                .filter(f => f.question.toLowerCase().includes(faqSearch.toLowerCase()) || f.answer.toLowerCase().includes(faqSearch.toLowerCase()))
+                                .map(faq => {
+                                    const isSelected = settings.faqs_settings.items.includes(faq.id);
+                                    return (
+                                        <div
+                                            key={faq.id}
+                                            onClick={() => toggleSelection('faqs_settings', faq.id)}
+                                            style={{
+                                                padding: '16px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: `1.5px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                                backgroundColor: isSelected ? 'var(--color-primary)08' : 'var(--bg-secondary)',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                display: 'flex',
+                                                gap: '16px',
+                                                alignItems: 'flex-start',
+                                                boxShadow: isSelected ? '0 2px 8px rgba(99, 102, 241, 0.1)' : 'none'
+                                            }}
+                                        >
+                                            <div style={{ flexShrink: 0, width: '24px', height: '24px', borderRadius: '50%', border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-tertiary)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', backgroundColor: isSelected ? 'var(--color-primary)' : 'transparent' }}>
+                                                {isSelected && <Save size={14} color="white" strokeWidth={3} />}
+                                            </div>
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{faq.question}</div>
+                                                <div style={{ fontSize: '13px', opacity: 0.7, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>{faq.answer.substring(0, 120)}{faq.answer.length > 120 ? '...' : ''}</div>
+                                            </div>
                                         </div>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>{faq.question}</div>
-                                            <div style={{ fontSize: '13px', opacity: 0.8, color: 'var(--text-secondary)' }}>{faq.answer.substring(0, 150)}{faq.answer.length > 150 ? '...' : ''}</div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            {globalFaqs.length > 0 && globalFaqs.filter(f => f.question.toLowerCase().includes(faqSearch.toLowerCase()) || f.answer.toLowerCase().includes(faqSearch.toLowerCase())).length === 0 && (
+                                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
+                                    No FAQs match "{faqSearch}"
+                                </div>
+                            )}
                         </div>
                         {globalFaqs.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '40px' }}>No FAQs found in global library.</p>}
+
+                        <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                            <p style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                Need a specific FAQ?
+                                <span style={{ color: 'var(--color-primary)', cursor: 'pointer', marginLeft: '4px', fontWeight: 600 }}>Manage Global FAQ Library →</span>
+                            </p>
+                        </div>
                     </div>
                 )}
             </div>
@@ -560,12 +1034,8 @@ function PageSettingsManager({ pageId, pageLabel }) {
                     border-radius: var(--radius-md);
                     cursor: pointer;
                 }
-                .btn-danger:hover {
-                    background-color: #ef444425;
-                }
-                .animate-spin {
-                    animation: spin 1s linear infinite;
-                }
+                .btn-danger:hover { background-color: #ef444425; }
+                .animate-spin { animation: spin 1s linear infinite; }
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }

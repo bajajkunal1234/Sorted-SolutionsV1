@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import HeroSection from '@/components/services/HeroSection'
+
+export const dynamic = 'force-dynamic'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import CategoryCards from '@/components/services/CategoryCards'
 import ProblemsSection from '@/components/services/ProblemsSection'
@@ -17,7 +19,7 @@ import { getFAQs } from '@/data/faqs'
 
 export default async function CategoryPage({ params }) {
     const { category } = params
-    const pageId = `category-${category}`
+    const pageId = `cat-${category}`
 
     // Format category name for display
     const categoryName = category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
@@ -49,11 +51,25 @@ export default async function CategoryPage({ params }) {
 
             // Map data to component formats
             dynamicSettings = {
+                heroSettings: pageSettings.hero_settings,
                 problems: problems?.length > 0 ? problems.map(h => ({ question: h.problem_title, answer: h.problem_description })) : null,
                 services: services?.length > 0 ? services.map(s => ({ name: s.service_name, price: s.price_starts_at })) : null,
                 localities: localities?.length > 0 ? localities.map(l => l.locality_name) : null,
                 brandIds: brandMappings?.map(m => m.brand_id) || [],
-                faqIds: faqMappings?.map(m => m.faq_id) || []
+                faqIds: faqMappings?.map(m => m.faq_id) || [],
+
+                // New Subcategories Mapping
+                subcategories: pageSettings.subcategories_settings?.items?.length > 0 ? pageSettings.subcategories_settings.items : null,
+                subcategoriesTitle: pageSettings.subcategories_settings?.title,
+                subcategoriesSubtitle: pageSettings.subcategories_settings?.subtitle,
+
+                // Section Title/Subtitle overrides
+                problems_title: pageSettings.problems_settings?.title,
+                problems_subtitle: pageSettings.problems_settings?.subtitle,
+                services_title: pageSettings.services_settings?.title,
+                services_subtitle: pageSettings.services_settings?.subtitle,
+                localities_title: pageSettings.localities_settings?.title,
+                localities_subtitle: pageSettings.localities_settings?.subtitle
             };
 
             // Fetch specific brand and FAQ objects if we have IDs
@@ -67,7 +83,7 @@ export default async function CategoryPage({ params }) {
     }
 
     // 2. Fallbacks to hardcoded data
-    const subcategories = subcategoriesByCategory[category] || []
+    const subcategories = dynamicSettings?.subcategories || subcategoriesByCategory[category] || []
     const problems = dynamicSettings?.problems || getProblems(category)
     const faqs = dynamicSettings?.faqs || getFAQs(category)
     // Localities and Brands we'll pass to components (they need to handle dynamic IDs or default behavior)
@@ -80,6 +96,7 @@ export default async function CategoryPage({ params }) {
                 title={`${categoryName} Solutions In Mumbai`}
                 subtitle="Expert technicians • Same-day service • 90-day warranty"
                 category={category}
+                heroSettings={dynamicSettings?.heroSettings}
             />
 
             {/* Quick Booking Form - Pre-filled with category */}
@@ -87,8 +104,8 @@ export default async function CategoryPage({ params }) {
 
             {/* Sub-Categories Grid with Images */}
             <CategoryCards
-                title={`${categoryName} Services`}
-                subtitle="Choose your specific appliance type"
+                title={dynamicSettings?.subcategoriesTitle || `${categoryName} Services`}
+                subtitle={dynamicSettings?.subcategoriesSubtitle || "Choose your specific appliance type"}
                 cards={subcategories}
                 baseUrl={`/services/${category}`}
             />

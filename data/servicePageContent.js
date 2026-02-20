@@ -159,6 +159,52 @@ export const subcategoriesByCategory = {
             icon: '❄️'
         }
     ],
+    'washing-machine-repair': [
+        {
+            slug: 'front-load',
+            title: 'Front Load Repair',
+            description: 'Specialized repair for front loading washing machines',
+            price: 599,
+            icon: '🧺'
+        },
+        {
+            slug: 'top-load',
+            title: 'Top Load Repair',
+            description: 'Expert service for top loading washing machines',
+            price: 499,
+            icon: '🧺'
+        },
+        {
+            slug: 'semi-automatic',
+            title: 'Semi Automatic Repair',
+            description: 'Reliable repair for semi-automatic washers',
+            price: 399,
+            icon: '🧺'
+        }
+    ],
+    'refrigerator-repair': [
+        {
+            slug: 'single-door',
+            title: 'Single Door Repair',
+            description: 'Common repairs for single door refrigerators',
+            price: 399,
+            icon: '🧊'
+        },
+        {
+            slug: 'double-door',
+            title: 'Double Door Repair',
+            description: 'Maintenance and repair for double door models',
+            price: 599,
+            icon: '🧊'
+        },
+        {
+            slug: 'side-by-side',
+            title: 'Side-by-Side Repair',
+            description: 'Premium repair for side-by-side refrigerators',
+            price: 899,
+            icon: '🧊'
+        }
+    ],
     'oven-repair': [
         {
             slug: 'microwave-oven',
@@ -180,6 +226,38 @@ export const subcategoriesByCategory = {
             description: 'Commercial deck oven repair services',
             price: 999,
             icon: '🔥'
+        }
+    ],
+    'water-purifier-repair': [
+        {
+            slug: 'ro-purifier',
+            title: 'RO Service',
+            description: 'Complete RO water purifier maintenance',
+            price: 599,
+            icon: '💧'
+        },
+        {
+            slug: 'uv-purifier',
+            title: 'UV Purifier Repair',
+            description: 'Repair services for UV water purifiers',
+            price: 499,
+            icon: '💧'
+        }
+    ],
+    'hob-repair': [
+        {
+            slug: 'built-in-hob',
+            title: 'Built-in HOB Repair',
+            description: 'Specialized repair for built-in kitchen hobs',
+            price: 599,
+            icon: '🍳'
+        },
+        {
+            slug: 'gas-stove',
+            title: 'Gas Stove Repair',
+            description: 'Reliable repair for traditional gas stoves',
+            price: 299,
+            icon: '🍳'
         }
     ]
 }

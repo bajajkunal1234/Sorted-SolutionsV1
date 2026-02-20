@@ -51,6 +51,31 @@ export async function POST(request) {
 
             if (createCustomerError) throw createCustomerError
             finalCustomerId = newCustomer.id
+
+            // Create accounting ledger for the new customer (Sundry Debtor)
+            try {
+                const { data: ledger, error: ledgerError } = await supabase.from('accounts').insert({
+                    name: `${customer.firstName} ${customer.lastName}`,
+                    under: 'sundry-debtors',
+                    type: 'asset',
+                    openingBalance: 0,
+                    phone: customer.phone,
+                    email: customer.email,
+                    mailingAddress: `${customer.address.street}, ${customer.address.city}, ${customer.address.zip}`,
+                    gstRegistrationType: 'Consumer',
+                    asOnDate: new Date().toISOString().split('T')[0],
+                    createdAt: new Date().toISOString()
+                }).select('id').single()
+
+                if (!ledgerError && ledger) {
+                    // Link ledger back to customer
+                    await supabase.from('customers').update({ ledger_id: ledger.id }).eq('id', finalCustomerId)
+                }
+            } catch (ledgerError) {
+                console.error('Failed to create ledger for new customer:', ledgerError)
+                // We don't throw here to avoid failing the whole booking if ledger fails
+                // but in a production system we should ensure consistency
+            }
         }
 
         // 3. Create/Update Property
@@ -98,15 +123,12 @@ export async function POST(request) {
         if (jobError) throw jobError
 
         // 5. Log Interaction
-        await supabase
-            .from('interactions')
-            .insert({
-                job_id: job.id,
-                customer_id: finalCustomerId,
-                type: 'job_created',
-                description: 'Service request created via Web Booking Wizard',
-                created_by: finalCustomerId // For guest, they "create" it themselves
-            })
+        await supabase.from('job_interactions').insert([{
+            job_id: job.id,
+            type: 'created',
+            message: `Booking created from website wizard for ${customer.firstName} ${customer.lastName}`,
+            user_name: 'System'
+        }])
 
         return NextResponse.json({
             success: true,

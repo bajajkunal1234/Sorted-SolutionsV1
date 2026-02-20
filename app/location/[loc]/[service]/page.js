@@ -9,85 +9,102 @@ import FAQSection from '@/components/services/FAQSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
 import { getFAQs } from '@/data/faqs'
+import { supabase } from '@/lib/supabase'
 
-// Service mapping
-const serviceMap = {
-    'ac': {
-        full: 'Air Conditioner',
-        category: 'ac-repair',
-        description: 'Expert AC repair and servicing for all types'
-    },
-    'refrigerator': {
-        full: 'Refrigerator',
-        category: 'refrigerator-repair',
-        description: 'Professional refrigerator repair and maintenance'
-    },
-    'wm': {
-        full: 'Washing Machine',
-        category: 'washing-machine-repair',
-        description: 'Complete washing machine repair services'
-    },
-    'waterpurifier': {
-        full: 'Water Purifier',
-        category: 'water-purifier-repair',
-        description: 'RO and water purifier repair and servicing'
-    },
-    'oven': {
-        full: 'Oven',
-        category: 'oven-repair',
-        description: 'Microwave and oven repair services'
-    },
-    'hob': {
-        full: 'HOB Stoves',
-        category: 'hob-repair',
-        description: 'Gas hob and stove repair services'
-    }
-}
+export const dynamic = 'force-dynamic'
 
-export default function SubLocationPage({ params }) {
+const LOCATIONS = [
+    'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
+    'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim',
+    'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla'
+]
+
+export default async function SubLocationPage({ params }) {
     const { loc, service } = params
 
-    // Format location and service names
+    // Format display names
     const locationName = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-    const serviceInfo = serviceMap[service]
+    const serviceName = service.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
-    if (!serviceInfo) {
-        return <div>Service not found</div>
+    // Page ID for this sub-location page (e.g. sloc-andheri-ac-repair)
+    const pageId = `sloc-${loc}-${service}`
+
+    // ── Fetch dynamic settings from Supabase ──────────────────────────────────
+    let dynamicSettings = null
+    try {
+        const { data: pageSettings } = await supabase
+            .from('page_settings')
+            .select('*')
+            .eq('page_id', pageId)
+            .single()
+
+        if (pageSettings) {
+            const [
+                { data: problems },
+                { data: services },
+                { data: faqsMapping }
+            ] = await Promise.all([
+                supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_faqs_mapping')
+                    .select('faq_id, website_faqs(question, answer)')
+                    .eq('page_id', pageId)
+                    .order('display_order', { ascending: true })
+            ])
+
+            dynamicSettings = {
+                heroSettings: pageSettings.hero_settings || null,
+                problemsSettings: pageSettings.problems_settings,
+                servicesSettings: pageSettings.services_settings,
+                problems: (problems || []).map(p => ({ question: p.problem_title, answer: p.problem_description })),
+                services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
+                faqs: (faqsMapping || [])
+                    .filter(f => f.website_faqs)
+                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer }))
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching sub-location dynamic settings:', error)
     }
 
-    // Common problems for this service in this location
-    const commonProblems = [
-        `${serviceInfo.full} not working properly`,
-        'Making unusual noise',
-        'Performance issues',
-        'Electrical problems',
-        'Need regular maintenance',
-        'Warranty service required'
-    ]
+    // ── Fallbacks ────────────────────────────────────────────────────────────
+    const problemsTitle = dynamicSettings?.problemsSettings?.title
+        || `${serviceName} Problems We Solve in ${locationName}`
+    const problemsSubtitle = dynamicSettings?.problemsSettings?.subtitle
+        || `Common ${serviceName.toLowerCase()} issues we fix in ${locationName}`
 
-    // Get FAQs for this service
-    const faqs = getFAQs(serviceInfo.category).slice(0, 5)
+    const problems = dynamicSettings?.problems?.length
+        ? dynamicSettings.problems
+        : [
+            { question: `${serviceName} not working properly`, answer: 'Our technicians diagnose and fix all failure types.' },
+            { question: 'Making unusual noise', answer: 'We identify and resolve all mechanical sound issues.' },
+            { question: 'Performance issues', answer: 'We restore optimal performance through comprehensive service.' },
+            { question: 'Electrical problems', answer: 'Our certified technicians handle all electrical faults safely.' },
+            { question: 'Need regular maintenance', answer: 'We offer preventive care to extend your appliance lifespan.' }
+        ]
+
+    const faqs = dynamicSettings?.faqs?.length ? dynamicSettings.faqs : getFAQs('ac-repair').slice(0, 5)
 
     return (
         <div className="service-page sub-location-page">
             <Header />
             {/* Hero Section */}
             <HeroSection
-                title={`${serviceInfo.full} Repair in ${locationName}`}
-                subtitle={`Expert ${serviceInfo.full.toLowerCase()} repair services • Same-day service • All brands`}
-                category={serviceInfo.category}
+                title={`${serviceName} Repair in ${locationName}`}
+                subtitle={`Expert ${serviceName.toLowerCase()} repair services • Same-day service • All brands`}
+                category={service}
                 location={locationName}
-                currentService={service}
+                heroSettings={dynamicSettings?.heroSettings || null}
             />
 
             {/* Quick Booking Form */}
-            <QuickBookingEmbed preSelectedCategory={serviceInfo.category} />
+            <QuickBookingEmbed preSelectedCategory={service} />
 
             {/* Common Problems */}
             <ProblemsSection
-                title={`${serviceInfo.full} Problems We Solve in ${locationName}`}
-                subtitle={`Common ${serviceInfo.full.toLowerCase()} issues we fix`}
-                problems={commonProblems}
+                title={problemsTitle}
+                subtitle={problemsSubtitle}
+                problems={problems}
             />
 
             {/* How It Works */}
@@ -98,14 +115,14 @@ export default function SubLocationPage({ params }) {
 
             {/* Why Choose Us */}
             <WhyChooseUs
-                title={`Why Choose Us for ${serviceInfo.full} Repair in ${locationName}?`}
+                title={`Why Choose Us for ${serviceName} Repair in ${locationName}?`}
                 subtitle="Local experts with premium service quality"
             />
 
             {/* Brand Logos */}
             <BrandLogos
                 title="All Brands Serviced"
-                subtitle={`We repair all major ${serviceInfo.full.toLowerCase()} brands`}
+                subtitle={`We repair all major ${serviceName.toLowerCase()} brands`}
             />
 
             {/* Frequently Booked Services */}
@@ -117,7 +134,7 @@ export default function SubLocationPage({ params }) {
             {/* FAQ Section */}
             <FAQSection
                 title="Frequently Asked Questions"
-                subtitle={`Common questions about ${serviceInfo.full.toLowerCase()} repair`}
+                subtitle={`Common questions about ${serviceName.toLowerCase()} repair in ${locationName}`}
                 faqs={faqs}
             />
 
@@ -127,23 +144,36 @@ export default function SubLocationPage({ params }) {
     )
 }
 
-// Generate static params for all location-service combinations
+// Generate static params for all location × service combinations
 export async function generateStaticParams() {
-    const locations = [
-        'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
-        'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim',
-        'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla'
-    ]
+    // Fetch live appliance slugs from DB so new appliances are included at build
+    try {
+        const { data: categories } = await supabase
+            .from('booking_categories')
+            .select('slug')
+            .not('slug', 'is', null)
 
-    const services = ['ac', 'refrigerator', 'wm', 'waterpurifier', 'oven', 'hob']
+        if (categories && categories.length > 0) {
+            const params = []
+            LOCATIONS.forEach(loc => {
+                categories.forEach(cat => {
+                    params.push({ loc, service: cat.slug })
+                })
+            })
+            return params
+        }
+    } catch (e) {
+        console.error('generateStaticParams sub-location error:', e)
+    }
 
+    // Fallback
+    const services = ['ac-repair', 'refrigerator-repair', 'washing-machine-repair', 'water-purifier-repair', 'oven-repair', 'hob-repair']
     const params = []
-    locations.forEach(loc => {
+    LOCATIONS.forEach(loc => {
         services.forEach(service => {
             params.push({ loc, service })
         })
     })
-
     return params
 }
 
@@ -151,15 +181,11 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }) {
     const { loc, service } = params
     const locationName = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-    const serviceInfo = serviceMap[service]
-
-    if (!serviceInfo) {
-        return { title: 'Service Not Found' }
-    }
+    const serviceName = service.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
     return {
-        title: `${serviceInfo.full} Repair in ${locationName} | Same Day Service | SORTED`,
-        description: `Expert ${serviceInfo.full.toLowerCase()} repair services in ${locationName}. Same day service, all brands, 90-day warranty. Book now for fast and reliable ${serviceInfo.full.toLowerCase()} repair!`,
-        keywords: `${serviceInfo.full} repair ${locationName}, ${serviceInfo.full.toLowerCase()} service ${locationName}, ${serviceInfo.full.toLowerCase()} repair near me`,
+        title: `${serviceName} Repair in ${locationName} | Same Day Service | SORTED`,
+        description: `Expert ${serviceName.toLowerCase()} repair services in ${locationName}. Same day service, all brands, 90-day warranty. Book now!`,
+        keywords: `${serviceName} repair ${locationName}, ${serviceName.toLowerCase()} service ${locationName}`,
     }
 }

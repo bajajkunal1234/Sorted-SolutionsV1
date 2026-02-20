@@ -156,7 +156,7 @@ function BrandLogosSettings() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
                 <div>
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                        Global Brand Logos Management
+                        Global Brand Logos Library
                     </h3>
                     <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
                         Create and manage a library of brand logos for use across all website pages

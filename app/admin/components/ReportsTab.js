@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { FileText, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import DailyExpenses from './reports/DailyExpenses';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
@@ -14,6 +14,7 @@ import WhatsAppTemplateManager from './admin/WhatsAppTemplateManager';
 import QRCodeManager from './admin/QRCodeManager';
 import RentalsTab from './reports/RentalsTab';
 import AMCTab from './reports/AMCTab';
+import BankStatementReconciler from './reports/BankStatementReconciler';
 import InteractionsTab from './InteractionsTab';
 import CompanyDetailsModal from './CompanyDetailsModal';
 import TechnicianManagement from './reports/TechnicianManagement';
@@ -45,7 +46,8 @@ function ReportsTab() {
         { id: 'financial', label: 'Financial Reports', icon: TrendingUp, component: FinancialReports, color: '#a855f7', description: 'View financial analytics' },
         { id: 'templates', label: 'WhatsApp Templates', icon: MessageSquare, component: WhatsAppTemplateManager, color: '#22c55e', description: 'Manage WhatsApp message templates' },
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
-        { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' }
+        { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' },
+        { id: 'bank-reconciler', label: 'Bank Reconciler', icon: FileText, component: BankStatementReconciler, color: '#3b82f6', description: 'Reconcile bank statements with accounting' }
     ];
 
     // Create searchable index of all settings

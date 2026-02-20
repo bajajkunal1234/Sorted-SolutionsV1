@@ -1,6 +1,16 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
+const DEFAULT_HERO = {
+    title: '',
+    subtitle: '',
+    bg_type: 'gradient',       // 'gradient' | 'solid' | 'image'
+    bg_color_from: '#6366f1',
+    bg_color_to: '#4f46e5',
+    bg_image_url: '',
+    overlay_opacity: 0.85
+};
+
 export async function GET(request, { params }) {
     const { pageId } = params;
     console.log('--- GET Page Settings (using lib/supabase) ---');
@@ -45,6 +55,7 @@ export async function GET(request, { params }) {
                 success: true,
                 data: {
                     page_id: pageId,
+                    hero_settings: DEFAULT_HERO,
                     problems_settings: {
                         title: 'Problems We Solve',
                         subtitle: 'Common issues we fix',
@@ -60,6 +71,11 @@ export async function GET(request, { params }) {
                         subtitle: 'Find us near you',
                         items: (localities || []).map(l => l.locality_name)
                     },
+                    subcategories_settings: {
+                        title: 'Appliance Types',
+                        subtitle: 'Choose your specific appliance',
+                        items: []
+                    },
                     brands_settings: { items: (brandsMapping || []).map(b => b.brand_id) },
                     faqs_settings: { items: (faqsMapping || []).map(f => f.faq_id) }
                 }
@@ -68,6 +84,7 @@ export async function GET(request, { params }) {
 
         const responseData = {
             ...pageSettings,
+            hero_settings: { ...DEFAULT_HERO, ...pageSettings.hero_settings },
             problems_settings: {
                 ...pageSettings.problems_settings,
                 title: pageSettings.problems_settings?.title || 'Problems We Solve',
@@ -94,6 +111,12 @@ export async function GET(request, { params }) {
                 subtitle: pageSettings.localities_settings?.subtitle || 'Find us near you',
                 items: (localities || []).map(l => l.locality_name)
             },
+            subcategories_settings: {
+                ...pageSettings.subcategories_settings,
+                title: pageSettings.subcategories_settings?.title || 'Appliance Types',
+                subtitle: pageSettings.subcategories_settings?.subtitle || 'Choose your specific appliance',
+                items: pageSettings.subcategories_settings?.items || []
+            },
             brands_settings: {
                 items: (brandsMapping || []).map(b => b.brand_id)
             },
@@ -117,16 +140,18 @@ export async function PUT(request, { params }) {
     try {
         const body = await request.json();
 
-        // 1. Upsert main page settings (including JSONB titles/subtitles)
+        // 1. Upsert main page settings (including JSONB titles/subtitles and hero_settings)
         const { error: mainError } = await supabase
             .from('page_settings')
             .upsert({
                 page_id: pageId,
                 page_type: pageId.split('-')[0],
+                hero_settings: body.hero_settings,
                 problems_settings: body.problems_settings,
                 brands_settings: body.brands_settings,
                 localities_settings: body.localities_settings,
                 services_settings: body.services_settings,
+                subcategories_settings: body.subcategories_settings,
                 faqs_settings: body.faqs_settings,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'page_id' });
@@ -134,7 +159,6 @@ export async function PUT(request, { params }) {
         if (mainError) throw mainError;
 
         // 2. Cleanup and Re-insert related naming data into normalized tables
-        // (This ensures consistency for relational queries if needed)
         await Promise.all([
             supabase.from('page_problems').delete().eq('page_id', pageId),
             supabase.from('page_services').delete().eq('page_id', pageId),

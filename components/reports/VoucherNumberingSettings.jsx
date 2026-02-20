@@ -1,12 +1,29 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Save, RotateCcw, Eye } from 'lucide-react';
 import { voucherNumberingDefaults } from '../../data/reportsData';
 
 function VoucherNumberingSettings() {
     const [settings, setSettings] = useState(voucherNumberingDefaults);
     const [previewType, setPreviewType] = useState('sales');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Fetch settings on mount
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const response = await fetch('/api/admin/website-settings?key=voucher_numbering');
+                const result = await response.json();
+                if (result.success && result.data && result.data.value) {
+                    setSettings(result.data.value);
+                }
+            } catch (error) {
+                console.error('Error fetching voucher numbering settings:', error);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     const voucherTypes = [
         { id: 'sales', label: 'Sales Invoice', color: '#10b981' },
@@ -43,9 +60,31 @@ function VoucherNumberingSettings() {
         }
     };
 
-    const handleSave = () => {
-        // In real app, this would save to backend/Firebase
-        alert('Voucher numbering settings saved successfully!');
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const response = await fetch('/api/admin/website-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    key: 'voucher_numbering',
+                    value: settings,
+                    description: 'Configuration for automatic voucher numbering'
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert('Voucher numbering settings saved successfully!');
+            } else {
+                throw new Error(result.error || 'Failed to save settings');
+            }
+        } catch (error) {
+            console.error('Error saving settings:', error);
+            alert('Error saving settings: ' + error.message);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const getVoucherColor = (typeId) => {
@@ -78,10 +117,11 @@ function VoucherNumberingSettings() {
                 <button
                     className="btn btn-primary"
                     onClick={handleSave}
-                    style={{ padding: '8px 16px' }}
+                    disabled={isSaving}
+                    style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                 >
                     <Save size={16} />
-                    Save All Settings
+                    {isSaving ? 'Saving...' : 'Save All Settings'}
                 </button>
             </div>
 

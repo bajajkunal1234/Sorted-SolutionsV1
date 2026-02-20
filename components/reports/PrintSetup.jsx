@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Printer, Save, Eye, Upload, X, Plus, Trash2 } from 'lucide-react';
 
 function PrintSetup() {
@@ -44,6 +44,26 @@ function PrintSetup() {
 
     const [showPreview, setShowPreview] = useState(false);
     const [previewType, setPreviewType] = useState('invoice'); // invoice or quotation
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Fetch settings on mount
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const response = await fetch('/api/admin/website-settings?key=print_setup');
+                const result = await response.json();
+                if (result.success && result.data && result.data.value) {
+                    const { settings: savedSettings, invoiceTerms: savedInvoiceTerms, quotationTerms: savedQuotationTerms } = result.data.value;
+                    if (savedSettings) setSettings(savedSettings);
+                    if (savedInvoiceTerms) setInvoiceTerms(savedInvoiceTerms);
+                    if (savedQuotationTerms) setQuotationTerms(savedQuotationTerms);
+                }
+            } catch (error) {
+                console.error('Error fetching print setup:', error);
+            }
+        };
+        fetchSettings();
+    }, []);
 
     const templateStyles = [
         {
@@ -83,8 +103,35 @@ function PrintSetup() {
         }
     };
 
-    const handleSave = () => {
-        alert('Print settings saved successfully!');
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            const response = await fetch('/api/admin/website-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    key: 'print_setup',
+                    value: {
+                        settings,
+                        invoiceTerms,
+                        quotationTerms
+                    },
+                    description: 'Global print settings for invoices and quotations'
+                })
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert('Print settings saved successfully!');
+            } else {
+                throw new Error(result.error || 'Failed to save settings');
+            }
+        } catch (error) {
+            console.error('Error saving print setup:', error);
+            alert('Error saving settings: ' + error.message);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const addInvoiceTerm = () => {
@@ -160,10 +207,11 @@ function PrintSetup() {
                     <button
                         className="btn btn-primary"
                         onClick={handleSave}
-                        style={{ padding: '8px 16px' }}
+                        disabled={isSaving}
+                        style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                         <Save size={16} />
-                        Save Settings
+                        {isSaving ? 'Saving...' : 'Save Settings'}
                     </button>
                 </div>
             </div>

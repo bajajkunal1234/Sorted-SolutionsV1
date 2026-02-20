@@ -4,15 +4,32 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import './HeroSection.css'
 
+/**
+ * HeroSection — accepts an optional `heroSettings` object from Supabase
+ * (populated via the admin Page Builder).
+ *
+ * heroSettings shape:
+ * {
+ *   title?: string,
+ *   subtitle?: string,
+ *   bg_type: 'gradient' | 'solid' | 'image',
+ *   bg_color_from?: string,
+ *   bg_color_to?: string,
+ *   bg_image_url?: string,
+ *   overlay_opacity?: number   // 0..0.95, for image bg only
+ * }
+ *
+ * If heroSettings is null/undefined, falls back to the original CSS gradient.
+ */
 export default function HeroSection({
     title,
     subtitle,
     category,
-    location = null, // Location name for location pages
-    currentService = null, // Current service slug for sub-location pages
-    quickNavCategories = ['AC', 'WM', 'Ovens', 'Refrigerator', 'RO', 'HOB']
+    location = null,
+    currentService = null,
+    quickNavCategories = ['AC', 'WM', 'Ovens', 'Refrigerator', 'RO', 'HOB'],
+    heroSettings = null     // dynamic settings from Supabase
 }) {
-    // Service mapping for regular service pages
     const categoryMap = {
         'AC': 'ac-repair',
         'WM': 'washing-machine-repair',
@@ -22,7 +39,6 @@ export default function HeroSection({
         'HOB': 'hob-repair'
     }
 
-    // Service mapping for location pages
     const locationServiceMap = {
         'AC': { slug: 'ac', full: 'Air Conditioner' },
         'WM': { slug: 'wm', full: 'Washing Machine' },
@@ -32,41 +48,65 @@ export default function HeroSection({
         'HOB': { slug: 'hob', full: 'HOB Stoves' }
     }
 
-    // Generate button text based on context
     const getButtonText = (cat) => {
-        if (location) {
-            // Location page: show full name with location
-            return `${locationServiceMap[cat].full} in ${location}`
-        }
-        // Regular service page: show short name
+        if (location) return `${locationServiceMap[cat]?.full || cat} in ${location}`
         return cat
     }
 
-    // Generate link URL based on context
     const getButtonLink = (cat) => {
         if (location) {
-            // Location page: link to sub-location page
             const locationSlug = location.toLowerCase().replace(/\s+/g, '-')
-            return `/location/${locationSlug}/${locationServiceMap[cat].slug}`
+            return `/location/${locationSlug}/${locationServiceMap[cat]?.slug || cat}`
         }
-        // Regular service page: link to service category page
-        return `/services/${categoryMap[cat]}`
+        return `/services/${categoryMap[cat] || cat}`
     }
 
-    // Check if button is active
     const isButtonActive = (cat) => {
-        if (currentService) {
-            // Sub-location page: check against current service
-            return locationServiceMap[cat].slug === currentService
-        }
-        // Service page: check against category
+        if (currentService) return locationServiceMap[cat]?.slug === currentService
         return categoryMap[cat] === category
     }
 
+    // ── Resolve display title / subtitle ─────────────────────────────────────
+    const displayTitle = (heroSettings?.title?.trim()) ? heroSettings.title : title
+    const displaySubtitle = (heroSettings?.subtitle?.trim()) ? heroSettings.subtitle : subtitle
+
+    // ── Resolve background style ─────────────────────────────────────────────
+    const buildBgStyle = () => {
+        if (!heroSettings) return {}    // falls back to .hero-gradient CSS class
+
+        const { bg_type, bg_color_from, bg_color_to, bg_image_url, overlay_opacity } = heroSettings
+
+        if (bg_type === 'image' && bg_image_url) {
+            return {
+                backgroundImage: `url(${bg_image_url})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center center',
+                backgroundRepeat: 'no-repeat'
+            }
+        }
+        if (bg_type === 'solid') {
+            return { background: bg_color_from || '#6366f1' }
+        }
+        // gradient (default)
+        return {
+            background: `linear-gradient(135deg, ${bg_color_from || '#6366f1'} 0%, ${bg_color_to || '#4f46e5'} 100%)`
+        }
+    }
+
+    const hasCustomBg = !!heroSettings
+    const bgStyle = buildBgStyle()
+    const overlayOpacity = heroSettings?.bg_type === 'image' ? (heroSettings?.overlay_opacity ?? 0.5) : 0
+
     return (
-        <div className="hero-section">
-            {/* Background Gradient */}
-            <div className="hero-gradient"></div>
+        <div className="hero-section" style={hasCustomBg ? bgStyle : {}}>
+            {/* Background: use CSS gradient when no custom settings, overlay for image mode */}
+            {!hasCustomBg && <div className="hero-gradient" />}
+            {hasCustomBg && overlayOpacity > 0 && (
+                <div style={{
+                    position: 'absolute', inset: 0, zIndex: 0,
+                    backgroundColor: `rgba(0,0,0,${overlayOpacity})`
+                }} />
+            )}
 
             {/* Content */}
             <div className="hero-content">
@@ -77,8 +117,8 @@ export default function HeroSection({
                 </div>
 
                 {/* Main Title */}
-                <h1 className="hero-title">{title}</h1>
-                {subtitle && <p className="hero-subtitle">{subtitle}</p>}
+                <h1 className="hero-title">{displayTitle}</h1>
+                {displaySubtitle && <p className="hero-subtitle">{displaySubtitle}</p>}
 
                 {/* Quick Navigation Tabs */}
                 <div className="quick-nav-tabs">
@@ -98,11 +138,11 @@ export default function HeroSection({
                 </div>
             </div>
 
-            {/* Decorative Elements */}
+            {/* Decorative Circles */}
             <div className="hero-decoration">
-                <div className="decoration-circle decoration-1"></div>
-                <div className="decoration-circle decoration-2"></div>
-                <div className="decoration-circle decoration-3"></div>
+                <div className="decoration-circle decoration-1" />
+                <div className="decoration-circle decoration-2" />
+                <div className="decoration-circle decoration-3" />
             </div>
         </div>
     )

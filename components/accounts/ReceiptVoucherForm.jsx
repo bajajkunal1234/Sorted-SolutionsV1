@@ -4,12 +4,28 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import AccountSelector from '../common/AccountSelector';
 
-function ReceiptVoucherForm({ onClose, existingReceipt }) {
+function ReceiptVoucherForm({ onClose, existingReceipt, onSuccess }) {
+    const [accounts, setAccounts] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const res = await fetch('/api/admin/accounts');
+                const data = await res.json();
+                if (data.success) setAccounts(data.data || []);
+            } catch (error) {
+                console.error('Error fetching accounts:', error);
+            }
+        };
+        fetchAccounts();
+    }, []);
+
     const [date, setDate] = useState(existingReceipt?.date || new Date().toISOString().split('T')[0]);
-    const [accountId, setAccountId] = useState(existingReceipt?.accountId || '');
+    const [accountId, setAccountId] = useState(existingReceipt?.accountId || existingReceipt?.account_id || '');
     const [amount, setAmount] = useState(existingReceipt?.amount?.toString() || '');
-    const [paymentMode, setPaymentMode] = useState(existingReceipt?.paymentMode || 'cash');
-    const [referenceNumber, setReferenceNumber] = useState(existingReceipt?.referenceNumber || '');
+    const [paymentMode, setPaymentMode] = useState(existingReceipt?.paymentMode || existingReceipt?.payment_mode || 'bank_transfer');
+    const [referenceNumber, setReferenceNumber] = useState(existingReceipt?.referenceNumber || existingReceipt?.reference_number || '');
     const [narration, setNarration] = useState(existingReceipt?.narration || '');
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
 
@@ -20,7 +36,7 @@ function ReceiptVoucherForm({ onClose, existingReceipt }) {
         { value: 'cheque', label: 'Cheque' }
     ];
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         if (!accountId) {
             alert('Please select an account');
             return;
@@ -34,21 +50,39 @@ function ReceiptVoucherForm({ onClose, existingReceipt }) {
             return;
         }
 
-        const voucher = {
-            id: `RV-${Date.now()}`,
-            type: 'receipt',
-            date,
-            accountId,
-            amount: parseFloat(amount),
-            paymentMode,
-            referenceNumber,
-            narration,
-            createdAt: new Date().toISOString()
-        };
+        setIsLoading(true);
+        try {
+            const voucher = {
+                date,
+                account_id: accountId,
+                account_name: accounts.find(a => a.id === accountId)?.name || 'Unknown',
+                amount: parseFloat(amount),
+                payment_mode: paymentMode,
+                reference_number: referenceNumber,
+                narration,
+                status: 'received'
+            };
 
-        console.log('Receipt Voucher:', voucher);
-        alert('Receipt Voucher saved successfully!');
-        onClose();
+            const response = await fetch('/api/admin/transactions?type=receipt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(voucher)
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert('Receipt Voucher saved successfully!');
+                if (onSuccess) onSuccess(result.data);
+                onClose();
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('Error saving receipt:', error);
+            alert('Error saving receipt voucher: ' + error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (

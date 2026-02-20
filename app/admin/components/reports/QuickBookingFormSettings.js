@@ -8,313 +8,7 @@ import {
 } from 'lucide-react';
 import { quickBookingAPI } from '@/lib/adminAPI';
 
-const ICON_OPTIONS = [
-    'Package', 'Wind', 'Snowflake', 'Waves', 'Droplets', 'Flame',
-    'FlameKindling', 'Zap', 'Thermometer', 'Fan', 'Refrigerator',
-    'WashingMachine', 'Microwave', 'Tv', 'Radio', 'Coffee',
-    'Monitor', 'Printer', 'PhoneCall', 'Wrench'
-];
-
-const COLOR_PRESETS = [
-    '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b',
-    '#ef4444', '#06b6d4', '#ec4899', '#84cc16',
-    '#6366f1', '#14b8a6', '#f97316', '#a855f7'
-];
-
-function PageBuilderPanel({ category, onBuilt }) {
-    const [open, setOpen] = useState(false);
-    const [building, setBuilding] = useState(false);
-    const [checkingStatus, setCheckingStatus] = useState(false);
-    const [builtStatus, setBuiltStatus] = useState(null); // { total, built }
-    const [slug, setSlug] = useState(
-        category.slug ||
-        category.name.toLowerCase().replace(/\s+/g, '-') + '-repair'
-    );
-    const [color, setColor] = useState(category.color || '#6366f1');
-    const [iconName, setIconName] = useState(category.icon_name || 'Package');
-
-    useEffect(() => {
-        if (open && builtStatus === null) {
-            checkStatus();
-        }
-    }, [open]);
-
-    const checkStatus = async () => {
-        setCheckingStatus(true);
-        try {
-            const res = await fetch('/api/settings/appliances');
-            const data = await res.json();
-            if (data.success) {
-                const match = data.data.find(c => c.id === category.id);
-                if (match) setBuiltStatus(match.pageIds);
-            }
-        } catch (e) {
-            console.error('Status check failed:', e);
-        } finally {
-            setCheckingStatus(false);
-        }
-    };
-
-    const handleBuild = async () => {
-        if (!slug.trim()) {
-            alert('Please enter a URL slug.');
-            return;
-        }
-        setBuilding(true);
-        try {
-            const subcategories = (category.subcategories || []).map(s => ({
-                id: s.id,
-                name: s.name,
-                slug: s.slug || s.name.toLowerCase().replace(/\s+/g, '-')
-            }));
-
-            const res = await fetch('/api/settings/appliances/build-pages', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    categoryId: category.id,
-                    slug: slug.trim(),
-                    color,
-                    icon_name: iconName,
-                    subcategories
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(`✅ ${data.message}\n\nYou can now find these pages in:\n• Website Settings › Category Pages Settings\n• Website Settings › Sub Category Pages Settings\n• Website Settings › Sub Location Pages Settings`);
-                await checkStatus();
-                if (onBuilt) onBuilt();
-            } else {
-                alert('Failed: ' + data.error);
-            }
-        } catch (e) {
-            alert('Error: ' + e.message);
-        } finally {
-            setBuilding(false);
-        }
-    };
-
-    const isFullyBuilt = builtStatus && builtStatus.built === builtStatus.total && builtStatus.total > 0;
-    const isPartiallyBuilt = builtStatus && builtStatus.built > 0 && builtStatus.built < builtStatus.total;
-
-    return (
-        <div style={{ marginTop: 'var(--spacing-md)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--border-primary)' }}>
-            <button
-                onClick={() => setOpen(!open)}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 14px',
-                    border: `2px solid ${isFullyBuilt ? '#10b981' : isPartiallyBuilt ? '#f59e0b' : '#6366f1'}`,
-                    borderRadius: 'var(--radius-md)',
-                    backgroundColor: isFullyBuilt ? '#10b98110' : isPartiallyBuilt ? '#f59e0b10' : '#6366f110',
-                    color: isFullyBuilt ? '#10b981' : isPartiallyBuilt ? '#f59e0b' : '#6366f1',
-                    cursor: 'pointer',
-                    fontSize: 'var(--font-size-sm)',
-                    fontWeight: 600,
-                    width: '100%',
-                    justifyContent: 'space-between'
-                }}
-            >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Globe size={16} />
-                    🌐 Page Builder
-                    {builtStatus && (
-                        <span style={{
-                            fontSize: '11px',
-                            padding: '2px 8px',
-                            borderRadius: '99px',
-                            backgroundColor: isFullyBuilt ? '#10b981' : '#f59e0b',
-                            color: 'white',
-                            fontWeight: 700
-                        }}>
-                            {builtStatus.built}/{builtStatus.total} pages built
-                        </span>
-                    )}
-                </span>
-                {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-            </button>
-
-            {open && (
-                <div style={{
-                    marginTop: 'var(--spacing-md)',
-                    padding: 'var(--spacing-lg)',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderRadius: 'var(--radius-lg)',
-                    border: '1px solid var(--border-primary)',
-                    display: 'grid',
-                    gap: 'var(--spacing-md)'
-                }}>
-                    {/* URL Slug */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: '6px' }}>
-                            URL Slug <span style={{ color: 'var(--color-danger)', fontWeight: 400 }}>*</span>
-                        </label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>/services/</span>
-                            <input
-                                type="text"
-                                value={slug}
-                                onChange={e => setSlug(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''))}
-                                placeholder="e.g. dishwasher-repair"
-                                style={{
-                                    flex: 1,
-                                    padding: '8px 10px',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: 'var(--font-size-sm)',
-                                    fontFamily: 'monospace',
-                                    backgroundColor: 'var(--bg-elevated)'
-                                }}
-                            />
-                        </div>
-                        <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: '4px 0 0 0' }}>
-                            Also used for: /location/[loc]/{slug}
-                        </p>
-                    </div>
-
-                    {/* Color & Icon Row */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: '6px' }}>
-                                Admin Card Color
-                            </label>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                {COLOR_PRESETS.map(c => (
-                                    <button
-                                        key={c}
-                                        onClick={() => setColor(c)}
-                                        style={{
-                                            width: '28px',
-                                            height: '28px',
-                                            borderRadius: '50%',
-                                            backgroundColor: c,
-                                            border: color === c ? '3px solid white' : '2px solid transparent',
-                                            outline: color === c ? `2px solid ${c}` : 'none',
-                                            cursor: 'pointer'
-                                        }}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: '6px' }}>
-                                Admin Card Icon
-                            </label>
-                            <select
-                                value={iconName}
-                                onChange={e => setIconName(e.target.value)}
-                                style={{
-                                    width: '100%',
-                                    padding: '8px 10px',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: 'var(--font-size-sm)',
-                                    backgroundColor: 'var(--bg-elevated)'
-                                }}
-                            >
-                                {ICON_OPTIONS.map(ico => (
-                                    <option key={ico} value={ico}>{ico}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-
-                    {/* Pages Preview */}
-                    <div style={{
-                        padding: 'var(--spacing-md)',
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--border-primary)'
-                    }}>
-                        <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: '8px', color: 'var(--text-primary)' }}>
-                            Pages that will be generated & registered:
-                        </p>
-                        <div style={{ display: 'grid', gap: '6px' }}>
-                            <PreviewRow
-                                label="1 Category Page"
-                                url={`/services/${slug || '[slug]'}`}
-                                builtCount={builtStatus ? (builtStatus.built >= 1 ? 1 : 0) : null}
-                                total={1}
-                            />
-                            <PreviewRow
-                                label={`${(category.subcategories || []).length} Sub-category Pages`}
-                                url={`/services/${slug || '[slug]'}/[type]`}
-                                builtCount={null}
-                                total={(category.subcategories || []).length}
-                            />
-                            <PreviewRow
-                                label="15 Sub-location Pages"
-                                url={`/location/[area]/${slug || '[slug]'}`}
-                                builtCount={null}
-                                total={15}
-                            />
-                        </div>
-                        {(category.subcategories || []).length === 0 && (
-                            <p style={{ fontSize: '11px', color: '#f59e0b', marginTop: '8px' }}>
-                                ⚠️ No appliance types added yet. Add types first, then build pages to include their sub-category settings.
-                            </p>
-                        )}
-                    </div>
-
-                    {/* Status / Action */}
-                    {checkingStatus ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>
-                            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                            Checking build status...
-                        </div>
-                    ) : (
-                        <button
-                            onClick={handleBuild}
-                            disabled={building || !slug.trim()}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '10px',
-                                padding: '12px 20px',
-                                backgroundColor: building ? 'var(--bg-elevated)' : color,
-                                color: building ? 'var(--text-secondary)' : 'white',
-                                border: 'none',
-                                borderRadius: 'var(--radius-md)',
-                                cursor: building || !slug.trim() ? 'not-allowed' : 'pointer',
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: 700,
-                                opacity: !slug.trim() ? 0.6 : 1,
-                                transition: 'all 0.2s ease'
-                            }}
-                        >
-                            {building ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Construction size={18} />}
-                            {building
-                                ? 'Building pages...'
-                                : isFullyBuilt
-                                    ? '🔄 Rebuild & Refresh All Pages'
-                                    : isPartiallyBuilt
-                                        ? '⚠️ Complete Page Build'
-                                        : '🚀 Build & Register All Pages'}
-                        </button>
-                    )}
-                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', margin: 0 }}>
-                        This registers settings entries in Website Settings for each page and seeds default content. Safe to re-run — will not overwrite existing content.
-                    </p>
-                </div>
-            )}
-        </div>
-    );
-}
-
-function PreviewRow({ label, url, builtCount, total }) {
-    return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CheckCircle size={14} style={{ color: '#10b981' }} />
-                <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{label}</span>
-            </div>
-            <span style={{ fontSize: '11px', fontFamily: 'monospace', color: 'var(--text-tertiary)', opacity: 0.8 }}>{url}</span>
-        </div>
-    );
-}
+// Removed PageBuilderPanel from here. It is now a standalone tool in the Reports tab.
 
 function QuickBookingFormSettings() {
     const [settings, setSettings] = useState({
@@ -419,8 +113,11 @@ function QuickBookingFormSettings() {
         const name = prompt('Enter appliance name:');
         if (!name?.trim()) return;
         try {
+            // Automatically generate a basic slug to ensure DB constraints are happy and page builder has a starting point
+            const slug = name.toLowerCase().trim().replace(/\s+/g, '-') + '-repair';
             const result = await quickBookingAPI.createItem('category', {
                 name: name.trim(),
+                slug: slug,
                 showOnBookingForm: true,
                 displayOrder: settings.categories.length
             });
@@ -458,9 +155,12 @@ function QuickBookingFormSettings() {
         const name = prompt(`Enter appliance type name for "${selectedCategory.name}":`);
         if (!name?.trim()) return;
         try {
+            // Generate sub-slug
+            const slug = name.toLowerCase().trim().replace(/\s+/g, '-');
             const result = await quickBookingAPI.createItem('subcategory', {
                 categoryId: selectedCategory.id,
                 name: name.trim(),
+                slug: slug,
                 showOnBookingForm: true,
                 displayOrder: (selectedCategory.subcategories || []).length
             });
@@ -609,6 +309,7 @@ function QuickBookingFormSettings() {
                     {activeTab === 'categories' && (
                         <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                             {/* Info banner about page builder */}
+                            {/* Info banner about page builder removed from here */}
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'flex-start',
@@ -621,10 +322,10 @@ function QuickBookingFormSettings() {
                                 <Globe size={20} style={{ color: '#6366f1', flexShrink: 0, marginTop: '2px' }} />
                                 <div>
                                     <p style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, margin: '0 0 4px 0', color: '#6366f1' }}>
-                                        🚀 Page Builder Available
+                                        🚀 Page Builder Tool
                                     </p>
                                     <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                                        Each appliance has a <strong>🌐 Page Builder</strong> panel. Use it to register settings for all category, sub-category, and sub-location pages in Website Settings — so you can edit their content from the admin panel.
+                                        Seeding and building frontend pages is now handled by the standalone <strong>Page Builder Tool</strong> in the <b>Reports</b> tab.
                                     </p>
                                 </div>
                             </div>
@@ -700,11 +401,7 @@ function QuickBookingFormSettings() {
                                         </div>
                                     )}
 
-                                    {/* ── Page Builder Panel ── */}
-                                    <PageBuilderPanel
-                                        category={category}
-                                        onBuilt={fetchSettings}
-                                    />
+                                    {/* ── Page Builder Panel Removed ── */}
                                 </div>
                             ))}
                         </div>
