@@ -523,23 +523,55 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
 
             if (data.success) {
                 const d = data.data;
+
+                // If no row exists yet (new page), use defaults so admin can save for the first time
                 if (!d) {
-                    console.warn('[ST-DEBUG] No data returned from API for', pageId);
-                    return;
+                    console.warn('[ST-DEBUG] No data returned from API for', pageId, '- initializing with defaults');
                 }
 
-                console.log('[ST-DEBUG] Loaded page settings. Row ID check:', d.id || 'N/A');
+                console.log('[ST-DEBUG] Loaded page settings. Row ID check:', d?.id || 'NEW PAGE');
 
-                // Robust initialization with defaults
+                // Robust initialization with defaults (works for both existing and new pages)
                 const initialized = {
-                    ...d,
-                    hero_settings: { ...DEFAULT_HERO, ...(d.hero_settings || {}) },
-                    problems_settings: { title: 'Problems We Solve', subtitle: 'Common issues we fix', items: [], ...(d.problems_settings || {}) },
-                    services_settings: { title: 'Our Services', subtitle: 'Best in class services', items: [], ...(d.services_settings || {}) },
-                    localities_settings: { title: 'Areas We Serve', subtitle: 'Find us near you', items: [], ...(d.localities_settings || {}) },
-                    brands_settings: { items: [], ...(d.brands_settings || {}) },
-                    faqs_settings: { items: [], ...(d.faqs_settings || {}) },
-                    subcategories_settings: { title: 'Appliance Types', subtitle: 'Choose your specific appliance', items: [], ...(d.subcategories_settings || {}) }
+                    ...(d || {}),
+                    page_id: pageId,
+                    hero_settings: { ...DEFAULT_HERO, ...(d?.hero_settings || {}) },
+                    problems_settings: {
+                        title: 'Problems We Solve',
+                        subtitle: 'Common issues we fix',
+                        items: [],
+                        ...(d?.problems_settings || {})
+                    },
+                    services_settings: {
+                        title: 'Our Services',
+                        subtitle: 'Best in class services',
+                        items: [],
+                        ...(d?.services_settings || {})
+                    },
+                    localities_settings: {
+                        title: 'Areas We Serve',
+                        subtitle: 'Find us near you',
+                        items: [],
+                        ...(d?.localities_settings || {})
+                    },
+                    brands_settings: {
+                        title: 'Brands We Serve',
+                        subtitle: 'Trusted by leading appliance manufacturers',
+                        items: [],
+                        ...(d?.brands_settings || {})
+                    },
+                    faqs_settings: {
+                        title: 'Frequently Asked Questions',
+                        subtitle: 'Find answers to common questions',
+                        items: [],
+                        ...(d?.faqs_settings || {})
+                    },
+                    subcategories_settings: {
+                        title: 'Appliance Types',
+                        subtitle: 'Choose your specific appliance',
+                        items: [],
+                        ...(d?.subcategories_settings || {})
+                    }
                 };
 
                 setSettings(initialized);
@@ -590,22 +622,22 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
         }
 
         try {
-            console.log('[ST-DEBUG] Sending PUT request to:', `/api/settings/page/${pageId}`);
+            const payload = { ...settings, section_visibility: sectionVisibility };
+            console.log('%c[ST-DEBUG] FINAL PAYLOAD:', 'color: #10b981; font-weight: bold;', JSON.stringify(payload, null, 2));
+            console.log('%c[ST-DEBUG] FETCH URL:', 'color: #10b981; font-weight: bold;', `/api/settings/page/${pageId}`);
+
             const res = await fetch(`/api/settings/page/${pageId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...settings, section_visibility: sectionVisibility })
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Debug-Client': 'PageSettingsManager'
+                },
+                body: JSON.stringify(payload)
             });
 
             const data = await res.json();
             if (data.success) {
-                console.log('%c[ST-DEBUG] SAVE SUCCESS', 'background: #10b981; color: white; padding: 4px 8px; font-weight: bold;', data);
-                if (data.receivedCounts) {
-                    console.log('[ST-DEBUG] Server received:', data.receivedCounts);
-                }
                 setSaveSuccess(true);
-                // Re-fetch to confirm what the DB now thinks
-                console.log('[ST-DEBUG] Re-fetching settings to verify persistence...');
                 await fetchSettings();
                 setTimeout(() => setSaveSuccess(false), 3000);
             } else {
@@ -736,7 +768,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
         { id: 'services', label: 'Services', icon: Tag },
         { id: 'localities', label: 'Localities', icon: MapPin },
         { id: 'brands', label: 'Brands', icon: ImageIcon },
-        ...(pageId.startsWith('cat-') ? [{ id: 'subcategories', label: 'Subcategories', icon: Layout }] : []),
+        { id: 'subcategories', label: pageId.startsWith('cat-') ? 'Sub-Services' : 'Category Cards', icon: Layout },
         { id: 'faqs', label: 'FAQs', icon: HelpCircle }
     ];
     // Map from tab id to section_visibility key
@@ -936,7 +968,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                 )}
 
                 {/* ── SUBCATEGORIES TAB ── */}
-                {activeTab === 'subcategories' && pageId.startsWith('cat-') && (
+                {activeTab === 'subcategories' && (
                     <div>
                         <SectionVisibilityBanner sectionKey="subcategories" visible={sectionVisibility.subcategories} onToggle={toggleSectionVisibility} />
                         <div style={{ opacity: sectionVisibility.subcategories ? 1 : 0.45, pointerEvents: sectionVisibility.subcategories ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
@@ -1066,6 +1098,16 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                     <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
                         <SectionVisibilityBanner sectionKey="brands" visible={sectionVisibility.brands} onToggle={toggleSectionVisibility} />
                         <div style={{ opacity: sectionVisibility.brands ? 1 : 0.45, pointerEvents: sectionVisibility.brands ? 'auto' : 'none', transition: 'opacity 0.2s', display: 'grid', gap: 'var(--spacing-lg)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
+                                    <input type="text" value={settings.brands_settings.title} onChange={(e) => updateSection('brands_settings', 'title', e.target.value)} className="form-control" />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                                    <input type="text" value={settings.brands_settings.subtitle} onChange={(e) => updateSection('brands_settings', 'subtitle', e.target.value)} className="form-control" />
+                                </div>
+                            </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: '#3b82f615', borderRadius: 'var(--radius-md)', color: '#3b82f6', flex: 1 }}>
                                     <ImageIcon size={20} />
@@ -1145,6 +1187,16 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                     <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
                         <SectionVisibilityBanner sectionKey="faqs" visible={sectionVisibility.faqs} onToggle={toggleSectionVisibility} />
                         <div style={{ opacity: sectionVisibility.faqs ? 1 : 0.45, pointerEvents: sectionVisibility.faqs ? 'auto' : 'none', transition: 'opacity 0.2s', display: 'grid', gap: 'var(--spacing-lg)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
+                                    <input type="text" value={settings.faqs_settings.title} onChange={(e) => updateSection('faqs_settings', 'title', e.target.value)} className="form-control" />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                                    <input type="text" value={settings.faqs_settings.subtitle} onChange={(e) => updateSection('faqs_settings', 'subtitle', e.target.value)} className="form-control" />
+                                </div>
+                            </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: '#8b5cf615', borderRadius: 'var(--radius-md)', color: '#8b5cf6', flex: 1 }}>
                                     <HelpCircle size={20} />
