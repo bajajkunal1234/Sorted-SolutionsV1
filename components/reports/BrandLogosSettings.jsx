@@ -153,11 +153,18 @@ function BrandLogosSettings() {
 
     return (
         <div style={{ position: 'relative' }}>
-            {/* Hidden file inputs used for updating existing logos */}
+            {/* Hidden file inputs */}
+            <input ref={addFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, url => setNewBrand(b => ({ ...b, logo_url: url })));
+                    e.target.value = '';
+                }} />
             <input ref={editFileRef} type="file" accept="image/*" style={{ display: 'none' }}
                 onChange={e => {
                     const file = e.target.files?.[0];
                     if (file) handleFileUpload(file, url => setEditForm(f => ({ ...f, logo_url: url })));
+                    e.target.value = '';
                 }} />
 
             {/* Toast */}
@@ -204,29 +211,23 @@ function BrandLogosSettings() {
                         <div>
                             <label className="field-label">Logo *</label>
                             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                                <label
+                                <button
+                                    type="button"
                                     className="btn btn-secondary"
-                                    style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', border: '1px dashed var(--border-primary)' }}
+                                    onClick={() => addFileRef.current?.click()}
+                                    disabled={uploading}
+                                    style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, border: '1px dashed var(--border-primary)' }}
                                 >
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        style={{ display: 'none' }}
-                                        onChange={e => {
-                                            const file = e.target.files?.[0];
-                                            if (file) handleFileUpload(file, url => setNewBrand(b => ({ ...b, logo_url: url })));
-                                        }}
-                                    />
                                     {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
                                     <span style={{ fontWeight: 600 }}>{uploading ? 'Uploading...' : 'Choose Logo File'}</span>
-                                </label>
+                                </button>
 
                                 {newBrand.logo_url && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <div style={{ padding: 4, backgroundColor: 'var(--bg-secondary)', borderRadius: 6, display: 'flex', alignItems: 'center', height: 40, width: 40 }}>
                                             <img src={newBrand.logo_url} alt="preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                                         </div>
-                                        <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>Ready!</span>
+                                        <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>✅ Ready!</span>
                                     </div>
                                 )}
                             </div>

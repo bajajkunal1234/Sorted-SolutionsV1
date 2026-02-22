@@ -2,451 +2,306 @@
 
 import { useState, useEffect } from 'react';
 import { HelpCircle, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, Loader2, RefreshCcw } from 'lucide-react';
-import { websiteSettingsAPI, websiteFaqsAPI } from '@/lib/adminAPI';
 
 function FAQsManagement() {
-    const pageOptions = [
-        'Homepage',
-        'All Service Pages',
-        'All Location Pages',
-        'AC Repair Page',
-        'Washing Machine Repair Page',
-        'Refrigerator Repair Page',
-        'Microwave Repair Page',
-        'RO Water Purifier Page',
-        'Gas Stove Repair Page',
-        'Andheri Service Page',
-        'Dadar Service Page',
-        'Ghatkopar Service Page',
-        'Contact Page',
-        'About Page'
-    ];
-
     const [faqs, setFaqs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editingId, setEditingId] = useState(null);
     const [editForm, setEditForm] = useState({});
     const [showAddForm, setShowAddForm] = useState(false);
-    const [newFaq, setNewFaq] = useState({
-        question: '',
-        answer: '',
-        pages: ['Homepage']
-    });
+    const [newFaq, setNewFaq] = useState({ question: '', answer: '' });
     const [expandedId, setExpandedId] = useState(null);
+    const [toast, setToast] = useState(null);
 
-    useEffect(() => {
-        fetchFaqs();
-    }, []);
+    const showToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    useEffect(() => { fetchFaqs(); }, []);
 
     const fetchFaqs = async () => {
         setLoading(true);
         try {
-            const data = await websiteFaqsAPI.getAll();
-            if (data) {
-                // Ensure pages is an array even if not in dedicated table (for UI compatibility)
-                const mappedData = data.map(f => ({
-                    ...f,
-                    pages: f.pages || (f.category ? [f.category] : [])
-                }));
-                setFaqs(mappedData);
-            }
-        } catch (error) {
-            console.error('Error fetching FAQs:', error);
+            const res = await fetch('/api/settings/faqs');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load');
+            setFaqs(data.data || []);
+        } catch (err) {
+            showToast(err.message, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleEdit = (faq) => {
-        setEditingId(faq.id);
-        setEditForm({ ...faq });
-    };
-
-    const handleSaveEdit = async () => {
+    const handleAddFaq = async () => {
+        if (!newFaq.question.trim() || !newFaq.answer.trim()) return;
         setSaving(true);
         try {
-            await websiteFaqsAPI.update(editingId, {
-                question: editForm.question,
-                answer: editForm.answer,
-                category: editForm.pages?.[0] || 'General' // Use first selected page as category for now
+            const res = await fetch('/api/settings/faqs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    question: newFaq.question.trim(),
+                    answer: newFaq.answer.trim(),
+                    pages: [],
+                    display_order: faqs.length + 1,
+                }),
             });
-            setFaqs(faqs.map(f => f.id === editingId ? editForm : f));
-            setEditingId(null);
-            setEditForm({});
-        } catch (error) {
-            console.error('Error updating FAQ:', error);
-            alert('Failed to update FAQ');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to add FAQ');
+            setFaqs(prev => [...prev, data.data]);
+            setNewFaq({ question: '', answer: '' });
+            setShowAddForm(false);
+            showToast('FAQ added!');
+        } catch (err) {
+            showToast(err.message, 'error');
         } finally {
             setSaving(false);
         }
     };
 
-    const handleCancelEdit = () => {
-        setEditingId(null);
-        setEditForm({});
+    const handleSaveEdit = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/settings/faqs', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingId,
+                    question: editForm.question,
+                    answer: editForm.answer,
+                    pages: editForm.pages || [],
+                    display_order: editForm.display_order,
+                }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to update');
+            setFaqs(faqs.map(f => f.id === editingId ? data.data : f));
+            setEditingId(null);
+            setEditForm({});
+            showToast('FAQ updated!');
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleDelete = async (id) => {
-        if (confirm('Are you sure you want to delete this FAQ?')) {
-            try {
-                await websiteFaqsAPI.delete(id);
-                setFaqs(faqs.filter(f => f.id !== id));
-            } catch (error) {
-                console.error('Error deleting FAQ:', error);
-                alert('Failed to delete FAQ');
-            }
+        if (!confirm('Delete this FAQ?')) return;
+        try {
+            const res = await fetch(`/api/settings/faqs?id=${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to delete');
+            setFaqs(faqs.filter(f => f.id !== id));
+            showToast('FAQ deleted.');
+        } catch (err) {
+            showToast(err.message, 'error');
         }
     };
 
-    const handleAddFaq = async () => {
-        if (newFaq.question && newFaq.answer) {
-            setSaving(true);
-            try {
-                const addedFaq = await websiteFaqsAPI.create({
-                    question: newFaq.question,
-                    answer: newFaq.answer,
-                    category: newFaq.pages?.[0] || 'General',
-                    display_order: faqs.length + 1,
-                    is_active: true
-                });
-
-                if (addedFaq) {
-                    setFaqs([...faqs, { ...addedFaq, pages: newFaq.pages }]);
-                    setNewFaq({ question: '', answer: '', pages: ['Homepage'] });
-                    setShowAddForm(false);
-                }
-            } catch (error) {
-                console.error('Error adding FAQ:', error);
-                alert('Failed to add FAQ');
-            } finally {
-                setSaving(false);
-            }
-        }
-    };
-
-    const handlePageToggle = (faqPages, page) => {
-        if (faqPages.includes(page)) {
-            return faqPages.filter(p => p !== page);
-        } else {
-            return [...faqPages, page];
-        }
-    };
-
-    const handleSaveAll = async () => {
-        // Individual items are saved on add/edit/delete now to match dedicated table pattern
-        // But we can keep this for bulk updates if the API supports it
-        alert('All changes are already saved as you make them.');
-    };
-
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 40 }}>
+            <Loader2 size={24} style={{ color: 'var(--color-primary)', animation: 'spin 1s linear infinite' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>Loading FAQs...</span>
+        </div>
+    );
 
     return (
-        <div>
+        <div style={{ position: 'relative' }}>
+            {/* Toast */}
+            {toast && (
+                <div style={{
+                    position: 'fixed', top: 20, right: 20, zIndex: 9999,
+                    padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 14,
+                    backgroundColor: toast.type === 'error' ? '#ef4444' : '#10b981',
+                    color: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                }}>
+                    {toast.type === 'error' ? '❌ ' : '✅ '}{toast.msg}
+                </div>
+            )}
+
+            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
                 <div>
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                        Global FAQ's Management
+                        Global FAQ Library
                     </h3>
                     <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                        Create and manage a library of frequently asked questions for your website
+                        {faqs.length} FAQ{faqs.length !== 1 ? 's' : ''} · Changes save immediately
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={fetchFaqs}
-                        disabled={loading}
-                        style={{ padding: '6px 12px' }}
-                    >
-                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
-                    </button>
-                    <button
-                        onClick={handleSaveAll}
-                        disabled={saving || loading}
-                        className="btn btn-primary"
-                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
-                    >
-                        {saving ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
-                        {saving ? 'Saving...' : 'Save All Changes'}
-                    </button>
-                </div>
+                <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={fetchFaqs}
+                    disabled={loading}
+                    style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 6 }}
+                >
+                    <RefreshCcw size={16} /> Refresh
+                </button>
             </div>
 
-            {/* Add New FAQ Button */}
+            {/* Add Button */}
             {!showAddForm && (
                 <button
+                    type="button"
                     onClick={() => setShowAddForm(true)}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)' }}
                 >
-                    <Plus size={18} />
-                    Add New FAQ
+                    <Plus size={18} /> Add New FAQ
                 </button>
             )}
 
-            {/* Add FAQ Form */}
+            {/* Add Form */}
             {showAddForm && (
                 <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)', border: '2px solid var(--color-primary)' }}>
-                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                        Add New FAQ
-                    </h4>
-
+                    <h4 style={{ marginBottom: 'var(--spacing-md)', fontWeight: 600 }}>New FAQ</h4>
                     <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                         <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Question *
-                            </label>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Question *</label>
                             <input
                                 type="text"
                                 placeholder="e.g., What is your service area?"
                                 value={newFaq.question}
-                                onChange={(e) => setNewFaq({ ...newFaq, question: e.target.value })}
-                                style={{
-                                    width: '100%',
-                                    padding: 'var(--spacing-sm)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: 'var(--font-size-sm)'
-                                }}
+                                onChange={e => setNewFaq({ ...newFaq, question: e.target.value })}
+                                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', boxSizing: 'border-box' }}
                             />
                         </div>
-
                         <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Answer *
-                            </label>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Answer *</label>
                             <textarea
                                 placeholder="Enter the answer to this question..."
                                 value={newFaq.answer}
-                                onChange={(e) => setNewFaq({ ...newFaq, answer: e.target.value })}
+                                onChange={e => setNewFaq({ ...newFaq, answer: e.target.value })}
                                 rows={4}
-                                style={{
-                                    width: '100%',
-                                    padding: 'var(--spacing-sm)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: 'var(--font-size-sm)',
-                                    resize: 'vertical'
-                                }}
+                                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', resize: 'vertical', boxSizing: 'border-box' }}
                             />
                         </div>
-
-                        <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Display on Pages
-                            </label>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--spacing-xs)' }}>
-                                {pageOptions.map(page => (
-                                    <label key={page} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', cursor: 'pointer', padding: 'var(--spacing-xs)' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={newFaq.pages.includes(page)}
-                                            onChange={() => setNewFaq({ ...newFaq, pages: handlePageToggle(newFaq.pages, page) })}
-                                            style={{ width: '16px', height: '16px' }}
-                                        />
-                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>{page}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
                     </div>
-
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                         <button
+                            type="button"
                             onClick={handleAddFaq}
                             className="btn btn-primary"
-                            disabled={!newFaq.question || !newFaq.answer}
+                            disabled={!newFaq.question.trim() || !newFaq.answer.trim() || saving}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                         >
-                            <Save size={16} />
-                            Add FAQ
+                            {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+                            {saving ? 'Saving...' : 'Add FAQ'}
                         </button>
                         <button
-                            onClick={() => {
-                                setShowAddForm(false);
-                                setNewFaq({ question: '', answer: '', pages: ['Homepage'] });
-                            }}
+                            type="button"
+                            onClick={() => { setShowAddForm(false); setNewFaq({ question: '', answer: '' }); }}
                             className="btn btn-secondary"
                         >
-                            <X size={16} />
-                            Cancel
+                            <X size={16} /> Cancel
                         </button>
                     </div>
                 </div>
             )}
 
-            {/* FAQs List */}
+            {/* Empty state */}
+            {faqs.length === 0 && !showAddForm && (
+                <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <HelpCircle size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
+                    <p>No FAQs yet. Click "Add New FAQ" to get started.</p>
+                </div>
+            )}
+
+            {/* FAQ List */}
             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                {loading ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px', color: 'var(--text-secondary)' }}>
-                        <Loader2 className="spin" size={48} style={{ marginBottom: 'var(--spacing-md)' }} />
-                        <p>Loading FAQs library...</p>
-                    </div>
-                ) : faqs.length === 0 ? (
-                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)' }}>
-                        <p style={{ color: 'var(--text-secondary)' }}>No FAQs found. Add one above.</p>
-                    </div>
-                ) : (
-                    faqs.map((faq) => (
-                        <div
-                            key={faq.id}
-                            className="card"
-                            style={{
-                                padding: 'var(--spacing-lg)',
-                                border: editingId === faq.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
-                            }}
-                        >
-                            {editingId === faq.id ? (
-                                // Edit Mode
-                                <div>
-                                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                                Question
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={editForm.question}
-                                                onChange={(e) => setEditForm({ ...editForm, question: e.target.value })}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: 'var(--spacing-sm)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    fontSize: 'var(--font-size-sm)'
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                                Answer
-                                            </label>
-                                            <textarea
-                                                value={editForm.answer}
-                                                onChange={(e) => setEditForm({ ...editForm, answer: e.target.value })}
-                                                rows={4}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: 'var(--spacing-sm)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    fontSize: 'var(--font-size-sm)',
-                                                    resize: 'vertical'
-                                                }}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                                Display on Pages
-                                            </label>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 'var(--spacing-xs)' }}>
-                                                {pageOptions.map(page => (
-                                                    <label key={page} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', cursor: 'pointer', padding: 'var(--spacing-xs)' }}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={editForm.pages?.includes(page)}
-                                                            onChange={() => setEditForm({ ...editForm, pages: handlePageToggle(editForm.pages || [], page) })}
-                                                            style={{ width: '16px', height: '16px' }}
-                                                        />
-                                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>{page}</span>
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
+                {faqs.map((faq) => (
+                    <div
+                        key={faq.id}
+                        className="card"
+                        style={{ padding: 'var(--spacing-lg)', border: editingId === faq.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)' }}
+                    >
+                        {editingId === faq.id ? (
+                            <div>
+                                <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Question</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.question || ''}
+                                            onChange={e => setEditForm({ ...editForm, question: e.target.value })}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', boxSizing: 'border-box' }}
+                                        />
                                     </div>
-
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
-                                        <button onClick={handleSaveEdit} className="btn btn-primary">
-                                            <Save size={16} />
-                                            Save
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Answer</label>
+                                        <textarea
+                                            value={editForm.answer || ''}
+                                            onChange={e => setEditForm({ ...editForm, answer: e.target.value })}
+                                            rows={4}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', resize: 'vertical', boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveEdit}
+                                        className="btn btn-primary"
+                                        disabled={saving}
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                    >
+                                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />} Save
+                                    </button>
+                                    <button type="button" onClick={() => { setEditingId(null); setEditForm({}); }} className="btn btn-secondary"><X size={16} /></button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start' }}>
+                                    <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: '#f9731615', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <HelpCircle size={18} style={{ color: '#f97316' }} />
+                                    </div>
+                                    <div style={{ flex: 1 }}>
+                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 4px 0' }}>{faq.question}</h4>
+                                        {expandedId === faq.id && (
+                                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '8px 0 0 0', lineHeight: 1.6 }}>{faq.answer}</p>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 10px' }}
+                                        >
+                                            {expandedId === faq.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                         </button>
-                                        <button onClick={handleCancelEdit} className="btn btn-secondary">
-                                            <X size={16} />
-                                            Cancel
+                                        <button
+                                            type="button"
+                                            onClick={() => { setEditingId(faq.id); setEditForm({ ...faq }); }}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 10px' }}
+                                        >
+                                            <Edit2 size={16} />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleDelete(faq.id)}
+                                            style={{ padding: '6px 10px', background: '#ef444415', color: '#ef4444', border: '1px solid #ef444430', borderRadius: 'var(--radius-md)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                        >
+                                            <Trash2 size={16} />
                                         </button>
                                     </div>
                                 </div>
-                            ) : (
-                                // View Mode
-                                <div>
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
-                                        <div style={{
-                                            width: '40px',
-                                            height: '40px',
-                                            borderRadius: '50%',
-                                            backgroundColor: '#f97316 15',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            flexShrink: 0
-                                        }}>
-                                            <HelpCircle size={20} style={{ color: '#f97316' }} />
-                                        </div>
-
-                                        <div style={{ flex: 1 }}>
-                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 var(--spacing-xs) 0' }}>
-                                                {faq.question}
-                                            </h4>
-
-                                            {expandedId === faq.id && (
-                                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 var(--spacing-sm) 0', lineHeight: 1.6 }}>
-                                                    {faq.answer}
-                                                </p>
-                                            )}
-
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-sm)' }}>
-                                                {faq.pages.map(page => (
-                                                    <span
-                                                        key={page}
-                                                        style={{
-                                                            padding: '2px 8px',
-                                                            borderRadius: '12px',
-                                                            fontSize: '11px',
-                                                            fontWeight: 500,
-                                                            backgroundColor: '#3b82f615',
-                                                            color: '#3b82f6',
-                                                            border: '1px solid #3b82f630'
-                                                        }}
-                                                    >
-                                                        {page}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexShrink: 0 }}>
-                                            <button
-                                                onClick={() => setExpandedId(expandedId === faq.id ? null : faq.id)}
-                                                className="btn btn-secondary"
-                                                style={{ padding: '6px 12px' }}
-                                                title={expandedId === faq.id ? "Collapse" : "Expand"}
-                                            >
-                                                {expandedId === faq.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                            </button>
-                                            <button
-                                                onClick={() => handleEdit(faq)}
-                                                className="btn btn-secondary"
-                                                style={{ padding: '6px 12px' }}
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(faq.id)}
-                                                className="btn btn-danger"
-                                                style={{ padding: '6px 12px' }}
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ))
-                )}
+                            </div>
+                        )}
+                    </div>
+                ))}
             </div>
 
+            <style jsx>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }

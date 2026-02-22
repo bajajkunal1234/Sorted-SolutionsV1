@@ -1,436 +1,266 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { Image as ImageIcon, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink, Loader2, RefreshCcw } from 'lucide-react';
-import { websiteSettingsAPI, websiteBrandsAPI } from '@/lib/adminAPI';
+import { useState, useEffect, useRef } from 'react';
+import { Image as ImageIcon, Plus, Trash2, Edit2, Save, X, Upload, ExternalLink, Loader2 } from 'lucide-react';
 
 function BrandLogosSettings() {
     const [brands, setBrands] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploading, setUploading] = useState(false);
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+    const [editingId, setEditingId] = useState(null);
+    const [editForm, setEditForm] = useState({});
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [newBrand, setNewBrand] = useState({ name: '', logo_url: '', website_url: '' });
+    const [toast, setToast] = useState(null);
 
-    const fetchData = async () => {
+    const addFileRef = useRef(null);
+    const editFileRef = useRef(null);
+
+    const showToast = (msg, type = 'success') => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    useEffect(() => { fetchBrands(); }, []);
+
+    const fetchBrands = async () => {
         setLoading(true);
         try {
-            const [brandsData, configData] = await Promise.all([
-                websiteBrandsAPI.getAll(),
-                websiteSettingsAPI.getByKey('brand-logos-config')
-            ]);
-
-            if (brandsData) {
-                const mappedBrands = brandsData.map(b => ({
-                    ...b,
-                    logoUrl: b.logo_url || '',
-                    order: b.order_index || 0
-                }));
-                setBrands(mappedBrands);
-            }
-
-            if (configData && configData.value) {
-                setDisplaySettings(prev => ({ ...prev, ...configData.value }));
-            }
-        } catch (error) {
-            console.error('Error fetching brand data:', error);
+            const res = await fetch('/api/settings/brand-logos');
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to load');
+            setBrands(data.data || []);
+        } catch (err) {
+            showToast(err.message, 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const [displaySettings, setDisplaySettings] = useState({
-        showOnHomepage: true,
-        showOnServicePages: true,
-        autoScroll: true,
-        scrollSpeed: 3,
-        grayscale: true,
-        colorOnHover: true,
-        sectionTitle: 'Trusted by Leading Brands',
-        disclaimerText: '*These trademarks or logos are used for illustration purposes only & we disclaim any specific connection with the brand in this regard.'
-    });
-
-    const [editingId, setEditingId] = useState(null);
-    const [editForm, setEditForm] = useState({});
-    const [showAddForm, setShowAddForm] = useState(false);
-    const [newBrand, setNewBrand] = useState({
-        name: '',
-        logoUrl: '',
-        websiteUrl: ''
-    });
-
-    const handleEdit = (brand) => {
-        setEditingId(brand.id);
-        setEditForm({ ...brand });
-    };
-
-    const handleSaveEdit = () => {
-        setBrands(brands.map(b => b.id === editingId ? editForm : b));
-        setEditingId(null);
-        setEditForm({});
-    };
-
-    const handleCancelEdit = () => {
-        setEditingId(null);
-        setEditForm({});
-    };
-
-    const handleDelete = async (id) => {
-        if (confirm('Are you sure you want to delete this brand?')) {
-            try {
-                await websiteBrandsAPI.delete(id);
-                setBrands(brands.filter(b => b.id !== id));
-            } catch (error) {
-                console.error('Error deleting brand:', error);
-                alert('Failed to delete brand');
-            }
+    // ── Upload logo to Supabase Storage ──
+    const handleFileUpload = async (file, onSuccess) => {
+        if (!file) return;
+        setUploading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/settings/upload-logo', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Upload failed');
+            onSuccess(data.url);
+            showToast('Logo uploaded!');
+        } catch (err) {
+            showToast('Upload failed: ' + err.message, 'error');
+        } finally {
+            setUploading(false);
         }
     };
 
+    // ── Add Brand ──
     const handleAddBrand = async () => {
-        if (newBrand.name && newBrand.logoUrl) {
-            try {
-                const addedData = await websiteBrandsAPI.create({
-                    name: newBrand.name,
-                    logo_url: newBrand.logoUrl,
-                    website_url: newBrand.websiteUrl,
-                    order_index: brands.length + 1,
-                    active: true
-                });
-
-                if (addedData) {
-                    const addedBrand = {
-                        ...(Array.isArray(addedData) ? addedData[0] : addedData),
-                        logoUrl: (Array.isArray(addedData) ? addedData[0] : addedData).logo_url,
-                        order: (Array.isArray(addedData) ? addedData[0] : addedData).order_index
-                    };
-                    setBrands([...brands, addedBrand]);
-                    setNewBrand({ name: '', logoUrl: '', websiteUrl: '' });
-                    setShowAddForm(false);
-                }
-            } catch (error) {
-                console.error('Error adding brand:', error);
-                alert('Failed to add brand');
-            }
-        }
-    };
-
-    const handleSaveAll = async () => {
+        if (!newBrand.name.trim() || !newBrand.logo_url.trim()) return;
         setSaving(true);
         try {
-            const mappedLogos = brands.map((b, index) => ({
-                id: b.id,
-                name: b.name,
-                logo_url: b.logoUrl,
-                website_url: b.websiteUrl,
-                order_index: index + 1,
-                active: true
-            }));
-
-            await Promise.all([
-                websiteBrandsAPI.saveAll(mappedLogos),
-                websiteSettingsAPI.save('brand-logos-config', displaySettings, 'Display settings for brand logos')
-            ]);
-
-            alert('Brand logos settings saved successfully!');
-        } catch (error) {
-            console.error('Error saving brands:', error);
-            alert('Failed to save brands');
+            const res = await fetch('/api/settings/brand-logos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: newBrand.name.trim(),
+                    logo_url: newBrand.logo_url.trim(),
+                    website_url: newBrand.website_url.trim() || null,
+                    display_order: brands.length + 1,
+                }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to add brand');
+            setBrands(prev => [...prev, data.data]);
+            setNewBrand({ name: '', logo_url: '', website_url: '' });
+            setShowAddForm(false);
+            showToast('Brand added!');
+        } catch (err) {
+            showToast(err.message, 'error');
         } finally {
             setSaving(false);
         }
     };
 
-    if (loading) {
-        return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
-                <Loader2 className="animate-spin text-primary" size={48} style={{ animation: 'spin 1s linear infinite' }} />
-                <span style={{ marginLeft: '12px', fontSize: '18px', color: 'var(--text-secondary)' }}>Loading brands library...</span>
-            </div>
-        );
-    }
+    // ── Save Edit ──
+    const handleSaveEdit = async () => {
+        setSaving(true);
+        try {
+            const res = await fetch('/api/settings/brand-logos', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingId,
+                    name: editForm.name,
+                    logo_url: editForm.logo_url,
+                    website_url: editForm.website_url || null,
+                    display_order: editForm.display_order,
+                }),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to update');
+            setBrands(brands.map(b => b.id === editingId ? data.data : b));
+            setEditingId(null);
+            setEditForm({});
+            showToast('Brand updated!');
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ── Delete ──
+    const handleDelete = async (id) => {
+        if (!confirm('Delete this brand?')) return;
+        try {
+            const res = await fetch(`/api/settings/brand-logos?id=${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to delete');
+            setBrands(brands.filter(b => b.id !== id));
+            showToast('Brand deleted.');
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    };
+
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 40 }}>
+            <Loader2 className="animate-spin" size={24} style={{ color: 'var(--color-primary)', animation: 'spin 1s linear infinite' }} />
+            <span style={{ color: 'var(--text-secondary)' }}>Loading brands...</span>
+        </div>
+    );
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
-                <div>
-                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                        Global Brand Logos Library
-                    </h3>
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                        Create and manage a library of brand logos for use across all website pages
-                    </p>
+        <div style={{ position: 'relative' }}>
+            {/* Hidden file inputs */}
+            <input ref={addFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, url => setNewBrand(b => ({ ...b, logo_url: url })));
+                    e.target.value = '';
+                }} />
+            <input ref={editFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFileUpload(file, url => setEditForm(f => ({ ...f, logo_url: url })));
+                    e.target.value = '';
+                }} />
+
+            {/* Toast */}
+            {toast && (
+                <div style={{
+                    position: 'fixed', top: 20, right: 20, zIndex: 9999,
+                    padding: '12px 20px', borderRadius: 10, fontWeight: 600, fontSize: 14,
+                    backgroundColor: toast.type === 'error' ? '#ef4444' : '#10b981',
+                    color: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                }}>
+                    {toast.type === 'error' ? '❌ ' : '✅ '}{toast.msg}
                 </div>
-                <button
-                    onClick={handleSaveAll}
-                    disabled={saving}
-                    className="btn btn-primary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', padding: '10px 24px' }}
-                >
-                    {saving ? <Loader2 className="animate-spin" size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
-                    {saving ? 'Saving...' : 'Save All Changes'}
-                </button>
-            </div>
+            )}
 
-            {/* Display Settings */}
-            <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
-                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                    Display Settings
-                </h4>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Section Title (on Homepage)
-                        </label>
-                        <input
-                            type="text"
-                            value={displaySettings.sectionTitle}
-                            onChange={(e) => setDisplaySettings({ ...displaySettings, sectionTitle: e.target.value })}
-                            placeholder="e.g., Trusted by Leading Brands"
-                            style={{
-                                width: '100%',
-                                padding: 'var(--spacing-sm)',
-                                border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                fontSize: 'var(--font-size-sm)',
-                                backgroundColor: 'var(--bg-primary)',
-                                color: 'var(--text-primary)'
-                            }}
-                        />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Disclaimer Text
-                        </label>
-                        <input
-                            type="text"
-                            value={displaySettings.disclaimerText}
-                            onChange={(e) => setDisplaySettings({ ...displaySettings, disclaimerText: e.target.value })}
-                            placeholder="*Disclaimer about trademarks..."
-                            style={{
-                                width: '100%',
-                                padding: 'var(--spacing-sm)',
-                                border: '1px solid var(--border-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                fontSize: 'var(--font-size-sm)',
-                                backgroundColor: 'var(--bg-primary)',
-                                color: 'var(--text-primary)'
-                            }}
-                        />
-                    </div>
-                </div>
-
-                <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                    {/* Show on Pages */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-sm)' }}>
-                            Display On
-                        </label>
-                        <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={displaySettings.showOnHomepage}
-                                    onChange={(e) => setDisplaySettings({ ...displaySettings, showOnHomepage: e.target.checked })}
-                                    style={{ width: '18px', height: '18px' }}
-                                />
-                                <span style={{ fontSize: 'var(--font-size-sm)' }}>Homepage</span>
-                            </label>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={displaySettings.showOnServicePages}
-                                    onChange={(e) => setDisplaySettings({ ...displaySettings, showOnServicePages: e.target.checked })}
-                                    style={{ width: '18px', height: '18px' }}
-                                />
-                                <span style={{ fontSize: 'var(--font-size-sm)' }}>Service Pages</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    {/* Animation Settings */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-sm)' }}>
-                            Animation
-                        </label>
-                        <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={displaySettings.autoScroll}
-                                    onChange={(e) => setDisplaySettings({ ...displaySettings, autoScroll: e.target.checked })}
-                                    style={{ width: '18px', height: '18px' }}
-                                />
-                                <span style={{ fontSize: 'var(--font-size-sm)' }}>Auto-scroll logos</span>
-                            </label>
-
-                            {displaySettings.autoScroll && (
-                                <div style={{ marginLeft: '26px' }}>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xs)' }}>
-                                        Scroll Speed: {displaySettings.scrollSpeed}s per logo
-                                    </label>
-                                    <input
-                                        type="range"
-                                        min="1"
-                                        max="10"
-                                        value={displaySettings.scrollSpeed}
-                                        onChange={(e) => setDisplaySettings({ ...displaySettings, scrollSpeed: parseInt(e.target.value) })}
-                                        style={{ width: '200px' }}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Visual Effects */}
-                    <div>
-                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-sm)' }}>
-                            Visual Effects
-                        </label>
-                        <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={displaySettings.grayscale}
-                                    onChange={(e) => setDisplaySettings({ ...displaySettings, grayscale: e.target.checked })}
-                                    style={{ width: '18px', height: '18px' }}
-                                />
-                                <div>
-                                    <div style={{ fontSize: 'var(--font-size-sm)' }}>Grayscale by default</div>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                        Logos appear in grayscale for a professional look
-                                    </div>
-                                </div>
-                            </label>
-
-                            {displaySettings.grayscale && (
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', marginLeft: '26px' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={displaySettings.colorOnHover}
-                                        onChange={(e) => setDisplaySettings({ ...displaySettings, colorOnHover: e.target.checked })}
-                                        style={{ width: '18px', height: '18px' }}
-                                    />
-                                    <span style={{ fontSize: 'var(--font-size-sm)' }}>Show color on hover</span>
-                                </label>
-                            )}
-                        </div>
-                    </div>
-                </div>
+            <div style={{ marginBottom: 'var(--spacing-lg)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                    Global Brand Logos Library
+                </h3>
+                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                    {brands.length} brand{brands.length !== 1 ? 's' : ''} · Upload logos to use across service pages
+                </p>
             </div>
 
             {/* Add New Brand Button */}
             {!showAddForm && (
                 <button
+                    type="button"
                     onClick={() => setShowAddForm(true)}
                     className="btn btn-primary"
                     style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)' }}
                 >
-                    <Plus size={18} />
-                    Add New Brand
+                    <Plus size={18} /> Add New Brand
                 </button>
             )}
 
             {/* Add Brand Form */}
             {showAddForm && (
                 <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)', border: '2px solid var(--color-primary)' }}>
-                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                        Add New Brand
-                    </h4>
-
+                    <h4 style={{ marginBottom: 'var(--spacing-md)', fontWeight: 600 }}>New Brand</h4>
                     <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                         <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Brand Name *
-                            </label>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Brand Name *</label>
                             <input
                                 type="text"
                                 placeholder="e.g., Panasonic"
                                 value={newBrand.name}
-                                onChange={(e) => setNewBrand({ ...newBrand, name: e.target.value })}
-                                style={{
-                                    width: '100%',
-                                    padding: 'var(--spacing-sm)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: 'var(--font-size-sm)'
-                                }}
+                                onChange={e => setNewBrand({ ...newBrand, name: e.target.value })}
+                                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', boxSizing: 'border-box' }}
                             />
                         </div>
-
                         <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Logo URL *
-                            </label>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                <input
-                                    type="text"
-                                    placeholder="/brands/panasonic.png"
-                                    value={newBrand.logoUrl}
-                                    onChange={(e) => setNewBrand({ ...newBrand, logoUrl: e.target.value })}
-                                    style={{
-                                        flex: 1,
-                                        padding: 'var(--spacing-sm)',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        fontSize: 'var(--font-size-sm)'
-                                    }}
-                                />
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Logo * (upload required)</label>
+                            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                 <button
+                                    type="button"
                                     className="btn btn-secondary"
-                                    style={{ padding: '8px 16px' }}
-                                    title="Upload logo"
+                                    onClick={() => addFileRef.current?.click()}
+                                    disabled={uploading}
+                                    style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, border: '1px dashed var(--border-primary)' }}
                                 >
-                                    <Upload size={16} />
+                                    {uploading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={18} />}
+                                    <span style={{ fontWeight: 600 }}>{uploading ? 'Uploading...' : 'Choose Logo File'}</span>
                                 </button>
+                                {newBrand.logo_url && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ padding: 4, backgroundColor: 'var(--bg-secondary)', borderRadius: 6, height: 40, width: 40, display: 'flex', alignItems: 'center' }}>
+                                            <img src={newBrand.logo_url} alt="preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                                        </div>
+                                        <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>✅ Ready!</span>
+                                    </div>
+                                )}
                             </div>
-                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: 'var(--spacing-xs) 0 0 0' }}>
-                                Recommended: PNG with transparent background, 200x80px
-                            </p>
+                            <p style={{ fontSize: 11, color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>PNG with transparent background, 200×80px recommended</p>
                         </div>
-
                         <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Website URL (Optional)
-                            </label>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Website URL (Optional)</label>
                             <input
                                 type="text"
                                 placeholder="https://www.panasonic.com"
-                                value={newBrand.websiteUrl}
-                                onChange={(e) => setNewBrand({ ...newBrand, websiteUrl: e.target.value })}
-                                style={{
-                                    width: '100%',
-                                    padding: 'var(--spacing-sm)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: 'var(--font-size-sm)'
-                                }}
+                                value={newBrand.website_url}
+                                onChange={e => setNewBrand({ ...newBrand, website_url: e.target.value })}
+                                style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', boxSizing: 'border-box' }}
                             />
                         </div>
                     </div>
-
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                         <button
+                            type="button"
                             onClick={handleAddBrand}
                             className="btn btn-primary"
-                            disabled={!newBrand.name || !newBrand.logoUrl}
+                            disabled={!newBrand.name.trim() || !newBrand.logo_url.trim() || saving || uploading}
+                            style={{ display: 'flex', alignItems: 'center', gap: 8 }}
                         >
-                            <Save size={16} />
-                            Add Brand
+                            {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+                            {saving ? 'Saving...' : 'Add Brand'}
                         </button>
                         <button
-                            onClick={() => {
-                                setShowAddForm(false);
-                                setNewBrand({ name: '', logoUrl: '', websiteUrl: '' });
-                            }}
+                            type="button"
+                            onClick={() => { setShowAddForm(false); setNewBrand({ name: '', logo_url: '', website_url: '' }); }}
                             className="btn btn-secondary"
                         >
-                            <X size={16} />
-                            Cancel
+                            <X size={16} /> Cancel
                         </button>
                     </div>
+                </div>
+            )}
+
+            {/* Empty state */}
+            {brands.length === 0 && !showAddForm && (
+                <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <ImageIcon size={40} style={{ opacity: 0.3, marginBottom: 12 }} />
+                    <p>No brands yet. Click "Add New Brand" to get started.</p>
                 </div>
             )}
 
@@ -440,168 +270,93 @@ function BrandLogosSettings() {
                     <div
                         key={brand.id}
                         className="card"
-                        style={{
-                            padding: 'var(--spacing-lg)',
-                            border: editingId === brand.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)'
-                        }}
+                        style={{ padding: 'var(--spacing-lg)', border: editingId === brand.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)' }}
                     >
                         {editingId === brand.id ? (
-                            // Edit Mode
                             <div>
                                 <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Brand Name
-                                        </label>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Brand Name</label>
                                         <input
                                             type="text"
-                                            value={editForm.name}
-                                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
+                                            value={editForm.name || ''}
+                                            onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', boxSizing: 'border-box' }}
                                         />
                                     </div>
-
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Logo URL
-                                        </label>
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                            <input
-                                                type="text"
-                                                value={editForm.logoUrl}
-                                                onChange={(e) => setEditForm({ ...editForm, logoUrl: e.target.value })}
-                                                style={{
-                                                    flex: 1,
-                                                    padding: 'var(--spacing-sm)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    fontSize: 'var(--font-size-sm)'
-                                                }}
-                                            />
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Logo</label>
+                                        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                             <button
+                                                type="button"
                                                 className="btn btn-secondary"
-                                                style={{ padding: '8px' }}
+                                                onClick={() => editFileRef.current?.click()}
+                                                disabled={uploading}
+                                                style={{ padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}
                                             >
-                                                <Upload size={16} />
+                                                {uploading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={18} />}
+                                                <span style={{ fontWeight: 600 }}>{uploading ? 'Uploading...' : 'Change Logo'}</span>
                                             </button>
+                                            {editForm.logo_url && (
+                                                <div style={{ padding: 4, backgroundColor: 'var(--bg-secondary)', borderRadius: 6, height: 40, width: 40, display: 'flex', alignItems: 'center', border: '1px solid var(--border-primary)' }}>
+                                                    <img src={editForm.logo_url} alt="preview" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                            Website URL
-                                        </label>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Website URL</label>
                                         <input
                                             type="text"
-                                            value={editForm.websiteUrl}
-                                            onChange={(e) => setEditForm({ ...editForm, websiteUrl: e.target.value })}
-                                            style={{
-                                                width: '100%',
-                                                padding: 'var(--spacing-sm)',
-                                                border: '1px solid var(--border-primary)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontSize: 'var(--font-size-sm)'
-                                            }}
+                                            value={editForm.website_url || ''}
+                                            onChange={e => setEditForm({ ...editForm, website_url: e.target.value })}
+                                            style={{ width: '100%', padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', boxSizing: 'border-box' }}
                                         />
                                     </div>
                                 </div>
-
-                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
-                                    <button onClick={handleSaveEdit} className="btn btn-primary" style={{ flex: 1 }}>
-                                        <Save size={16} />
-                                        Save
+                                <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                                    <button
+                                        type="button"
+                                        onClick={handleSaveEdit}
+                                        className="btn btn-primary"
+                                        disabled={saving}
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                    >
+                                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />} Save
                                     </button>
-                                    <button onClick={handleCancelEdit} className="btn btn-secondary">
-                                        <X size={16} />
-                                    </button>
+                                    <button type="button" onClick={() => { setEditingId(null); setEditForm({}); }} className="btn btn-secondary"><X size={16} /></button>
                                 </div>
                             </div>
                         ) : (
-                            // View Mode
                             <div>
-                                <div style={{
-                                    height: '80px',
-                                    backgroundColor: 'var(--bg-secondary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    marginBottom: 'var(--spacing-md)',
-                                    border: '1px solid var(--border-primary)',
-                                    padding: 'var(--spacing-sm)'
-                                }}>
-                                    {brand.logoUrl.startsWith('http') || brand.logoUrl.startsWith('/') ? (
-                                        <img
-                                            src={brand.logoUrl}
-                                            alt={brand.name}
-                                            style={{
-                                                maxWidth: '100%',
-                                                maxHeight: '100%',
-                                                objectFit: 'contain',
-                                                filter: displaySettings.grayscale ? 'grayscale(100%)' : 'none'
-                                            }}
-                                            onError={(e) => {
-                                                e.target.style.display = 'none';
-                                                e.target.nextSibling.style.display = 'flex';
-                                            }}
-                                        />
-                                    ) : null}
-                                    <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'var(--text-tertiary)',
-                                        fontSize: 'var(--font-size-sm)'
-                                    }}>
-                                        <ImageIcon size={24} />
-                                    </div>
+                                <div style={{ height: 80, backgroundColor: 'var(--bg-secondary)', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, border: '1px solid var(--border-primary)', padding: 8 }}>
+                                    {brand.logo_url ? (
+                                        <img src={brand.logo_url} alt={brand.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} onError={e => { e.target.style.display = 'none'; }} />
+                                    ) : (
+                                        <ImageIcon size={24} style={{ color: 'var(--text-tertiary)' }} />
+                                    )}
                                 </div>
-
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 var(--spacing-xs) 0' }}>
-                                    {brand.name}
-                                </h4>
-
-                                {brand.websiteUrl && (
-                                    <a
-                                        href={brand.websiteUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 'var(--spacing-xs)',
-                                            fontSize: 'var(--font-size-xs)',
-                                            color: 'var(--color-primary)',
-                                            textDecoration: 'none',
-                                            marginBottom: 'var(--spacing-md)'
-                                        }}
-                                    >
-                                        <ExternalLink size={12} />
-                                        Visit Website
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: '0 0 4px 0' }}>{brand.name}</h4>
+                                {brand.website_url && (
+                                    <a href={brand.website_url} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--color-primary)', textDecoration: 'none', marginBottom: 12 }}>
+                                        <ExternalLink size={12} /> Visit Website
                                     </a>
                                 )}
-
-                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-md)' }}>
+                                <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
                                     <button
-                                        onClick={() => handleEdit(brand)}
+                                        type="button"
+                                        onClick={() => { setEditingId(brand.id); setEditForm({ ...brand }); }}
                                         className="btn btn-secondary"
-                                        style={{ flex: 1, padding: '6px 12px' }}
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '6px 12px' }}
                                     >
-                                        <Edit2 size={16} />
-                                        Edit
+                                        <Edit2 size={15} /> Edit
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={() => handleDelete(brand.id)}
-                                        className="btn btn-danger"
-                                        style={{ padding: '6px 12px' }}
+                                        style={{ padding: '6px 12px', background: '#ef444415', color: '#ef4444', border: '1px solid #ef444430', borderRadius: 'var(--radius-md)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                     >
-                                        <Trash2 size={16} />
+                                        <Trash2 size={15} />
                                     </button>
                                 </div>
                             </div>
@@ -610,6 +365,9 @@ function BrandLogosSettings() {
                 ))}
             </div>
 
+            <style jsx>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }

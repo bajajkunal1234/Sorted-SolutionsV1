@@ -70,9 +70,9 @@ export default async function CategoryPage({ params }) {
                 // Map data to component formats
                 dynamicSettings = {
                     heroSettings: pageSettings.hero_settings,
-                    problems: problems?.length > 0 ? problems.map(h => h.problem_title) : null,
-                    services: services?.length > 0 ? services.map(s => ({ name: s.service_name, price: s.price_starts_at })) : null,
-                    localities: localities?.length > 0 ? localities.map(l => l.locality_name) : null,
+                    problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
+                    services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
+                    localities: (localities || []).map(l => l.locality_name),
                     brandIds: brandMappings?.map(m => m.brand_id) || [],
                     faqIds: faqMappings?.map(m => m.faq_id) || [],
 
@@ -88,6 +88,11 @@ export default async function CategoryPage({ params }) {
                     services_subtitle: pageSettings.services_settings?.subtitle,
                     localities_title: pageSettings.localities_settings?.title,
                     localities_subtitle: pageSettings.localities_settings?.subtitle,
+                    brands_title: pageSettings.brands_settings?.title,
+                    brands_subtitle: pageSettings.brands_settings?.subtitle,
+                    faqs_title: pageSettings.faqs_settings?.title,
+                    faqs_subtitle: pageSettings.faqs_settings?.subtitle,
+                    heroSettings: pageSettings.hero_settings || null,
 
                     // Section visibility flags (default true if not set)
                     sectionVisibility: pageSettings.section_visibility || {}
@@ -111,9 +116,9 @@ export default async function CategoryPage({ params }) {
     }
 
     // 2. Fallbacks to hardcoded data
-    const subcategories = dynamicSettings?.subcategories || subcategoriesByCategory[category] || []
-    const problems = dynamicSettings?.problems || getProblems(category)
-    const faqs = dynamicSettings?.faqs || getFAQs(category)
+    const subcategories = (dynamicSettings?.subcategories?.length > 0) ? dynamicSettings.subcategories : (subcategoriesByCategory[category] || []);
+    const problems = (dynamicSettings?.problems?.length > 0) ? dynamicSettings.problems : getProblems(category);
+    const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs(category);
     // Localities and Brands we'll pass to components (they need to handle dynamic IDs or default behavior)
 
     const sv = dynamicSettings?.sectionVisibility || {}
@@ -131,75 +136,93 @@ export default async function CategoryPage({ params }) {
                 />
             )}
 
-            {/* Quick Booking Form - Pre-filled with category */}
-            <QuickBookingEmbed preSelectedCategory={category} />
+            {/* Quick Booking Form */}
+            <div id="booking">
+                <QuickBookingEmbed preSelectedCategory={category} />
+            </div>
 
             {/* Sub-Categories Grid with Images */}
             {sv.subcategories !== false && (
-                <CategoryCards
-                    title={dynamicSettings?.subcategoriesTitle || `${categoryName} Services`}
-                    subtitle={dynamicSettings?.subcategoriesSubtitle || "Choose your specific appliance type"}
-                    cards={subcategories}
-                    baseUrl={`/services/${category}`}
-                />
+                <div id="services">
+                    <CategoryCards
+                        title={dynamicSettings?.subcategoriesTitle || `${categoryName} Services`}
+                        subtitle={dynamicSettings?.subcategoriesSubtitle || "Choose your specific appliance type"}
+                        cards={subcategories}
+                        baseUrl={`/services/${category}`}
+                    />
+                </div>
             )}
 
             {/* Problems We Solve - SEO Important */}
             {sv.problems !== false && (
-                <ProblemsSection
-                    title={dynamicSettings?.problems_title || "We Solve All The Problems"}
-                    subtitle={dynamicSettings?.problems_subtitle || `Common ${categoryName.toLowerCase()} issues we fix`}
-                    problems={problems}
-                />
+                <div id="problems">
+                    <ProblemsSection
+                        title={dynamicSettings?.problems_title || "We Solve All The Problems"}
+                        subtitle={dynamicSettings?.problems_subtitle || `Common ${categoryName.toLowerCase()} issues we fix`}
+                        problems={problems}
+                    />
+                </div>
             )}
 
             {/* How It Works - Timeline Variant (Layout A) */}
-            <HowItWorksTimeline
-                title="How It Works"
-                subtitle="Get your appliance fixed in 4 simple steps"
-            />
+            <div id="how-it-works">
+                <HowItWorksTimeline
+                    title="How It Works"
+                    subtitle="Get your appliance fixed in 4 simple steps"
+                />
+            </div>
 
             {/* Why Choose Us - Features Panel */}
-            <WhyChooseUs
-                title="Why Choose Us?"
-                subtitle="Experience the difference with our premium services"
-            />
+            <div id="why-us">
+                <WhyChooseUs
+                    title="Why Choose Us?"
+                    subtitle="Experience the difference with our premium services"
+                />
+            </div>
 
             {/* Brand Logos */}
             {sv.brands !== false && (
-                <BrandLogos
-                    title="Brands We Serve"
-                    subtitle="Trusted by leading appliance manufacturers"
-                    selectedBrandIds={dynamicSettings?.brandIds}
-                />
+                <div id="brands">
+                    <BrandLogos
+                        title={dynamicSettings?.brands_title || "Brands We Serve"}
+                        subtitle={dynamicSettings?.brands_subtitle || "Trusted by leading appliance manufacturers"}
+                        selectedBrandIds={dynamicSettings?.brandIds}
+                    />
+                </div>
             )}
 
             {/* Location Links */}
             {sv.localities !== false && (
-                <LocationLinks
-                    title={dynamicSettings?.localities_title || "We are Right In your Neighbourhood"}
-                    subtitle={dynamicSettings?.localities_subtitle || "Find us in your area"}
-                    category={categoryName}
-                    dynamicLocalities={dynamicSettings?.localities}
-                />
+                <div id="areas">
+                    <LocationLinks
+                        title={dynamicSettings?.localities_title || "We are Right In your Neighbourhood"}
+                        subtitle={dynamicSettings?.localities_subtitle || "Find us in your area"}
+                        category={categoryName}
+                        dynamicLocalities={dynamicSettings?.localities}
+                    />
+                </div>
             )}
 
             {/* Frequently Booked Services Carousel */}
             {sv.services !== false && (
-                <FrequentlyBooked
-                    title={dynamicSettings?.services_title || "Frequently Booked Services"}
-                    subtitle={dynamicSettings?.services_subtitle || "Popular services in your area"}
-                    dynamicServices={dynamicSettings?.services}
-                />
+                <div id="popular">
+                    <FrequentlyBooked
+                        title={dynamicSettings?.services_title || "Frequently Booked Services"}
+                        subtitle={dynamicSettings?.services_subtitle || "Popular services in your area"}
+                        dynamicServices={dynamicSettings?.services}
+                    />
+                </div>
             )}
 
             {/* FAQ Section - Category Specific */}
             {sv.faqs !== false && (
-                <FAQSection
-                    title="Frequently Asked Questions"
-                    subtitle={`Common questions about ${categoryName.toLowerCase()} repair`}
-                    faqs={faqs}
-                />
+                <div id="faqs">
+                    <FAQSection
+                        title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
+                        subtitle={dynamicSettings?.faqs_subtitle || `Common questions about ${categoryName.toLowerCase()} repair`}
+                        faqs={faqs}
+                    />
+                </div>
             )}
 
             {/* Footer */}

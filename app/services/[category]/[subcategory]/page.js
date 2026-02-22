@@ -62,14 +62,26 @@ export default async function SubCategoryPage({ params }) {
                 dynamicSettings = {
                     heroSettings: pageSettings.hero_settings || null,
                     problemsSettings: pageSettings.problems_settings,
-                    problems: (problems || []).map(p => p.problem_title),
+                    problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
                     localities: (localities || []).map(l => l.locality_name),
                     services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
                     faqs: (faqsMapping || [])
                         .filter(f => f.website_faqs)
                         .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer })),
                     brandIds: brandsMapping?.map(m => m.brand_id) || [],
-                    sectionVisibility: pageSettings.section_visibility || {}
+                    sectionVisibility: pageSettings.section_visibility || {},
+
+                    // Title/Subtitle Overrides
+                    problems_title: pageSettings.problems_settings?.title,
+                    problems_subtitle: pageSettings.problems_settings?.subtitle,
+                    services_title: pageSettings.services_settings?.title,
+                    services_subtitle: pageSettings.services_settings?.subtitle,
+                    localities_title: pageSettings.localities_settings?.title,
+                    localities_subtitle: pageSettings.localities_settings?.subtitle,
+                    brands_title: pageSettings.brands_settings?.title,
+                    brands_subtitle: pageSettings.brands_settings?.subtitle,
+                    faqs_title: pageSettings.faqs_settings?.title,
+                    faqs_subtitle: pageSettings.faqs_settings?.subtitle
                 }
 
                 if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
@@ -88,10 +100,10 @@ export default async function SubCategoryPage({ params }) {
     const allSubcategories = subcategoriesByCategory[category] || []
     const siblingSubcategories = allSubcategories.filter(sub => sub.slug !== subcategory)
 
-    const problemsTitle = dynamicSettings?.problemsSettings?.title || `${subcategoryName} Problems We Fix`
-    const problemsSubtitle = dynamicSettings?.problemsSettings?.subtitle || 'Common issues with your appliance'
-    const problems = dynamicSettings?.problems?.length ? dynamicSettings.problems : getProblems(category, subcategory)
-    const faqs = dynamicSettings?.faqs?.length ? dynamicSettings.faqs : getFAQs(category)
+    const problemsTitle = dynamicSettings?.problems_title || `${subcategoryName} Problems We Fix`
+    const problemsSubtitle = dynamicSettings?.problems_subtitle || 'Common issues with your appliance'
+    const problems = (dynamicSettings?.problems?.length > 0) ? dynamicSettings.problems : getProblems(category, subcategory)
+    const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs(category)
 
     const sv = dynamicSettings?.sectionVisibility || {}
 
@@ -109,74 +121,92 @@ export default async function SubCategoryPage({ params }) {
             )}
 
             {/* Quick Booking Form - Pre-filled */}
-            <QuickBookingEmbed preSelectedCategory={category} />
+            <div id="booking">
+                <QuickBookingEmbed preSelectedCategory={category} />
+            </div>
 
-            {/* Sibling Subcategories */}
-            {sv.subcategories !== false && siblingSubcategories.length > 0 && (
-                <CategoryCards
-                    title={`Other ${categoryName} Services`}
-                    subtitle="Explore our complete range of services"
-                    cards={siblingSubcategories}
-                    baseUrl={`/services/${category}`}
-                />
+            {/* Related Services / Category Cards */}
+            {sv.subcategories !== false && (
+                <div id="services">
+                    <CategoryCards
+                        title={dynamicSettings?.subcategories_title || `Other ${categoryName} Services`}
+                        subtitle={dynamicSettings?.subcategories_subtitle || "Explore our complete range of services"}
+                        cards={(dynamicSettings?.subcategories?.length > 0) ? dynamicSettings.subcategories : siblingSubcategories}
+                        baseUrl={`/services/${category}`}
+                    />
+                </div>
             )}
 
             {/* Problems We Solve - Subcategory Specific */}
             {sv.problems !== false && (
-                <ProblemsSection
-                    title={problemsTitle}
-                    subtitle={problemsSubtitle}
-                    problems={problems}
-                />
+                <div id="problems">
+                    <ProblemsSection
+                        title={problemsTitle}
+                        subtitle={problemsSubtitle}
+                        problems={problems}
+                    />
+                </div>
             )}
 
             {/* How It Works */}
-            <HowItWorksGrid
-                title="How It Works"
-                subtitle="Your appliance fixed in 4 simple steps"
-            />
+            <div id="how-it-works">
+                <HowItWorksGrid
+                    title="How It Works"
+                    subtitle="Your appliance fixed in 4 simple steps"
+                />
+            </div>
 
             {/* Why Choose Us */}
-            <WhyChooseUs
-                title="Why Choose SORTED?"
-                subtitle="Premium service you can trust"
-            />
+            <div id="why-us">
+                <WhyChooseUs
+                    title="Why Choose SORTED?"
+                    subtitle="Premium service you can trust"
+                />
+            </div>
 
             {/* Brand Logos */}
             {sv.brands !== false && (
-                <BrandLogos
-                    title="Authorized Service Provider"
-                    subtitle="We service all major brands"
-                    selectedBrandIds={dynamicSettings?.brandIds}
-                />
+                <div id="brands">
+                    <BrandLogos
+                        title={dynamicSettings?.brands_title || "Authorized Service Provider"}
+                        subtitle={dynamicSettings?.brands_subtitle || "We service all major brands"}
+                        selectedBrandIds={dynamicSettings?.brandIds}
+                    />
+                </div>
             )}
 
             {/* Location Links */}
             {sv.localities !== false && (
-                <LocationLinks
-                    title="Service Available Across Mumbai"
-                    subtitle="We're in your neighborhood"
-                    category={subcategoryName}
-                    dynamicLocalities={dynamicSettings?.localities}
-                />
+                <div id="areas">
+                    <LocationLinks
+                        title={dynamicSettings?.localities_title || "Service Available Across Mumbai"}
+                        subtitle={dynamicSettings?.localities_subtitle || "We're in your neighborhood"}
+                        category={subcategoryName}
+                        dynamicLocalities={dynamicSettings?.localities}
+                    />
+                </div>
             )}
 
             {/* Frequently Booked Services */}
             {sv.services !== false && (
-                <FrequentlyBooked
-                    title="Popular Services"
-                    subtitle="Most booked by customers like you"
-                    dynamicServices={dynamicSettings?.services}
-                />
+                <div id="popular">
+                    <FrequentlyBooked
+                        title={dynamicSettings?.services_title || "Popular Services"}
+                        subtitle={dynamicSettings?.services_subtitle || "Most booked by customers like you"}
+                        dynamicServices={dynamicSettings?.services}
+                    />
+                </div>
             )}
 
             {/* FAQ Section */}
             {sv.faqs !== false && (
-                <FAQSection
-                    title="Frequently Asked Questions"
-                    subtitle={`Everything you need to know about ${subcategoryName.toLowerCase()} repair`}
-                    faqs={faqs}
-                />
+                <div id="faqs">
+                    <FAQSection
+                        title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
+                        subtitle={dynamicSettings?.faqs_subtitle || `Everything you need to know about ${subcategoryName.toLowerCase()} repair`}
+                        faqs={faqs}
+                    />
+                </div>
             )}
 
             {/* Footer */}

@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     Save,
     Plus,
@@ -500,6 +500,12 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
         localities: true, brands: true, faqs: true, subcategories: true
     });
 
+    // Ref that always mirrors the latest settings — prevents stale closure reads in handleSave
+    const settingsRef = useRef(null);
+    useEffect(() => { settingsRef.current = settings; }, [settings]);
+    const sectionVisibilityRef = useRef(null);
+    useEffect(() => { sectionVisibilityRef.current = sectionVisibility; }, [sectionVisibility]);
+
     // Search states
     const [brandSearch, setBrandSearch] = useState('');
     const [faqSearch, setFaqSearch] = useState('');
@@ -513,6 +519,61 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
         }
     }, [pageId]);
 
+    const processFetchedData = (data) => {
+        if (!data.success) return null;
+
+        const d = data.data;
+        const r = data.related || {};
+
+        if (!d) {
+            console.warn('[PageSettings] No existing data for', pageId, '- using defaults');
+        }
+
+        const initialized = {
+            ...(d || {}),
+            page_id: pageId,
+            hero_settings: { ...DEFAULT_HERO, ...(d?.hero_settings || {}) },
+            problems_settings: {
+                title: d?.problems_settings?.title || 'Problems We Solve',
+                subtitle: d?.problems_settings?.subtitle || 'Common issues we fix',
+                items: (r.problems?.length > 0)
+                    ? r.problems.map(p => ({ question: p.problem_title, answer: p.problem_description }))
+                    : (d?.problems_settings?.items || [])
+            },
+            services_settings: {
+                title: d?.services_settings?.title || 'Our Services',
+                subtitle: d?.services_settings?.subtitle || 'Best in class services',
+                items: (r.services?.length > 0)
+                    ? r.services.map(s => ({ name: s.service_name, price: s.price_starts_at }))
+                    : (d?.services_settings?.items || [])
+            },
+            localities_settings: {
+                title: d?.localities_settings?.title || 'Areas We Serve',
+                subtitle: d?.localities_settings?.subtitle || 'Find us near you',
+                items: (r.localities?.length > 0)
+                    ? r.localities.map(l => l.locality_name)
+                    : (d?.localities_settings?.items || [])
+            },
+            brands_settings: {
+                title: d?.brands_settings?.title || 'Brands We Serve',
+                subtitle: d?.brands_settings?.subtitle || 'Trusted by leading appliance manufacturers',
+                items: (r.brandIds?.length > 0) ? r.brandIds : (d?.brands_settings?.items || [])
+            },
+            faqs_settings: {
+                title: d?.faqs_settings?.title || 'Frequently Asked Questions',
+                subtitle: d?.faqs_settings?.subtitle || 'Find answers to common questions',
+                items: (r.faqIds?.length > 0) ? r.faqIds : (d?.faqs_settings?.items || [])
+            },
+            subcategories_settings: {
+                title: d?.subcategories_settings?.title || 'Appliance Types',
+                subtitle: d?.subcategories_settings?.subtitle || 'Choose your specific appliance',
+                items: d?.subcategories_settings?.items || []
+            }
+        };
+
+        return initialized;
+    };
+
     const fetchSettings = async () => {
         if (!pageId) return;
         setLoading(true);
@@ -520,72 +581,22 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
             console.log(`[ST-DEBUG] Fetching settings for ${pageId}...`);
             const res = await fetch(`/api/settings/page/${pageId}`, { cache: 'no-store' });
             const data = await res.json();
+            console.log(`[ST-DEBUG] Fetch direct response:`, data);
 
-            if (data.success) {
-                const d = data.data;
-
-                // If no row exists yet (new page), use defaults so admin can save for the first time
-                if (!d) {
-                    console.warn('[ST-DEBUG] No data returned from API for', pageId, '- initializing with defaults');
-                }
-
-                console.log('[ST-DEBUG] Loaded page settings. Row ID check:', d?.id || 'NEW PAGE');
-
-                // Robust initialization with defaults (works for both existing and new pages)
-                const initialized = {
-                    ...(d || {}),
-                    page_id: pageId,
-                    hero_settings: { ...DEFAULT_HERO, ...(d?.hero_settings || {}) },
-                    problems_settings: {
-                        title: 'Problems We Solve',
-                        subtitle: 'Common issues we fix',
-                        items: [],
-                        ...(d?.problems_settings || {})
-                    },
-                    services_settings: {
-                        title: 'Our Services',
-                        subtitle: 'Best in class services',
-                        items: [],
-                        ...(d?.services_settings || {})
-                    },
-                    localities_settings: {
-                        title: 'Areas We Serve',
-                        subtitle: 'Find us near you',
-                        items: [],
-                        ...(d?.localities_settings || {})
-                    },
-                    brands_settings: {
-                        title: 'Brands We Serve',
-                        subtitle: 'Trusted by leading appliance manufacturers',
-                        items: [],
-                        ...(d?.brands_settings || {})
-                    },
-                    faqs_settings: {
-                        title: 'Frequently Asked Questions',
-                        subtitle: 'Find answers to common questions',
-                        items: [],
-                        ...(d?.faqs_settings || {})
-                    },
-                    subcategories_settings: {
-                        title: 'Appliance Types',
-                        subtitle: 'Choose your specific appliance',
-                        items: [],
-                        ...(d?.subcategories_settings || {})
-                    }
-                };
-
+            const initialized = processFetchedData(data);
+            if (initialized) {
                 setSettings(initialized);
+                console.log(`[ST-DEBUG] State initialized/refreshed:`, initialized);
                 if (initialized.section_visibility) {
                     setSectionVisibility(prev => ({ ...prev, ...initialized.section_visibility }));
                 }
                 setFetchError(null);
             } else {
-                console.error('[ST-DEBUG] Fetch failed:', data.error);
                 setFetchError(data.error || 'Server returned failure status');
             }
         } catch (error) {
             console.error('[ST-DEBUG] Fetch error:', error);
-            setFetchError(error.message || 'Network error or server crash');
+            setFetchError(error.message || 'Network error');
         } finally {
             setLoading(false);
         }
@@ -611,35 +622,44 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
         setSaving(true);
         setSaveSuccess(false);
 
-        // --- LOUD DIAGNOSTICS ---
-        console.log('%c[ST-DEBUG] SAVE TRIGGERED', 'background: #4f46e5; color: white; padding: 4px 8px; font-weight: bold;');
-        console.log('[ST-DEBUG] Current raw settings state:', settings);
-        console.log('[ST-DEBUG] Services count to send:', settings?.services_settings?.items?.length || 0);
-        console.log('[ST-DEBUG] Problems count to send:', settings?.problems_settings?.items?.length || 0);
+        // CRITICAL: Read from ref to avoid stale closure capturing old state
+        const currentSettings = settingsRef.current;
+        const currentVisibility = sectionVisibilityRef.current;
 
-        if (settings?.services_settings?.items?.length === 0 && settings?.problems_settings?.items?.length === 0) {
-            console.warn('[ST-DEBUG] WARNING: Saving with 0 items. Is this intended?');
-        }
+        const sItems = currentSettings?.services_settings?.items || [];
+        const lItems = currentSettings?.localities_settings?.items || [];
+        const pItems = currentSettings?.problems_settings?.items || [];
+
+        console.log(`[ST-DEBUG] handleSave Stats (from ref) - S:${sItems.length}, L:${lItems.length}, P:${pItems.length}`);
+        console.log(`[ST-DEBUG] RAW SETTINGS from ref:`, currentSettings);
 
         try {
-            const payload = { ...settings, section_visibility: sectionVisibility };
-            console.log('%c[ST-DEBUG] FINAL PAYLOAD:', 'color: #10b981; font-weight: bold;', JSON.stringify(payload, null, 2));
-            console.log('%c[ST-DEBUG] FETCH URL:', 'color: #10b981; font-weight: bold;', `/api/settings/page/${pageId}`);
+            const payload = {
+                ...currentSettings,
+                section_visibility: currentVisibility,
+                services_settings: { ...currentSettings.services_settings, items: sItems },
+                localities_settings: { ...currentSettings.localities_settings, items: lItems },
+                problems_settings: { ...currentSettings.problems_settings, items: pItems }
+            };
+
+            const payloadString = JSON.stringify(payload);
+            console.log(`[ST-DEBUG] FINAL PAYLOAD: S=${sItems.length}, L=${lItems.length}, P=${pItems.length}`);
 
             const res = await fetch(`/api/settings/page/${pageId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Debug-Client': 'PageSettingsManager'
                 },
-                body: JSON.stringify(payload)
+                body: payloadString
             });
 
             const data = await res.json();
             if (data.success) {
                 setSaveSuccess(true);
-                await fetchSettings();
                 setTimeout(() => setSaveSuccess(false), 3000);
+                // Refetch from DB to get the authoritative state after save
+                await fetchSettings();
+                console.log(`[ST-DEBUG] Save SUCCESS — refetching from DB.`);
             } else {
                 console.error('[ST-DEBUG] Save FAILURE:', data.error, data.details);
                 alert(`CRITICAL SAVE FAILURE:\n\nError: ${data.error}\nDetails: ${data.details || 'No extra info'}\n\nPlease check server logs.`);
@@ -825,6 +845,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                     </div>
                 </div>
                 <button
+                    type="button"
                     onClick={handleSave}
                     disabled={saving}
                     className="btn btn-primary"
@@ -892,6 +913,52 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
 
             {/* Tab Content */}
             <div className="card" style={{ padding: 'var(--spacing-xl)', minHeight: '400px' }}>
+
+                {/* ── Sitelink Copy Box ── */}
+                {pageUrl && (() => {
+                    const hashMap = {
+                        hero: '',
+                        problems: '#problems',
+                        services: '#popular',
+                        localities: '#areas',
+                        brands: '#brands',
+                        subcategories: '#services',
+                        faqs: '#faqs'
+                    };
+                    const hash = hashMap[activeTab] ?? '';
+                    const sitelink = `${pageUrl}${hash}`;
+                    return (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '10px',
+                            padding: '8px 12px', marginBottom: '20px',
+                            backgroundColor: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '12px'
+                        }}>
+                            <ExternalLink size={14} style={{ flexShrink: 0, color: 'var(--color-primary)' }} />
+                            <span style={{ color: 'var(--text-tertiary)', flexShrink: 0, fontWeight: 600 }}>Sitelink:</span>
+                            <code style={{
+                                flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                color: 'var(--color-primary)', fontSize: '12px'
+                            }}>{sitelink}</code>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(sitelink);
+                                    const btn = document.getElementById('sl-copy-btn');
+                                    if (btn) { btn.textContent = '✓ Copied'; setTimeout(() => { if (btn) btn.textContent = 'Copy'; }, 2000); }
+                                }}
+                                id="sl-copy-btn"
+                                style={{
+                                    flexShrink: 0, padding: '3px 10px', fontSize: '11px', fontWeight: 700,
+                                    backgroundColor: 'var(--color-primary)', color: 'white',
+                                    border: 'none', borderRadius: '99px', cursor: 'pointer'
+                                }}
+                            >Copy</button>
+                        </div>
+                    );
+                })()}
+
 
                 {/* ── HERO TAB ── */}
                 {activeTab === 'hero' && (
@@ -1304,6 +1371,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                     )}
                 </div>
                 <button
+                    type="button"
                     onClick={handleSave}
                     disabled={saving}
                     className="btn btn-primary"

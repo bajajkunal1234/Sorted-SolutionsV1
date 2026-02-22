@@ -26,7 +26,6 @@ export async function POST(request) {
             .insert([{
                 question: body.question,
                 answer: body.answer,
-                pages: body.pages || [],
                 display_order: body.display_order || 0,
                 is_active: true,
             }])
@@ -51,7 +50,6 @@ export async function PUT(request) {
             .update({
                 question: updates.question,
                 answer: updates.answer,
-                pages: updates.pages || [],
                 display_order: updates.display_order,
                 updated_at: new Date().toISOString(),
             })

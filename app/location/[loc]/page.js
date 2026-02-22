@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import HeroSection from '@/components/services/HeroSection'
 
 export const dynamic = 'force-dynamic'
@@ -25,6 +25,9 @@ export default async function LocationPage({ params }) {
 
     // 1. Fetch Dynamic Data from Supabase
     let dynamicSettings = null;
+    const supabase = createServerSupabase();
+    if (!supabase) return null;
+
     try {
         const { data: pageSettings, error: pageError } = await supabase
             .from('page_settings')
@@ -32,7 +35,7 @@ export default async function LocationPage({ params }) {
             .eq('page_id', pageId)
             .single();
 
-        console.log(`[LIVE DEBUG] Loc PageID: ${pageId}, Found: ${!!pageSettings}, Error:`, pageError);
+        console.log(`[LIVE DEBUG] Loc PageID: ${pageId}, Found: ${!!pageSettings}`);
 
         if (pageSettings) {
             // Fetch related data
@@ -52,9 +55,9 @@ export default async function LocationPage({ params }) {
 
             // Map data to component formats
             dynamicSettings = {
-                problems: problems?.length > 0 ? problems.map(h => ({ question: h.problem_title, answer: h.problem_description })) : null,
-                services: services?.length > 0 ? services.map(s => ({ name: s.service_name, price: s.price_starts_at })) : null,
-                localities: localities?.length > 0 ? localities.map(l => l.locality_name) : null,
+                problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
+                services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
+                localities: (localities || []).map(l => l.locality_name),
                 brandIds: brandMappings?.map(m => m.brand_id) || [],
                 faqIds: faqMappings?.map(m => m.faq_id) || [],
                 problems_title: pageSettings.problems_settings?.title,
@@ -64,13 +67,26 @@ export default async function LocationPage({ params }) {
                 services_title: pageSettings.services_settings?.title,
                 services_subtitle: pageSettings.services_settings?.subtitle,
                 heroSettings: pageSettings.hero_settings || null,
-                sectionVisibility: pageSettings.section_visibility || {}
+                sectionVisibility: pageSettings.section_visibility || {},
+                brands_title: pageSettings.brands_settings?.title,
+                brands_subtitle: pageSettings.brands_settings?.subtitle,
+                faqs_title: pageSettings.faqs_settings?.title,
+                faqs_subtitle: pageSettings.faqs_settings?.subtitle,
+                subcategories: pageSettings.subcategories_settings?.items || [],
+                subcategories_title: pageSettings.subcategories_settings?.title,
+                subcategories_subtitle: pageSettings.subcategories_settings?.subtitle,
             };
 
             // Fetch specific brand and FAQ objects if we have IDs
             if (dynamicSettings.faqIds.length > 0) {
                 const { data: fullFaqs } = await supabase.from('website_faqs').select('*').in('id', dynamicSettings.faqIds);
                 dynamicSettings.faqs = fullFaqs?.map(f => ({ question: f.question, answer: f.answer }));
+            } else {
+                // Fallback to Global FAQs if none selected specifically
+                const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
+                if (globalFaqs?.length > 0) {
+                    dynamicSettings.faqs = globalFaqs.map(f => ({ question: f.question, answer: f.answer }));
+                }
             }
         }
     } catch (error) {
@@ -88,9 +104,9 @@ export default async function LocationPage({ params }) {
     ]
 
     // Fallbacks
-    const problems = dynamicSettings?.problems || getProblems('ac-repair') // Default to AC problems for locations
-    const faqs = dynamicSettings?.faqs || getFAQs('ac-repair').slice(0, 3)
-    const sublocations = dynamicSettings?.localities || [
+    const problems = (dynamicSettings?.problems?.length > 0) ? dynamicSettings.problems : getProblems('ac-repair') // Default to AC problems for locations
+    const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs('ac-repair').slice(0, 3)
+    const sublocations = (dynamicSettings?.localities?.length > 0) ? dynamicSettings.localities : [
         `${locationName} East`,
         `${locationName} West`,
         `${locationName} Central`,
@@ -113,71 +129,91 @@ export default async function LocationPage({ params }) {
             )}
 
             {/* Quick Booking Form */}
-            <QuickBookingEmbed />
+            <div id="booking">
+                <QuickBookingEmbed />
+            </div>
 
             {/* Service Categories Available */}
-            <CategoryCards
-                title={`Our Services in ${locationName}`}
-                subtitle="Choose your appliance type"
-                cards={serviceCategories}
-                baseUrl="/services"
-            />
+            {(sv.subcategories !== false && (dynamicSettings?.subcategories?.length > 0 || serviceCategories.length > 0)) && (
+                <div id="services">
+                    <CategoryCards
+                        title={dynamicSettings?.subcategories_title || `Our Services in ${locationName}`}
+                        subtitle={dynamicSettings?.subcategories_subtitle || "Choose your appliance type"}
+                        cards={dynamicSettings?.subcategories?.length > 0 ? dynamicSettings.subcategories : serviceCategories}
+                        baseUrl="/services"
+                    />
+                </div>
+            )}
 
             {/* Common Problems */}
             {sv.problems !== false && (
-                <ProblemsSection
-                    title={dynamicSettings?.problems_title || "Problems We Solve"}
-                    subtitle={dynamicSettings?.problems_subtitle || `Common appliance issues in ${locationName}`}
-                    problems={problems}
-                />
+                <div id="problems">
+                    <ProblemsSection
+                        title={dynamicSettings?.problems_title || "Problems We Solve"}
+                        subtitle={dynamicSettings?.problems_subtitle || `Common appliance issues in ${locationName}`}
+                        problems={problems}
+                    />
+                </div>
             )}
 
             {/* How It Works - Scroll Variant (Layout C) */}
-            <HowItWorksScroll
-                title="How It Works"
-                subtitle="Scroll through our simple process"
-            />
+            <div id="how-it-works">
+                <HowItWorksScroll
+                    title="How It Works"
+                    subtitle="Scroll through our simple process"
+                />
+            </div>
 
             {/* Why Choose Us */}
-            <WhyChooseUs
-                title={`Why Choose Us in ${locationName}?`}
-                subtitle="Local service with premium quality"
-            />
+            <div id="why-us">
+                <WhyChooseUs
+                    title={`Why Choose Us in ${locationName}?`}
+                    subtitle="Local service with premium quality"
+                />
+            </div>
 
             {/* Brand Logos */}
             {sv.brands !== false && (
-                <BrandLogos
-                    title="Brands We Serve"
-                    subtitle="Trusted by leading appliance manufacturers"
-                    selectedBrandIds={dynamicSettings?.brandIds}
-                />
+                <div id="brands">
+                    <BrandLogos
+                        title="Brands We Serve"
+                        subtitle="Trusted by leading appliance manufacturers"
+                        selectedBrandIds={dynamicSettings?.brandIds}
+                    />
+                </div>
             )}
 
             {/* Nearby Sublocations */}
             {sv.localities !== false && (
-                <LocationLinks
-                    title={dynamicSettings?.localities_title || `We Serve All Areas in ${locationName}`}
-                    subtitle={dynamicSettings?.localities_subtitle || "Find your specific locality"}
-                    dynamicLocalities={dynamicSettings?.localities}
-                />
+                <div id="areas">
+                    <LocationLinks
+                        title={dynamicSettings?.localities_title || `We Serve All Areas in ${locationName}`}
+                        subtitle={dynamicSettings?.localities_subtitle || "Find your specific locality"}
+                        dynamicLocalities={dynamicSettings?.localities}
+                    />
+                </div>
             )}
 
             {/* Frequently Booked Services */}
             {sv.services !== false && (
-                <FrequentlyBooked
-                    title={dynamicSettings?.services_title || `Popular in ${locationName}`}
-                    subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
-                    dynamicServices={dynamicSettings?.services}
-                />
+                <div id="popular">
+                    <FrequentlyBooked
+                        title={dynamicSettings?.services_title || `Popular in ${locationName}`}
+                        subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
+                        dynamicServices={dynamicSettings?.services}
+                    />
+                </div>
             )}
 
             {/* FAQ Section */}
             {sv.faqs !== false && (
-                <FAQSection
-                    title="Frequently Asked Questions"
-                    subtitle="Common questions about our services"
-                    faqs={faqs}
-                />
+                <div id="faqs">
+                    <FAQSection
+                        title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
+                        subtitle={dynamicSettings?.faqs_subtitle || "Common questions about our services"}
+                        faqs={faqs}
+                    />
+                </div>
             )}
 
             {/* Footer */}

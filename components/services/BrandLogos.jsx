@@ -8,21 +8,29 @@ import './BrandLogos.css'
 export default function BrandLogos({
     title = "Brands We Serve",
     subtitle = "Trusted by leading appliance manufacturers",
-    selectedBrandIds = [] // New prop
+    selectedBrandIds = null // null = not configured (show all); [] = explicitly empty (show none); [ids] = filter
 }) {
     const [logos, setLogos] = useState(brandLogos)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        // If explicitly set to an empty array, show nothing — admin deselected all
+        if (Array.isArray(selectedBrandIds) && selectedBrandIds.length === 0) {
+            setLogos([])
+            setLoading(false)
+            return
+        }
+
         fetch('/api/settings/brand-logos')
             .then(res => res.json())
             .then(data => {
                 if (data.success && data.data && data.data.length > 0) {
-                    // Filter logos if specific IDs are provided via admin
-                    if (selectedBrandIds && selectedBrandIds.length > 0) {
+                    if (Array.isArray(selectedBrandIds) && selectedBrandIds.length > 0) {
+                        // Filter to only the admin-selected brand IDs
                         const filtered = data.data.filter(b => selectedBrandIds.includes(b.id))
                         setLogos(filtered)
                     } else {
+                        // null/undefined = not configured at all, show all brands
                         setLogos(data.data)
                     }
                 }

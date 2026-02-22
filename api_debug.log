@@ -1,0 +1,484 @@
+[2026-02-22T18:57:06.855Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T18:57:06.857Z] [API-PUT] Body parsed: Problems=1, Services=0
+[2026-02-22T18:57:07.124Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T18:57:07.566Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T18:57:15.586Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T18:57:15.588Z] [API-PUT] Body parsed: Problems=1, Services=1
+[2026-02-22T18:57:15.793Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T18:57:16.232Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:15:25.687Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:15:25.692Z] [API-PUT] Parse Error: Unexpected end of JSON input
+[2026-02-22T19:21:24.671Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:21:24.673Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=0, localities=1
+[2026-02-22T19:21:24.973Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:21:25.422Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:21:38.041Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:21:38.044Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=0
+[2026-02-22T19:21:38.308Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:21:38.674Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:28:27.760Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:28:27.765Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=0
+[2026-02-22T19:28:28.016Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:28:28.020Z] [API-PUT] Sections in payload for sloc-bandra-ac-repair: {"problems":true,"services":true,"localities":true,"brands":true,"faqs":true}
+[2026-02-22T19:28:28.387Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:30:26.011Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:30:26.012Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=0, localities=1
+[2026-02-22T19:30:26.506Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:30:26.508Z] [API-PUT] Sections in payload for sloc-bandra-ac-repair: {"problems":true,"services":true,"localities":true,"brands":true,"faqs":true}
+[2026-02-22T19:30:26.917Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:30:50.304Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:30:50.306Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=0, localities=0
+[2026-02-22T19:30:50.491Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:30:50.492Z] [API-PUT] Sections in payload for sloc-bandra-ac-repair: {"problems":true,"services":true,"localities":true,"brands":true,"faqs":true}
+[2026-02-22T19:30:50.819Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:34:16.793Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:34:16.795Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=0, localities=1
+[2026-02-22T19:34:17.034Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:34:17.035Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=0, L=1, B=0, F=0
+[2026-02-22T19:34:17.411Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:34:25.763Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:34:25.764Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=0
+[2026-02-22T19:34:25.994Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:34:25.995Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=1, L=0, B=0, F=0
+[2026-02-22T19:34:26.309Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:38:01.313Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:38:01.321Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=0, localities=1
+[2026-02-22T19:38:01.751Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:38:01.752Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=0, L=1, B=0, F=0
+[2026-02-22T19:38:02.104Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:38:02.105Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair)
+[2026-02-22T19:38:02.105Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:38:10.873Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:38:10.875Z] [API-PUT] Parse Error: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+[2026-02-22T19:38:23.102Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:38:23.103Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=1
+[2026-02-22T19:38:23.325Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:38:23.326Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=1, L=1, B=0, F=0
+[2026-02-22T19:38:23.651Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:38:23.652Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:38:23.653Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair)
+[2026-02-22T19:38:23.653Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:42:21.817Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:42:21.819Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=0
+[2026-02-22T19:42:22.040Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:42:22.052Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=1, L=0, B=0, F=0
+[2026-02-22T19:42:22.390Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:42:22.391Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:42:22.392Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:45:04.746Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:45:04.747Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=0
+[2026-02-22T19:45:04.973Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:45:04.974Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=1, L=0, B=0, F=0
+[2026-02-22T19:45:05.301Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:45:05.303Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:45:05.304Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:46:56.429Z] [getFullPageData] sloc-bandra-ac-repair → L=0 S=0 P=0 | L_err=none
+[2026-02-22T19:48:34.825Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:49:58.522Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:49:58.523Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:50:06.587Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:50:06.589Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=2
+[2026-02-22T19:50:06.781Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:50:06.781Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=1, L=2, B=0, F=0
+[2026-02-22T19:50:07.106Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:50:07.107Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:50:07.107Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair)
+[2026-02-22T19:50:07.108Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:50:07.110Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:50:22.722Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:50:22.724Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=2, localities=1
+[2026-02-22T19:50:22.916Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:50:22.917Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=2, L=1, B=0, F=0
+[2026-02-22T19:50:23.252Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:50:23.253Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:50:23.254Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair)
+[2026-02-22T19:50:23.255Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:50:23.259Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:50:33.321Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:50:33.338Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:50:42.178Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:50:42.221Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:55:44.054Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:55:44.054Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:55:49.338Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:55:49.340Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=2
+[2026-02-22T19:55:49.571Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:55:49.571Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=1, L=2, B=0, F=0
+[2026-02-22T19:55:49.937Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:55:49.937Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:55:49.938Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair)
+[2026-02-22T19:55:49.939Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:55:49.943Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:55:49.974Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:55:57.657Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:55:57.659Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=2, localities=1
+[2026-02-22T19:55:58.085Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:55:58.086Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=2, L=1, B=0, F=0
+[2026-02-22T19:55:58.439Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:55:58.440Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:55:58.441Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair)
+[2026-02-22T19:55:58.442Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:55:58.444Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:55:58.480Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:56:05.986Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:56:05.988Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=1, localities=1
+[2026-02-22T19:56:06.180Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:56:06.180Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=1, L=1, B=0, F=0
+[2026-02-22T19:56:06.533Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair)
+[2026-02-22T19:56:06.534Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair)
+[2026-02-22T19:56:06.535Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair)
+[2026-02-22T19:56:06.536Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:56:06.539Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:56:06.622Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T19:58:44.416Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T19:58:44.424Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=2, localities=3
+[2026-02-22T19:58:44.923Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T19:58:44.924Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=2, L=3, B=0, F=0
+[2026-02-22T19:58:45.225Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T19:58:45.263Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T19:58:45.267Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=2
+[2026-02-22T19:58:45.269Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T19:58:45.278Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:00:05.419Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:00:05.419Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:00:09.962Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:00:09.963Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=1, localities=2
+[2026-02-22T20:00:10.155Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:00:10.155Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=1, L=2, B=0, F=0
+[2026-02-22T20:00:10.432Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:00:10.459Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:00:10.462Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:00:10.463Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:00:10.467Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:00:10.497Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:00:20.995Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:00:20.997Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=2, localities=1
+[2026-02-22T20:00:21.183Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:00:21.184Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=2, L=1, B=0, F=0
+[2026-02-22T20:00:21.460Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:00:21.489Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:00:21.509Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:00:21.510Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:00:21.514Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:00:21.553Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:01:56.700Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=2 P=1
+[2026-02-22T20:03:22.256Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=2 P=1
+[2026-02-22T20:03:22.266Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=2 P=1
+[2026-02-22T20:03:34.543Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:03:34.546Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=3, localities=1
+[2026-02-22T20:03:34.765Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:03:34.766Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=3, L=1, B=0, F=0
+[2026-02-22T20:03:35.050Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:03:35.074Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:03:35.091Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:03:35.093Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:03:35.297Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=3 P=1
+[2026-02-22T20:03:35.476Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=3 P=1
+[2026-02-22T20:03:41.396Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:03:41.398Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=4, localities=1
+[2026-02-22T20:03:41.593Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:03:41.610Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=4, L=1, B=0, F=0
+[2026-02-22T20:03:41.907Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:03:41.923Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:03:41.957Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:03:41.958Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:03:42.128Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=4 P=1
+[2026-02-22T20:03:42.315Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=1 S=4 P=1
+[2026-02-22T20:03:49.615Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:03:49.616Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=4, localities=2
+[2026-02-22T20:03:49.833Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:03:49.833Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=4, L=2, B=0, F=0
+[2026-02-22T20:03:50.114Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:03:50.138Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:03:50.145Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:03:50.147Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:03:50.331Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=2 S=4 P=1
+[2026-02-22T20:03:50.517Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=2 S=4 P=1
+[2026-02-22T20:03:53.529Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:03:53.530Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=1, services=4, localities=3
+[2026-02-22T20:03:53.678Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:03:53.679Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=1, S=4, L=3, B=0, F=0
+[2026-02-22T20:03:53.960Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:03:53.969Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:03:53.971Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:03:53.972Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:03:54.134Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=1
+[2026-02-22T20:03:54.316Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=1
+[2026-02-22T20:04:02.371Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:04:02.372Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:04:02.587Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:04:02.588Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:04:02.874Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:04:02.897Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:04:02.913Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:04:02.914Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:04:03.092Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:04:03.277Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:05:41.623Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:05:41.626Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:05:41.967Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:05:41.968Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:05:42.286Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:05:42.296Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:05:42.309Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:05:42.310Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:05:42.505Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:05:42.682Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:06:27.888Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:06:27.889Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:06:28.116Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:06:28.116Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:06:28.848Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:06:28.852Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:06:28.855Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:06:28.855Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:06:29.038Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:06:29.216Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:06:38.480Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:06:38.482Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:06:38.680Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:06:38.688Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:06:38.970Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:06:38.997Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:06:39.013Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:06:39.014Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:06:39.199Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:06:39.377Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:13:30.773Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:14:38.338Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:14:38.341Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:14:38.581Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:14:38.582Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:14:38.907Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:14:38.933Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:14:38.938Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:14:38.939Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:14:39.253Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:14:39.593Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:15:21.015Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:15:21.016Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:15:21.254Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:15:21.276Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:15:21.599Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:15:21.637Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:15:21.691Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:15:21.693Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:15:22.008Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:15:22.331Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:15:34.764Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:15:34.765Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:15:34.931Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:15:34.932Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:15:35.198Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:15:35.210Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:15:35.221Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:15:35.222Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:15:35.521Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:15:35.836Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:17:35.982Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:17:35.984Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:17:36.336Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:17:36.337Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:17:36.639Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:17:36.658Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:17:36.663Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:17:36.664Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:17:36.987Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:17:37.304Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:19:18.022Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:19:50.491Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:19:50.495Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:19:50.968Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:19:50.969Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=0
+[2026-02-22T20:19:51.286Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:19:51.331Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:19:51.354Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:19:51.355Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:19:51.676Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:19:51.989Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:20:06.809Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=0 P=1
+[2026-02-22T20:20:06.830Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=0 P=1
+[2026-02-22T20:20:13.994Z] [API-PUT] START: sloc-kandivali-ac-repair
+[2026-02-22T20:20:13.996Z] [API-PUT] START for sloc-kandivali-ac-repair. Items: problems=1, services=1, localities=1
+[2026-02-22T20:20:14.171Z] [API-PUT] Main Upsert SUCCESS for sloc-kandivali-ac-repair. Row ID: 05783be4-bb67-4526-95e7-6fe1bf85ac75
+[2026-02-22T20:20:14.171Z] [API-PUT] Items to save for sloc-kandivali-ac-repair: P=1, S=1, L=1, B=0, F=0
+[2026-02-22T20:20:14.427Z] [API-PUT] INSERT SUCCESS for problems (sloc-kandivali-ac-repair) rows=1
+[2026-02-22T20:20:14.465Z] [API-PUT] INSERT SUCCESS for services (sloc-kandivali-ac-repair) rows=1
+[2026-02-22T20:20:14.478Z] [API-PUT] INSERT SUCCESS for localities (sloc-kandivali-ac-repair) rows=1
+[2026-02-22T20:20:14.479Z] [API-PUT] END: Successfully saved all data for sloc-kandivali-ac-repair
+[2026-02-22T20:20:14.774Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:20:15.081Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:20:18.955Z] [API-PUT] START: sloc-kandivali-ac-repair
+[2026-02-22T20:20:18.957Z] [API-PUT] START for sloc-kandivali-ac-repair. Items: problems=1, services=1, localities=1
+[2026-02-22T20:20:19.090Z] [API-PUT] Main Upsert SUCCESS for sloc-kandivali-ac-repair. Row ID: 05783be4-bb67-4526-95e7-6fe1bf85ac75
+[2026-02-22T20:20:19.091Z] [API-PUT] Items to save for sloc-kandivali-ac-repair: P=1, S=1, L=1, B=0, F=0
+[2026-02-22T20:20:19.355Z] [API-PUT] INSERT SUCCESS for problems (sloc-kandivali-ac-repair) rows=1
+[2026-02-22T20:20:19.387Z] [API-PUT] INSERT SUCCESS for localities (sloc-kandivali-ac-repair) rows=1
+[2026-02-22T20:20:19.407Z] [API-PUT] INSERT SUCCESS for services (sloc-kandivali-ac-repair) rows=1
+[2026-02-22T20:20:19.408Z] [API-PUT] END: Successfully saved all data for sloc-kandivali-ac-repair
+[2026-02-22T20:20:19.703Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:20:20.011Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=1 P=1
+[2026-02-22T20:20:40.796Z] [getFullPageData-REST] cat-refrigerator-repair → L=0 S=1 P=1
+[2026-02-22T20:20:40.829Z] [getFullPageData-REST] cat-refrigerator-repair → L=0 S=1 P=1
+[2026-02-22T20:20:52.118Z] [API-PUT] START: cat-refrigerator-repair
+[2026-02-22T20:20:52.120Z] [API-PUT] START for cat-refrigerator-repair. Items: problems=1, services=2, localities=0
+[2026-02-22T20:20:52.313Z] [API-PUT] Main Upsert SUCCESS for cat-refrigerator-repair. Row ID: 4f09f82a-15e3-4729-aebb-7c22229e0b4b
+[2026-02-22T20:20:52.314Z] [API-PUT] Items to save for cat-refrigerator-repair: P=1, S=2, L=0, B=0, F=0
+[2026-02-22T20:20:52.606Z] [API-PUT] INSERT SUCCESS for problems (cat-refrigerator-repair) rows=1
+[2026-02-22T20:20:52.624Z] [API-PUT] INSERT SUCCESS for services (cat-refrigerator-repair) rows=2
+[2026-02-22T20:20:52.629Z] [API-PUT] END: Successfully saved all data for cat-refrigerator-repair
+[2026-02-22T20:20:52.941Z] [getFullPageData-REST] cat-refrigerator-repair → L=0 S=2 P=1
+[2026-02-22T20:20:53.282Z] [getFullPageData-REST] cat-refrigerator-repair → L=0 S=2 P=1
+[2026-02-22T20:44:31.513Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:44:31.528Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:46:45.869Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:46:45.890Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:47:31.552Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:47:31.555Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:47:31.797Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:47:31.800Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=2
+[2026-02-22T20:47:32.093Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:47:32.142Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:47:32.149Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:47:32.182Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:47:32.183Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:47:32.498Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:47:32.867Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:49:50.802Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:49:50.926Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:09.411Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:50:09.413Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:50:09.638Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:50:09.639Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=1, F=2
+[2026-02-22T20:50:09.935Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:09.955Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:50:09.959Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:50:09.967Z] [API-PUT] INSERT SUCCESS for brands (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:50:09.976Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:09.977Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:50:10.293Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:10.625Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:12.914Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:50:12.916Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:50:13.062Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:50:13.063Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=2
+[2026-02-22T20:50:13.325Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:50:13.344Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:13.348Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:13.361Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:50:13.362Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:50:13.656Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:13.980Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:17.754Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:50:17.755Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:50:17.907Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:50:17.908Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=2
+[2026-02-22T20:50:18.179Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:50:18.192Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:18.193Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:50:18.203Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:18.204Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:50:18.510Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:18.826Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:30.675Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:50:30.676Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:50:30.860Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:50:30.860Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=1, F=1
+[2026-02-22T20:50:31.132Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:31.172Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:50:31.174Z] [API-PUT] INSERT SUCCESS for brands (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:50:31.182Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:50:31.191Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:50:31.192Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:50:31.472Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:31.807Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:47.789Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:50:47.790Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:50:47.986Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:50:47.987Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=1, F=2
+[2026-02-22T20:50:48.263Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:48.346Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:50:48.346Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:50:48.347Z] [API-PUT] INSERT SUCCESS for brands (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:50:48.357Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:50:48.358Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:50:48.638Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:50:48.971Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:53:06.572Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:53:06.576Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:53:07.310Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:53:07.311Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=0, F=2
+[2026-02-22T20:53:07.627Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:53:07.825Z] [API-PUT] Cleared all brands for sloc-bandra-ac-repair
+[2026-02-22T20:53:07.949Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:53:07.998Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:53:08.000Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:53:08.001Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:53:08.523Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:53:08.884Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:55:48.565Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:55:48.568Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:55:48.757Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:55:48.758Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=1, F=2
+[2026-02-22T20:55:49.047Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:55:49.073Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:55:49.074Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:55:49.082Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:55:49.083Z] [API-PUT] INSERT SUCCESS for brands (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:55:49.084Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:55:49.356Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:55:49.662Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:56:05.702Z] [API-PUT] START: sloc-bandra-ac-repair
+[2026-02-22T20:56:05.704Z] [API-PUT] START for sloc-bandra-ac-repair. Items: problems=2, services=4, localities=3
+[2026-02-22T20:56:05.895Z] [API-PUT] Main Upsert SUCCESS for sloc-bandra-ac-repair. Row ID: 0fed4218-5651-4ea7-aef4-15738998f980
+[2026-02-22T20:56:05.905Z] [API-PUT] Items to save for sloc-bandra-ac-repair: P=2, S=4, L=3, B=1, F=1
+[2026-02-22T20:56:06.193Z] [API-PUT] INSERT SUCCESS for brands (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:56:06.243Z] [API-PUT] INSERT SUCCESS for problems (sloc-bandra-ac-repair) rows=2
+[2026-02-22T20:56:06.249Z] [API-PUT] INSERT SUCCESS for faqs (sloc-bandra-ac-repair) rows=1
+[2026-02-22T20:56:06.254Z] [API-PUT] INSERT SUCCESS for localities (sloc-bandra-ac-repair) rows=3
+[2026-02-22T20:56:06.258Z] [API-PUT] INSERT SUCCESS for services (sloc-bandra-ac-repair) rows=4
+[2026-02-22T20:56:06.259Z] [API-PUT] END: Successfully saved all data for sloc-bandra-ac-repair
+[2026-02-22T20:56:06.542Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:56:06.857Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:59:29.302Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T20:59:29.355Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T21:00:35.380Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T21:00:35.383Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T21:00:54.651Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T21:00:54.672Z] [getFullPageData-REST] sloc-bandra-ac-repair → L=3 S=4 P=2
+[2026-02-22T21:01:18.684Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=1 P=1
+[2026-02-22T21:01:18.706Z] [getFullPageData-REST] sloc-kandivali-ac-repair → L=1 S=1 P=1
+[2026-02-22T21:07:25.482Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=0 S=0 P=0
+[2026-02-22T21:07:25.491Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=0 S=0 P=0
+[2026-02-22T21:08:22.046Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:22.047Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-22T21:08:22.237Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-22T21:08:22.238Z] [API-PUT] Items to save for sloc-ghatkopar-ac-repair: P=0, S=0, L=1, B=0, F=0
+[2026-02-22T21:08:22.374Z] [API-PUT] Cleared all brands for sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:22.414Z] [API-PUT] Cleared all FAQs for sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:22.557Z] [API-PUT] INSERT SUCCESS for localities (sloc-ghatkopar-ac-repair) rows=1
+[2026-02-22T21:08:22.560Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:22.880Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=1 S=0 P=0
+[2026-02-22T21:08:23.213Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=1 S=0 P=0
+[2026-02-22T21:08:50.081Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:50.083Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-22T21:08:50.283Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-22T21:08:50.284Z] [API-PUT] Items to save for sloc-ghatkopar-ac-repair: P=0, S=0, L=1, B=0, F=0
+[2026-02-22T21:08:50.469Z] [API-PUT] Cleared all brands for sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:50.473Z] [API-PUT] Cleared all FAQs for sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:50.553Z] [API-PUT] INSERT SUCCESS for localities (sloc-ghatkopar-ac-repair) rows=1
+[2026-02-22T21:08:50.553Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-22T21:08:50.851Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=1 S=0 P=0
+[2026-02-22T21:08:51.159Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=1 S=0 P=0
+[2026-02-22T21:09:14.457Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-22T21:09:14.458Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-22T21:09:14.648Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-22T21:09:14.649Z] [API-PUT] Items to save for sloc-ghatkopar-ac-repair: P=0, S=0, L=1, B=0, F=2
+[2026-02-22T21:09:14.826Z] [API-PUT] Cleared all brands for sloc-ghatkopar-ac-repair
+[2026-02-22T21:09:14.914Z] [API-PUT] INSERT SUCCESS for localities (sloc-ghatkopar-ac-repair) rows=1
+[2026-02-22T21:09:14.966Z] [API-PUT] INSERT SUCCESS for faqs (sloc-ghatkopar-ac-repair) rows=2
+[2026-02-22T21:09:14.967Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-22T21:09:15.268Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=1 S=0 P=0
+[2026-02-22T21:09:15.588Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=1 S=0 P=0
+[2026-02-22T21:10:20.870Z] [getFullPageData-REST] sloc-powai-ac-repair → L=0 S=0 P=0
+[2026-02-22T21:10:20.876Z] [getFullPageData-REST] sloc-powai-ac-repair → L=0 S=0 P=0

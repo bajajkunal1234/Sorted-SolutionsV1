@@ -16,16 +16,29 @@ export default function ProblemsSection({
             </div>
 
             <div className="problems-grid">
-                {problems.map((problem, index) => (
-                    <div
-                        key={index}
-                        className="problem-item"
-                        style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                        <CheckCircle size={20} className="check-icon" />
-                        <span className="problem-text">{problem}</span>
-                    </div>
-                ))}
+                {problems.map((problem, index) => {
+                    const isObject = typeof problem === 'object' && problem !== null;
+                    const titleValue = isObject ? (problem.problem_title || problem.title || problem.question) : problem;
+                    const descValue = isObject ? (problem.problem_description || problem.description || problem.answer) : null;
+
+                    return (
+                        <div
+                            key={index}
+                            className="problem-item"
+                            style={{ animationDelay: `${index * 0.05}s` }}
+                        >
+                            <div className="problem-content-wrapper">
+                                <div className="problem-main">
+                                    <CheckCircle size={20} className="check-icon" />
+                                    <span className="problem-text">{titleValue}</span>
+                                </div>
+                                {descValue && (
+                                    <p className="problem-description">{descValue}</p>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             <div className="problems-cta">

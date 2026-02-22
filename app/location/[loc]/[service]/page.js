@@ -37,43 +37,60 @@ export default async function SubLocationPage({ params }) {
     if (!supabase) return null;
 
     try {
-        const { data: pageSettings, error: pageError } = await supabase
-            .from('page_settings')
-            .select('*')
-            .eq('page_id', pageId)
-            .single()
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        const restHeaders = {
+            'apikey': serviceKey,
+            'Authorization': `Bearer ${serviceKey}`,
+        };
+        const fetchOpts = { headers: restHeaders, cache: 'no-store' };
+        const enc = encodeURIComponent(pageId);
+
+        // Fetch main page settings via REST to avoid stale SDK/cache reads
+        const pageSettingsRes = await fetch(
+            `${supabaseUrl}/rest/v1/page_settings?page_id=eq.${enc}&select=*`,
+            fetchOpts
+        );
+        const pageSettingsArr = await pageSettingsRes.json();
+        const pageSettings = Array.isArray(pageSettingsArr) && pageSettingsArr.length > 0
+            ? pageSettingsArr[0] : null;
 
         console.log(`[LIVE DEBUG] Subloc PageID: ${pageId}, Found: ${!!pageSettings}`);
 
         if (pageSettings) {
-            const [
-                { data: problems },
-                { data: services },
-                { data: localities },
-                { data: brandsMapping },
-                { data: faqsMapping }
-            ] = await Promise.all([
-                supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
-                supabase.from('page_faqs_mapping')
-                    .select('faq_id, website_faqs(question, answer)')
-                    .eq('page_id', pageId)
-                    .order('display_order', { ascending: true })
-            ])
+            // Use REST for mapping tables — SDK silently returns empty for these
+            const [problemsRes, servicesRes, localitiesRes, brandsRes, faqsMappingRes] = await Promise.all([
+                fetch(`${supabaseUrl}/rest/v1/page_problems?page_id=eq.${enc}&order=display_order.asc&select=*`, fetchOpts),
+                fetch(`${supabaseUrl}/rest/v1/page_services?page_id=eq.${enc}&order=display_order.asc&select=*`, fetchOpts),
+                fetch(`${supabaseUrl}/rest/v1/page_localities?page_id=eq.${enc}&order=display_order.asc&select=*`, fetchOpts),
+                fetch(`${supabaseUrl}/rest/v1/page_brands_mapping?page_id=eq.${enc}&select=brand_id`, fetchOpts),
+                fetch(`${supabaseUrl}/rest/v1/page_faqs_mapping?page_id=eq.${enc}&order=display_order.asc&select=faq_id`, fetchOpts),
+            ]);
+            const [problems, services, localities, brandsMapping, faqsMappingRaw] = await Promise.all([
+                problemsRes.json(),
+                servicesRes.json(),
+                localitiesRes.json(),
+                brandsRes.json(),
+                faqsMappingRes.json(),
+            ]);
+
+            // Fetch FAQ full content for selected faq_ids
+            let faqsData = [];
+            const faqIds = Array.isArray(faqsMappingRaw) ? faqsMappingRaw.map(f => f.faq_id).filter(Boolean) : [];
+            if (faqIds.length > 0) {
+                const faqsRes = await fetch(`${supabaseUrl}/rest/v1/website_faqs?id=in.(${faqIds.join(',')})&select=question,answer`, fetchOpts);
+                faqsData = await faqsRes.json();
+            }
 
             dynamicSettings = {
                 heroSettings: pageSettings.hero_settings || null,
                 problemsSettings: pageSettings.problems_settings,
                 servicesSettings: pageSettings.services_settings,
-                problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
-                localities: (localities || []).map(l => l.locality_name),
-                services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
-                faqs: (faqsMapping || [])
-                    .filter(f => f.website_faqs)
-                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer })),
-                brandIds: brandsMapping?.map(m => m.brand_id) || [],
+                problems: Array.isArray(problems) ? problems.map(p => ({ title: p.problem_title, description: p.problem_description })) : [],
+                localities: Array.isArray(localities) ? localities.map(l => l.locality_name) : [],
+                services: Array.isArray(services) ? services.map(s => ({ name: s.service_name, price: s.price_starts_at })) : [],
+                faqs: Array.isArray(faqsData) ? faqsData.map(f => ({ question: f.question, answer: f.answer })) : [],
+                brandIds: Array.isArray(brandsMapping) ? brandsMapping.map(m => m.brand_id) : [],
                 sectionVisibility: pageSettings.section_visibility || {},
 
                 // Title/Subtitle Overrides
@@ -94,8 +111,9 @@ export default async function SubLocationPage({ params }) {
 
             // Fallback to Global FAQs if none selected specifically
             if (dynamicSettings.faqs?.length === 0) {
-                const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
-                if (globalFaqs?.length > 0) {
+                const globalRes = await fetch(`${supabaseUrl}/rest/v1/website_faqs?order=display_order.asc&limit=5&select=question,answer`, fetchOpts);
+                const globalFaqs = await globalRes.json();
+                if (Array.isArray(globalFaqs) && globalFaqs.length > 0) {
                     dynamicSettings.faqs = globalFaqs.map(f => ({ question: f.question, answer: f.answer }));
                 }
             }
@@ -148,73 +166,91 @@ export default async function SubLocationPage({ params }) {
             )}
 
             {/* Quick Booking Form */}
-            <QuickBookingEmbed preSelectedCategory={service} />
+            <div id="booking">
+                <QuickBookingEmbed preSelectedCategory={service} />
+            </div>
 
             {/* Common Problems */}
             {sv.problems !== false && (
-                <ProblemsSection
-                    title={problemsTitle}
-                    subtitle={problemsSubtitle}
-                    problems={problems}
-                />
+                <div id="problems">
+                    <ProblemsSection
+                        title={problemsTitle}
+                        subtitle={problemsSubtitle}
+                        problems={problems}
+                    />
+                </div>
             )}
 
             {/* Sub-Categories / Related Services */}
             {sv.subcategories !== false && (
-                <CategoryCards
-                    title={dynamicSettings?.subcategoriesTitle || "Other Services"}
-                    subtitle={dynamicSettings?.subcategoriesSubtitle || "Explore our premium services"}
-                    cards={(dynamicSettings?.subcategories?.length > 0) ? dynamicSettings.subcategories : serviceCategories}
-                    baseUrl={`/services`}
-                />
+                <div id="services">
+                    <CategoryCards
+                        title={dynamicSettings?.subcategoriesTitle || "Other Services"}
+                        subtitle={dynamicSettings?.subcategoriesSubtitle || "Explore our premium services"}
+                        cards={(dynamicSettings?.subcategories?.length > 0) ? dynamicSettings.subcategories : serviceCategories}
+                        baseUrl={`/services`}
+                    />
+                </div>
             )}
 
             {/* Location Links */}
             {sv.localities !== false && dynamicSettings?.localities && (
-                <LocationLinks
-                    title={dynamicSettings?.localities_title || "Serving All Areas"}
-                    subtitle={dynamicSettings?.localities_subtitle || "Professional service at your doorstep"}
-                    dynamicLocalities={dynamicSettings.localities}
-                />
+                <div id="areas">
+                    <LocationLinks
+                        title={dynamicSettings?.localities_title || "Serving All Areas"}
+                        subtitle={dynamicSettings?.localities_subtitle || "Professional service at your doorstep"}
+                        dynamicLocalities={dynamicSettings.localities}
+                    />
+                </div>
             )}
 
             {/* How It Works */}
-            <HowItWorksGrid
-                title="How It Works"
-                subtitle="Get your appliance fixed in 4 simple steps"
-            />
+            <div id="how-it-works">
+                <HowItWorksGrid
+                    title="How It Works"
+                    subtitle="Get your appliance fixed in 4 simple steps"
+                />
+            </div>
 
             {/* Why Choose Us */}
-            <WhyChooseUs
-                title={`Why Choose Us for ${serviceName} Repair in ${locationName}?`}
-                subtitle="Local experts with premium service quality"
-            />
+            <div id="why-us">
+                <WhyChooseUs
+                    title={`Why Choose Us for ${serviceName} Repair in ${locationName}?`}
+                    subtitle="Local experts with premium service quality"
+                />
+            </div>
 
             {/* Brand Logos */}
             {sv.brands !== false && (
-                <BrandLogos
-                    title={dynamicSettings?.brands_title || "All Brands Serviced"}
-                    subtitle={dynamicSettings?.brands_subtitle || `We repair all major ${serviceName.toLowerCase()} brands`}
-                    selectedBrandIds={dynamicSettings?.brandIds}
-                />
+                <div id="brands">
+                    <BrandLogos
+                        title={dynamicSettings?.brands_title || "All Brands Serviced"}
+                        subtitle={dynamicSettings?.brands_subtitle || `We repair all major ${serviceName.toLowerCase()} brands`}
+                        selectedBrandIds={dynamicSettings?.brandIds}
+                    />
+                </div>
             )}
 
             {/* Frequently Booked Services */}
             {sv.services !== false && (
-                <FrequentlyBooked
-                    title={dynamicSettings?.services_title || `Popular Services in ${locationName}`}
-                    subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
-                    dynamicServices={dynamicSettings?.services}
-                />
+                <div id="popular">
+                    <FrequentlyBooked
+                        title={dynamicSettings?.services_title || `Popular Services in ${locationName}`}
+                        subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
+                        dynamicServices={dynamicSettings?.services}
+                    />
+                </div>
             )}
 
             {/* FAQ Section */}
             {sv.faqs !== false && (
-                <FAQSection
-                    title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
-                    subtitle={dynamicSettings?.faqs_subtitle || `Common questions about ${serviceName.toLowerCase()} repair in ${locationName}`}
-                    faqs={faqs}
-                />
+                <div id="faqs">
+                    <FAQSection
+                        title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
+                        subtitle={dynamicSettings?.faqs_subtitle || `Common questions about ${serviceName.toLowerCase()} repair in ${locationName}`}
+                        faqs={faqs}
+                    />
+                </div>
             )}
 
             {/* Footer */}
