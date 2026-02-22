@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react';
-import { X, User, FileText, Bell, History, Receipt, Edit2, Save, MapPin, Phone, Mail, Package, Shield, Upload, Trash2, Plus, AlertCircle } from 'lucide-react';
+import { X, User, FileText, Bell, History, Receipt, Edit2, Save, MapPin, Phone, Mail, Package, Shield, Upload, Trash2, Plus, AlertCircle, Loader2 } from 'lucide-react';
+import { accountsAPI } from '@/lib/adminAPI';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 import { getRequiredFields, generateInitialsAvatar } from '@/lib/utils/accountHelpers';
 import { validateMobileNumber } from '@/lib/utils/validation';
@@ -14,6 +15,7 @@ import RentAMCTab from './accounts/RentAMCTab';
 function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [isEditing, setIsEditing] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [editedAccount, setEditedAccount] = useState({
         ...account,
         // Ensure all fields exist with defaults
@@ -66,8 +68,8 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [errors, setErrors] = useState({});
     const [imagePreview, setImagePreview] = useState(account.accountImage || null);
 
-    // Determine which tabs to show based on account type
-    const isCustomer = account.type === 'customer';
+    // Determine which tabs to show based on account type (with inheritance)
+    const isCustomer = showField('properties');
 
     const baseTabs = [
         { id: 'details', label: 'Master Details', icon: User }
@@ -153,6 +155,30 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
         onUpdate(editedAccount);
         setIsEditing(false);
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Are you sure you want to delete "${account.name}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            setDeleting(true);
+            const response = await accountsAPI.delete(account.id);
+
+            if (response.success) {
+                alert('Account deleted successfully.');
+                onUpdate('deleted'); // Special signal to parent that account was deleted
+                onClose();
+            } else {
+                alert(response.error || 'Failed to delete account.');
+            }
+        } catch (err) {
+            console.error('Error deleting account:', err);
+            alert(err.message || 'An error occurred while deleting the account.');
+        } finally {
+            setDeleting(false);
+        }
     };
 
     // Render initials avatar if no image
@@ -252,13 +278,27 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                         {activeTab === 'details' && (
-                            <button
-                                className="btn btn-secondary"
-                                onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                                style={{ fontSize: 'var(--font-size-sm)' }}
-                            >
-                                {isEditing ? <><Save size={16} /> Save</> : <><Edit2 size={16} /> Edit</>}
-                            </button>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                {isEditing && (
+                                    <button
+                                        className="btn btn-danger"
+                                        onClick={handleDelete}
+                                        disabled={deleting}
+                                        style={{ fontSize: 'var(--font-size-sm)', backgroundColor: '#ef4444', color: 'white' }}
+                                    >
+                                        {deleting ? <Loader2 size={16} className="spin" /> : <Trash2 size={16} />}
+                                        {deleting ? 'Deleting...' : 'Delete'}
+                                    </button>
+                                )}
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                                    disabled={deleting}
+                                    style={{ fontSize: 'var(--font-size-sm)' }}
+                                >
+                                    {isEditing ? <><Save size={16} /> Save</> : <><Edit2 size={16} /> Edit</>}
+                                </button>
+                            </div>
                         )}
                         <button className="btn-icon" onClick={onClose} style={{ backgroundColor: 'var(--bg-tertiary)' }}>
                             <X size={20} />
@@ -903,7 +943,11 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                     )}
 
                     {activeTab === 'properties' && isCustomer && (
-                        <CustomerPropertiesTab customerId={account.id} />
+                        <CustomerPropertiesTab
+                            customerId={account.id}
+                            account={account}
+                            onUpdate={onUpdate}
+                        />
                     )}
 
                     {activeTab === 'reminders' && (

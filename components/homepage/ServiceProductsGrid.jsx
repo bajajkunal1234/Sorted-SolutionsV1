@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Wind, Droplets, Refrigerator, Microwave, Flame, Filter } from 'lucide-react';
+import { logInteraction } from '@/lib/interactions';
 import './ServiceProductsGrid.css';
 
 function ServiceProductsGrid() {
@@ -71,6 +72,13 @@ function ServiceProductsGrid() {
                         key={service.id}
                         href={service.url}
                         className="service-product-card"
+                        onClick={() => logInteraction({
+                            type: 'homepage-service-click',
+                            category: 'navigation',
+                            description: `User clicked on ${service.name} from homepage`,
+                            metadata: { serviceId: service.id, serviceName: service.name },
+                            source: 'Website'
+                        })}
                     >
                         <div
                             className="service-product-icon"

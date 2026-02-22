@@ -11,6 +11,7 @@ export async function GET(request) {
             .from('customers')
             .select('*')
             .order('created_at', { ascending: false })
+            .limit(100)
 
         if (search) {
             query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)

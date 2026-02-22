@@ -61,13 +61,22 @@ export default function BrandLogos({
             <div className="logos-grid">
                 {logos.map((brand, index) => (
                     <div
-                        key={brand.name}
+                        key={brand.id || brand.name}
                         className={`logo-item ${sizeClasses[brand.size] || 'logo-medium'}`}
                         style={{ animationDelay: `${index * 0.05}s` }}
                     >
-                        <div className="logo-placeholder">
-                            <span className="logo-text">{brand.name}</span>
-                        </div>
+                        {brand.logo_url ? (
+                            <img
+                                src={brand.logo_url}
+                                alt={brand.name}
+                                className="brand-logo-img"
+                                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                            />
+                        ) : (
+                            <div className="logo-placeholder">
+                                <span className="logo-text">{brand.name}</span>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>

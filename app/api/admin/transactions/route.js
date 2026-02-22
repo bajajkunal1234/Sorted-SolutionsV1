@@ -32,7 +32,7 @@ export async function GET(request) {
                 if (accountId) query = query.eq('account_id', accountId)
                 if (startDate) query = query.gte('date', startDate)
                 if (endDate) query = query.lte('date', endDate)
-                const { data } = await query
+                const { data } = await query.limit(100)
                 return (data || []).map(item => ({ ...item, type: table.split('_')[0] }))
             }));
 
@@ -53,6 +53,7 @@ export async function GET(request) {
             .from(tableName)
             .select('*')
             .order('date', { ascending: false })
+            .limit(100)
 
         if (customerId) query = query.eq('account_id', customerId)
         if (accountId) query = query.eq('account_id', accountId)

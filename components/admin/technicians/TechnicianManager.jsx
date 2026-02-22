@@ -28,7 +28,7 @@ function TechnicianManager() {
         try {
             const [techRes, accRes] = await Promise.all([
                 fetch('/api/admin/technicians'),
-                fetch('/api/admin/accounts?type=technician') // Fetch only technician accounts if API supports it, or filter later
+                fetch('/api/admin/accounts') // Fetch all accounts to ensure technician ledgers are visible
             ]);
 
             const techData = await techRes.json();

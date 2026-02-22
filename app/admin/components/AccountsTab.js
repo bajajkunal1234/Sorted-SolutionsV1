@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, ChevronDown, Grid, Table as TableIcon } from 'lucide-react';
+import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2 } from 'lucide-react';
 import { accountsAPI, transactionsAPI, accountGroupsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
@@ -28,7 +28,15 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [quotations, setQuotations] = useState([]);
     const [receipts, setReceipts] = useState([]);
     const [payments, setPayments] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false); // No longer blocks the whole UI
+    const [tabLoading, setTabLoading] = useState({
+        accounts: true,
+        sales: false,
+        purchases: false,
+        quotations: false,
+        receipts: false,
+        payments: false
+    });
     const [error, setError] = useState(null);
 
     // Mappings for API
@@ -57,7 +65,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                setLoading(true);
+                setTabLoading(prev => ({ ...prev, [activeTab]: true }));
                 if (activeTab === 'accounts') {
                     const [ledgerData, groupData] = await Promise.all([
                         accountsAPI.getAll(),
@@ -83,7 +91,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 console.error(`Error fetching ${activeTab} data:`, err);
                 setError(`Failed to load ${activeTab}. Please try again.`);
             } finally {
-                setLoading(false);
+                setTabLoading(prev => ({ ...prev, [activeTab]: false }));
             }
         };
 
@@ -308,6 +316,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     };
 
     const handleUpdateAccount = async (updatedAccount) => {
+        if (updatedAccount === 'deleted') {
+            setLedgers(prevLedgers =>
+                prevLedgers.filter(l => l.id !== selectedAccount.id)
+            );
+            return;
+        }
+
         try {
             const result = await accountsAPI.update(updatedAccount.id, updatedAccount);
             setLedgers(prevLedgers =>
@@ -321,6 +336,19 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     // Render table based on active tab
     const renderTable = () => {
         const filteredData = getFilteredData();
+
+        if (tabLoading[activeTab]) {
+            return (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                        <Loader2 className="animate-spin" size={32} color="var(--color-primary)" />
+                        <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>
+                            Loading {activeTab}...
+                        </span>
+                    </div>
+                </div>
+            );
+        }
 
         if (activeTab === 'accounts') {
             // Existing accounts table

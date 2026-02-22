@@ -20,7 +20,6 @@ export async function GET(request) {
             .select(`
                 *,
                 customer:customers(id, name, mobile, email),
-                property:properties(id, address, locality, city, pincode),
                 product:products(id, name, category),
                 brand:brands(id, name),
                 issue:issues(id, title, category),
@@ -44,31 +43,42 @@ export async function GET(request) {
             )
         }
 
+        // job.property is a JSONB blob stored on the job row
+        const resolveAddr = (prop) => {
+            if (!prop) return {};
+            if (prop.address && typeof prop.address === 'object')
+                return { address: prop.address.line1 || '', locality: prop.address.locality || '', city: prop.address.city || '' };
+            return { address: typeof prop.address === 'string' ? prop.address : '', locality: prop.locality || '', city: prop.city || '' };
+        };
+
         // Transform data
-        const transformedJobs = jobs.map(job => ({
-            id: job.id,
-            propertyId: job.property_id,
-            address: job.property?.address,
-            locality: job.property?.locality,
-            city: job.property?.city,
-            product: {
-                type: job.product?.category,
-                name: job.product?.name,
-                brand: job.brand?.name
-            },
-            issue: job.issue?.title,
-            issueCategory: job.issue?.category,
-            priority: job.priority,
-            status: job.status,
-            stage: job.stage,
-            assignedTechnician: job.assigned_technician?.name,
-            technicianMobile: job.assigned_technician?.mobile,
-            dueDate: job.due_date,
-            confirmedVisitTime: job.confirmed_visit_time,
-            completedAt: job.completed_at,
-            createdAt: job.created_at,
-            notes: job.notes
-        }))
+        const transformedJobs = jobs.map(job => {
+            const addr = resolveAddr(job.property);
+            return {
+                id: job.id,
+                propertyId: job.property_id,
+                address: addr.address,
+                locality: addr.locality,
+                city: addr.city,
+                product: {
+                    type: job.product?.category,
+                    name: job.product?.name,
+                    brand: job.brand?.name
+                },
+                issue: job.issue?.title,
+                issueCategory: job.issue?.category,
+                priority: job.priority,
+                status: job.status,
+                stage: job.stage,
+                assignedTechnician: job.assigned_technician?.name,
+                technicianMobile: job.assigned_technician?.mobile,
+                dueDate: job.due_date,
+                confirmedVisitTime: job.confirmed_visit_time,
+                completedAt: job.completed_at,
+                createdAt: job.created_at,
+                notes: job.notes
+            };
+        })
 
         return NextResponse.json({
             success: true,

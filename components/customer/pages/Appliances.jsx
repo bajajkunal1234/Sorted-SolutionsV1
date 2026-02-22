@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Package, Plus, Wrench, Calendar, AlertCircle } from 'lucide-react'
+import { logInteraction } from '@/lib/interactions'
 import AddApplianceModal from '../modals/AddApplianceModal'
 import BookServiceModal from '../modals/BookServiceModal'
 
@@ -20,15 +21,13 @@ function Appliances() {
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const storedSession = localStorage.getItem('customerSession')
-        if (!storedSession) {
+        const customerId = localStorage.getItem('customerId')
+        if (!customerId) {
           setLoading(false)
           return
         }
 
-        const sessionData = JSON.parse(storedSession)
-        setSession(sessionData)
-        const customerId = sessionData.user?.id || sessionData.customer?.id
+        setSession({ user: { id: customerId } })
 
         if (customerId) {
           // Fetch Appliances
@@ -81,6 +80,21 @@ function Appliances() {
       if (data.success) {
         setAppliances([data.appliance, ...appliances])
         setShowAddModal(false)
+
+        // Log interaction for auditing
+        await logInteraction({
+          type: 'appliance-created',
+          category: 'appliance',
+          customerId: customerId,
+          description: `Added new ${applianceData.brand || ''} ${applianceData.category || 'appliance'}`,
+          metadata: {
+            brand: applianceData.brand,
+            model: applianceData.model,
+            category: applianceData.category,
+            applianceId: data.appliance?.id
+          },
+          source: 'Customer App'
+        });
       } else {
         alert('Failed to add appliance: ' + data.error)
       }

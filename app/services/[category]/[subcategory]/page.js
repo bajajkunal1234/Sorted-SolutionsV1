@@ -15,7 +15,7 @@ import ServiceFooter from '@/components/services/ServiceFooter'
 import { subcategoriesByCategory } from '@/data/servicePageContent'
 import { getProblems } from '@/data/commonProblems'
 import { getFAQs } from '@/data/faqs'
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 
 export default async function SubCategoryPage({ params }) {
     const { category, subcategory } = params
@@ -29,44 +29,59 @@ export default async function SubCategoryPage({ params }) {
 
     // ── Fetch dynamic settings from Supabase ──────────────────────────────────
     let dynamicSettings = null
-    try {
-        const { data: pageSettings } = await supabase
-            .from('page_settings')
-            .select('*')
-            .eq('page_id', pageId)
-            .single()
+    const supabase = createServerSupabase()
 
-        if (pageSettings) {
-            const [
-                { data: problems },
-                { data: services },
-                { data: localities },
-                { data: brandsMapping },
-                { data: faqsMapping }
-            ] = await Promise.all([
-                supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
-                supabase.from('page_faqs_mapping')
-                    .select('faq_id, website_faqs(question, answer)')
-                    .eq('page_id', pageId)
-                    .order('display_order', { ascending: true })
-            ])
+    if (supabase) {
+        try {
+            const { data: pageSettings, error: pageError } = await supabase
+                .from('page_settings')
+                .select('*')
+                .eq('page_id', pageId)
+                .single()
 
-            dynamicSettings = {
-                heroSettings: pageSettings.hero_settings || null,
-                problemsSettings: pageSettings.problems_settings,
-                problems: (problems || []).map(p => ({ question: p.problem_title, answer: p.problem_description })),
-                localities: (localities || []).map(l => l.locality_name),
-                services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
-                faqs: (faqsMapping || [])
-                    .filter(f => f.website_faqs)
-                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer }))
+            console.log(`[LIVE DEBUG] Subcat PageID: ${pageId}, Found: ${!!pageSettings}`);
+
+            if (pageSettings) {
+                const [
+                    { data: problems },
+                    { data: services },
+                    { data: localities },
+                    { data: brandsMapping },
+                    { data: faqsMapping }
+                ] = await Promise.all([
+                    supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                    supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                    supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                    supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
+                    supabase.from('page_faqs_mapping')
+                        .select('faq_id, website_faqs(question, answer)')
+                        .eq('page_id', pageId)
+                        .order('display_order', { ascending: true })
+                ])
+
+                dynamicSettings = {
+                    heroSettings: pageSettings.hero_settings || null,
+                    problemsSettings: pageSettings.problems_settings,
+                    problems: (problems || []).map(p => p.problem_title),
+                    localities: (localities || []).map(l => l.locality_name),
+                    services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
+                    faqs: (faqsMapping || [])
+                        .filter(f => f.website_faqs)
+                        .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer })),
+                    brandIds: brandsMapping?.map(m => m.brand_id) || [],
+                    sectionVisibility: pageSettings.section_visibility || {}
+                }
+
+                if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
+                    const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
+                    if (globalFaqs?.length > 0) {
+                        dynamicSettings.faqs = globalFaqs.map(f => ({ question: f.question, answer: f.answer }));
+                    }
+                }
             }
+        } catch (error) {
+            console.error('Error fetching sub-category dynamic settings:', error)
         }
-    } catch (error) {
-        console.error('Error fetching sub-category dynamic settings:', error)
     }
 
     // ── Fallbacks to static data if no dynamic settings exist ─────────────────
@@ -78,22 +93,26 @@ export default async function SubCategoryPage({ params }) {
     const problems = dynamicSettings?.problems?.length ? dynamicSettings.problems : getProblems(category, subcategory)
     const faqs = dynamicSettings?.faqs?.length ? dynamicSettings.faqs : getFAQs(category)
 
+    const sv = dynamicSettings?.sectionVisibility || {}
+
     return (
         <div className="service-page subcategory-page">
             <Header />
             {/* Hero Section */}
-            <HeroSection
-                title={`${subcategoryName} Repair Solutions In Mumbai`}
-                subtitle={`Expert ${subcategoryName.toLowerCase()} repair and maintenance`}
-                category={category}
-                heroSettings={dynamicSettings?.heroSettings || null}
-            />
+            {sv.hero !== false && (
+                <HeroSection
+                    title={`${subcategoryName} Repair Solutions In Mumbai`}
+                    subtitle={`Expert ${subcategoryName.toLowerCase()} repair and maintenance`}
+                    category={category}
+                    heroSettings={dynamicSettings?.heroSettings || null}
+                />
+            )}
 
             {/* Quick Booking Form - Pre-filled */}
             <QuickBookingEmbed preSelectedCategory={category} />
 
             {/* Sibling Subcategories */}
-            {siblingSubcategories.length > 0 && (
+            {sv.subcategories !== false && siblingSubcategories.length > 0 && (
                 <CategoryCards
                     title={`Other ${categoryName} Services`}
                     subtitle="Explore our complete range of services"
@@ -103,11 +122,13 @@ export default async function SubCategoryPage({ params }) {
             )}
 
             {/* Problems We Solve - Subcategory Specific */}
-            <ProblemsSection
-                title={problemsTitle}
-                subtitle={problemsSubtitle}
-                problems={problems}
-            />
+            {sv.problems !== false && (
+                <ProblemsSection
+                    title={problemsTitle}
+                    subtitle={problemsSubtitle}
+                    problems={problems}
+                />
+            )}
 
             {/* How It Works */}
             <HowItWorksGrid
@@ -122,30 +143,41 @@ export default async function SubCategoryPage({ params }) {
             />
 
             {/* Brand Logos */}
-            <BrandLogos
-                title="Authorized Service Provider"
-                subtitle="We service all major brands"
-            />
+            {sv.brands !== false && (
+                <BrandLogos
+                    title="Authorized Service Provider"
+                    subtitle="We service all major brands"
+                    selectedBrandIds={dynamicSettings?.brandIds}
+                />
+            )}
 
             {/* Location Links */}
-            <LocationLinks
-                title="Service Available Across Mumbai"
-                subtitle="We're in your neighborhood"
-                category={subcategoryName}
-            />
+            {sv.localities !== false && (
+                <LocationLinks
+                    title="Service Available Across Mumbai"
+                    subtitle="We're in your neighborhood"
+                    category={subcategoryName}
+                    dynamicLocalities={dynamicSettings?.localities}
+                />
+            )}
 
             {/* Frequently Booked Services */}
-            <FrequentlyBooked
-                title="Popular Services"
-                subtitle="Most booked by customers like you"
-            />
+            {sv.services !== false && (
+                <FrequentlyBooked
+                    title="Popular Services"
+                    subtitle="Most booked by customers like you"
+                    dynamicServices={dynamicSettings?.services}
+                />
+            )}
 
             {/* FAQ Section */}
-            <FAQSection
-                title="Frequently Asked Questions"
-                subtitle={`Everything you need to know about ${subcategoryName.toLowerCase()} repair`}
-                faqs={faqs}
-            />
+            {sv.faqs !== false && (
+                <FAQSection
+                    title="Frequently Asked Questions"
+                    subtitle={`Everything you need to know about ${subcategoryName.toLowerCase()} repair`}
+                    faqs={faqs}
+                />
+            )}
 
             {/* Footer */}
             <ServiceFooter />
@@ -156,6 +188,9 @@ export default async function SubCategoryPage({ params }) {
 // Generate static params for all subcategories
 export async function generateStaticParams() {
     // Fetch subcategories from DB so new appliances added via admin are included at build time
+    const supabase = createServerSupabase()
+    if (!supabase) return [];
+
     try {
         const { data: categories } = await supabase
             .from('booking_categories')

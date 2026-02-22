@@ -1,13 +1,22 @@
 import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request) {
     try {
-        const { data, error } = await supabase
+        const { searchParams } = new URL(request.url);
+        const isPublic = searchParams.get('public') === 'true';
+
+        let query = supabase
             .from('website_testimonials')
             .select('*')
             .order('date', { ascending: false });
 
+        if (isPublic) {
+            // Website only sees reviews the admin toggled on
+            query = query.eq('show_on_website', true);
+        }
+
+        const { data, error } = await query;
         if (error) throw error;
         return NextResponse.json({ success: true, data: data || [] });
     } catch (error) {

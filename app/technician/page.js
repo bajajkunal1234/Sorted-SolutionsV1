@@ -12,7 +12,7 @@ export default function TechnicianPage() {
         if (session) {
             router.push('/technician/dashboard')
         } else {
-            router.push('/technician/login')
+            router.push('/login')
         }
     }, [router])
 

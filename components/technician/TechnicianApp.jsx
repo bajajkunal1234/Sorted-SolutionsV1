@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
+import { logInteraction, logNavigation } from '@/lib/interactions';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -230,7 +231,16 @@ function TechnicianApp() {
         window.open(url, '_blank');
     };
 
-    const handleCallCustomer = (mobile) => {
+    const handleCallCustomer = (mobile, customerName = 'Customer') => {
+        logInteraction({
+            type: 'call-customer',
+            category: 'action',
+            customerName: customerName,
+            description: `Technician called customer: ${customerName}`,
+            source: 'Technician App',
+            performedBy: technicianId,
+            performedByName: technicianData?.name
+        });
         window.location.href = `tel:${mobile}`;
     };
 
@@ -806,28 +816,40 @@ function TechnicianApp() {
             <nav className="bottom-tabs">
                 <button
                     className={`tab-item ${activeTab === 'jobs' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('jobs')}
+                    onClick={() => {
+                        setActiveTab('jobs');
+                        logNavigation('Jobs', 'Technician', 'Technician App');
+                    }}
                 >
                     <Briefcase size={20} />
                     <span>Jobs</span>
                 </button>
                 <button
                     className={`tab-item ${activeTab === 'expenses' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('expenses')}
+                    onClick={() => {
+                        setActiveTab('expenses');
+                        logNavigation('Expenses', 'Technician', 'Technician App');
+                    }}
                 >
                     <DollarSign size={20} />
                     <span>Expenses</span>
                 </button>
                 <button
                     className={`tab-item ${activeTab === 'incentives' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('incentives')}
+                    onClick={() => {
+                        setActiveTab('incentives');
+                        logNavigation('Incentives', 'Technician', 'Technician App');
+                    }}
                 >
                     <TrendingUp size={20} />
                     <span>Incentives</span>
                 </button>
                 <button
                     className={`tab-item ${activeTab === 'settings' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('settings')}
+                    onClick={() => {
+                        setActiveTab('settings');
+                        logNavigation('Settings', 'Technician', 'Technician App');
+                    }}
                 >
                     <Settings size={20} />
                     <span>Settings</span>

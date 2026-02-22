@@ -5,9 +5,9 @@ import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusColor, getStockStatusLabel, formatStock } from '@/lib/utils/inventoryHelpers';
 import { productCategories } from '@/lib/data/inventoryData';
 
-function InventoryDetailsView({ products, onProductClick }) {
+function InventoryDetailsView({ products, onProductClick, categories = [] }) {
     const getCategoryName = (categoryId) => {
-        const category = productCategories.find(c => c.id === categoryId);
+        const category = (categories.length > 0 ? categories : productCategories).find(c => c.id === categoryId);
         return category?.name || categoryId;
     };
 

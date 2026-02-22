@@ -1,31 +1,71 @@
 'use client'
 
 import { useState } from 'react';
-import { MapPin, Plus, Edit2, Trash2, Check, Home, Building2 } from 'lucide-react';
+import { MapPin, Plus, Edit2, Trash2, Check, Home, Building2, Loader2 } from 'lucide-react';
 import { customerProperties } from '@/lib/data/rentalsAmcData';
 
-function CustomerPropertiesTab({ customerId }) {
+function CustomerPropertiesTab({ customerId, account, onUpdate }) {
     const [properties, setProperties] = useState(
-        customerProperties.filter(p => p.customerId === customerId)
+        account?.properties || customerProperties.filter(p => p.customerId === customerId)
     );
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+
+    // Form state for adding/editing
+    const [newProperty, setNewProperty] = useState({
+        name: '',
+        address: '',
+        contactPerson: '',
+        contactPhone: ''
+    });
+
+    const syncWithAccount = async (updatedProperties) => {
+        if (!onUpdate || !account) {
+            setProperties(updatedProperties);
+            return;
+        }
+
+        try {
+            setSubmitting(true);
+            const updatedAccount = {
+                ...account,
+                properties: updatedProperties
+            };
+            await onUpdate(updatedAccount);
+            setProperties(updatedProperties);
+        } catch (err) {
+            console.error('Error updating properties:', err);
+            alert('Failed to update: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
     const handleSetPrimary = (propertyId) => {
-        setProperties(properties.map(p => ({
+        const updated = properties.map(p => ({
             ...p,
             isPrimary: p.id === propertyId
-        })));
+        }));
+        syncWithAccount(updated);
     };
 
     const handleDelete = (propertyId) => {
-        if (properties.length === 1) {
-            alert('Cannot delete the only address');
+        if (window.confirm('Are you sure you want to delete this address?')) {
+            const updated = properties.filter(p => p.id !== propertyId);
+            syncWithAccount(updated);
+        }
+    };
+
+    const handleAddProperty = () => {
+        if (!newProperty.name.trim() && !newProperty.address.trim()) {
+            setIsAdding(false);
             return;
         }
-        if (window.confirm('Are you sure you want to delete this address?')) {
-            setProperties(properties.filter(p => p.id !== propertyId));
-        }
+        const updated = [...properties, { ...newProperty, id: Date.now() }];
+        syncWithAccount(updated);
+        setNewProperty({ name: '', address: '', contactPerson: '', contactPhone: '' });
+        setIsAdding(false);
     };
 
     return (
@@ -67,7 +107,7 @@ function CustomerPropertiesTab({ customerId }) {
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                         <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                            {property.label}
+                                            {property.label || property.name}
                                         </span>
                                         {property.isPrimary && (
                                             <span style={{
@@ -83,7 +123,7 @@ function CustomerPropertiesTab({ customerId }) {
                                         )}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textTransform: 'capitalize' }}>
-                                        {property.propertyType}
+                                        {property.propertyType || 'Address'}
                                     </div>
                                 </div>
                             </div>
@@ -132,31 +172,39 @@ function CustomerPropertiesTab({ customerId }) {
                             lineHeight: 1.6,
                             marginBottom: 'var(--spacing-sm)'
                         }}>
-                            <div>{property.address.line1}</div>
-                            {property.address.line2 && <div>{property.address.line2}</div>}
-                            <div>{property.address.area}, {property.address.city}</div>
-                            <div>{property.address.state} - {property.address.pincode}</div>
-                            {property.address.landmark && (
-                                <div style={{ color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                    Landmark: {property.address.landmark}
-                                </div>
+                            {typeof property.address === 'string' ? (
+                                <div style={{ whiteSpace: 'pre-wrap' }}>{property.address}</div>
+                            ) : (
+                                <>
+                                    <div>{property.address.line1}</div>
+                                    {property.address.line2 && <div>{property.address.line2}</div>}
+                                    <div>{property.address.area}, {property.address.city}</div>
+                                    <div>{property.address.state} - {property.address.pincode}</div>
+                                    {property.address.landmark && (
+                                        <div style={{ color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                            Landmark: {property.address.landmark}
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
 
-                        {/* Contact & Access Info */}
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Contact Person</div>
-                                <div style={{ fontWeight: 500 }}>{property.contactPerson}</div>
-                                <div style={{ color: 'var(--text-secondary)' }}>{property.contactPhone}</div>
-                            </div>
-                            {property.accessInstructions && (
+                        {/* Contact Info */}
+                        {(property.contactPerson || property.contactPhone) && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
                                 <div>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Access Instructions</div>
-                                    <div style={{ color: 'var(--text-secondary)' }}>{property.accessInstructions}</div>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Contact Person</div>
+                                    <div style={{ fontWeight: 500 }}>{property.contactPerson || '—'}</div>
+                                    <div style={{ color: 'var(--text-secondary)' }}>{property.contactPhone || ''}</div>
                                 </div>
-                            )}
-                        </div>
+                                {property.accessInstructions && (
+                                    <div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Access Instructions</div>
+                                        <div style={{ color: 'var(--text-secondary)' }}>{property.accessInstructions}</div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         {/* Installed Products */}
                         {property.installedProducts && property.installedProducts.length > 0 && (
@@ -190,7 +238,58 @@ function CustomerPropertiesTab({ customerId }) {
                 ))}
             </div>
 
-            {properties.length === 0 && (
+            {/* Simple Add Form */}
+            {isAdding && (
+                <div style={{
+                    padding: 'var(--spacing-md)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border-primary)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 'var(--spacing-sm)'
+                }}>
+                    <input
+                        type="text"
+                        className="form-input"
+                        placeholder="Property Name (e.g., Head Office)"
+                        value={newProperty.name}
+                        onChange={(e) => setNewProperty({ ...newProperty, name: e.target.value })}
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Contact Person"
+                            value={newProperty.contactPerson}
+                            onChange={(e) => setNewProperty({ ...newProperty, contactPerson: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Contact Phone"
+                            value={newProperty.contactPhone}
+                            onChange={(e) => setNewProperty({ ...newProperty, contactPhone: e.target.value })}
+                        />
+                    </div>
+                    <textarea
+                        className="form-input"
+                        placeholder="Full Address"
+                        rows="2"
+                        value={newProperty.address}
+                        onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
+                    />
+                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+                        <button className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
+                        <button className="btn btn-primary" onClick={handleAddProperty} disabled={submitting}>
+                            {submitting && <Loader2 size={14} className="animate-spin" style={{ marginRight: '6px' }} />}
+                            Save Property
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {properties.length === 0 && !isAdding && (
                 <div style={{
                     padding: 'var(--spacing-xl)',
                     backgroundColor: 'var(--bg-secondary)',

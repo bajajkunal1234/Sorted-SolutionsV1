@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X } from 'lucide-react';
-import { inventoryAPI, inventoryCategoriesAPI, printTemplatesAPI } from '@/lib/adminAPI';
+import { inventoryAPI, inventoryCategoriesAPI, inventoryLogsAPI, printTemplatesAPI } from '@/lib/adminAPI';
 import { productCategories, stockStatuses } from '@/lib/data/inventoryData';
 import { filterProducts, sortProducts, getUniqueBrands } from '@/lib/utils/inventoryHelpers';
 import InventoryTableView from './inventory/InventoryTableView';
@@ -104,7 +104,29 @@ function InventoryTab() {
 
     const handleUpdateProduct = async (updatedProduct) => {
         try {
+            // Find current product to check for stock changes
+            const currentProduct = products.find(p => p.id === updatedProduct.id);
+            const stockChanged = currentProduct && currentProduct.current_stock !== updatedProduct.current_stock;
+
             const result = await inventoryAPI.update(updatedProduct.id, updatedProduct);
+
+            // Create stock log if changed
+            if (stockChanged) {
+                try {
+                    await inventoryLogsAPI.create({
+                        inventory_id: result.id,
+                        type: 'adjustment',
+                        quantity_changed: updatedProduct.current_stock - currentProduct.current_stock,
+                        previous_quantity: currentProduct.current_stock,
+                        new_quantity: updatedProduct.current_stock,
+                        reference_type: 'manual',
+                        notes: 'Manual adjustment via detail modal'
+                    });
+                } catch (logErr) {
+                    console.error('Failed to create adjustment log:', logErr);
+                }
+            }
+
             setProducts(prevProducts =>
                 prevProducts.map(p => p.id === result.id ? result : p)
             );
@@ -118,6 +140,24 @@ function InventoryTab() {
     const handleCreateProduct = async (newProduct) => {
         try {
             const result = await inventoryAPI.create(newProduct);
+
+            // Create initial stock log if it's a product with stock
+            if (result.type === 'product' && result.current_stock > 0) {
+                try {
+                    await inventoryLogsAPI.create({
+                        inventory_id: result.id,
+                        type: 'initial',
+                        quantity_changed: result.current_stock,
+                        previous_quantity: 0,
+                        new_quantity: result.current_stock,
+                        reference_type: 'manual',
+                        notes: 'Initial stock on creation'
+                    });
+                } catch (logErr) {
+                    console.error('Failed to create initial stock log:', logErr);
+                }
+            }
+
             setProducts(prevProducts => [...prevProducts, result]);
             setShowCreateForm(false);
         } catch (err) {
@@ -325,16 +365,17 @@ function InventoryTab() {
                     </div>
                 ) : (
                     <>
-                        {viewType === 'table' && <InventoryTableView products={filteredProducts} onProductClick={setSelectedProduct} />}
-                        {viewType === 'card' && <InventoryCardView products={filteredProducts} onProductClick={setSelectedProduct} />}
+                        {viewType === 'table' && <InventoryTableView products={filteredProducts} onProductClick={setSelectedProduct} categories={categories} />}
+                        {viewType === 'card' && <InventoryCardView products={filteredProducts} onProductClick={setSelectedProduct} categories={categories} />}
                         {viewType === 'kanban' && (
                             <InventoryKanbanView
                                 products={filteredProducts}
                                 onProductClick={setSelectedProduct}
                                 onProductUpdate={handleUpdateProduct}
+                                categories={categories}
                             />
                         )}
-                        {viewType === 'details' && <InventoryDetailsView products={filteredProducts} onProductClick={setSelectedProduct} />}
+                        {viewType === 'details' && <InventoryDetailsView products={filteredProducts} onProductClick={setSelectedProduct} categories={categories} />}
                     </>
                 )}
             </div>
@@ -366,6 +407,7 @@ function InventoryTab() {
                     onClose={() => setSelectedProduct(null)}
                     onUpdate={handleUpdateProduct}
                     onDelete={() => handleDeleteProduct(selectedProduct.id)}
+                    categories={categories}
                 />
             )}
 

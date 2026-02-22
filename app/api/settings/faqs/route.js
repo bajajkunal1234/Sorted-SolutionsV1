@@ -1,12 +1,13 @@
-import { supabase } from '@/lib/supabase';
+import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
+    const supabase = createServerSupabase();
     try {
         const { data, error } = await supabase
             .from('website_faqs')
             .select('*')
-            .order('created_at', { ascending: false });
+            .order('display_order', { ascending: true });
 
         if (error) throw error;
         return NextResponse.json({ success: true, data: data || [] });
@@ -17,11 +18,18 @@ export async function GET() {
 }
 
 export async function POST(request) {
+    const supabase = createServerSupabase();
     try {
         const body = await request.json();
         const { data, error } = await supabase
             .from('website_faqs')
-            .insert([body])
+            .insert([{
+                question: body.question,
+                answer: body.answer,
+                pages: body.pages || [],
+                display_order: body.display_order || 0,
+                is_active: true,
+            }])
             .select()
             .single();
 
@@ -34,12 +42,19 @@ export async function POST(request) {
 }
 
 export async function PUT(request) {
+    const supabase = createServerSupabase();
     try {
         const body = await request.json();
         const { id, ...updates } = body;
         const { data, error } = await supabase
             .from('website_faqs')
-            .update(updates)
+            .update({
+                question: updates.question,
+                answer: updates.answer,
+                pages: updates.pages || [],
+                display_order: updates.display_order,
+                updated_at: new Date().toISOString(),
+            })
             .eq('id', id)
             .select()
             .single();
@@ -53,6 +68,7 @@ export async function PUT(request) {
 }
 
 export async function DELETE(request) {
+    const supabase = createServerSupabase();
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

@@ -21,6 +21,8 @@ export default function RootLayout({ children }) {
                         `,
                     }}
                 />
+                {/* Manual ReCAPTCHA loading to ensure Firebase Auth identity verification */}
+                <script src="https://www.google.com/recaptcha/api.js" async defer></script>
             </head>
             <body>{children}</body>
         </html>

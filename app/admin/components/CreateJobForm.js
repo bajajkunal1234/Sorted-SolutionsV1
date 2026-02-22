@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Upload, Plus, Loader2, Image as ImageIcon } from 'lucide-react';
-import { customersAPI, techniciansAPI, brandsAPI, issuesAPI, propertiesAPI, productsAPI } from '@/lib/adminAPI';
+import { customersAPI, techniciansAPI, brandsAPI, issuesAPI, propertiesAPI, productsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
+import NewAccountForm from './accounts/NewAccountForm';
+import PropertyForm from './accounts/PropertyForm';
 
 
 function CreateJobForm({ onClose, onCreate, existingJob }) {
-    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
 
     // Data States
@@ -16,6 +17,16 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [issues, setIssues] = useState([]);
     const [allProducts, setAllProducts] = useState([]); // Master products list
     const [properties, setProperties] = useState([]); // Fetched when customer is selected
+    const [groups, setGroups] = useState([]); // Account groups for NewAccountForm
+    const [loadingStates, setLoadingStates] = useState({
+        customers: true,
+        technicians: true,
+        brands: true,
+        issues: true,
+        products: true,
+        groups: false, // Lazy loaded
+        properties: false
+    });
 
     const [formData, setFormData] = useState({
         thumbnail: existingJob?.thumbnail || null,
@@ -39,17 +50,13 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [showCreateModal, setShowCreateModal] = useState(null); // 'customer', 'property', 'product', 'brand', 'issue'
     const [quickFormData, setQuickFormData] = useState({}); // Data for quick creation forms
 
-    // Fetch initial data
+    // Fetch master data asynchronously
     useEffect(() => {
         const fetchMasterData = async () => {
+            // Fetch everything in parallel but update state individually if needed
+            // For now, we'll keep the Promise.all but remove the blocking 'loading' state
             try {
-                const [
-                    customersData,
-                    techniciansData,
-                    brandsData,
-                    issuesData,
-                    productsData
-                ] = await Promise.all([
+                const results = await Promise.allSettled([
                     customersAPI.getAll(),
                     techniciansAPI.getAll(),
                     brandsAPI.getAll(),
@@ -57,27 +64,53 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     productsAPI.getAll()
                 ]);
 
-                setCustomers(customersData || []);
-                setTechnicians(techniciansData || []);
-                setBrands(brandsData || []);
-                setIssues(issuesData || []);
-                setAllProducts(productsData || []);
+                if (results[0].status === 'fulfilled') setCustomers(results[0].value || []);
+                if (results[1].status === 'fulfilled') setTechnicians(results[1].value || []);
+                if (results[2].status === 'fulfilled') setBrands(results[2].value || []);
+                if (results[3].status === 'fulfilled') setIssues(results[3].value || []);
+                if (results[4].status === 'fulfilled') setAllProducts(results[4].value || []);
+
+                setLoadingStates(prev => ({
+                    ...prev,
+                    customers: false,
+                    technicians: false,
+                    brands: false,
+                    issues: false,
+                    products: false
+                }));
 
                 // If editing and has customer, fetch properties
                 if (existingJob?.customer_id) {
+                    setLoadingStates(prev => ({ ...prev, properties: true }));
                     const props = await propertiesAPI.getAll(existingJob.customer_id);
                     setProperties(props || []);
+                    setLoadingStates(prev => ({ ...prev, properties: false }));
                 }
             } catch (err) {
                 console.error('Error fetching master data:', err);
-                // Optionally handle error state here
-            } finally {
-                setLoading(false);
             }
         };
 
         fetchMasterData();
     }, [existingJob]);
+
+    // Lazy load account groups when customer creation modal is opened
+    useEffect(() => {
+        if (showCreateModal === 'customer' && groups.length === 0) {
+            const fetchGroups = async () => {
+                try {
+                    setLoadingStates(prev => ({ ...prev, groups: true }));
+                    const data = await accountGroupsAPI.getAll();
+                    setGroups(data || []);
+                } catch (err) {
+                    console.error('Error fetching groups:', err);
+                } finally {
+                    setLoadingStates(prev => ({ ...prev, groups: false }));
+                }
+            };
+            fetchGroups();
+        }
+    }, [showCreateModal]);
 
     const handleThumbnailChange = (e) => {
         const file = e.target.files[0];
@@ -102,14 +135,45 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             property: null, // Reset property when customer changes
         });
 
-        // Fetch properties for selected customer
+        // Fetch properties for selected customer from both sources and merge
         if (customerId) {
             try {
-                const props = await propertiesAPI.getAll(customerId);
-                setProperties(props || []);
+                setLoadingStates(prev => ({ ...prev, properties: true }));
+
+                // Source 1: Old DB table (properties table with customer_id FK)
+                let dbProps = [];
+                try {
+                    dbProps = await propertiesAPI.getAll(customerId) || [];
+                } catch (e) {
+                    console.warn('propertiesAPI failed (may not exist):', e.message);
+                }
+
+                // Source 2: New JSONB array on the account record
+                const accountProps = (customer?.properties || [])
+                    .filter(p => p.name?.trim() || p.address?.trim?.() || (typeof p.address === 'object' && p.address?.line1))
+                    .map(p => ({
+                        // Normalize to a consistent shape
+                        id: p.id || `acct-${Date.now()}-${Math.random()}`,
+                        property_name: p.name || p.label || '',
+                        address: p.address,
+                        contactPerson: p.contactPerson || '',
+                        contactPhone: p.contactPhone || '',
+                        _source: 'account'
+                    }));
+
+                // Merge: DB props first, then account props (avoiding duplicates by id)
+                const dbIds = new Set(dbProps.map(p => String(p.id)));
+                const merged = [
+                    ...dbProps,
+                    ...accountProps.filter(p => !dbIds.has(String(p.id)))
+                ];
+
+                setProperties(merged);
             } catch (err) {
                 console.error('Error fetching properties:', err);
                 setProperties([]);
+            } finally {
+                setLoadingStates(prev => ({ ...prev, properties: false }));
             }
         } else {
             setProperties([]);
@@ -158,32 +222,64 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
     };
 
     // Inline Creation Handlers
-    const handleCreateCustomer = async () => {
+    const handleAccountSave = async (accountData) => {
         try {
-            const newCustomer = await customersAPI.create(quickFormData);
-            setCustomers([...customers, newCustomer]);
-            setFormData({ ...formData, customer: newCustomer, property: null });
+            setSubmitting(true);
+            let result;
+            if (accountData.id) {
+                result = await accountsAPI.update(accountData);
+            } else {
+                result = await accountsAPI.create(accountData);
+            }
+
+            // Refresh customers list
+            const updatedCustomers = await customersAPI.getAll();
+            setCustomers(updatedCustomers);
+
+            // Find the updated/new customer record
+            const updatedCustomer = updatedCustomers.find(c => c.ledger_id === result.id);
+
+            if (updatedCustomer) {
+                setFormData({ ...formData, customer: updatedCustomer, property: formData.property });
+                // Normalize account.properties JSONB into the properties state
+                const accountProps = (updatedCustomer.properties || [])
+                    .filter(p => p.name?.trim() || p.address)
+                    .map(p => ({
+                        id: p.id || `acct-${Date.now()}-${Math.random()}`,
+                        property_name: p.name || p.label || '',
+                        address: p.address,
+                        contactPerson: p.contactPerson || '',
+                        contactPhone: p.contactPhone || '',
+                        _source: 'account'
+                    }));
+                setProperties(accountProps);
+            }
+
             setShowCreateModal(null);
             setQuickFormData({});
+            alert(`Customer ${accountData.id ? 'updated' : 'created'} successfully!`);
         } catch (err) {
-            console.error('Error creating customer:', err);
-            alert('Failed to create customer: ' + err.message);
+            console.error('Error saving customer account:', err);
+            alert('Failed to save customer: ' + err.message);
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    const handleCreateProperty = async () => {
+
+    const handlePropertySave = async (propertyData) => {
         try {
-            const newProperty = await propertiesAPI.create({
-                ...quickFormData,
-                customer_id: formData.customer.id
-            });
+            setSubmitting(true);
+            const newProperty = await propertiesAPI.create(propertyData);
             setProperties([...properties, newProperty]);
             setFormData({ ...formData, property: newProperty });
             setShowCreateModal(null);
-            setQuickFormData({});
+            alert('Property added successfully!');
         } catch (err) {
             console.error('Error creating property:', err);
             alert('Failed to create property: ' + err.message);
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -294,16 +390,6 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="modal-overlay">
-                <div className="modal" style={{ maxWidth: '700px', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
-                    <Loader2 className="animate-spin" size={32} />
-                    <span style={{ marginLeft: '10px' }}>Loading master data...</span>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -379,7 +465,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 onChange={(e) => handleCustomerChange(e.target.value)}
                                 style={{ flex: 1 }}
                             >
-                                <option value="">Select customer...</option>
+                                <option value="">{loadingStates.customers ? 'Loading customers...' : 'Select customer...'}</option>
                                 {customers.map(customer => (
                                     <option key={customer.id} value={customer.id}>
                                         {customer.name} - {customer.phone}
@@ -391,7 +477,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 className="btn btn-secondary"
                                 onClick={() => {
                                     setShowCreateModal('customer');
-                                    setQuickFormData({ name: '', phone: '', email: '' });
+                                    setQuickFormData({});
                                 }}
                                 title="Create new customer"
                             >
@@ -400,62 +486,21 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         </div>
                         {errors.customer && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.customer}</span>}
 
-                        {/* Inline Customer Creation Form */}
+                        {/* Full Customer (Account) Creation Form */}
                         {showCreateModal === 'customer' && (
-                            <div style={{
-                                marginTop: 'var(--spacing-sm)',
-                                padding: 'var(--spacing-md)',
-                                border: '2px solid var(--color-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: 'var(--bg-secondary)'
-                            }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--spacing-sm)' }}>Create New Customer</h4>
-                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Customer Name *"
-                                        value={quickFormData.name || ''}
-                                        onChange={(e) => setQuickFormData({ ...quickFormData, name: e.target.value })}
-                                    />
-                                    <input
-                                        type="tel"
-                                        className="form-input"
-                                        placeholder="Phone Number *"
-                                        value={quickFormData.phone || ''}
-                                        onChange={(e) => setQuickFormData({ ...quickFormData, phone: e.target.value })}
-                                    />
-                                    <input
-                                        type="email"
-                                        className="form-input"
-                                        placeholder="Email (Optional)"
-                                        value={quickFormData.email || ''}
-                                        onChange={(e) => setQuickFormData({ ...quickFormData, email: e.target.value })}
-                                    />
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-xs)' }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary"
-                                            onClick={handleCreateCustomer}
-                                            disabled={!quickFormData.name || !quickFormData.phone}
-                                        >
-                                            <Save size={16} />
-                                            Create
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary"
-                                            onClick={() => {
-                                                setShowCreateModal(null);
-                                                setQuickFormData({});
-                                            }}
-                                        >
-                                            <X size={16} />
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <NewAccountForm
+                                onClose={() => {
+                                    setShowCreateModal(null);
+                                    setQuickFormData({});
+                                }}
+                                onSave={handleAccountSave}
+                                preselectedType="customer-accounts"
+                                groups={groups}
+                                onGroupCreated={async () => {
+                                    const updatedGroups = await accountGroupsAPI.getAll();
+                                    setGroups(updatedGroups);
+                                }}
+                            />
                         )}
 
                         {/* Customer Info Card */}
@@ -491,7 +536,9 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 disabled={!formData.customer}
                                 style={{ flex: 1 }}
                             >
-                                <option value="">{formData.customer ? 'Select property...' : 'Select customer first'}</option>
+                                <option value="">
+                                    {!formData.customer ? 'Select customer first' : (loadingStates.properties ? 'Loading addresses...' : 'Select property...')}
+                                </option>
                                 {properties.map(property => (
                                     <option key={property.id} value={property.id}>
                                         {property.property_name || property.label || property.address?.line1 || `Property #${property.id.slice(0, 6)}`}
@@ -513,78 +560,13 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         </div>
                         {errors.property && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.property}</span>}
 
-                        {/* Inline Property Creation Form */}
+                        {/* Full Property Creation Form */}
                         {showCreateModal === 'property' && (
-                            <div style={{
-                                marginTop: 'var(--spacing-sm)',
-                                padding: 'var(--spacing-md)',
-                                border: '2px solid var(--color-primary)',
-                                borderRadius: 'var(--radius-md)',
-                                backgroundColor: 'var(--bg-secondary)'
-                            }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', marginBottom: 'var(--spacing-sm)' }}>Add New Property</h4>
-                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Property Name (Optional)"
-                                        value={quickFormData.property_name || ''}
-                                        onChange={(e) => setQuickFormData({ ...quickFormData, property_name: e.target.value })}
-                                    />
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Address Line 1 *"
-                                        value={quickFormData.address?.line1 || ''}
-                                        onChange={(e) => setQuickFormData({
-                                            ...quickFormData,
-                                            address: { ...quickFormData.address, line1: e.target.value }
-                                        })}
-                                    />
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Locality/Area *"
-                                        value={quickFormData.address?.locality || ''}
-                                        onChange={(e) => setQuickFormData({
-                                            ...quickFormData,
-                                            address: { ...quickFormData.address, locality: e.target.value }
-                                        })}
-                                    />
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Pincode *"
-                                        value={quickFormData.address?.pincode || ''}
-                                        onChange={(e) => setQuickFormData({
-                                            ...quickFormData,
-                                            address: { ...quickFormData.address, pincode: e.target.value }
-                                        })}
-                                    />
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-xs)' }}>
-                                        <button
-                                            type="button"
-                                            className="btn btn-primary"
-                                            onClick={handleCreateProperty}
-                                            disabled={!quickFormData.address?.line1 || !quickFormData.address?.locality || !quickFormData.address?.pincode}
-                                        >
-                                            <Save size={16} />
-                                            Create
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-secondary"
-                                            onClick={() => {
-                                                setShowCreateModal(null);
-                                                setQuickFormData({});
-                                            }}
-                                        >
-                                            <X size={16} />
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
+                            <PropertyForm
+                                customerId={formData.customer.id}
+                                onSave={handlePropertySave}
+                                onClose={() => setShowCreateModal(null)}
+                            />
                         )}
 
                         {formData.property && (
@@ -609,7 +591,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     onChange={(e) => handleProductChange(e.target.value)}
                                     style={{ flex: 1 }}
                                 >
-                                    <option value="">Select appliance...</option>
+                                    <option value="">{loadingStates.products ? 'Loading appliances...' : 'Select appliance...'}</option>
                                     {allProducts.map(product => (
                                         <option key={product.id} value={product.id}>
                                             {product.name} ({product.category})
@@ -692,7 +674,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     onChange={(e) => handleBrandChange(e.target.value)}
                                     style={{ flex: 1 }}
                                 >
-                                    <option value="">Select brand...</option>
+                                    <option value="">{loadingStates.brands ? 'Loading brands...' : 'Select brand...'}</option>
                                     {brands.map(brand => (
                                         <option key={brand.id} value={brand.id}>
                                             {brand.name}
@@ -769,7 +751,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 onChange={(e) => handleIssueChange(e.target.value)}
                                 style={{ flex: 1 }}
                             >
-                                <option value="">Select issue...</option>
+                                <option value="">{loadingStates.issues ? 'Loading issues...' : 'Select issue...'}</option>
                                 {issues.map(issue => (
                                     <option key={issue.id} value={issue.id}>
                                         {issue.title || issue.name} ({issue.category})
@@ -905,7 +887,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 value={formData.assignedTo}
                                 onChange={(e) => handleTechnicianChange(e.target.value)}
                             >
-                                <option value="">Unassigned</option>
+                                <option value="">{loadingStates.technicians ? 'Loading technicians...' : 'Unassigned'}</option>
                                 {technicians.map(tech => (
                                     <option key={tech.id} value={tech.id}>
                                         {tech.name} {tech.status === 'busy' ? '(Busy)' : ''}

@@ -26,11 +26,13 @@ export default async function LocationPage({ params }) {
     // 1. Fetch Dynamic Data from Supabase
     let dynamicSettings = null;
     try {
-        const { data: pageSettings } = await supabase
+        const { data: pageSettings, error: pageError } = await supabase
             .from('page_settings')
             .select('*')
             .eq('page_id', pageId)
             .single();
+
+        console.log(`[LIVE DEBUG] Loc PageID: ${pageId}, Found: ${!!pageSettings}, Error:`, pageError);
 
         if (pageSettings) {
             // Fetch related data
@@ -55,12 +57,14 @@ export default async function LocationPage({ params }) {
                 localities: localities?.length > 0 ? localities.map(l => l.locality_name) : null,
                 brandIds: brandMappings?.map(m => m.brand_id) || [],
                 faqIds: faqMappings?.map(m => m.faq_id) || [],
-                problems_title: pageSettings.problems_title,
-                problems_subtitle: pageSettings.problems_subtitle,
-                localities_title: pageSettings.localities_title,
-                localities_subtitle: pageSettings.localities_subtitle,
-                services_title: pageSettings.services_title,
-                services_subtitle: pageSettings.services_subtitle
+                problems_title: pageSettings.problems_settings?.title,
+                problems_subtitle: pageSettings.problems_settings?.subtitle,
+                localities_title: pageSettings.localities_settings?.title,
+                localities_subtitle: pageSettings.localities_settings?.subtitle,
+                services_title: pageSettings.services_settings?.title,
+                services_subtitle: pageSettings.services_settings?.subtitle,
+                heroSettings: pageSettings.hero_settings || null,
+                sectionVisibility: pageSettings.section_visibility || {}
             };
 
             // Fetch specific brand and FAQ objects if we have IDs
@@ -92,16 +96,21 @@ export default async function LocationPage({ params }) {
         `${locationName} Central`,
     ]
 
+    const sv = dynamicSettings?.sectionVisibility || {}
+
     return (
         <div className="service-page location-page">
             <Header />
             {/* Hero Section */}
-            <HeroSection
-                title={`Appliance Repair Services in ${locationName}`}
-                subtitle="Expert technicians • All brands • Same-day service available"
-                category="ac-repair"
-                location={locationName}
-            />
+            {sv.hero !== false && (
+                <HeroSection
+                    title={`Appliance Repair Services in ${locationName}`}
+                    subtitle="Expert technicians • All brands • Same-day service available"
+                    category="ac-repair"
+                    location={locationName}
+                    heroSettings={dynamicSettings?.heroSettings}
+                />
+            )}
 
             {/* Quick Booking Form */}
             <QuickBookingEmbed />
@@ -115,11 +124,13 @@ export default async function LocationPage({ params }) {
             />
 
             {/* Common Problems */}
-            <ProblemsSection
-                title={dynamicSettings?.problems_title || "Problems We Solve"}
-                subtitle={dynamicSettings?.problems_subtitle || `Common appliance issues in ${locationName}`}
-                problems={problems}
-            />
+            {sv.problems !== false && (
+                <ProblemsSection
+                    title={dynamicSettings?.problems_title || "Problems We Solve"}
+                    subtitle={dynamicSettings?.problems_subtitle || `Common appliance issues in ${locationName}`}
+                    problems={problems}
+                />
+            )}
 
             {/* How It Works - Scroll Variant (Layout C) */}
             <HowItWorksScroll
@@ -134,32 +145,40 @@ export default async function LocationPage({ params }) {
             />
 
             {/* Brand Logos */}
-            <BrandLogos
-                title="Brands We Serve"
-                subtitle="Trusted by leading appliance manufacturers"
-                selectedBrandIds={dynamicSettings?.brandIds}
-            />
+            {sv.brands !== false && (
+                <BrandLogos
+                    title="Brands We Serve"
+                    subtitle="Trusted by leading appliance manufacturers"
+                    selectedBrandIds={dynamicSettings?.brandIds}
+                />
+            )}
 
             {/* Nearby Sublocations */}
-            <LocationLinks
-                title={dynamicSettings?.localities_title || `We Serve All Areas in ${locationName}`}
-                subtitle={dynamicSettings?.localities_subtitle || "Find your specific locality"}
-                dynamicLocalities={dynamicSettings?.localities}
-            />
+            {sv.localities !== false && (
+                <LocationLinks
+                    title={dynamicSettings?.localities_title || `We Serve All Areas in ${locationName}`}
+                    subtitle={dynamicSettings?.localities_subtitle || "Find your specific locality"}
+                    dynamicLocalities={dynamicSettings?.localities}
+                />
+            )}
 
             {/* Frequently Booked Services */}
-            <FrequentlyBooked
-                title={dynamicSettings?.services_title || `Popular in ${locationName}`}
-                subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
-                dynamicServices={dynamicSettings?.services}
-            />
+            {sv.services !== false && (
+                <FrequentlyBooked
+                    title={dynamicSettings?.services_title || `Popular in ${locationName}`}
+                    subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
+                    dynamicServices={dynamicSettings?.services}
+                />
+            )}
 
             {/* FAQ Section */}
-            <FAQSection
-                title="Frequently Asked Questions"
-                subtitle="Common questions about our services"
-                faqs={faqs}
-            />
+            {sv.faqs !== false && (
+                <FAQSection
+                    title="Frequently Asked Questions"
+                    subtitle="Common questions about our services"
+                    faqs={faqs}
+                />
+            )}
 
             {/* Footer */}
             <ServiceFooter />

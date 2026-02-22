@@ -36,7 +36,8 @@ export async function GET() {
         const { data, error } = await supabase
             .from('account_groups')
             .select('*')
-            .order('name', { ascending: true });
+            .order('name', { ascending: true })
+            .limit(100);
 
         if (error) throw error;
 

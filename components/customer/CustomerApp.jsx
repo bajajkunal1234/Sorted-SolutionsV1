@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import { Home, Map, Wrench, User, Package } from 'lucide-react'
+import { logNavigation } from '@/lib/interactions'
 
 // Customer Pages
 import HomePage from '@/components/customer/pages/Home'
@@ -55,7 +56,10 @@ function CustomerApp() {
                         <button
                             key={tab.id}
                             className={`tab-item ${isActive ? 'active' : ''}`}
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => {
+                                setActiveTab(tab.id);
+                                logNavigation(tab.label, 'Customer', 'Customer App');
+                            }}
                         >
                             <Icon className="tab-icon" />
                             <span>{tab.label}</span>

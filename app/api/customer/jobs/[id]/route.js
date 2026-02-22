@@ -10,7 +10,6 @@ export async function GET(request, { params }) {
             .select(`
                 *,
                 customer:customers(id, name, mobile, email),
-                property:properties(id, address, locality, city, pincode),
                 product:products(id, name, category),
                 brand:brands(id, name),
                 issue:issues(id, title, category, description),
@@ -27,14 +26,20 @@ export async function GET(request, { params }) {
             )
         }
 
+        // job.property is a JSONB blob stored on the job row
+        const prop = job.property || {};
+        const propAddr = prop.address && typeof prop.address === 'object'
+            ? { address: prop.address.line1 || '', locality: prop.address.locality || '', city: prop.address.city || '' }
+            : { address: typeof prop.address === 'string' ? prop.address : '', locality: prop.locality || '', city: prop.city || '' };
+
         // Transform data
         const transformedJob = {
             id: job.id,
             customerId: job.customer_id,
             propertyId: job.property_id,
-            address: job.property?.address,
-            locality: job.property?.locality,
-            city: job.property?.city,
+            address: propAddr.address,
+            locality: propAddr.locality,
+            city: propAddr.city,
             product: {
                 type: job.product?.category,
                 name: job.product?.name,

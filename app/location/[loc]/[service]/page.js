@@ -32,11 +32,13 @@ export default async function SubLocationPage({ params }) {
     // ── Fetch dynamic settings from Supabase ──────────────────────────────────
     let dynamicSettings = null
     try {
-        const { data: pageSettings } = await supabase
+        const { data: pageSettings, error: pageError } = await supabase
             .from('page_settings')
             .select('*')
             .eq('page_id', pageId)
             .single()
+
+        console.log(`[LIVE DEBUG] Subloc PageID: ${pageId}, Found: ${!!pageSettings}, Error:`, pageError);
 
         if (pageSettings) {
             const [
@@ -60,7 +62,8 @@ export default async function SubLocationPage({ params }) {
                 services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
                 faqs: (faqsMapping || [])
                     .filter(f => f.website_faqs)
-                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer }))
+                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer })),
+                sectionVisibility: pageSettings.section_visibility || {}
             }
         }
     } catch (error) {
@@ -85,27 +88,33 @@ export default async function SubLocationPage({ params }) {
 
     const faqs = dynamicSettings?.faqs?.length ? dynamicSettings.faqs : getFAQs('ac-repair').slice(0, 5)
 
+    const sv = dynamicSettings?.sectionVisibility || {}
+
     return (
         <div className="service-page sub-location-page">
             <Header />
             {/* Hero Section */}
-            <HeroSection
-                title={`${serviceName} Repair in ${locationName}`}
-                subtitle={`Expert ${serviceName.toLowerCase()} repair services • Same-day service • All brands`}
-                category={service}
-                location={locationName}
-                heroSettings={dynamicSettings?.heroSettings || null}
-            />
+            {sv.hero !== false && (
+                <HeroSection
+                    title={`${serviceName} Repair in ${locationName}`}
+                    subtitle={`Expert ${serviceName.toLowerCase()} repair services • Same-day service • All brands`}
+                    category={service}
+                    location={locationName}
+                    heroSettings={dynamicSettings?.heroSettings || null}
+                />
+            )}
 
             {/* Quick Booking Form */}
             <QuickBookingEmbed preSelectedCategory={service} />
 
             {/* Common Problems */}
-            <ProblemsSection
-                title={problemsTitle}
-                subtitle={problemsSubtitle}
-                problems={problems}
-            />
+            {sv.problems !== false && (
+                <ProblemsSection
+                    title={problemsTitle}
+                    subtitle={problemsSubtitle}
+                    problems={problems}
+                />
+            )}
 
             {/* How It Works */}
             <HowItWorksGrid
@@ -120,23 +129,30 @@ export default async function SubLocationPage({ params }) {
             />
 
             {/* Brand Logos */}
-            <BrandLogos
-                title="All Brands Serviced"
-                subtitle={`We repair all major ${serviceName.toLowerCase()} brands`}
-            />
+            {sv.brands !== false && (
+                <BrandLogos
+                    title="All Brands Serviced"
+                    subtitle={`We repair all major ${serviceName.toLowerCase()} brands`}
+                />
+            )}
 
             {/* Frequently Booked Services */}
-            <FrequentlyBooked
-                title={`Popular Services in ${locationName}`}
-                subtitle="Most booked services in your area"
-            />
+            {sv.services !== false && (
+                <FrequentlyBooked
+                    title={`Popular Services in ${locationName}`}
+                    subtitle="Most booked services in your area"
+                    dynamicServices={dynamicSettings?.services}
+                />
+            )}
 
             {/* FAQ Section */}
-            <FAQSection
-                title="Frequently Asked Questions"
-                subtitle={`Common questions about ${serviceName.toLowerCase()} repair in ${locationName}`}
-                faqs={faqs}
-            />
+            {sv.faqs !== false && (
+                <FAQSection
+                    title="Frequently Asked Questions"
+                    subtitle={`Common questions about ${serviceName.toLowerCase()} repair in ${locationName}`}
+                    faqs={faqs}
+                />
+            )}
 
             {/* Footer */}
             <ServiceFooter />

@@ -1,14 +1,15 @@
-'use client'
-
-import { useState } from 'react';
-import { X, Package, FileText, Bell, History, DollarSign, Edit2, Save, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Package, FileText, Bell, History, DollarSign, Edit2, Save, Trash2, ArrowUpRight, ArrowDownLeft, RefreshCcw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock } from '@/lib/utils/inventoryHelpers';
+import { inventoryLogsAPI } from '@/lib/adminAPI';
 import { productCategories } from '@/lib/data/inventoryData';
 
-function ProductDetailModal({ product, onClose, onUpdate, onDelete }) {
+function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [isEditing, setIsEditing] = useState(false);
+    const [logs, setLogs] = useState([]);
+    const [loadingLogs, setLoadingLogs] = useState(false);
     const [editedProduct, setEditedProduct] = useState({
         ...product,
         // Ensure numeric fields are numbers for editing
@@ -17,6 +18,24 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete }) {
         current_stock: parseFloat(product.current_stock) || 0,
         min_stock_level: parseInt(product.min_stock_level) || 0
     });
+
+    // Fetch logs when stock tab is active
+    useEffect(() => {
+        if (activeTab === 'stock' && product.id) {
+            const fetchLogs = async () => {
+                try {
+                    setLoadingLogs(true);
+                    const logData = await inventoryLogsAPI.getByInventoryId(product.id);
+                    setLogs(logData || []);
+                } catch (err) {
+                    console.error('Failed to fetch inventory logs:', err);
+                } finally {
+                    setLoadingLogs(false);
+                }
+            };
+            fetchLogs();
+        }
+    }, [activeTab, product.id]);
 
     const tabs = [
         { id: 'details', label: 'Master Details', icon: Package },
@@ -29,7 +48,7 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete }) {
     const stockStatus = getStockStatus(product.current_stock, product.min_stock_level, product.type === 'service');
     const statusColor = getStockStatusColor(stockStatus);
     const statusLabel = getStockStatusLabel(stockStatus);
-    const categoryName = productCategories.find(c => c.id === product.category)?.name || product.category;
+    const categoryName = (categories.length > 0 ? categories : productCategories).find(c => c.id === product.category)?.name || product.category;
 
     const handleSave = () => {
         onUpdate(editedProduct);
@@ -160,7 +179,7 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete }) {
                                             style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
                                         >
                                             <option value="">Select Category</option>
-                                            {productCategories.map(cat => (
+                                            {(categories.length > 0 ? categories : productCategories).map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
                                         </select>
@@ -385,22 +404,64 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete }) {
                                 </div>
                             </div>
 
-                            {/* Stock Movement Placeholder */}
+                            {/* Stock Movement History */}
                             <div style={{
-                                padding: 'var(--spacing-xl)',
                                 backgroundColor: 'var(--bg-secondary)',
                                 borderRadius: 'var(--radius-md)',
-                                textAlign: 'center',
-                                color: 'var(--text-tertiary)',
-                                border: '2px dashed var(--border-primary)'
+                                border: '1px solid var(--border-primary)',
+                                overflow: 'hidden'
                             }}>
-                                <History size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
-                                <p style={{ fontSize: 'var(--font-size-md)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                    Stock Movement History
-                                </p>
-                                <p style={{ fontSize: 'var(--font-size-sm)' }}>
-                                    Purchase orders, sales, and stock adjustments will appear here
-                                </p>
+                                <div style={{
+                                    padding: 'var(--spacing-md)',
+                                    borderBottom: '1px solid var(--border-primary)',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Movement History</h4>
+                                    {loadingLogs && <RefreshCcw size={14} className="animate-spin" />}
+                                </div>
+                                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                                    {!loadingLogs && logs.length > 0 ? (
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-xs)' }}>
+                                            <thead style={{ backgroundColor: 'var(--bg-tertiary)', position: 'sticky', top: 0 }}>
+                                                <tr>
+                                                    <th style={{ padding: '8px', textAlign: 'left' }}>Date</th>
+                                                    <th style={{ padding: '8px', textAlign: 'left' }}>Type</th>
+                                                    <th style={{ padding: '8px', textAlign: 'center' }}>Change</th>
+                                                    <th style={{ padding: '8px', textAlign: 'center' }}>Balance</th>
+                                                    <th style={{ padding: '8px', textAlign: 'left' }}>Notes</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {logs.map((log) => (
+                                                    <tr key={log.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                        <td style={{ padding: '8px' }}>
+                                                            {new Date(log.created_at).toLocaleDateString()}
+                                                            <div style={{ opacity: 0.5, fontSize: '10px' }}>
+                                                                {new Date(log.created_at).toLocaleTimeString()}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '8px', textTransform: 'capitalize' }}>{log.type}</td>
+                                                        <td style={{ padding: '8px', textAlign: 'center', fontWeight: 600, color: log.quantity_changed > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                                                                {log.quantity_changed > 0 ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
+                                                                {Math.abs(log.quantity_changed)}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '8px', textAlign: 'center' }}>{log.new_quantity}</td>
+                                                        <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{log.notes || '-'}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    ) : !loadingLogs ? (
+                                        <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                                            <History size={32} style={{ margin: '0 auto var(--spacing-sm)', opacity: 0.5 }} />
+                                            <p>No movement history found</p>
+                                        </div>
+                                    ) : null}
+                                </div>
                             </div>
                         </div>
                     )}

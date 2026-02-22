@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { Users, Plus, Edit2, Power, Save, X, Eye, EyeOff, Shield, Loader2, RefreshCcw } from 'lucide-react';
-import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
+import { techniciansAPI, websiteSettingsAPI, accountsAPI, accountGroupsAPI } from '@/lib/adminAPI';
 
 function TechnicianManagement() {
     const [technicians, setTechnicians] = useState([]);
+    const [technicianAccounts, setTechnicianAccounts] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [editingTechnician, setEditingTechnician] = useState(null);
@@ -53,13 +55,18 @@ function TechnicianManagement() {
     const fetchTechnicians = async () => {
         try {
             setLoading(true);
-            const [techsData, permsData] = await Promise.all([
+            const [techsData, permsData, accountsData, groupsData] = await Promise.all([
                 techniciansAPI.getAll(),
-                websiteSettingsAPI.getByKey('technician-permissions')
+                websiteSettingsAPI.getByKey('technician-permissions'),
+                accountsAPI.getAll(), // Fetch ALL accounts to find newly created ones
+                accountGroupsAPI.getAll()
             ]);
 
             setTechnicians(techsData || []);
             setAllPermissions(permsData?.value || {});
+            // accountsAPI.getAll() returns the data array directly via apiFetch
+            setTechnicianAccounts(accountsData || []);
+            setGroups(groupsData || []);
         } catch (err) {
             console.error('Error fetching data:', err);
         } finally {
@@ -78,6 +85,15 @@ function TechnicianManagement() {
             newErrors.username = 'Username must be at least 3 characters';
         } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
             newErrors.username = 'Username can only contain letters, numbers, and underscores';
+        } else {
+            // Check if username is already taken by another technician
+            const isTaken = technicians.some(t =>
+                t.username?.toLowerCase() === formData.username.toLowerCase() &&
+                (!editingTechnician || t.id !== editingTechnician.id)
+            );
+            if (isTaken) {
+                newErrors.username = 'This username is already taken';
+            }
         }
 
         // Password validation (only required for new technicians or if changing password)
@@ -110,13 +126,36 @@ function TechnicianManagement() {
                 updateData.password = formData.password;
             }
 
-            // Save Credentials
-            await techniciansAPI.update(formData.technician_id, updateData);
+            let techId = formData.technician_id;
+
+            // Check if this is a new setup from a ledger account
+            const isNewSetup = !technicians.some(t => t.id === techId);
+
+            if (isNewSetup) {
+                const selectedAccount = technicianAccounts.find(a => a.id === techId);
+
+                if (!selectedAccount) {
+                    throw new Error('Selected technician account not found');
+                }
+
+                const createData = {
+                    ...updateData,
+                    name: selectedAccount.name,
+                    phone: selectedAccount.mobile || selectedAccount.phone || '',
+                    ledger_id: selectedAccount.id
+                };
+                const result = await techniciansAPI.create(createData);
+                // techniciansAPI.create returns the created object directly via apiFetch
+                techId = result.id;
+            } else {
+                // Save Credentials for existing technician
+                await techniciansAPI.update(techId, updateData);
+            }
 
             // Save Permissions
             const updatedPermissions = {
                 ...allPermissions,
-                [formData.technician_id]: formData.permissions
+                [techId]: formData.permissions
             };
             await websiteSettingsAPI.save('technician-permissions', updatedPermissions, 'Technician access control permissions');
 
@@ -125,7 +164,16 @@ function TechnicianManagement() {
             alert('Technician settings saved successfully!');
         } catch (err) {
             console.error('Error saving technician:', err);
-            alert('Failed to save technician: ' + err.message);
+            let errorMessage = 'Failed to save technician settings';
+
+            if (err.message?.includes('unique constraint "technicians_username_key"')) {
+                errorMessage = 'This username is already taken. Please choose a different one.';
+                setErrors(prev => ({ ...prev, username: 'Username already taken' }));
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+
+            alert(errorMessage);
         } finally {
             setSaving(false);
         }
@@ -367,12 +415,45 @@ function TechnicianManagement() {
                                             onChange={(e) => setFormData({ ...formData, technician_id: e.target.value })}
                                             disabled={editingTechnician}
                                         >
-                                            <option value="">Select technician...</option>
-                                            {technicians.map(tech => (
-                                                <option key={tech.id} value={tech.id}>
-                                                    {tech.name} - {tech.phone}
+                                            <option value="">Select technician account...</option>
+                                            {/* Show existing technicians first */}
+                                            {editingTechnician ? (
+                                                <option value={editingTechnician.id}>
+                                                    {editingTechnician.name} - {editingTechnician.phone}
                                                 </option>
-                                            ))}
+                                            ) : (
+                                                <>
+                                                    <optgroup label="Setup Credentials for Ledger Accounts">
+                                                        {technicianAccounts
+                                                            .filter(acc => {
+                                                                // Filter: Account is not already a technician, and is either:
+                                                                // 1. Explicitly type 'technician'
+                                                                // 2. OR under 'sundry-creditors' or 'supplier-accounts' or 'technicians' group
+                                                                const isAlreadyTech = technicians.some(t => t.ledger_id === acc.id);
+                                                                if (isAlreadyTech) return false;
+
+                                                                if (acc.type === 'technician') return true;
+
+                                                                // Check if it's under a relevant group (Sundry Creditors)
+                                                                const relevantGroups = ['sundry-creditors', 'supplier-accounts', 'technicians'];
+                                                                return relevantGroups.includes(acc.under) ||
+                                                                    acc.type === 'liability'; // Fallback to any liability nature account
+                                                            })
+                                                            .map(acc => (
+                                                                <option key={acc.id} value={acc.id}>
+                                                                    {acc.name} ({acc.type || 'Account'})
+                                                                </option>
+                                                            ))}
+                                                    </optgroup>
+                                                    <optgroup label="Existing Technician Profiles">
+                                                        {technicians.map(tech => (
+                                                            <option key={tech.id} value={tech.id}>
+                                                                {tech.name} - {tech.username}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                </>
+                                            )}
                                         </select>
                                         {errors.technician_id && (
                                             <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>

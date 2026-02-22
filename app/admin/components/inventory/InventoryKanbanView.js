@@ -86,7 +86,7 @@ function SortableProductCard({ product, onProductClick }) {
     );
 }
 
-function InventoryKanbanView({ products, onProductClick, onProductUpdate }) {
+function InventoryKanbanView({ products, onProductClick, onProductUpdate, categories = [] }) {
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -98,7 +98,7 @@ function InventoryKanbanView({ products, onProductClick, onProductUpdate }) {
     // Group products by category
     const groupedProducts = products.reduce((acc, product) => {
         const categoryId = product.category;
-        const category = productCategories.find(c => c.id === categoryId);
+        const category = (categories.length > 0 ? categories : productCategories).find(c => c.id === categoryId);
         const categoryName = category?.name || 'Uncategorized';
 
         if (!acc[categoryName]) {
@@ -114,10 +114,10 @@ function InventoryKanbanView({ products, onProductClick, onProductUpdate }) {
         if (!over || !onProductUpdate) return;
 
         const productId = active.id;
-        const newCategory = over.id;
+        const newCategoryName = over.id;
 
         // Find the category ID from the category name
-        const category = productCategories.find(c => c.name === newCategory);
+        const category = (categories.length > 0 ? categories : productCategories).find(c => c.name === newCategoryName);
         if (!category) return;
 
         // Update the product's category

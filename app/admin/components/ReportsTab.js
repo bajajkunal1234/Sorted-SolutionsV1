@@ -101,13 +101,45 @@ function ReportsTab() {
                 gap: 'var(--spacing-md)',
                 flexWrap: 'wrap'
             }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flex: 1 }}>
                     <FileText size={24} style={{ color: 'var(--color-primary)' }} />
                     <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, margin: 0 }}>
                         {subSection ? (
                             searchSuggestions.find(s => s.id === subSection)?.label || subSection
                         ) : activeLabel || 'Reports & Settings'}
                     </h2>
+
+                    {/* Dynamic Search Bar for Interactions */}
+                    {activeSection === 'interactions' && (
+                        <div style={{ position: 'relative', flex: 1, maxWidth: '500px', marginLeft: '20px' }}>
+                            <Search
+                                size={16}
+                                style={{
+                                    position: 'absolute',
+                                    left: '12px',
+                                    top: '50%',
+                                    transform: 'translateY(-50%)',
+                                    color: 'var(--text-tertiary)'
+                                }}
+                            />
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="Search interactions, customers, jobs..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{
+                                    paddingLeft: '2.5rem',
+                                    paddingTop: '8px',
+                                    paddingBottom: '8px',
+                                    fontSize: 'var(--font-size-sm)',
+                                    borderRadius: 'var(--radius-md)',
+                                    width: '100%',
+                                    backgroundColor: 'var(--bg-secondary)'
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Search Bar */}
@@ -373,6 +405,8 @@ function ReportsTab() {
                     <ActiveComponent
                         subSection={subSection}
                         setSubSection={setSubSection}
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
                     />
                 ) : (
                     <div style={{

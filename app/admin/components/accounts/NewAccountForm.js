@@ -17,92 +17,94 @@ import {
 } from '@/lib/utils/accountHelpers';
 import { validateMobileNumber, validateEmail, validateGSTIN, validatePAN, validateIFSC } from '@/lib/utils/validation';
 
-function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], onGroupCreated }) {
+function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], onGroupCreated, initialData = null }) {
     // Common fields
     const [formData, setFormData] = useState({
-        sku: '',
-        name: '',
-        alias: '',
-        under: preselectedType || '',
-        openingBalance: 0,
-        balanceType: 'dr',
-        asOnDate: new Date().toISOString().split('T')[0],
+        sku: initialData?.sku || '',
+        name: initialData?.name || '',
+        alias: initialData?.alias || '',
+        under: initialData?.under || preselectedType || '',
+        openingBalance: initialData?.opening_balance || 0,
+        balanceType: initialData?.balance_type || 'dr',
+        asOnDate: initialData?.as_on_date || new Date().toISOString().split('T')[0],
 
         // Dynamic fields will be added based on 'under' selection
-        accountImage: null,
-        contactPerson: '',
-        mobile: '',
-        email: '',
-        mailingName: '',
+        accountImage: initialData?.image_url || null,
+        contactPerson: initialData?.contact_person || '',
+        mobile: initialData?.mobile || '',
+        email: initialData?.email || '',
+        mailingName: initialData?.mailing_name || '',
 
         // GST Registration (Optional for all account types)
-        gstRegistration: false,
-        gstin: '',
-        pan: '',
-        stateName: '',
-        country: 'India',
+        gstRegistration: !!initialData?.gstin,
+        gstin: initialData?.gstin || '',
+        pan: initialData?.pan || '',
+        stateName: initialData?.state_name || '',
+        country: initialData?.country || 'India',
 
         // Multiple Address Types (Tally-style)
-        mailingAddress: '',
-        billingAddress: '',
-        shippingAddress: '',
+        mailingAddress: initialData?.mailing_address || '',
+        billingAddress: initialData?.billing_address || '',
+        shippingAddress: initialData?.shipping_address || '',
 
         // Credit fields
-        creditLimit: 0,
-        creditPeriod: 0,
-        priceLevel: 'default',
+        creditLimit: initialData?.credit_limit || 0,
+        creditPeriod: initialData?.credit_period || 0,
+        priceLevel: initialData?.price_level || 'default',
 
         // Bank fields
-        accountNumber: '',
-        bankName: '',
-        branch: '',
-        ifscCode: '',
-        micrCode: '',
-        accountType: 'savings',
-        enableChequePrinting: false,
+        accountNumber: initialData?.account_number || '',
+        bankName: initialData?.bank_name || '',
+        branch: initialData?.branch || '',
+        ifscCode: initialData?.ifsc_code || '',
+        micrCode: initialData?.micr_code || '',
+        accountType: initialData?.account_type || 'savings',
+        enableChequePrinting: initialData?.enable_cheque_printing || false,
 
         // Tax fields
-        taxType: '',
-        taxRate: 0,
-        roundingMethod: 'normal',
+        taxType: initialData?.tax_type || '',
+        taxRate: initialData?.tax_rate || 0,
+        roundingMethod: initialData?.rounding_method || 'normal',
 
         // Expense/Income fields with GST
-        gstApplicable: false,
-        costCenterAllocation: false,
-        inventoryAffected: false,
+        gstApplicable: initialData?.gst_applicable || false,
+        costCenterAllocation: initialData?.cost_center_allocation || false,
+        inventoryAffected: initialData?.inventory_affected || false,
 
         // Fixed Asset fields
-        assetCategory: '',
-        purchaseDate: '',
-        purchaseValue: 0,
-        depreciationMethod: 'slm',
-        depreciationRate: 0,
-        usefulLife: 0,
+        assetCategory: initialData?.asset_category || '',
+        purchaseDate: initialData?.purchase_date || '',
+        purchaseValue: initialData?.purchase_value || 0,
+        depreciationMethod: initialData?.depreciation_method || 'slm',
+        depreciationRate: initialData?.depreciation_rate || 0,
+        usefulLife: initialData?.useful_life || 0,
 
         // Currency
-        currency: 'INR',
+        currency: initialData?.currency || 'INR',
 
         // Acquisition Source (How did you hear about us?)
-        acquisitionSource: '',
-        referredBy: ''
+        acquisitionSource: initialData?.acquisition_source || '',
+        referredBy: initialData?.referred_by || ''
     });
 
     const [errors, setErrors] = useState({});
     const [duplicateWarning, setDuplicateWarning] = useState(null);
-    const [imagePreview, setImagePreview] = useState(null);
+    const [imagePreview, setImagePreview] = useState(initialData?.image_url || null);
     const [showGroupForm, setShowGroupForm] = useState(false);
 
 
     // Customer Properties (for Sundry Debtors/Creditors)
-    const [properties, setProperties] = useState([{ name: '', address: '' }]);
+    const [properties, setProperties] = useState(initialData?.properties?.length > 0
+        ? initialData.properties
+        : [{ id: Date.now(), name: '', address: '', contactPerson: '', contactPhone: '' }]);
 
     // Form dirty state tracking
     const [isFormDirty, setIsFormDirty] = useState(false);
     const [showConfirmClose, setShowConfirmClose] = useState(false);
 
-    // Auto-generate SKU on mount
+    // Auto-generate SKU on mount (only for new accounts)
     useEffect(() => {
-        if (!formData.sku) {
+        if (!formData.sku && !initialData) {
             const newSKU = generateSKU(formData.under, sampleLedgers, {
                 autoGenerate: true,
                 prefix: 'ACC',
@@ -110,17 +112,17 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             });
             setFormData(prev => ({ ...prev, sku: newSKU }));
         }
-    }, []);
+    }, [initialData]);
 
-    // Check for duplicate names
+    // Check for duplicate names (only if name changed and not editing)
     useEffect(() => {
-        if (formData.name.trim()) {
+        if (formData.name.trim() && formData.name !== initialData?.name) {
             const duplicate = checkDuplicateName(formData.name, sampleLedgers);
             setDuplicateWarning(duplicate);
         } else {
             setDuplicateWarning(null);
         }
-    }, [formData.name]);
+    }, [formData.name, initialData]);
 
     // Track form dirty state
     useEffect(() => {
@@ -170,7 +172,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
     // Property management functions
     const addProperty = () => {
-        setProperties([...properties, { name: '', address: '' }]);
+        setProperties([...properties, { id: Date.now(), name: '', address: '', contactPerson: '', contactPhone: '' }]);
     };
 
     const deleteProperty = (index) => {
@@ -298,6 +300,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
         // Map camelCase to snake_case for Supabase
         const account = {
+            id: initialData?.id, // Include ID if editing
             name: formData.name,
             sku: formData.sku,
             alias: formData.alias,
@@ -326,20 +329,21 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             tax_rate: parseFloat(formData.taxRate) || 0,
             acquisition_source: formData.acquisitionSource,
             referred_by: formData.referredBy,
-            status: 'active',
+            status: initialData?.status || 'active',
             // Fixed Asset Fields
             asset_category: formData.assetCategory,
             purchase_date: formData.purchaseDate || null,
             purchase_value: parseFloat(formData.purchaseValue) || 0,
             depreciation_method: formData.depreciationMethod,
             depreciation_rate: parseFloat(formData.depreciationRate) || 0,
-            useful_life: parseFloat(formData.usefulLife) || 0,
-            created_at: new Date().toISOString()
+            useful_life: parseFloat(formData.useful_life) || 0,
+            created_at: initialData?.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
 
         // Add properties if applicable
-        if (formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') {
-            account.properties = properties.filter(p => p.name.trim() !== '');
+        if (showField('properties')) {
+            account.properties = properties.filter(p => p.name.trim() !== '' || p.address.trim() !== '');
         }
 
         console.log('Processed Account for Supabase:', account);
@@ -725,7 +729,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                     )}
 
                                     {/* Customer Properties Management (for Sundry Debtors) */}
-                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && (
+                                    {showField('properties') && (
                                         <div style={{ marginBottom: 'var(--spacing-lg)' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
                                                 <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
@@ -792,6 +796,29 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         />
                                                     </div>
 
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Contact Person</label>
+                                                            <input
+                                                                type="text"
+                                                                className="form-input"
+                                                                value={property.contactPerson || ''}
+                                                                onChange={(e) => updateProperty(index, 'contactPerson', e.target.value)}
+                                                                placeholder="Site contact name"
+                                                            />
+                                                        </div>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Contact Phone</label>
+                                                            <input
+                                                                type="text"
+                                                                className="form-input"
+                                                                value={property.contactPhone || ''}
+                                                                onChange={(e) => updateProperty(index, 'contactPhone', e.target.value)}
+                                                                placeholder="Site contact number"
+                                                            />
+                                                        </div>
+                                                    </div>
+
                                                     <div className="form-group" style={{ marginBottom: 0 }}>
                                                         <label className="form-label">Property Address</label>
                                                         <textarea
@@ -823,7 +850,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     <label className="form-label">Mailing Address</label>
 
                                                     {/* Property Selection Dropdown (for customers) */}
-                                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && properties.length > 0 && (
+                                                    {showField('properties') && properties.length > 0 && (
                                                         <select
                                                             className="form-select"
                                                             onChange={(e) => {
@@ -875,7 +902,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     </label>
 
                                                     {/* Property Selection Dropdown (for customers) */}
-                                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && properties.length > 0 && (
+                                                    {showField('properties') && properties.length > 0 && (
                                                         <select
                                                             className="form-select"
                                                             onChange={(e) => {
@@ -927,7 +954,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     </label>
 
                                                     {/* Property Selection Dropdown (for customers) */}
-                                                    {(formData.under === 'sundry-debtors' || formData.under === 'customer-accounts') && properties.length > 0 && (
+                                                    {showField('properties') && properties.length > 0 && (
                                                         <select
                                                             className="form-select"
                                                             onChange={(e) => {

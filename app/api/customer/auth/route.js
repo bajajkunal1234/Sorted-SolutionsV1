@@ -12,79 +12,110 @@ export async function POST(request) {
             )
         }
 
-        // Check if customer exists with this Firebase UID
-        let { data: customer, error: fetchError } = await supabase
+        let user = null;
+        let role = '';
+
+        // 1. Try to find user by Firebase UID in both tables
+        // Check Customers
+        const { data: customerByUid } = await supabase
             .from('customers')
             .select('*')
             .eq('firebase_uid', firebaseUid)
-            .single()
+            .single();
 
-        // If customer doesn't exist, create new customer
-        if (fetchError || !customer) {
-            // Check if customer exists with this phone number
-            const { data: existingCustomer } = await supabase
-                .from('customers')
+        if (customerByUid) {
+            user = customerByUid;
+            role = 'customer';
+        } else {
+            // Check Technicians
+            const { data: techByUid } = await supabase
+                .from('technicians')
                 .select('*')
-                .eq('phone', phoneNumber)
-                .single()
+                .eq('firebase_uid', firebaseUid)
+                .single();
 
-            if (existingCustomer) {
-                // Update existing customer with Firebase UID
-                const { data: updatedCustomer, error: updateError } = await supabase
-                    .from('customers')
-                    .update({
-                        firebase_uid: firebaseUid,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', existingCustomer.id)
-                    .select()
-                    .single()
-
-                if (updateError) {
-                    console.error('Error updating customer:', updateError)
-                    return NextResponse.json(
-                        { error: 'Failed to update customer' },
-                        { status: 500 }
-                    )
-                }
-
-                customer = updatedCustomer
-            } else {
-                // Create new customer
-                const { data: newCustomer, error: createError } = await supabase
-                    .from('customers')
-                    .insert({
-                        firebase_uid: firebaseUid,
-                        phone: phoneNumber,
-                        name: `Customer ${phoneNumber.slice(-4)}`, // Default name
-                        created_at: new Date().toISOString()
-                    })
-                    .select()
-                    .single()
-
-                if (createError) {
-                    console.error('Error creating customer:', createError)
-                    return NextResponse.json(
-                        { error: 'Failed to create customer' },
-                        { status: 500 }
-                    )
-                }
-
-                customer = newCustomer
+            if (techByUid) {
+                user = techByUid;
+                role = 'technician';
             }
         }
 
-        // Remove sensitive data
-        const { password_hash, ...customerData } = customer
+        // 2. If not found by UID, try to find by phone number
+        if (!user) {
+            // Normalize phone number for searching (remove spaces, etc from the search target if possible)
+            // But since we can't easily normalize the whole DB column in a query without RPC, 
+            // we'll try a few common formats or a like query.
+            const cleanPhone = phoneNumber.replace(/\s/g, ''); // +919876543210
+            const last10 = cleanPhone.slice(-10); // 9876543210
+
+            // Helper to find user by normalized phone
+            const findByPhone = async (table) => {
+                // Try exact match
+                const { data } = await supabase.from(table).select('*').or(`phone.eq.${phoneNumber},phone.eq.${cleanPhone},phone.ilike.%${last10}`).limit(1).single();
+                return data;
+            };
+
+            const customerByPhone = await findByPhone('customers');
+            if (customerByPhone) {
+                const { data: updatedCustomer } = await supabase
+                    .from('customers')
+                    .update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() })
+                    .eq('id', customerByPhone.id)
+                    .select()
+                    .single();
+                user = updatedCustomer;
+                role = 'customer';
+            } else {
+                const techByPhone = await findByPhone('technicians');
+                if (techByPhone) {
+                    const { data: updatedTech } = await supabase
+                        .from('technicians')
+                        .update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() })
+                        .eq('id', techByPhone.id)
+                        .select()
+                        .single();
+                    user = updatedTech;
+                    role = 'technician';
+                }
+            }
+        }
+
+        // 3. If still not found, create a new Customer by default
+        if (!user) {
+            const { data: newCustomer, error: createError } = await supabase
+                .from('customers')
+                .insert({
+                    firebase_uid: firebaseUid,
+                    phone: phoneNumber,
+                    name: `Customer ${phoneNumber.slice(-4)}`,
+                    created_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+
+            if (createError) {
+                console.error('Error creating customer:', createError);
+                return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
+            }
+
+            user = newCustomer;
+            role = 'customer';
+        }
+
+        // Remove sensitive fields
+        const { password_hash, ...userData } = user;
 
         return NextResponse.json({
             success: true,
-            customer: customerData,
+            user: {
+                ...userData,
+                role: role
+            },
             message: 'Authentication successful'
-        })
+        });
 
     } catch (error) {
-        console.error('Error in customer auth API:', error)
+        console.error('Error in auth sync API:', error)
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }

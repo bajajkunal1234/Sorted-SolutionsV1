@@ -7,7 +7,7 @@ export async function POST(request) {
         const body = await request.json()
 
         const { data, error } = await supabase
-            .from('job_interactions')
+            .from('interactions')
             .insert([body])
             .select()
             .single()

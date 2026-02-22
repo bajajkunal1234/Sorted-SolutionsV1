@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Search, ChevronDown, Download, Calendar, Edit2 } from 'lucide-react';
+import { Search, ChevronDown, Download, Calendar, Edit2, Activity, Database, Eye, EyeOff } from 'lucide-react';
 import { sampleInteractions } from '@/lib/data/interactionsData';
 import { sampleSalesInvoices, samplePurchaseInvoices, sampleQuotations, sampleReceipts, samplePayments } from '@/lib/data/transactionsData';
 import { interactionTypes, interactionCategories, getInteractionType, getCategory } from '@/lib/data/interactionTypes';
@@ -13,9 +13,39 @@ import PaymentVoucherForm from './accounts/PaymentVoucherForm';
 
 import { supabase } from '@/lib/supabase';
 
-function InteractionsTab() {
+function InteractionsTab({ searchTerm, setSearchTerm }) {
     const [interactions, setInteractions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [showSampleData, setShowSampleData] = useState(false);
+
+    // Setup Supabase Realtime
+    useEffect(() => {
+        const channel = supabase
+            .channel('realtime_interactions')
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'interactions'
+            }, (payload) => {
+                console.log('New interaction received via Realtime:', payload.new);
+                const newEntry = {
+                    ...payload.new,
+                    isLive: true,
+                    customerId: payload.new.customer_id,
+                    customerName: payload.new.customer_name || 'System',
+                    jobId: payload.new.job_id,
+                    invoiceId: payload.new.invoice_id,
+                    performedBy: payload.new.performed_by,
+                    performedByName: payload.new.performed_by_name
+                };
+                setInteractions(prev => [newEntry, ...prev]);
+            })
+            .subscribe();
+
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, []);
 
     // Load interactions from Supabase and merge with sample data
     useEffect(() => {
@@ -31,9 +61,10 @@ function InteractionsTab() {
 
                 if (error) throw error;
 
-                // Map database fields to the UI format if necessary
+                // Map database fields to the UI format
                 const dbInteractions = (data || []).map(item => ({
                     ...item,
+                    isLive: true,
                     customerId: item.customer_id,
                     customerName: item.customer_name || 'System',
                     jobId: item.job_id,
@@ -45,7 +76,7 @@ function InteractionsTab() {
                 // Load fallback from localStorage if any
                 const localLogs = JSON.parse(localStorage.getItem('system_interactions_fallback') || '[]');
 
-                // Merge and sort by timestamp
+                // Merge and sort
                 const combined = [...dbInteractions, ...localLogs, ...sampleInteractions].sort((a, b) =>
                     new Date(b.timestamp) - new Date(a.timestamp)
                 );
@@ -53,8 +84,7 @@ function InteractionsTab() {
                 setInteractions(combined);
             } catch (err) {
                 console.error('Failed to fetch interactions from Supabase:', err);
-                // Fallback to sample data and local logs
-                const localLogs = JSON.parse(localStorage.getItem('system_interactions') || '[]');
+                const localLogs = JSON.parse(localStorage.getItem('system_interactions_fallback') || '[]');
                 const combined = [...localLogs, ...sampleInteractions].sort((a, b) =>
                     new Date(b.timestamp) - new Date(a.timestamp)
                 );
@@ -67,7 +97,7 @@ function InteractionsTab() {
         fetchInteractions();
     }, []);
 
-    const [searchTerm, setSearchTerm] = useState('');
+    // Local search props are now passed from parent
     const [searchField, setSearchField] = useState('all'); // all, customer, job, invoice, description
     const [groupBy, setGroupBy] = useState('none'); // none, customer, date, type, category, performedBy
     const [filterUser, setFilterUser] = useState('all');
@@ -87,6 +117,11 @@ function InteractionsTab() {
     // Filter interactions
     const getFilteredInteractions = () => {
         return interactions.filter(interaction => {
+            // Sample data filter
+            if (!showSampleData && !interaction.isLive) {
+                return false;
+            }
+
             // Search filter
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
@@ -399,7 +434,7 @@ function InteractionsTab() {
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Row 1: Header */}
+            {/* Row 1: Date Range & Actions */}
             <div style={{
                 padding: 'var(--spacing-sm) var(--spacing-md)',
                 backgroundColor: 'var(--bg-elevated)',
@@ -409,10 +444,6 @@ function InteractionsTab() {
                 gap: 'var(--spacing-md)',
                 flexWrap: 'wrap'
             }}>
-                <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, minWidth: '120px' }}>
-                    Interactions
-                </h2>
-
                 {/* Date Range */}
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                     <Calendar size={16} style={{ color: 'var(--text-tertiary)' }} />
@@ -459,72 +490,42 @@ function InteractionsTab() {
                 </button>
             </div>
 
-            {/* Row 2: Filters */}
+            {/* Filter Section Row 1 */}
             <div style={{
                 padding: 'var(--spacing-xs) var(--spacing-md)',
                 backgroundColor: 'var(--bg-secondary)',
                 borderBottom: '1px solid var(--border-primary)',
                 display: 'flex',
-                gap: '8px',
+                gap: '12px',
                 flexWrap: 'wrap',
                 alignItems: 'center'
             }}>
-                {/* Search with Dropdown */}
-                <div style={{ display: 'flex', gap: '0', flex: 1, minWidth: '300px' }}>
-                    <div style={{ position: 'relative' }}>
-                        <select
-                            value={searchField}
-                            onChange={(e) => setSearchField(e.target.value)}
-                            style={{
-                                appearance: 'none',
-                                padding: '6px 24px 6px 8px',
-                                fontSize: 'var(--font-size-xs)',
-                                border: '1px solid var(--border-primary)',
-                                borderRight: 'none',
-                                borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
-                                backgroundColor: 'var(--bg-elevated)',
-                                color: 'var(--text-primary)',
-                                cursor: 'pointer',
-                                fontWeight: 500
-                            }}
-                        >
-                            <option value="all">All</option>
-                            <option value="customer">Customer</option>
-                            <option value="job">Job ID</option>
-                            <option value="invoice">Invoice</option>
-                            <option value="description">Description</option>
-                        </select>
-                        <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                    </div>
-                    <div style={{ position: 'relative', flex: 1 }}>
-                        <Search
-                            size={16}
-                            style={{
-                                position: 'absolute',
-                                left: '8px',
-                                top: '50%',
-                                transform: 'translateY(-50%)',
-                                color: 'var(--text-tertiary)'
-                            }}
-                        />
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder={`Search by ${searchField === 'all' ? 'anything' : searchField}...`}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            style={{
-                                paddingLeft: '2rem',
-                                paddingTop: '6px',
-                                paddingBottom: '6px',
-                                fontSize: 'var(--font-size-xs)',
-                                borderRadius: '0 var(--radius-sm) var(--radius-sm) 0'
-                            }}
-                        />
-                    </div>
+                {/* Search Field selector */}
+                <div style={{ position: 'relative' }}>
+                    <select
+                        value={searchField}
+                        onChange={(e) => setSearchField(e.target.value)}
+                        style={{
+                            appearance: 'none',
+                            padding: '6px 24px 6px 8px',
+                            fontSize: 'var(--font-size-xs)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-sm)',
+                            backgroundColor: 'var(--bg-elevated)',
+                            color: 'var(--text-primary)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            minWidth: '100px'
+                        }}
+                    >
+                        <option value="all">Search All</option>
+                        <option value="customer">In Customers</option>
+                        <option value="job">In Job IDs</option>
+                        <option value="invoice">In Invoices</option>
+                        <option value="description">In Descriptions</option>
+                    </select>
+                    <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                 </div>
-
-                <span style={{ borderLeft: '1px solid var(--border-primary)', height: '20px' }} />
 
                 {/* Group By */}
                 <div style={{ position: 'relative' }}>
@@ -602,7 +603,18 @@ function InteractionsTab() {
                     </select>
                     <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                 </div>
+            </div>
 
+            {/* Filter Section Row 2 */}
+            <div style={{
+                padding: 'var(--spacing-xs) var(--spacing-md)',
+                backgroundColor: 'var(--bg-secondary)',
+                borderBottom: '1px solid var(--border-primary)',
+                display: 'flex',
+                gap: '12px',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+            }}>
                 {/* Filter by Category */}
                 <div style={{ position: 'relative' }}>
                     <select
@@ -617,7 +629,8 @@ function InteractionsTab() {
                             backgroundColor: 'var(--bg-elevated)',
                             color: 'var(--text-primary)',
                             cursor: 'pointer',
-                            fontWeight: 500
+                            fontWeight: 500,
+                            minWidth: '150px'
                         }}
                     >
                         <option value="all">All Categories</option>
@@ -627,6 +640,25 @@ function InteractionsTab() {
                     </select>
                     <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                 </div>
+
+                {/* Show Sample Data Toggle */}
+                <button
+                    onClick={() => setShowSampleData(!showSampleData)}
+                    className="btn btn-secondary"
+                    style={{
+                        padding: '6px 12px',
+                        fontSize: 'var(--font-size-xs)',
+                        backgroundColor: showSampleData ? 'var(--bg-secondary)' : 'transparent',
+                        borderColor: showSampleData ? 'var(--color-primary)' : 'var(--border-primary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}
+                    title={showSampleData ? "Hide Sample Data" : "Show Sample Data"}
+                >
+                    {showSampleData ? <Eye size={14} /> : <EyeOff size={14} />}
+                    {showSampleData ? "Showing Sample" : "Sample Hidden"}
+                </button>
             </div>
 
             {/* Content Area */}
@@ -683,7 +715,30 @@ function InteractionsTab() {
                                                 {typeInfo.icon}
                                             </td>
                                             <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
-                                                {typeInfo.label}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    {typeInfo.label}
+                                                    {interaction.isLive && (
+                                                        <span
+                                                            title="Live Database Entry"
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '2px',
+                                                                padding: '1px 4px',
+                                                                borderRadius: '4px',
+                                                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                                                color: '#10b981',
+                                                                fontSize: '8px',
+                                                                fontWeight: 'bold',
+                                                                textTransform: 'uppercase',
+                                                                border: '1px solid rgba(16, 185, 129, 0.2)'
+                                                            }}
+                                                        >
+                                                            <Activity size={8} />
+                                                            Live
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>
                                                 <span style={{

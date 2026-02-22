@@ -57,6 +57,17 @@
     text-align: center;
 }
 
+.brand-logo-img {
+    max-width: 90%;
+    max-height: 80%;
+    object-fit: contain;
+    transition: transform var(--transition-base);
+}
+
+.logo-item:hover .brand-logo-img {
+    transform: scale(1.1);
+}
+
 /* Size variations */
 .logo-small .logo-placeholder {
     height: 60px;

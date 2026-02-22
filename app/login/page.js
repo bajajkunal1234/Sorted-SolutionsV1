@@ -1,10 +1,13 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Phone, Lock, ArrowRight, Chrome, Mail, ShieldCheck, MapPin, User, Loader2, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
-import { logAuthEvent } from '@/lib/utils/logger';
+import { supabase } from '@/lib/supabase';
+import { auth } from '@/lib/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { logLogin } from '@/lib/interactions';
 
 function LoginContent() {
     const router = useRouter();
@@ -12,12 +15,17 @@ function LoginContent() {
 
     // Auth States
     const [step, setStep] = useState('identify'); // identify, verify, mobile-link
-    const [authMethod, setAuthMethod] = useState('password'); // password, otp
+    const [authMethod, setAuthMethod] = useState('otp'); // Default to OTP for Firebase integration
     const [identifier, setIdentifier] = useState(''); // Mobile or email
     const [password, setPassword] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [loading, setLoading] = useState(false);
+    const [showDiag, setShowDiag] = useState(false); // Diagnostic toggle
     const [error, setError] = useState('');
+    const [confirmationResult, setConfirmationResult] = useState(null);
+    const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
+    const [recaptchaWidgetId, setRecaptchaWidgetId] = useState(null);
+    const recaptchaInitRef = useRef(false);
 
     // Pre-filled identifier from URL if any
     useEffect(() => {
@@ -25,7 +33,76 @@ function LoginContent() {
         if (phone) setIdentifier(phone.replace(/\D/g, '').slice(-10));
     }, [searchParams]);
 
-    const handleIdentifierSubmit = (e) => {
+    // Initialize ReCAPTCHA
+    const initRecaptcha = async () => {
+        if (typeof window === 'undefined') return null;
+        if (recaptchaInitRef.current && window.recaptchaVerifier) return window.recaptchaVerifier;
+
+        try {
+            console.log('--- Firebase ReCAPTCHA Init Start ---');
+            recaptchaInitRef.current = true;
+
+            const container = document.getElementById('recaptcha-container');
+            if (!container) {
+                console.error('CRITICAL: recaptcha-container DIV NOT FOUND');
+                recaptchaInitRef.current = false;
+                return null;
+            }
+
+            // Clear previous content to prevent double widgets
+            container.innerHTML = '';
+
+            const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                'size': 'normal',
+                'callback': (response) => {
+                    console.log('ReCAPTCHA Success - Token received');
+                    setError(''); // Clear any "solve recaptcha" errors
+                },
+                'expired-callback': () => {
+                    setError('ReCAPTCHA expired. Please solve it again.');
+                },
+                'error-callback': (err) => {
+                    console.error('ReCAPTCHA Error:', err);
+                    setError('ReCAPTCHA initialization failed. Please refresh.');
+                    recaptchaInitRef.current = false;
+                }
+            });
+
+            const widgetId = await verifier.render();
+            setRecaptchaWidgetId(widgetId);
+            setRecaptchaVerifier(verifier);
+            window.recaptchaVerifier = verifier;
+
+            console.log('--- Firebase ReCAPTCHA Init Complete ---');
+            return verifier;
+        } catch (err) {
+            console.error('Failed to init ReCAPTCHA:', err);
+            setError(`ReCAPTCHA Error: ${err.message}`);
+            recaptchaInitRef.current = false;
+            return null;
+        }
+    };
+
+    useEffect(() => {
+        // Use a small delay to ensure React has mounted the container div
+        const timer = setTimeout(() => {
+            if (!recaptchaInitRef.current) {
+                initRecaptcha();
+            }
+        }, 500);
+
+        return () => {
+            clearTimeout(timer);
+            if (window.recaptchaVerifier) {
+                try {
+                    window.recaptchaVerifier.clear();
+                    window.recaptchaVerifier = null;
+                } catch (e) { }
+            }
+        };
+    }, [auth]);
+
+    const handleIdentifierSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
@@ -34,13 +111,78 @@ function LoginContent() {
             return;
         }
 
-        // Transition to next step
         if (authMethod === 'password') {
             setStep('verify');
         } else {
-            // Trigger OTP send mock
-            console.log('Sending OTP to', identifier);
-            setStep('verify');
+            // FIREBASE OTP FLOW
+            setLoading(true);
+            try {
+                let currentVerifier = recaptchaVerifier || window.recaptchaVerifier;
+                if (!currentVerifier) {
+                    currentVerifier = await initRecaptcha();
+                }
+
+                if (!currentVerifier) {
+                    throw new Error('ReCAPTCHA could not be initialized. Please refresh the page.');
+                }
+
+                const phoneNumber = `+91${identifier}`;
+                console.log(`--- [AUTH] Sending OTP to ${phoneNumber} ---`);
+                console.log('Firebase Config Check:', {
+                    apiKey: auth.app?.options?.apiKey ? 'OK' : 'MISSING',
+                    projectId: auth.app?.options?.projectId || 'MISSING',
+                    authDomain: auth.app?.options?.authDomain || 'MISSING'
+                });
+
+                if (authMethod === 'otp') {
+                    // Check if ReCAPTCHA is solved
+                    if (window.grecaptcha && recaptchaWidgetId !== null) {
+                        const response = window.grecaptcha.getResponse(recaptchaWidgetId);
+                        if (!response) {
+                            setError('Please solve the ReCAPTCHA checkbox first.');
+                            setLoading(false);
+                            return;
+                        }
+                    }
+                }
+
+                const result = await signInWithPhoneNumber(auth, phoneNumber, currentVerifier);
+                setConfirmationResult(result);
+                setStep('verify');
+                console.log('--- [AUTH] OTP Sent Successfully ---');
+            } catch (err) {
+                console.error('--- [AUTH] ERROR ---');
+                console.error('Code:', err.code);
+                console.error('Message:', err.message);
+                console.dir(err); // Show full object structure in console
+
+                console.group('CRITICAL TROUBLESHOOTING');
+                console.log('1. HOST:', window.location.origin);
+                console.log('2. PROJECT:', auth.app?.options?.projectId);
+                console.log('3. IS PHONE AUTH ENABLED?: Check Firebase Console > Authentication > Sign-in method');
+                console.log('4. DOMAIN RESTRICTIONS: Check Firebase Console > Authentication > Settings > Authorized Domains (must include localhost)');
+                console.log('5. API KEY RESTRICTIONS: Check GCP Console > Credentials (should be "None" for testing)');
+                console.groupEnd();
+
+                if (err.code === 'auth/invalid-app-credential') {
+                    setError('Authentication failure: App Identity could not be verified. Please check if "localhost:3000" is added to Authorized Domains in Firebase Console and if the API Key has restrictions.');
+                } else if (err.code === 'auth/invalid-phone-number') {
+                    setError('Invalid phone number format.');
+                } else if (err.code === 'auth/too-many-requests') {
+                    setError('Security block: Too many attempts. Please try again in 30 minutes or use a different number / Test Number.');
+                } else if (err.message?.includes('reCAPTCHA client element has been removed')) {
+                    setError('ReCAPTCHA Session Expired. Please click "Continue" again to retry.');
+                    // In this specific case, we SHOULD reset so they can try again
+                    recaptchaInitRef.current = false;
+                } else {
+                    setError(err.message || 'Failed to send OTP. Please try again.');
+                }
+
+                // Log details for the developer
+                console.log('--- [AUTH] PROMPT: Please check Google/Firebase consoles if the error above is invalid-app-credential ---');
+            } finally {
+                setLoading(false);
+            }
         }
     };
 
@@ -50,58 +192,94 @@ function LoginContent() {
         setLoading(true);
 
         try {
-            // MOCK AUTH LOGIC
-            const mockAccounts = {
-                '9999999999': { role: 'admin', name: 'Admin User' },
-                '9876543210': { role: 'technician', name: 'Tech User' },
-                '8888888888': { role: 'customer', name: 'Customer User' }
-            };
-
-            const account = mockAccounts[identifier];
-            const isPasswordValid = (password === '123456');
             const otpCode = otp.join('');
-            const isOtpValid = (otpCode === '123456');
+            let firebaseUser = null;
 
-            if (!account) {
-                throw new Error('User not found. Try 9999999999, 9876543210, or 8888888888');
+            if (authMethod === 'otp') {
+                if (!confirmationResult) {
+                    throw new Error('Session expired. Please request a new OTP.');
+                }
+
+                if (otpCode.length !== 6) {
+                    throw new Error('Please enter a complete 6-digit OTP.');
+                }
+
+                // Verify Firebase OTP
+                const result = await confirmationResult.confirm(otpCode);
+                firebaseUser = result.user;
+            } else {
+                // Password Auth (still using mock for password for now, or you can implement Supabase/Firebase password auth)
+                if (password !== '123456') {
+                    throw new Error('Invalid password. Try 123456');
+                }
+                // Mock identifier check for password
+                const mockAccounts = {
+                    '9999999999': { role: 'admin', name: 'Admin User' },
+                    '9876543210': { role: 'technician', name: 'Tech User' },
+                    '8888888888': { role: 'customer', name: 'Customer User' }
+                };
+                if (!mockAccounts[identifier]) {
+                    throw new Error('User not found. Use identifier that exists in your database.');
+                }
             }
 
-            if (authMethod === 'password' && !isPasswordValid) {
-                throw new Error('Invalid password. Try 123456');
+            // 2. Synchronize with Supabase via Backend Bridge
+            let finalUser = null;
+
+            if (firebaseUser) {
+                const response = await fetch('/api/customer/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        firebaseUid: firebaseUser.uid,
+                        phoneNumber: firebaseUser.phoneNumber
+                    })
+                });
+
+                const syncData = await response.json();
+                if (!response.ok) {
+                    throw new Error(syncData.error || 'Failed to synchronize with database.');
+                }
+
+                finalUser = {
+                    id: syncData.user.id,
+                    name: syncData.user.name,
+                    phone: syncData.user.phone,
+                    role: syncData.user.role || 'customer'
+                };
+            } else {
+                // Mock fallback for password devs/debugging
+                finalUser = {
+                    id: `mock-${identifier}-id`,
+                    name: 'Admin User',
+                    phone: identifier,
+                    role: 'admin'
+                };
             }
 
-            if (authMethod === 'otp' && !isOtpValid) {
-                throw new Error('Invalid OTP. Try 123456');
-            }
-
-            // Mock Successful Login
-            const mockUser = {
-                id: `mock-${account.role}-id`,
-                phone: `+91${identifier}`,
-                name: account.name,
-                role: account.role
-            };
-
-            // Simple role detection logic for this demo
+            // 3. Complete Login
             let targetRoute = '/customer/dashboard';
-            if (mockUser.role === 'admin') targetRoute = '/admin';
-            else if (mockUser.role === 'technician') targetRoute = '/technician';
+            if (finalUser.role === 'admin') targetRoute = '/admin';
+            else if (finalUser.role === 'technician') targetRoute = '/technician';
 
             // Store session
             localStorage.setItem('user_session', JSON.stringify({
-                ...mockUser,
-                token: 'mock-jwt-token'
+                ...finalUser,
+                token: 'firebase-token-placeholder', // In real app, use firebaseUser.getIdToken()
+                firebaseUid: firebaseUser?.uid
             }));
 
             // Log interaction
-            await logAuthEvent('login', mockUser);
+            await logLogin(finalUser, finalUser.role, 'Login Page');
 
-            // For backward compatibility
-            if (mockUser.role === 'admin') localStorage.setItem('isAdmin', 'true');
-            localStorage.setItem('customerId', mockUser.id);
+            // Backward compatibility
+            if (finalUser.role === 'admin') localStorage.setItem('isAdmin', 'true');
+            localStorage.setItem('customerId', finalUser.id);
+            localStorage.setItem('customerData', JSON.stringify(finalUser));
 
             router.push(targetRoute);
         } catch (err) {
+            console.error('Login error:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -219,6 +397,9 @@ function LoginContent() {
                     {step === 'identify' && (
                         <div className="animate-fade-in">
                             <form onSubmit={handleIdentifierSubmit}>
+                                {/* Firebase ReCAPTCHA Container */}
+                                <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}></div>
+
                                 <div style={{ marginBottom: '20px' }}>
                                     <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: 'rgba(255, 255, 255, 0.8)' }}>
                                         Mobile Number
@@ -307,8 +488,65 @@ function LoginContent() {
                                         gap: '10px'
                                     }}
                                 >
-                                    Continue <ArrowRight size={20} />
+                                    {loading ? <Loader2 size={20} className="animate-spin" /> : 'Continue'} <ArrowRight size={20} />
                                 </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => initRecaptcha()}
+                                    style={{
+                                        width: '100%',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'rgba(255, 255, 255, 0.4)',
+                                        fontSize: '11px',
+                                        marginTop: '12px',
+                                        cursor: 'pointer',
+                                        textDecoration: 'underline'
+                                    }}
+                                >
+                                    Problems with OTP? Force Refresh Auth
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDiag(!showDiag)}
+                                    style={{
+                                        width: '100%',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: 'rgba(255, 255, 255, 0.2)',
+                                        fontSize: '10px',
+                                        marginTop: '4px',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {showDiag ? 'Hide Diagnostics' : 'Show Diagnostics'}
+                                </button>
+
+                                {showDiag && (
+                                    <div style={{
+                                        marginTop: '15px',
+                                        padding: '10px',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        borderRadius: '8px',
+                                        fontSize: '10px',
+                                        color: '#94a3b8',
+                                        textAlign: 'left',
+                                        fontFamily: 'monospace',
+                                        wordBreak: 'break-all'
+                                    }}>
+                                        <div style={{ marginBottom: '5px', color: '#60a5fa', fontWeight: 'bold' }}>Active Config Check (V6):</div>
+                                        <div style={{ fontSize: '9px', marginBottom: '4px', opacity: 0.8 }}>Last code update: Feb 21, 21:15 (V6)</div>
+                                        <div>Current Host: {typeof window !== 'undefined' ? window.location.host : '...'}</div>
+                                        <div style={{ margin: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}></div>
+                                        <div>API Key: {process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? `${process.env.NEXT_PUBLIC_FIREBASE_API_KEY.slice(0, 8)}...` : 'MISSING'}</div>
+                                        <div>Project ID: {process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'MISSING'}</div>
+                                        <div>App ID: {process.env.NEXT_PUBLIC_FIREBASE_APP_ID || 'MISSING'}</div>
+                                        <div>Domain: {process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'MISSING'}</div>
+                                        <div style={{ marginTop: '5px', opacity: 0.7 }}>Tip: If any are 'MISSING', verify .env.local and RESTART server.</div>
+                                    </div>
+                                )}
                             </form>
 
                             <div style={{ margin: '30px 0', borderTop: '1px solid rgba(255, 255, 255, 0.1)', position: 'relative' }}>
