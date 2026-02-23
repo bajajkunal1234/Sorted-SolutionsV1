@@ -1,4 +1,6 @@
 import './globals.css'
+import { Suspense } from 'react'
+import GoogleTagsProvider from '@/components/GoogleTagsProvider'
 
 export const metadata = {
     title: 'Sorted Solutions - Expert Appliance Repair Services',
@@ -23,6 +25,10 @@ export default function RootLayout({ children }) {
                 />
                 {/* Manual ReCAPTCHA loading to ensure Firebase Auth identity verification */}
                 <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+                {/* Google tracking tags (GTM, GA4, Ads, Schema) — populated from Admin > Google APIs */}
+                <Suspense fallback={null}>
+                    <GoogleTagsProvider />
+                </Suspense>
             </head>
             <body>{children}</body>
         </html>

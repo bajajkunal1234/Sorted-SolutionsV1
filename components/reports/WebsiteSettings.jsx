@@ -46,6 +46,7 @@ import TechnicianJoinFormSettings from './TechnicianJoinFormSettings';
 import ServiceIconsSettings from './ServiceIconsSettings';
 import StaticPagesSettings from './StaticPagesSettings';
 import PageSettingsManager from './PageSettingsManager';
+import GoogleAPIsSettings from './GoogleAPIsSettings';
 
 // ── Icon map for appliances ──────────────────────────────────────────────────
 const ICON_MAP = {
@@ -559,6 +560,7 @@ function WebsiteSettings({ subSection, setSubSection }) {
         { id: 'subcategory-pages', label: 'Sub Category Pages Settings', description: `Configure sub-category service pages (${appliances.reduce((n, a) => n + (a.subcategories?.length || 0), 0)} pages)`, color: '#f59e0b' },
         { id: 'location-pages', label: 'Location Pages Settings', description: `Configure location-specific pages (${locations.length} pages)`, color: '#8b5cf6' },
         { id: 'sublocation-pages', label: 'Sub Location Pages Settings', description: `Configure sub-location service pages (${appliances.length * SUBLOCATION_LIST.length} pages)`, color: '#06b6d4' },
+        { id: 'google-apis', label: '🔗 Google APIs & Integrations', description: 'Configure GTM, GA4, Google Ads conversion tracking, Search Console, and LocalBusiness schema markup', color: '#4285f4' },
     ];
 
     const homepageSettings = [
@@ -587,7 +589,8 @@ function WebsiteSettings({ subSection, setSubSection }) {
         'category-pages': appliances.length,
         'subcategory-pages': appliances.reduce((n, a) => n + (a.subcategories?.length || 0), 0),
         'location-pages': locations.length,
-        'sublocation-pages': appliances.length * SUBLOCATION_LIST.length
+        'sublocation-pages': appliances.length * SUBLOCATION_LIST.length,
+        'google-apis': null
     };
 
     // ── Render: Page editor (level = 'page') ─────────────────────────────
@@ -805,6 +808,19 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 {nav.pageId === 'technician-join' && <TechnicianJoinFormSettings />}
                 {nav.pageId === 'service-icons' && <ServiceIconsSettings />}
                 {(nav.pageId === 'static-pages' || nav.pageId === 'terms-conditions' || nav.pageId === 'privacy-policy' || nav.pageId === 'accessibility') && <StaticPagesSettings />}
+            </div>
+        );
+    }
+
+    // ── Google APIs (direct render, no sub-list) ──────────────────────────────
+    if (nav.level === 'list' && nav.group === 'google-apis') {
+        return (
+            <div style={{ padding: 'var(--spacing-lg)' }}>
+                <Breadcrumb
+                    crumbs={[{ label: 'Website Settings' }, { label: 'Google APIs & Integrations' }]}
+                    onNavigate={navigateBack}
+                />
+                <GoogleAPIsSettings />
             </div>
         );
     }
