@@ -482,3 +482,58 @@
 [2026-02-22T21:09:15.588Z] [getFullPageData-REST] sloc-ghatkopar-ac-repair → L=1 S=0 P=0
 [2026-02-22T21:10:20.870Z] [getFullPageData-REST] sloc-powai-ac-repair → L=0 S=0 P=0
 [2026-02-22T21:10:20.876Z] [getFullPageData-REST] sloc-powai-ac-repair → L=0 S=0 P=0
+[2026-02-23T17:21:05.554Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=0
+[2026-02-23T17:21:05.587Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=0
+[2026-02-23T17:21:13.870Z] [API-PUT] START: sloc-borivali-ac-repair
+[2026-02-23T17:21:13.873Z] [API-PUT] START for sloc-borivali-ac-repair. Items: problems=0, services=0, localities=0
+[2026-02-23T17:21:14.093Z] [API-PUT] Main Upsert SUCCESS for sloc-borivali-ac-repair. Row ID: 2ec43f0f-6a21-44df-aa1e-93861d049631
+[2026-02-23T17:21:14.095Z] [API-PUT] Items to save for sloc-borivali-ac-repair: P=0, S=0, L=0, B=0, F=0
+[2026-02-23T17:21:14.247Z] [API-PUT] Cleared all brands for sloc-borivali-ac-repair
+[2026-02-23T17:21:14.315Z] [API-PUT] Cleared all FAQs for sloc-borivali-ac-repair
+[2026-02-23T17:21:14.316Z] [API-PUT] END: Successfully saved all data for sloc-borivali-ac-repair
+[2026-02-23T17:21:14.666Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=0
+[2026-02-23T17:21:15.082Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=0
+[2026-02-23T17:21:35.912Z] [API-PUT] START: sloc-borivali-ac-repair
+[2026-02-23T17:21:35.913Z] [API-PUT] START for sloc-borivali-ac-repair. Items: problems=1, services=0, localities=0
+[2026-02-23T17:21:36.149Z] [API-PUT] Main Upsert SUCCESS for sloc-borivali-ac-repair. Row ID: 2ec43f0f-6a21-44df-aa1e-93861d049631
+[2026-02-23T17:21:36.150Z] [API-PUT] Items to save for sloc-borivali-ac-repair: P=1, S=0, L=0, B=0, F=0
+[2026-02-23T17:21:36.346Z] [API-PUT] Cleared all FAQs for sloc-borivali-ac-repair
+[2026-02-23T17:21:36.347Z] [API-PUT] Cleared all brands for sloc-borivali-ac-repair
+[2026-02-23T17:21:36.612Z] [API-PUT] INSERT SUCCESS for problems (sloc-borivali-ac-repair) rows=1
+[2026-02-23T17:21:36.613Z] [API-PUT] END: Successfully saved all data for sloc-borivali-ac-repair
+[2026-02-23T17:21:36.969Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=1
+[2026-02-23T17:21:37.374Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=1
+[2026-02-23T17:21:47.494Z] [API-PUT] START: sloc-borivali-ac-repair
+[2026-02-23T17:21:47.495Z] [API-PUT] START for sloc-borivali-ac-repair. Items: problems=1, services=0, localities=0
+[2026-02-23T17:21:47.725Z] [API-PUT] Main Upsert SUCCESS for sloc-borivali-ac-repair. Row ID: 2ec43f0f-6a21-44df-aa1e-93861d049631
+[2026-02-23T17:21:47.726Z] [API-PUT] Items to save for sloc-borivali-ac-repair: P=1, S=0, L=0, B=0, F=0
+[2026-02-23T17:21:47.954Z] [API-PUT] Cleared all FAQs for sloc-borivali-ac-repair
+[2026-02-23T17:21:48.057Z] [API-PUT] INSERT SUCCESS for problems (sloc-borivali-ac-repair) rows=1
+[2026-02-23T17:21:48.096Z] [API-PUT] Cleared all brands for sloc-borivali-ac-repair
+[2026-02-23T17:21:48.096Z] [API-PUT] END: Successfully saved all data for sloc-borivali-ac-repair
+[2026-02-23T17:21:48.430Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=1
+[2026-02-23T17:21:48.821Z] [getFullPageData-REST] sloc-borivali-ac-repair → L=0 S=0 P=1
+[2026-02-23T17:21:58.103Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
+[2026-02-23T17:21:58.111Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
+[2026-02-23T17:22:17.662Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-23T17:22:17.664Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-23T17:22:17.888Z] [API-PUT] Main Upsert SUCCESS for sub-refrigerator-repair-single-door. Row ID: 9f6b6191-59be-499d-8335-339f4c7d603a
+[2026-02-23T17:22:17.891Z] [API-PUT] Items to save for sub-refrigerator-repair-single-door: P=2, S=0, L=1, B=0, F=0
+[2026-02-23T17:22:18.093Z] [API-PUT] Cleared all brands for sub-refrigerator-repair-single-door
+[2026-02-23T17:22:18.168Z] [API-PUT] Cleared all FAQs for sub-refrigerator-repair-single-door
+[2026-02-23T17:22:18.219Z] [API-PUT] INSERT SUCCESS for problems (sub-refrigerator-repair-single-door) rows=2
+[2026-02-23T17:22:18.351Z] [API-PUT] INSERT SUCCESS for localities (sub-refrigerator-repair-single-door) rows=1
+[2026-02-23T17:22:18.353Z] [API-PUT] END: Successfully saved all data for sub-refrigerator-repair-single-door
+[2026-02-23T17:22:18.727Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
+[2026-02-23T17:22:19.120Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
+[2026-02-23T17:22:28.939Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-23T17:22:28.941Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-23T17:22:29.149Z] [API-PUT] Main Upsert SUCCESS for sub-refrigerator-repair-single-door. Row ID: 9f6b6191-59be-499d-8335-339f4c7d603a
+[2026-02-23T17:22:29.150Z] [API-PUT] Items to save for sub-refrigerator-repair-single-door: P=2, S=0, L=1, B=0, F=0
+[2026-02-23T17:22:29.360Z] [API-PUT] Cleared all FAQs for sub-refrigerator-repair-single-door
+[2026-02-23T17:22:29.392Z] [API-PUT] Cleared all brands for sub-refrigerator-repair-single-door
+[2026-02-23T17:22:29.475Z] [API-PUT] INSERT SUCCESS for problems (sub-refrigerator-repair-single-door) rows=2
+[2026-02-23T17:22:29.507Z] [API-PUT] INSERT SUCCESS for localities (sub-refrigerator-repair-single-door) rows=1
+[2026-02-23T17:22:29.509Z] [API-PUT] END: Successfully saved all data for sub-refrigerator-repair-single-door
+[2026-02-23T17:22:29.864Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
+[2026-02-23T17:22:30.241Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
