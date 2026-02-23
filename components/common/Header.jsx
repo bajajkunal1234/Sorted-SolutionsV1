@@ -136,8 +136,29 @@ const Header = () => {
                         <Phone size={16} /> +91-8928895590
                     </a>
                     <Link href="/login" className="header-btn header-btn--login header-btn--full" onClick={() => setMobileOpen(false)}>
-                        <User size={16} /> Login to Portal
+                        <User size={16} /> Login
                     </Link>
+                    <div className="header-mobile-drawer-bottom">
+                        <ThemeToggle />
+                        <span className="header-mobile-theme-label">Switch Theme</span>
+                    </div>
+                </div>
+                {/* Watermark Logo */}
+                <div className="header-mobile-watermark">
+                    <Image
+                        src="/logo-light.jpg"
+                        alt=""
+                        width={200}
+                        height={200}
+                        className="watermark-img watermark-light"
+                    />
+                    <Image
+                        src="/logo-dark.jpg"
+                        alt=""
+                        width={200}
+                        height={200}
+                        className="watermark-img watermark-dark"
+                    />
                 </div>
             </div>
             {mobileOpen && <div className="header-mobile-overlay" onClick={() => setMobileOpen(false)} />}
