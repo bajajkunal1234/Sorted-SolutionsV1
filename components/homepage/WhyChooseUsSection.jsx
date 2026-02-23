@@ -3,12 +3,15 @@
 import { useState, useEffect } from 'react';
 import './WhyChooseUsSection.css';
 
-function WhyChooseUsSection() {
+function WhyChooseUsSection({
+    title = 'Why Choose Sorted Solutions?',
+    subtitle = 'Premium features that make us stand out'
+}) {
     const [hoveredZone, setHoveredZone] = useState(null);
     const [features, setFeatures] = useState({
         hero: {
-            title: 'Why Choose Sorted Solutions?',
-            subtitle: 'Premium features that make us stand out',
+            title: title,
+            subtitle: subtitle,
             stats: [
                 { value: '50K+', label: 'Happy Customers', icon: '👥' },
                 { value: '4.8★', label: 'Rating', icon: '⭐' },

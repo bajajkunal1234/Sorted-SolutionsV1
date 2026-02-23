@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import './HowItWorksSection.css';
 
-function HowItWorksSection() {
+function HowItWorksSection({
+    title = "How It Works",
+    subtitle = null
+}) {
     const [activeStep, setActiveStep] = useState(1);
     const [stages, setStages] = useState([
         {
@@ -85,8 +88,10 @@ function HowItWorksSection() {
         <section className="how-it-works">
             <div className="section-container">
                 <div className="how-it-works-header">
-                    <h2 className="how-it-works-title">How It Works</h2>
-                    <p className="how-it-works-description">Your repair journey in {stages.length} simple steps</p>
+                    <h2 className="how-it-works-title">{title}</h2>
+                    <p className="how-it-works-description">
+                        {subtitle || `Your repair journey in ${stages.length} simple steps`}
+                    </p>
                 </div>
 
                 <div className="steps-grid">

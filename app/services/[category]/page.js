@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import CategoryCards from '@/components/services/CategoryCards'
 import ProblemsSection from '@/components/services/ProblemsSection'
-import HowItWorksTimeline from '@/components/services/HowItWorksTimeline'
-import WhyChooseUs from '@/components/services/WhyChooseUs'
+import HowItWorksSection from '@/components/homepage/HowItWorksSection'
+import WhyChooseUsSection from '@/components/homepage/WhyChooseUsSection'
 import BrandLogos from '@/components/services/BrandLogos'
 import LocationLinks from '@/components/services/LocationLinks'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
@@ -164,17 +164,17 @@ export default async function CategoryPage({ params }) {
                 </div>
             )}
 
-            {/* How It Works - Timeline Variant (Layout A) */}
+            {/* How It Works - Standardized */}
             <div id="how-it-works">
-                <HowItWorksTimeline
+                <HowItWorksSection
                     title="How It Works"
                     subtitle="Get your appliance fixed in 4 simple steps"
                 />
             </div>
 
-            {/* Why Choose Us - Features Panel */}
+            {/* Why Choose Us - Standardized */}
             <div id="why-us">
-                <WhyChooseUs
+                <WhyChooseUsSection
                     title="Why Choose Us?"
                     subtitle="Experience the difference with our premium services"
                 />
