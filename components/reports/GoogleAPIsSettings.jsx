@@ -12,10 +12,15 @@ const SECTIONS = [
         icon: Tag,
         color: '#4285f4',
         label: 'Google Tag Manager (GTM)',
-        description: 'Single container tag that manages all other tags. Recommended — add your GTM ID and all other Google tracking loads via GTM dashboard.',
+        description: 'Recommended starting point. One container tag that manages all your other Google tags (GA4, Ads, etc.) from GTM dashboard — no more code changes needed.',
         helpUrl: 'https://tagmanager.google.com',
         fields: [
-            { key: 'gtmId', label: 'GTM Container ID', placeholder: 'GTM-XXXXXXX', hint: 'Found in GTM dashboard → container settings' }
+            {
+                key: 'gtmId',
+                label: 'GTM Container ID',
+                placeholder: 'GTM-XXXXXXX',
+                hint: '📍 Where: GTM dashboard → Admin → Container Settings → Container ID\n✅ Effect: Google\'s tag container loads on every page. You can then add GA4, Ads, and any other tag from your GTM dashboard without touching code.'
+            }
         ]
     },
     {
@@ -23,22 +28,37 @@ const SECTIONS = [
         icon: BarChart2,
         color: '#fbbc04',
         label: 'Google Analytics 4 (GA4)',
-        description: 'Tracks visitors, sessions, page views, and behaviour. If you have GTM, you can add GA4 via GTM instead.',
+        description: 'Tracks all visitor sessions, page views, bounce rates, cities, device types, and booking funnel events. Required to see real traffic data in Google Analytics.',
         helpUrl: 'https://analytics.google.com',
         fields: [
-            { key: 'ga4Id', label: 'GA4 Measurement ID', placeholder: 'G-XXXXXXXXXX', hint: 'Admin → Data streams → Measurement ID' }
+            {
+                key: 'ga4Id',
+                label: 'GA4 Measurement ID',
+                placeholder: 'G-XXXXXXXXXX',
+                hint: '📍 Where: Google Analytics → Admin → Data Streams → your site → Measurement ID\n✅ Effect: Every page visit, user session, and interaction gets logged in your GA4 account. You\'ll see real-time visitors, traffic sources, and how users move through your site. Skip this if you\'re using GTM (add GA4 via GTM instead).'
+            }
         ]
     },
     {
         id: 'ads',
         icon: Megaphone,
         color: '#34a853',
-        label: 'Google Ads',
-        description: 'Conversion tracking lets Google Ads know when someone books after clicking your ad, so it can optimise campaigns.',
+        label: 'Google Ads Conversion Tracking',
+        description: 'Tells Google Ads when someone books a service after clicking your ad. This data lets Google automatically optimise who sees your ads to get more bookings at lower cost.',
         helpUrl: 'https://ads.google.com',
         fields: [
-            { key: 'adsConversionId', label: 'Google Ads Conversion ID', placeholder: 'AW-XXXXXXXXXX', hint: 'Tools & Settings → Measurement → Conversions → Tag setup → Global site tag' },
-            { key: 'adsConversionLabel', label: 'Conversion Label', placeholder: 'xxxxxxxxxxxxxxxx', hint: 'Found alongside the Conversion ID in the tag snippet' }
+            {
+                key: 'adsConversionId',
+                label: 'Google Ads Conversion ID',
+                placeholder: 'AW-XXXXXXXXXX',
+                hint: '📍 Where: Google Ads → Tools & Settings → Measurement → Conversions → the conversion action → Tag setup → Global site tag — copy the AW-... part\n✅ Effect: The Google Ads global tag loads on all pages, enabling conversion measurement and remarketing audiences.'
+            },
+            {
+                key: 'adsConversionLabel',
+                label: 'Conversion Label',
+                placeholder: 'xxxxxxxxxxxxxxxx',
+                hint: '📍 Where: Same tag snippet as above — the value after the slash (AW-XXXXXX/THIS_PART)\n✅ Effect: When combined with the Conversion ID, Google Ads records a booking conversion every time someone completes a booking. Your campaign reports will show cost-per-booking and Google Smart Bidding will optimise for bookings automatically.'
+            }
         ]
     },
     {
@@ -46,10 +66,15 @@ const SECTIONS = [
         icon: Search,
         color: '#ea4335',
         label: 'Google Search Console',
-        description: 'Verifies your website with Google so you can track keyword rankings, submit sitemaps, and fix indexing issues.',
+        description: 'Verifies ownership of your site so Google shares keyword ranking data, indexing errors, Core Web Vitals, and lets you submit sitemaps for faster indexing.',
         helpUrl: 'https://search.google.com/search-console',
         fields: [
-            { key: 'searchConsoleVerification', label: 'Meta Verification Tag Content', placeholder: 'XXXXXXXXXXXX', hint: 'Search Console → Settings → Ownership verification → HTML tag → copy only the content="..." value' }
+            {
+                key: 'searchConsoleVerification',
+                label: 'Meta Verification Tag Content',
+                placeholder: 'XXXXXXXXXXXX',
+                hint: '📍 Where: Search Console → Settings → Ownership Verification → HTML tag → copy ONLY the content="..." value (not the full tag)\n✅ Effect: Google confirms you own this site and unlocks the full Search Console dashboard — keyword positions, click-through rates, crawl errors, and sitemap submission.'
+            }
         ]
     },
     {
@@ -57,11 +82,21 @@ const SECTIONS = [
         icon: MapPin,
         color: '#0f9d58',
         label: 'Google My Business (GMB)',
-        description: 'Your business profile for local search and Google Maps. Link it here for reference and for structured data.',
+        description: 'Your Google Business profile drives local search rankings and the map pack. Linking it here connects it to the schema markup for stronger local SEO signals.',
         helpUrl: 'https://business.google.com',
         fields: [
-            { key: 'gmbProfileUrl', label: 'GMB Profile URL', placeholder: 'https://maps.google.com/?cid=...', hint: 'Share button on your Google Business profile → Copy link' },
-            { key: 'gmbPlaceId', label: 'Place ID (optional)', placeholder: 'ChIJ...', hint: 'Find it at: developers.google.com/maps/documentation/places/web-service/place-id' }
+            {
+                key: 'gmbProfileUrl',
+                label: 'GMB Profile URL',
+                placeholder: 'https://maps.google.com/?cid=...',
+                hint: '📍 Where: Open your Business Profile on Google Maps → Share → Copy link\n✅ Effect: Added to the LocalBusiness schema as a "sameAs" reference — tells Google this website and your Maps listing are the same business, strengthening local search trust.'
+            },
+            {
+                key: 'gmbPlaceId',
+                label: 'Place ID (optional)',
+                placeholder: 'ChIJ...',
+                hint: '📍 Where: Find at developers.google.com/maps/documentation/places/web-service/place-id\n✅ Effect: Can be used in future integrations to pull your live GMB reviews and ratings directly onto the website.'
+            }
         ]
     },
     {
@@ -69,19 +104,19 @@ const SECTIONS = [
         icon: Code,
         color: '#9c27b0',
         label: 'Schema / Structured Data (LocalBusiness)',
-        description: 'JSON-LD schema markup that tells Google about your business. Enables rich results (star ratings, FAQs, phone in search). Injected automatically on all pages.',
+        description: 'JSON-LD markup injected invisibly on every page. Google reads it to understand your business and may show star ratings, address, phone number, and service areas directly in search results (rich results).',
         helpUrl: 'https://schema.org/LocalBusiness',
         fields: [
-            { key: 'schemaName', label: 'Business Name', placeholder: 'Sorted Solutions', hint: 'Exact business name as registered' },
-            { key: 'schemaPhone', label: 'Phone Number', placeholder: '+91 9876543210', hint: 'Primary contact number' },
-            { key: 'schemaEmail', label: 'Email', placeholder: 'hello@sortedsolutions.in', hint: 'Business contact email' },
-            { key: 'schemaAddress', label: 'Street Address', placeholder: '123, Main Street, Bandra', hint: 'Full street address' },
+            { key: 'schemaName', label: 'Business Name', placeholder: 'Sorted Solutions', hint: '✅ Effect: Google uses this as the official business name in search results and the Knowledge Panel.' },
+            { key: 'schemaPhone', label: 'Phone Number', placeholder: '+91 9876543210', hint: '✅ Effect: May appear as a clickable call button directly in Google Search results on mobile.' },
+            { key: 'schemaEmail', label: 'Email', placeholder: 'hello@sortedsolutions.in', hint: '✅ Effect: Included in the business entity data Google stores about your site.' },
+            { key: 'schemaAddress', label: 'Street Address', placeholder: '123, Main Street, Bandra', hint: '✅ Effect: Helps Google confirm your physical location, boosting local search rankings and map pack eligibility.' },
             { key: 'schemaCity', label: 'City', placeholder: 'Mumbai', hint: '' },
             { key: 'schemaState', label: 'State', placeholder: 'Maharashtra', hint: '' },
             { key: 'schemaPincode', label: 'Pincode', placeholder: '400050', hint: '' },
-            { key: 'schemaAreaServed', label: 'Areas Served (comma separated)', placeholder: 'Bandra, Andheri, Malad, Goregaon', hint: 'Used in schema and helps local SEO' },
-            { key: 'schemaPriceRange', label: 'Price Range', placeholder: '₹₹', hint: '₹ = budget, ₹₹ = moderate, ₹₹₹ = premium' },
-            { key: 'schemaUrl', label: 'Website URL', placeholder: 'https://sortedsolutions.in', hint: 'Your canonical website domain' }
+            { key: 'schemaAreaServed', label: 'Areas Served (comma separated)', placeholder: 'Bandra, Andheri, Malad, Goregaon', hint: '✅ Effect: Google understands the geographic scope of your services, helping your pages rank in searches from those areas even without separate location pages.' },
+            { key: 'schemaPriceRange', label: 'Price Range', placeholder: '₹₹', hint: '✅ Effect: Shown in search results to help users know your pricing tier. ₹ = budget, ₹₹ = moderate, ₹₹₹ = premium.' },
+            { key: 'schemaUrl', label: 'Website URL', placeholder: 'https://sortedsolutions.in', hint: '✅ Effect: The canonical URL of your business — anchors all schema data to your domain.' }
         ]
     }
 ]
@@ -179,9 +214,23 @@ function SectionCard({ section, values, onChange }) {
                                 {values[field.key] && <CopyButton value={values[field.key]} />}
                             </div>
                             {field.hint && (
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', marginTop: '5px' }}>
-                                    <Info size={11} style={{ color: 'var(--text-tertiary)', marginTop: '1px', flexShrink: 0 }} />
-                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{field.hint}</span>
+                                <div style={{ display: 'grid', gap: '4px', marginTop: '7px' }}>
+                                    {field.hint.split('\n').map((line, i) => {
+                                        const isEffect = line.startsWith('✅')
+                                        const isWhere = line.startsWith('📍')
+                                        return (
+                                            <div key={i} style={{
+                                                display: 'flex', alignItems: 'flex-start', gap: '6px',
+                                                padding: '5px 8px', borderRadius: '6px',
+                                                backgroundColor: isEffect ? '#10b98110' : isWhere ? 'var(--bg-elevated)' : 'transparent',
+                                                border: isEffect ? '1px solid #10b98125' : isWhere ? '1px solid var(--border-primary)' : 'none'
+                                            }}>
+                                                <span style={{ fontSize: '11px', lineHeight: 1.5, color: isEffect ? '#10b981' : 'var(--text-tertiary)' }}>
+                                                    {line}
+                                                </span>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             )}
                         </div>

@@ -21,6 +21,7 @@ import ServiceIconsSettings from './ServiceIconsSettings';
 import StaticPagesSettings from './StaticPagesSettings';
 import PageSettingsManager from '@/components/reports/PageSettingsManager';
 import PageBuilderTool from './PageBuilderTool';
+import GoogleAPIsSettings from '@/components/reports/GoogleAPIsSettings';
 
 const LOCATIONS = [
     "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
@@ -330,6 +331,8 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 <PageBuilderTool />
             ) : activeCategory === 'service-icons' ? (
                 <ServiceIconsSettings />
+            ) : activeCategory === 'google-apis' ? (
+                <GoogleAPIsSettings />
             ) : activeCategory === 'static-pages' || activeCategory === 'terms-conditions' || activeCategory === 'privacy-policy' || activeCategory === 'accessibility' ? (
                 <StaticPagesSettings />
             ) : activeCategory &&
