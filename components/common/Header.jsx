@@ -58,7 +58,7 @@ const Header = () => {
                             />
                         </div>
                         <div className="header-logo-text">
-                            <span className="header-logo-name">Sorted<span className="header-logo-accent"> Solutions</span></span>
+                            <span className="header-logo-name">Sorted<span className="header-logo-accent header-logo-name-solutions"> Solutions</span></span>
                         </div>
                     </Link>
 
@@ -104,7 +104,7 @@ const Header = () => {
                         </a>
                         <Link href="/login" className="header-btn header-btn--login" aria-label="Login">
                             <User size={16} />
-                            <span>Login</span>
+                            <span className="header-btn-text">Login</span>
                         </Link>
                         <button
                             className="header-menu-toggle"

@@ -115,8 +115,18 @@
 
 @media (max-width: 600px) {
     .header-logo-name {
-        font-size: 18px;
+        font-size: 16px;
         letter-spacing: -0.5px;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-logo-name-solutions {
+        display: none;
+    }
+
+    .header-logo-name {
+        font-size: 18px;
     }
 }
 
@@ -292,6 +302,12 @@
     margin-left: auto;
 }
 
+@media (max-width: 480px) {
+    .site-header__actions {
+        gap: 4px;
+    }
+}
+
 @media (min-width: 900px) {
     .site-header__actions {
         margin-left: 0;
@@ -313,15 +329,20 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 9px 16px;
-    border-radius: 10px;
-    font-size: 13px;
-    font-weight: 700;
-    border: none;
-    cursor: pointer;
-    text-decoration: none;
     transition: all 0.2s ease;
     white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    .header-btn {
+        padding: 8px 10px;
+        font-size: 12px;
+        gap: 4px;
+    }
+
+    .header-btn-text {
+        display: none;
+    }
 }
 
 .header-btn--call {
