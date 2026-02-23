@@ -2,15 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import {
-    Clock,
     MapPin,
-    Calendar,
     Star,
     CheckCircle,
     Award,
     MessageCircle,
     HelpCircle,
-    UserPlus,
     Building2,
     FileText,
     Shield,
@@ -31,22 +28,19 @@ import {
     ExternalLink,
     Search
 } from 'lucide-react';
-import BookingSlots from './BookingSlots';
 import HeaderLocations from './HeaderLocations';
-import QuickBookingFormSettings from './QuickBookingFormSettings';
 import FrequentlyBookedServicesSettings from './FrequentlyBookedServicesSettings';
 import FooterLocationsSettings from './FooterLocationsSettings';
 import FAQsManagement from './FAQsManagement';
 import HowItWorksSettings from './HowItWorksSettings';
 import WhyChooseUsSettings from './WhyChooseUsSettings';
 import BrandLogosSettings from './BrandLogosSettings';
-import SEOSettings from './SEOSettings';
 import CustomerTestimonialsSettings from './CustomerTestimonialsSettings';
-import TechnicianJoinFormSettings from './TechnicianJoinFormSettings';
-import ServiceIconsSettings from './ServiceIconsSettings';
 import StaticPagesSettings from './StaticPagesSettings';
 import PageSettingsManager from './PageSettingsManager';
 import GoogleAPIsSettings from './GoogleAPIsSettings';
+import WebsiteAnalytics from './WebsiteAnalytics';
+
 
 // ── Icon map for appliances ──────────────────────────────────────────────────
 const ICON_MAP = {
@@ -561,7 +555,9 @@ function WebsiteSettings({ subSection, setSubSection }) {
         { id: 'location-pages', label: 'Location Pages Settings', description: `Configure location-specific pages (${locations.length} pages)`, color: '#8b5cf6' },
         { id: 'sublocation-pages', label: 'Sub Location Pages Settings', description: `Configure sub-location service pages (${appliances.length * SUBLOCATION_LIST.length} pages)`, color: '#06b6d4' },
         { id: 'google-apis', label: '🔗 Google APIs & Integrations', description: 'Configure GTM, GA4, Google Ads conversion tracking, Search Console, and LocalBusiness schema markup', color: '#4285f4' },
+        { id: 'website-analytics', label: '📊 Website Analytics', description: 'Traffic overview, bookings funnel, top services, customers and traffic sources', color: '#10b981' },
     ];
+
 
     const homepageSettings = [
         { id: 'header-locations', label: 'Homepage Header Locations', icon: MapPin, description: 'Manage locations displayed in the header dropdown', color: '#10b981' },
@@ -573,9 +569,6 @@ function WebsiteSettings({ subSection, setSubSection }) {
         { id: 'how-it-works', label: 'Global How It Works', icon: CheckCircle, description: 'Edit the "How it Works" section content', color: '#06b6d4' },
         { id: 'why-choose-us', label: 'Global Why Choose Us', icon: Award, description: 'Edit the "Why Choose Us" section content', color: '#ec4899' },
         { id: 'testimonials', label: 'Customer Testimonials', icon: MessageCircle, description: 'Manage customer reviews and testimonials', color: '#14b8a6' },
-        { id: 'booking-slots', label: 'Booking Slots Management', icon: Clock, description: 'Configure available time slots for service bookings', color: '#3b82f6' },
-        { id: 'quick-booking', label: 'Global Quick Booking Form', icon: Calendar, description: 'Configure the quick booking form used across the site', color: '#f59e0b' },
-        { id: 'technician-join', label: 'Technician Join Form', icon: UserPlus, description: 'Configure the technician registration form', color: '#6366f1' },
         { id: 'brand-logos', label: 'Global Brand Logos Library', icon: ImageIcon, description: 'Manage logos for all appliance brands', color: '#8b5cf6' },
         { id: 'terms-conditions', label: 'Terms & Conditions', icon: FileText, description: 'Edit Terms & Conditions page content', color: '#64748b' },
         { id: 'privacy-policy', label: 'Privacy Policy', icon: Shield, description: 'Edit Privacy Policy page content', color: '#0ea5e9' },
@@ -795,18 +788,11 @@ function WebsiteSettings({ subSection, setSubSection }) {
                     crumbs={[{ label: 'Website Settings' }, { label: 'Global Settings' }, { label: nav.pageLabel }]}
                     onNavigate={navigateBack}
                 />
-                {nav.pageId === 'booking-slots' && <BookingSlots />}
-                {nav.pageId === 'quick-booking' && <QuickBookingFormSettings />}
-                {nav.pageId === 'frequent-services' && <FrequentlyBookedServicesSettings />}
-                {nav.pageId === 'footer-locations' && <FooterLocationsSettings />}
                 {nav.pageId === 'faqs' && <FAQsManagement />}
                 {nav.pageId === 'how-it-works' && <HowItWorksSettings />}
                 {nav.pageId === 'why-choose-us' && <WhyChooseUsSettings />}
                 {nav.pageId === 'brand-logos' && <BrandLogosSettings />}
-                {nav.pageId === 'seo-settings' && <SEOSettings />}
                 {nav.pageId === 'testimonials' && <CustomerTestimonialsSettings />}
-                {nav.pageId === 'technician-join' && <TechnicianJoinFormSettings />}
-                {nav.pageId === 'service-icons' && <ServiceIconsSettings />}
                 {(nav.pageId === 'static-pages' || nav.pageId === 'terms-conditions' || nav.pageId === 'privacy-policy' || nav.pageId === 'accessibility') && <StaticPagesSettings />}
             </div>
         );
@@ -825,7 +811,21 @@ function WebsiteSettings({ subSection, setSubSection }) {
         );
     }
 
+    // ── Website Analytics (direct render, no sub-list) ─────────────────────────
+    if (nav.level === 'list' && nav.group === 'website-analytics') {
+        return (
+            <div style={{ padding: 'var(--spacing-lg)' }}>
+                <Breadcrumb
+                    crumbs={[{ label: 'Website Settings' }, { label: 'Website Analytics' }]}
+                    onNavigate={navigateBack}
+                />
+                <WebsiteAnalytics />
+            </div>
+        );
+    }
+
     // ── Render: Groups grid (level = 'groups') ────────────────────────────
+
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
             {loadingData && (

@@ -1,76 +1,461 @@
-/* Header Styles - Identical to MobileHomepage.css */
-.mobile-header {
+/* ── Site Header ─────────────────────────────────────────────────────── */
+.site-header {
     position: sticky;
     top: 0;
     z-index: 1000;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(10px);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-    padding: 12px 16px;
     width: 100%;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.25s ease, background 0.25s ease;
 }
 
-.header-content {
+.site-header--scrolled {
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.09);
+    background: rgba(255, 255, 255, 1);
+}
+
+[data-theme="dark"] .site-header {
+    background: rgba(15, 23, 42, 0.97);
+    border-bottom-color: rgba(255, 255, 255, 0.07);
+}
+
+[data-theme="dark"] .site-header--scrolled {
+    background: rgba(15, 23, 42, 1);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.site-header__inner {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    max-width: 1200px;
-    margin: 0 auto;
-}
-
-.logo {
-    text-decoration: none;
-}
-
-.logo h1 {
-    font-size: 18px;
-    font-weight: 700;
-    color: #2563eb;
-    margin: 0;
-    letter-spacing: -0.5px;
-}
-
-.header-actions {
-    display: flex;
     gap: 8px;
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 20px;
+    height: 72px;
 }
 
-.call-button,
-.login-button {
+/* ── Logo ─────────────────────────────────────────────────────────────── */
+.site-header__logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    flex-shrink: 0;
+}
+
+.header-logo-wrap {
+    width: 49px;
+    height: 49px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+/* Toggle logos based on theme */
+.logo-dark {
+    display: none;
+}
+
+[data-theme="dark"] .logo-light {
+    display: none;
+}
+
+[data-theme="dark"] .logo-dark {
+    display: block;
+}
+
+
+
+.header-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.header-logo-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.header-logo-name {
+    font-family: 'Outfit', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: #0f172a;
+    letter-spacing: -0.8px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    display: flex;
+    align-items: baseline;
+}
+
+[data-theme="dark"] .header-logo-name {
+    color: #f8fafc;
+}
+
+.header-logo-accent {
+    color: #2563eb;
+    margin-left: 2px;
+}
+
+.header-logo-tagline {
+    font-size: 10px;
+    font-weight: 500;
+    color: #64748b;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+/* ── Desktop Nav ──────────────────────────────────────────────────────── */
+.site-header__nav {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    padding: 0 16px;
+}
+
+@media (min-width: 900px) {
+    .site-header__nav {
+        display: flex;
+    }
+}
+
+.header-nav-btn {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 8px 12px;
-    border-radius: 20px;
-    font-size: 13px;
+    padding: 8px 14px;
+    font-size: 14px;
     font-weight: 600;
+    color: #334155;
+    background: none;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+}
+
+.header-nav-btn:hover {
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.06);
+}
+
+[data-theme="dark"] .header-nav-btn {
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .header-nav-btn:hover {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.08);
+}
+
+.header-chevron {
+    transition: transform 0.2s ease;
+}
+
+.header-chevron.open {
+    transform: rotate(180deg);
+}
+
+/* Trust badge */
+.header-trust {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #059669;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+/* ── Dropdown ─────────────────────────────────────────────────────────── */
+.header-dropdown {
+    position: relative;
+}
+
+.header-dropdown__menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+    padding: 8px;
+    min-width: 280px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(-6px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100;
+}
+
+.header-dropdown__menu.visible {
+    opacity: 1;
+    pointer-events: all;
+    transform: translateX(-50%) translateY(0);
+}
+
+[data-theme="dark"] .header-dropdown__menu {
+    background: #1e293b;
+    border-color: #334155;
+}
+
+.header-dropdown__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+}
+
+.header-dropdown__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #334155;
+    text-decoration: none;
+    border-radius: 9px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.header-dropdown__item:hover {
+    background: rgba(37, 99, 235, 0.06);
+    color: #2563eb;
+}
+
+[data-theme="dark"] .header-dropdown__item {
+    color: #cbd5e1;
+}
+
+[data-theme="dark"] .header-dropdown__item:hover {
+    background: rgba(96, 165, 250, 0.08);
+    color: #60a5fa;
+}
+
+.header-dropdown__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2563eb;
+    opacity: 0.4;
+    flex-shrink: 0;
+}
+
+/* ── Actions ──────────────────────────────────────────────────────────── */
+.site-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+@media (min-width: 900px) {
+    .site-header__actions {
+        margin-left: 0;
+    }
+}
+
+/* Hide theme toggle on mobile */
+.site-header__actions>*:first-child {
+    display: none;
+}
+
+@media (min-width: 900px) {
+    .site-header__actions>*:first-child {
+        display: flex;
+    }
+}
+
+.header-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
     border: none;
     cursor: pointer;
-    transition: all 0.2s ease;
     text-decoration: none;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
-.call-button {
-    background: #10b981;
-    color: white;
+.header-btn--call {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
 }
 
-.call-button:hover {
-    background: #059669;
-    transform: scale(1.05);
+.header-btn--call:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.45);
 }
 
-.login-button {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
+/* Show phone number text on desktop only */
+.header-btn--call .phone-number-text {
+    display: none;
 }
 
-.login-button:hover {
-    background: var(--border-primary);
+@media (min-width: 1080px) {
+    .header-btn--call .phone-number-text {
+        display: inline;
+    }
 }
 
-@media (min-width: 768px) {
-    .logo h1 {
-        font-size: 22px;
+.header-btn--login {
+    background: #f1f5f9;
+    color: #334155;
+}
+
+.header-btn--login:hover {
+    background: #e2e8f0;
+}
+
+[data-theme="dark"] .header-btn--login {
+    background: #334155;
+    color: #f8fafc;
+}
+
+[data-theme="dark"] .header-btn--login:hover {
+    background: #475569;
+}
+
+.header-btn--full {
+    width: 100%;
+    justify-content: center;
+}
+
+/* ── Hamburger ────────────────────────────────────────────────────────── */
+.header-menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: transparent;
+    color: #334155;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.header-menu-toggle:hover {
+    background: #f1f5f9;
+}
+
+[data-theme="dark"] .header-menu-toggle {
+    border-color: #475569;
+    color: #cbd5e1;
+}
+
+@media (min-width: 900px) {
+    .header-menu-toggle {
+        display: none;
+    }
+}
+
+/* ── Mobile Drawer ────────────────────────────────────────────────────── */
+.header-mobile-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 998;
+    backdrop-filter: blur(2px);
+}
+
+.header-mobile-drawer {
+    position: fixed;
+    top: 72px;
+    right: 0;
+    bottom: 0;
+    width: 300px;
+    max-width: 90vw;
+    background: #ffffff;
+    z-index: 999;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+    overflow-y: auto;
+}
+
+.header-mobile-drawer.open {
+    transform: translateX(0);
+}
+
+[data-theme="dark"] .header-mobile-drawer {
+    background: #1e293b;
+}
+
+.header-mobile-drawer__inner {
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.header-mobile-section {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #94a3b8;
+    padding: 8px 4px 4px;
+    margin: 0;
+}
+
+.header-mobile-link {
+    display: block;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #334155;
+    text-decoration: none;
+    border-radius: 10px;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.header-mobile-link:hover {
+    background: rgba(37, 99, 235, 0.06);
+    color: #2563eb;
+}
+
+[data-theme="dark"] .header-mobile-link {
+    color: #cbd5e1;
+}
+
+.header-mobile-divider {
+    border: none;
+    border-top: 1px solid #e2e8f0;
+    margin: 12px 0;
+}
+
+[data-theme="dark"] .header-mobile-divider {
+    border-color: #334155;
+}
+
+/* ── Hide Login span on very small screens ─────────────────────────────── */
+@media (max-width: 480px) {
+    .header-btn--login span {
+        display: none;
     }
 }

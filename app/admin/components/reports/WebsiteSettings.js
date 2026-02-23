@@ -5,7 +5,6 @@ import { categoryGroups } from '@/lib/data/websiteSettingsData';
 import * as Icons from 'lucide-react';
 
 // Settings Components
-import BookingSlots from './BookingSlots';
 import HeaderLocations from './HeaderLocations';
 import QuickBookingFormSettings from './QuickBookingFormSettings';
 import FrequentlyBookedServicesSettings from './FrequentlyBookedServicesSettings';
@@ -14,14 +13,12 @@ import FAQsManagement from './FAQsManagement';
 import HowItWorksSettings from './HowItWorksSettings';
 import WhyChooseUsSettings from './WhyChooseUsSettings';
 import BrandLogosSettings from './BrandLogosSettings';
-import SEOSettings from './SEOSettings';
 import CustomerTestimonialsSettings from './CustomerTestimonialsSettings';
-import TechnicianJoinFormSettings from './TechnicianJoinFormSettings';
-import ServiceIconsSettings from './ServiceIconsSettings';
 import StaticPagesSettings from './StaticPagesSettings';
 import PageSettingsManager from '@/components/reports/PageSettingsManager';
 import PageBuilderTool from './PageBuilderTool';
 import GoogleAPIsSettings from '@/components/reports/GoogleAPIsSettings';
+import WebsiteAnalytics from '@/components/reports/WebsiteAnalytics';
 
 const LOCATIONS = [
     "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
@@ -303,9 +300,7 @@ function WebsiteSettings({ subSection, setSubSection }) {
             )}
 
             {/* Specific component renderers */}
-            {activeCategory === 'booking-slots' ? (
-                <BookingSlots />
-            ) : activeCategory === 'header-locations' ? (
+            {activeCategory === 'header-locations' ? (
                 <HeaderLocations />
             ) : activeCategory === 'quick-booking' ? (
                 <QuickBookingFormSettings />
@@ -321,18 +316,14 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 <WhyChooseUsSettings />
             ) : activeCategory === 'brand-logos' ? (
                 <BrandLogosSettings />
-            ) : activeCategory === 'seo-settings' ? (
-                <SEOSettings />
             ) : activeCategory === 'testimonials' ? (
                 <CustomerTestimonialsSettings />
-            ) : activeCategory === 'technician-join-form' ? (
-                <TechnicianJoinFormSettings />
             ) : activeCategory === 'page-builder' ? (
                 <PageBuilderTool />
-            ) : activeCategory === 'service-icons' ? (
-                <ServiceIconsSettings />
             ) : activeCategory === 'google-apis' ? (
                 <GoogleAPIsSettings />
+            ) : activeCategory === 'website-analytics' ? (
+                <WebsiteAnalytics />
             ) : activeCategory === 'static-pages' || activeCategory === 'terms-conditions' || activeCategory === 'privacy-policy' || activeCategory === 'accessibility' ? (
                 <StaticPagesSettings />
             ) : activeCategory &&

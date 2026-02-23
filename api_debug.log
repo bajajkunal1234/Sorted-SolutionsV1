@@ -537,3 +537,5 @@
 [2026-02-23T17:22:29.509Z] [API-PUT] END: Successfully saved all data for sub-refrigerator-repair-single-door
 [2026-02-23T17:22:29.864Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
 [2026-02-23T17:22:30.241Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
+[2026-02-23T20:47:50.836Z] [getFullPageData-REST] sub-washing-machine-repair-front-load → L=0 S=0 P=0
+[2026-02-23T20:47:50.853Z] [getFullPageData-REST] sub-washing-machine-repair-front-load → L=0 S=0 P=0

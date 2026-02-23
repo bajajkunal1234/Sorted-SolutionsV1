@@ -110,12 +110,6 @@ export default function HeroSection({
 
             {/* Content */}
             <div className="hero-content">
-                {/* Branding */}
-                <div className="hero-branding">
-                    <h3 className="company-name">SORTED SOLUTIONS</h3>
-                    <div className="brand-tagline">Expert Appliance Repair Services</div>
-                </div>
-
                 {/* Main Title */}
                 <h1 className="hero-title">{displayTitle}</h1>
                 {displaySubtitle && <p className="hero-subtitle">{displaySubtitle}</p>}
