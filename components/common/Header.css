@@ -121,12 +121,18 @@
 }
 
 @media (max-width: 480px) {
-    .header-logo-name-solutions {
+    .header-logo-name {
+        font-size: 18px;
+    }
+
+    .header-btn--call span {
         display: none;
     }
 
-    .header-logo-name {
-        font-size: 18px;
+    .header-btn--call {
+        padding: 9px 12px;
+        min-width: 40px;
+        justify-content: center;
     }
 }
 
