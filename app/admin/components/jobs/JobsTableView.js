@@ -1,7 +1,7 @@
 'use client'
 
 import { Calendar, User, MapPin, AlertCircle } from 'lucide-react';
-import { getLocalityFromAddress } from '@/lib/utils/helpers';
+import { getInitials, getLocalityFromAddress } from '@/lib/utils/helpers';
 
 function JobsTableView({ jobs, onJobClick }) {
     const getStatusColor = (status) => {
@@ -43,6 +43,7 @@ function JobsTableView({ jobs, onJobClick }) {
                 </thead>
                 <tbody>
                     {jobs.map(job => {
+                        const isBooking = job.status === 'booking_request';
                         const statusColor = getStatusColor(job.status);
                         // Handle camelCase vs snake_case
                         const dueDate = job.scheduled_date || job.dueDate;
@@ -51,6 +52,11 @@ function JobsTableView({ jobs, onJobClick }) {
                         const technicianName = job.technician?.name || job.assignedToName || 'Unassigned';
                         const jobTitle = job.description || job.jobName || job.job_number || 'Untitled Job';
 
+                        let bd = {};
+                        if (isBooking) {
+                            try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
+                        }
+
                         return (
                             <tr
                                 key={job.id}
@@ -58,10 +64,12 @@ function JobsTableView({ jobs, onJobClick }) {
                                 style={{
                                     borderBottom: '1px solid var(--border-primary)',
                                     transition: 'background-color var(--transition-fast)',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    borderLeft: isBooking ? '3px solid #f59e0b' : 'none',
+                                    backgroundColor: isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isBooking ? 'rgba(245,158,11,0.08)' : 'var(--bg-secondary)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'}
                             >
                                 <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
@@ -78,6 +86,11 @@ function JobsTableView({ jobs, onJobClick }) {
                                             />
                                         )}
                                         <div>
+                                            {isBooking && (
+                                                <div style={{ color: '#f59e0b', fontSize: '9px', fontWeight: 800, marginBottom: '2px' }}>
+                                                    WEBSITE BOOKING
+                                                </div>
+                                            )}
                                             <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
                                                 {jobTitle}
                                             </div>
@@ -90,63 +103,68 @@ function JobsTableView({ jobs, onJobClick }) {
                                 <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <div>
                                         <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-                                            {job.customer?.name || job.customer}
+                                            {job.customer?.name || job.customer || (isBooking ? (bd.customer?.name || 'New Customer') : 'Walk-in')}
                                         </div>
-                                        {job.property && (
+                                        {(job.customer?.phone || (isBooking && bd.customer?.phone)) && (
                                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                {job.property.label || job.property.name || 'Property'}
+                                                {job.customer?.phone || bd.customer?.phone}
                                             </div>
                                         )}
                                     </div>
                                 </td>
                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                        <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
-                                        <span style={{ color: 'var(--text-secondary)' }}>
-                                            {locality || 'No location'}
-                                        </span>
-                                    </div>
+                                    <span>{locality || (isBooking ? bd.customer?.address?.locality : 'No location')}</span>
                                 </td>
                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                    <span style={{ color: 'var(--text-secondary)' }}>
-                                        {technicianName}
-                                    </span>
+                                    {isBooking ? (
+                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Waiting</span>
+                                    ) : (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 600 }}>
+                                                {getInitials(technicianName)}
+                                            </div>
+                                            <span>{technicianName}</span>
+                                        </div>
+                                    )}
                                 </td>
                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                        <Calendar size={14} style={{ color: overdue ? 'var(--color-danger)' : 'var(--text-tertiary)' }} />
-                                        <span style={{ color: overdue ? 'var(--color-danger)' : 'var(--text-secondary)', fontWeight: overdue ? 600 : 400 }}>
-                                            {dueDate ? new Date(dueDate).toLocaleDateString() : '-'}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span style={overdue && !isBooking ? { color: 'var(--color-danger)', fontWeight: 600 } : {}}>
+                                            {isBooking
+                                                ? bd.schedule?.date || 'Asap'
+                                                : dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'
+                                            }
                                         </span>
-                                        {overdue && <AlertCircle size={14} style={{ color: 'var(--color-danger)' }} />}
+                                        {overdue && !isBooking && <AlertCircle size={14} color="var(--color-danger)" />}
                                     </div>
                                 </td>
                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                    <span style={{
-                                        padding: '4px 10px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontSize: 'var(--font-size-xs)',
-                                        fontWeight: 600,
-                                        backgroundColor: `${statusColor}20`,
-                                        color: statusColor,
-                                        textTransform: 'capitalize'
-                                    }}>
-                                        {job.status.replace('-', ' ')}
-                                    </span>
+                                    {isBooking ? (
+                                        <button className="btn btn-primary" style={{ fontSize: '10px', padding: '2px 8px', backgroundColor: '#f59e0b', border: 'none' }}>
+                                            Create & Assign
+                                        </button>
+                                    ) : (
+                                        <span style={{
+                                            padding: '4px 8px',
+                                            borderRadius: '4px',
+                                            fontSize: 'var(--font-size-xs)',
+                                            fontWeight: 600,
+                                            backgroundColor: `${statusColor}20`,
+                                            color: statusColor,
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {job.status.replace('-', ' ')}
+                                        </span>
+                                    )}
                                 </td>
                             </tr>
                         );
                     })}
                 </tbody>
             </table>
-
             {jobs.length === 0 && (
-                <div style={{
-                    padding: 'var(--spacing-2xl)',
-                    textAlign: 'center',
-                    color: 'var(--text-tertiary)'
-                }}>
-                    No jobs found. Try adjusting your filters.
+                <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                    No jobs found.
                 </div>
             )}
         </div>

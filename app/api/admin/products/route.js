@@ -8,6 +8,7 @@ export async function GET(request) {
         const category = searchParams.get('category')
 
         let query = supabase
+            .from('products')
             .select('*')
             .eq('active', true)
             .order('name', { ascending: true })

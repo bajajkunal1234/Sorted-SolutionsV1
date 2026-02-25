@@ -9,6 +9,7 @@ import { accountGroupsAPI } from '@/lib/adminAPI';
 import ConfirmDialog from '@/app/admin/components/common/ConfirmDialog';
 import {
     generateSKU,
+    generateShortKU,
     checkDuplicateName,
     getRequiredFields,
     validateAccountData,
@@ -102,17 +103,28 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     const [isFormDirty, setIsFormDirty] = useState(false);
     const [showConfirmClose, setShowConfirmClose] = useState(false);
 
-    // Auto-generate SKU on mount (only for new accounts)
+    // Auto-generate SKU/KU on mount
     useEffect(() => {
-        if (!formData.sku && !initialData) {
-            const newSKU = generateSKU(formData.under, sampleLedgers, {
-                autoGenerate: true,
-                prefix: 'ACC',
-                padding: 4
-            });
-            setFormData(prev => ({ ...prev, sku: newSKU }));
+        if (!formData.sku) {
+            const newKU = generateShortKU(formData.under, sampleLedgers, groups);
+            setFormData(prev => ({ ...prev, sku: newKU }));
         }
-    }, [initialData]);
+    }, [formData.under, groups]);
+
+    // Update 'under' if preselectedType or groups change
+    useEffect(() => {
+        if (!formData.under && preselectedType) {
+            setFormData(prev => ({ ...prev, under: preselectedType }));
+        }
+    }, [preselectedType, groups]);
+
+    // Auto-fill KU when name is entered if empty
+    useEffect(() => {
+        if (formData.name.trim() && !formData.sku) {
+            const newKU = generateShortKU(formData.under, sampleLedgers, groups);
+            setFormData(prev => ({ ...prev, sku: newKU }));
+        }
+    }, [formData.name, groups]);
 
     // Check for duplicate names (only if name changed and not editing)
     useEffect(() => {
@@ -448,7 +460,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     {/* SKU */}
                                     <div className="form-group">
-                                        <label className="form-label">SKU / Alias *</label>
+                                        <label className="form-label">KU / Alias *</label>
                                         <input
                                             type="text"
                                             className="form-input"
@@ -606,7 +618,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         value={formData.mobile}
                                                         onChange={(e) => handleMobileChange(e.target.value)}
                                                         placeholder="+91 98765 43210"
-                                                        pattern="[0-9+\s\-()]*"
+                                                        pattern="[0-9+\s\(\)\-]*"
                                                         title="Please enter a valid 10-digit mobile number"
                                                     />
                                                     {errors.mobile && (

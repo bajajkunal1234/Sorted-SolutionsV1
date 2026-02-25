@@ -6,15 +6,18 @@ export async function POST(request) {
         const body = await request.json()
         const {
             categoryId,
+            categoryName,
             subcategoryId,
+            subcategoryName,
             issueId,
+            issueName,
             pincode,
             description,
             customer,
             schedule
         } = body
 
-        // 1. Validate mandatory fields
+        // Validate mandatory fields
         if (!customer?.phone || !categoryId || !subcategoryId) {
             return NextResponse.json(
                 { success: false, error: 'Missing required booking details' },
@@ -22,99 +25,44 @@ export async function POST(request) {
             )
         }
 
-        // 2. Find or Create Customer
-        let finalCustomerId
-        const { data: existingCustomer, error: customerSearchError } = await supabase
-            .from('customers')
-            .select('id')
-            .eq('mobile', customer.phone)
-            .single()
-
-        if (customerSearchError && customerSearchError.code !== 'PGRST116') {
-            throw customerSearchError
-        }
-
-        if (existingCustomer) {
-            finalCustomerId = existingCustomer.id
-        } else {
-            // Create new customer
-            const { data: newCustomer, error: createCustomerError } = await supabase
-                .from('customers')
-                .insert({
-                    name: `${customer.firstName} ${customer.lastName}`,
-                    mobile: customer.phone,
-                    email: customer.email,
-                    created_at: new Date().toISOString()
-                })
-                .select('id')
-                .single()
-
-            if (createCustomerError) throw createCustomerError
-            finalCustomerId = newCustomer.id
-
-            // Create accounting ledger for the new customer (Sundry Debtor)
-            try {
-                const { data: ledger, error: ledgerError } = await supabase.from('accounts').insert({
-                    name: `${customer.firstName} ${customer.lastName}`,
-                    under: 'sundry-debtors',
-                    type: 'asset',
-                    openingBalance: 0,
-                    phone: customer.phone,
-                    email: customer.email,
-                    mailingAddress: `${customer.address.street}, ${customer.address.city}, ${customer.address.zip}`,
-                    gstRegistrationType: 'Consumer',
-                    asOnDate: new Date().toISOString().split('T')[0],
-                    createdAt: new Date().toISOString()
-                }).select('id').single()
-
-                if (!ledgerError && ledger) {
-                    // Link ledger back to customer
-                    await supabase.from('customers').update({ ledger_id: ledger.id }).eq('id', finalCustomerId)
-                }
-            } catch (ledgerError) {
-                console.error('Failed to create ledger for new customer:', ledgerError)
-                // We don't throw here to avoid failing the whole booking if ledger fails
-                // but in a production system we should ensure consistency
-            }
-        }
-
-        // 3. Create/Update Property
-        const { data: property, error: propertyError } = await supabase
-            .from('properties')
-            .insert({
-                customer_id: finalCustomerId,
-                address: customer.address.street,
-                apartment: customer.address.apartment,
-                city: customer.address.city,
-                state: customer.address.state,
-                pincode: customer.address.zip,
-                created_at: new Date().toISOString()
-            })
-            .select('id')
-            .single()
-
-        if (propertyError) throw propertyError
-
-        // Create Job
+        // Generate booking reference number
         const timestamp = Date.now().toString().slice(-6)
-        const jobNumber = `JS-${timestamp}`
+        const bookingNumber = `BK-${timestamp}`
 
+        // Create a booking_request job row with all raw customer data stored as JSONB
         const { data: job, error: jobError } = await supabase
             .from('jobs')
             .insert({
-                job_number: jobNumber,
-                customer_id: finalCustomerId,
-                customer_name: `${customer.firstName} ${customer.lastName}`,
-                property_id: property.id,
-                category: categoryId, // We should ideally resolve these to names
-                subcategory: subcategoryId,
-                issue: issueId,
-                status: 'pending',
-                stage: 'new',
+                job_number: bookingNumber,
+                status: 'booking_request',
                 priority: 'normal',
-                scheduled_date: schedule.date || new Date().toISOString().split('T')[0],
-                scheduled_time: schedule.slot,
-                description: description,
+                customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
+                category: categoryName || categoryId,
+                subcategory: subcategoryName || subcategoryId,
+                issue: issueName || issueId,
+                description: description || '',
+                scheduled_date: schedule?.date || null,
+                scheduled_time: schedule?.slot || null,
+                // Store the raw booking data for admin reference
+                notes: JSON.stringify({
+                    categoryId,
+                    categoryName,
+                    subcategoryId,
+                    subcategoryName,
+                    issueId,
+                    issueName,
+                    pincode,
+                    description,
+                    schedule,
+                    customer: {
+                        firstName: customer.firstName,
+                        lastName: customer.lastName,
+                        name: `${customer.firstName} ${customer.lastName}`.trim(),
+                        phone: customer.phone,
+                        email: customer.email || '',
+                        address: customer.address || {}
+                    }
+                }),
                 created_at: new Date().toISOString()
             })
             .select('id')
@@ -122,18 +70,19 @@ export async function POST(request) {
 
         if (jobError) throw jobError
 
-        // 5. Log Interaction
+        // Log an interaction on the booking
         await supabase.from('job_interactions').insert([{
             job_id: job.id,
             type: 'created',
-            message: `Booking created from website wizard for ${customer.firstName} ${customer.lastName}`,
-            user_name: 'System'
+            message: `Booking request submitted from website by ${customer.firstName} ${customer.lastName} (${customer.phone})`,
+            user_name: 'System (Website)'
         }])
 
         return NextResponse.json({
             success: true,
-            jobId: job.id,
-            message: 'Booking completed successfully'
+            bookingId: job.id,
+            bookingNumber,
+            message: "Booking request received! We'll call you to confirm."
         })
 
     } catch (error) {
@@ -142,5 +91,23 @@ export async function POST(request) {
             { success: false, error: error.message || 'Internal Server Error' },
             { status: 500 }
         )
+    }
+}
+
+// GET: fetch all booking requests (for admin use)
+export async function GET() {
+    try {
+        const { data, error } = await supabase
+            .from('jobs')
+            .select('*')
+            .eq('status', 'booking_request')
+            .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        return NextResponse.json({ success: true, data: data || [] })
+    } catch (error) {
+        console.error('Booking GET Error:', error)
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }

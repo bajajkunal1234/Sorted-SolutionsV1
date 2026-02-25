@@ -68,6 +68,10 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [errors, setErrors] = useState({});
     const [imagePreview, setImagePreview] = useState(account.accountImage || null);
 
+    // Get required fields for current account type (with inheritance)
+    const requiredFields = getRequiredFields(editedAccount.under || account.under, groups);
+    const showField = (fieldName) => requiredFields.includes(fieldName);
+
     // Determine which tabs to show based on account type (with inheritance)
     const isCustomer = showField('properties');
 
@@ -94,9 +98,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const groupPath = getGroupPath(account.under, groups);
     const isPositive = (account.closingBalance || 0) >= 0;
 
-    // Get required fields for current account type (with inheritance)
-    const requiredFields = getRequiredFields(editedAccount.under || account.under, groups);
-    const showField = (fieldName) => requiredFields.includes(fieldName);
+
 
     // Handle image upload
     const handleImageUpload = (e) => {

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
     Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronRight,
-    Eye, EyeOff, GripVertical, Loader
+    Eye, EyeOff, GripVertical, Loader, IndianRupee, Check
 } from 'lucide-react';
 
 function QuickBookingFormSettings() {
@@ -15,19 +15,73 @@ function QuickBookingFormSettings() {
     const [editValue, setEditValue] = useState('');
     const [newItem, setNewItem] = useState({ type: null, parentId: null, value: '' });
 
+    // ── Visiting Fees ─────────────────────────────────────────────────────────
+    const [fees, setFees] = useState([]);     // [{ categoryId, categoryName, fee }]
+    const [feesSaving, setFeesSaving] = useState(false);
+    const [feesSaveMsg, setFeesSaveMsg] = useState('');
+
+    const loadFees = async () => {
+        try {
+            const res = await fetch('/api/settings/visiting-fees');
+            const data = await res.json();
+            if (data.success) setFees(data.data || []);
+        } catch (err) {
+            console.error('Error loading visiting fees:', err);
+        }
+    };
+
+    const saveFees = async () => {
+        setFeesSaving(true);
+        setFeesSaveMsg('');
+        try {
+            const res = await fetch('/api/settings/visiting-fees', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fees })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            setFeesSaveMsg('Saved!');
+            setTimeout(() => setFeesSaveMsg(''), 2500);
+        } catch (err) {
+            setFeesSaveMsg('Save failed: ' + err.message);
+        } finally {
+            setFeesSaving(false);
+        }
+    };
+
+    // Sync fee rows whenever categories change (add missing, keep existing values)
+    const syncFeesWithCategories = (cats, existingFees) => {
+        const updated = cats.map(cat => {
+            const existing = existingFees.find(f => f.categoryId === cat.id);
+            return existing || { categoryId: cat.id, categoryName: cat.name, fee: '' };
+        });
+        setFees(updated);
+    };
+
+    const handleFeeChange = (categoryId, value) => {
+        setFees(prev => prev.map(f => f.categoryId === categoryId ? { ...f, fee: value } : f));
+    };
+
     // Load data from API
     useEffect(() => {
+        loadFees();
         loadData();
     }, []);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const res = await fetch('/api/settings/quick-booking');
-            const data = await res.json();
-            if (data.success) {
-                setCategories(data.data.categories || []);
-            }
+            const [bookingRes, feesRes] = await Promise.all([
+                fetch('/api/settings/quick-booking'),
+                fetch('/api/settings/visiting-fees')
+            ]);
+            const bookingData = await bookingRes.json();
+            const feesData = await feesRes.json();
+            const cats = bookingData.success ? (bookingData.data.categories || []) : [];
+            const existingFees = feesData.success ? (feesData.data || []) : [];
+            setCategories(cats);
+            syncFeesWithCategories(cats, existingFees);
         } catch (error) {
             console.error('Error loading booking form data:', error);
         } finally {
@@ -165,6 +219,60 @@ function QuickBookingFormSettings() {
                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
                     Manage appliances, appliance types, and issues for the booking form
                 </p>
+            </div>
+
+            {/* ── Visiting / Diagnosing Fees ── */}
+            <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-lg)', border: '2px solid #f59e0b', backgroundColor: '#f59e0b08' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                    <div>
+                        <h4 style={{ margin: 0, fontWeight: 600, color: '#d97706', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>🔧</span> Visiting / Diagnosing Fees
+                        </h4>
+                        <p style={{ margin: '4px 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                            Set the fee shown to customers in Step 4 before booking confirmation
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                        {feesSaveMsg && (
+                            <span style={{ fontSize: 'var(--font-size-sm)', color: feesSaveMsg.startsWith('Save') && !feesSaveMsg.includes('failed') ? 'var(--color-success)' : 'var(--color-danger)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Check size={14} /> {feesSaveMsg}
+                            </span>
+                        )}
+                        <button
+                            className="btn btn-primary"
+                            onClick={saveFees}
+                            disabled={feesSaving}
+                            style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#d97706', borderColor: '#d97706' }}
+                        >
+                            <Save size={14} /> {feesSaving ? 'Saving…' : 'Save All Fees'}
+                        </button>
+                    </div>
+                </div>
+
+                {fees.length === 0 ? (
+                    <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', margin: 0 }}>
+                        Add appliances below first, then fees will appear here.
+                    </p>
+                ) : (
+                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                        {fees.map(f => (
+                            <div key={f.categoryId} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                <span style={{ flex: 1, fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{f.categoryName}</span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', border: '1px solid #d97706', borderRadius: 'var(--radius-sm)', overflow: 'hidden', backgroundColor: 'var(--bg-primary)' }}>
+                                    <span style={{ padding: '6px 8px', fontWeight: 700, color: '#d97706', backgroundColor: '#f59e0b15', borderRight: '1px solid #d97706' }}>₹</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        placeholder="e.g. 299"
+                                        value={f.fee}
+                                        onChange={e => handleFeeChange(f.categoryId, e.target.value)}
+                                        style={{ width: '90px', padding: '6px 8px', border: 'none', outline: 'none', fontSize: 'var(--font-size-sm)', backgroundColor: 'transparent' }}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Add New Category */}

@@ -47,9 +47,22 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     // Fallback for fields that might be directly on the job object or in relations
     const technicianName = technician.name || editedJob.technician_name || 'Unassigned';
     const jobTitle = editedJob.description || editedJob.job_number || 'Job Details';
+
+    // Parse notes if it's a booking request to get temp address/phone
+    let bookingData = {};
+    if (editedJob.status === 'booking_request' && editedJob.notes) {
+        try {
+            bookingData = JSON.parse(editedJob.notes);
+        } catch (e) { }
+    }
+
+    const displayPhone = customer.phone || bookingData.customer?.phone || editedJob.customer_phone || 'N/A';
+    const rawAddr = bookingData.customer?.address || {};
+    const bookingAddr = rawAddr.locality ? `${rawAddr.apartment || ''}, ${rawAddr.street || ''}, ${rawAddr.locality}, ${rawAddr.city}`.replace(/^, /, '') : null;
+
     const jobAddress = property.address ?
         (property.address.line1 ? `${property.address.line1}, ${property.address.locality || ''}` : property.address) :
-        'No address';
+        (bookingAddr || 'No address');
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -212,8 +225,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     )}
                                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                                         <Phone size={16} />
-                                        <a href={`tel:${customer.phone}`} style={{ color: 'var(--color-primary)' }}>
-                                            {customer.phone || 'N/A'}
+                                        <a href={`tel:${displayPhone}`} style={{ color: 'var(--color-primary)' }}>
+                                            {displayPhone}
                                         </a>
                                     </div>
                                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'flex-start' }}>
@@ -323,9 +336,25 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     {editedJob.notes && (
                                         <div className="form-group">
                                             <label className="form-label">Notes</label>
-                                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                                {editedJob.notes}
-                                            </p>
+                                            <div style={{ padding: '8px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                                {(() => {
+                                                    try {
+                                                        const parsed = JSON.parse(editedJob.notes);
+                                                        return (
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                <div><strong>Service:</strong> {parsed.categoryName} {parsed.subcategoryName ? `> ${parsed.subcategoryName}` : ''}</div>
+                                                                <div><strong>Issue:</strong> {parsed.issueName || 'Not specified'}</div>
+                                                                {parsed.description && <div><strong>Description:</strong> {parsed.description}</div>}
+                                                                {parsed.schedule && (
+                                                                    <div><strong>Preferred Schedule:</strong> {parsed.schedule.date} {parsed.schedule.slot ? `(${parsed.schedule.slot})` : ''}</div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    } catch (e) {
+                                                        return editedJob.notes;
+                                                    }
+                                                })()}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

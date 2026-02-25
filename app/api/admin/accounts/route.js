@@ -54,7 +54,15 @@ export async function POST(request) {
         if (error) throw error
 
         // Sync with customers/technicians tables
-        if (body.type === 'customer') {
+        const isCustomer = body.type === 'customer' ||
+            (body.under_name || '').toLowerCase().includes('customer') ||
+            (body.under_name || '').toLowerCase().includes('debtor');
+
+        const isTechnician = body.type === 'technician' ||
+            (body.under_name || '').toLowerCase().includes('technician') ||
+            (body.under_name || '').toLowerCase().includes('creditor');
+
+        if (isCustomer) {
             await supabase.from('customers').upsert({
                 name: body.name,
                 phone: body.mobile || '',
@@ -64,7 +72,7 @@ export async function POST(request) {
                 properties: body.properties || [],
                 ledger_id: data.id
             }, { onConflict: 'ledger_id' });
-        } else if (body.type === 'technician') {
+        } else if (isTechnician) {
             await supabase.from('technicians').upsert({
                 name: body.name,
                 phone: body.mobile || '',
@@ -96,21 +104,32 @@ export async function PUT(request) {
         if (error) throw error
 
         // Sync with customers/technicians tables
-        if (updates.type === 'customer' || data.type === 'customer') {
-            await supabase.from('customers').update({
+        const isCustomer = (updates.type === 'customer' || data.type === 'customer') ||
+            ((updates.under_name || data.under_name || '').toLowerCase().includes('customer')) ||
+            ((updates.under_name || data.under_name || '').toLowerCase().includes('debtor'));
+
+        const isTechnician = (updates.type === 'technician' || data.type === 'technician') ||
+            ((updates.under_name || data.under_name || '').toLowerCase().includes('technician')) ||
+            ((updates.under_name || data.under_name || '').toLowerCase().includes('creditor'));
+
+        if (isCustomer) {
+            await supabase.from('customers').upsert({
                 name: updates.name || data.name,
                 phone: updates.mobile || data.mobile,
                 email: updates.email || data.email,
                 gstin: updates.gstin || data.gstin,
                 address: updates.mailing_address || data.mailing_address,
-                properties: updates.properties || data.properties
-            }).eq('ledger_id', id);
-        } else if (updates.type === 'technician' || data.type === 'technician') {
-            await supabase.from('technicians').update({
+                properties: updates.properties || data.properties,
+                ledger_id: id
+            }, { onConflict: 'ledger_id' });
+        } else if (isTechnician) {
+            await supabase.from('technicians').upsert({
                 name: updates.name || data.name,
                 phone: updates.mobile || data.mobile,
-                email: updates.email || data.email
-            }).eq('ledger_id', id);
+                email: updates.email || data.email,
+                ledger_id: id,
+                status: 'available'
+            }, { onConflict: 'ledger_id' });
         }
 
         return NextResponse.json({ success: true, data })

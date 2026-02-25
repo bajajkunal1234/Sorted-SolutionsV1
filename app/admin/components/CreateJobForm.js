@@ -2,10 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Upload, Plus, Loader2, Image as ImageIcon } from 'lucide-react';
-import { customersAPI, techniciansAPI, brandsAPI, issuesAPI, propertiesAPI, productsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
+import {
+    techniciansAPI,
+    propertiesAPI,
+    accountGroupsAPI,
+    accountsAPI,
+    customersAPI,
+    quickBookingAPI,
+    websiteBrandsAPI,
+    productsAPI,
+    brandsAPI,
+    issuesAPI
+} from '@/lib/adminAPI';
 import NewAccountForm from './accounts/NewAccountForm';
 import PropertyForm from './accounts/PropertyForm';
 
+
+const normalizeAddress = (addr) => {
+    if (!addr) return '';
+    const str = typeof addr === 'string' ? addr : `${addr.line1 || ''} ${addr.locality || ''} ${addr.city || ''} ${addr.pincode || ''}`;
+    return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+};
 
 function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [submitting, setSubmitting] = useState(false);
@@ -15,28 +32,28 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [technicians, setTechnicians] = useState([]);
     const [brands, setBrands] = useState([]);
     const [issues, setIssues] = useState([]);
-    const [allProducts, setAllProducts] = useState([]); // Master products list
+    const [categories, setCategories] = useState([]); // Master categories from website settings
+    const [allProducts, setAllProducts] = useState([]); // Merged list (Categories + Operational Products)
     const [properties, setProperties] = useState([]); // Fetched when customer is selected
     const [groups, setGroups] = useState([]); // Account groups for NewAccountForm
     const [loadingStates, setLoadingStates] = useState({
         customers: true,
         technicians: true,
         brands: true,
-        issues: true,
-        products: true,
-        groups: false, // Lazy loaded
+        websiteSettings: true,
+        groups: false,
         properties: false
     });
 
     const [formData, setFormData] = useState({
         thumbnail: existingJob?.thumbnail || null,
         thumbnailPreview: existingJob?.thumbnail_preview || null,
-        jobName: existingJob?.description || '', // Mapping description to jobName for UI consistency
-        customer: existingJob?.customer ? { id: existingJob.customer_id, ...existingJob.customer } : null,
-        property: existingJob?.property ? { id: existingJob.property.id, ...existingJob.property } : null,
-        product: existingJob?.product ? { id: existingJob.product.id, ...existingJob.product } : null,
-        brand: existingJob?.brand ? { id: existingJob.brand.id, ...existingJob.brand } : null,
-        issue: existingJob?.issue ? { id: existingJob.issue.id, ...existingJob.issue } : null,
+        jobName: existingJob?.description || existingJob?.issue || '', // Mapping description to jobName for UI consistency, fallback to issue
+        customer: (existingJob?.customer?.id || existingJob?.customer_id) ? { id: existingJob.customer_id || existingJob.customer.id, ...existingJob.customer } : null,
+        property: existingJob?.property?.id ? { id: existingJob.property.id, ...existingJob.property } : null,
+        product: existingJob?.product?.id ? { id: existingJob.product.id, ...existingJob.product } : null,
+        brand: (existingJob?.brand && typeof existingJob.brand === 'object' && existingJob.brand.id) ? { id: existingJob.brand.id, ...existingJob.brand } : null,
+        issue: (existingJob?.issue && typeof existingJob.issue === 'object' && existingJob.issue.id) ? { id: existingJob.issue.id, ...existingJob.issue } : null,
         warranty: existingJob?.warranty || false,
         warrantyProof: existingJob?.warranty_proof || '',
         openingDate: existingJob?.created_at ? new Date(existingJob.created_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
@@ -53,46 +70,284 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
     // Fetch master data asynchronously
     useEffect(() => {
         const fetchMasterData = async () => {
-            // Fetch everything in parallel but update state individually if needed
-            // For now, we'll keep the Promise.all but remove the blocking 'loading' state
             try {
-                const results = await Promise.allSettled([
-                    customersAPI.getAll(),
-                    techniciansAPI.getAll(),
-                    brandsAPI.getAll(),
-                    issuesAPI.getAll(),
-                    productsAPI.getAll()
-                ]);
+                // Fetch each resource individually to handle partial failures
+                const fetchPromises = [
+                    { key: 'customers', api: accountsAPI.getAll() },
+                    { key: 'technicians', api: techniciansAPI.getAll() },
+                    { key: 'brands', api: websiteBrandsAPI.getAll() },
+                    { key: 'websiteSettings', api: quickBookingAPI.getSettings() },
+                    { key: 'operationalProducts', api: productsAPI.getAll() }
+                ];
 
-                if (results[0].status === 'fulfilled') setCustomers(results[0].value || []);
-                if (results[1].status === 'fulfilled') setTechnicians(results[1].value || []);
-                if (results[2].status === 'fulfilled') setBrands(results[2].value || []);
-                if (results[3].status === 'fulfilled') setIssues(results[3].value || []);
-                if (results[4].status === 'fulfilled') setAllProducts(results[4].value || []);
+                const results = await Promise.allSettled(fetchPromises.map(p => p.api));
+
+                const data = {};
+                results.forEach((result, idx) => {
+                    const key = fetchPromises[idx].key;
+                    if (result.status === 'fulfilled') {
+                        data[key] = result.value || [];
+                    } else {
+                        console.error(`Error fetching ${key}:`, result.reason);
+                        data[key] = [];
+                    }
+                });
+
+                const allAccounts = data.customers || [];
+                // Filter for customers: either direct type or under a customer/debtor group
+                const customersOnly = allAccounts.filter(a =>
+                    a.type === 'customer' ||
+                    a.under?.toLowerCase().includes('customer') ||
+                    a.under?.toLowerCase().includes('debtor') ||
+                    (a.under_name || '').toLowerCase().includes('customer') ||
+                    (a.under_name || '').toLowerCase().includes('debtor')
+                );
+                setCustomers(customersOnly);
+                setTechnicians(data.technicians || []);
+                setBrands(data.brands || []);
+
+                // Extract categories and all issues from website settings
+                const categoriesData = (data.websiteSettings?.categories || []).map(cat => ({
+                    ...cat,
+                    id: cat.id || `appliance-${cat.name.toLowerCase().replace(/\s+/g, '-')}`
+                }));
+                setCategories(categoriesData);
+
+                // Merge with operational products from inventory/products table
+                const operationalProducts = (data.operationalProducts || []).map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    isOperational: true,
+                    showOnBookingForm: true // Show these by default in admin
+                }));
+
+                const allMergedProducts = [...categoriesData, ...operationalProducts];
+                setAllProducts(allMergedProducts);
+                // Using this as appliance source for manual entries (no filter)
+                // categories is used specifically for Issue matching later
+
+                // Flatten issues for searching
+                const flattenedIssues = categoriesData.flatMap(cat =>
+                    (cat.subcategories || []).flatMap(sub =>
+                        (sub.issues || []).map(iss => ({
+                            ...iss,
+                            id: iss.id || `issue-${cat.id}-${sub.id}-${(iss.name || iss.title || '').toLowerCase().replace(/\s+/g, '-')}`,
+                            categoryId: cat.id,
+                            subcategoryId: sub.id
+                        }))
+                    )
+                );
+                setIssues(flattenedIssues);
 
                 setLoadingStates(prev => ({
                     ...prev,
                     customers: false,
                     technicians: false,
                     brands: false,
-                    issues: false,
-                    products: false
+                    websiteSettings: false
                 }));
 
-                // If editing and has customer, fetch properties
-                if (existingJob?.customer_id) {
-                    setLoadingStates(prev => ({ ...prev, properties: true }));
-                    const props = await propertiesAPI.getAll(existingJob.customer_id);
-                    setProperties(props || []);
-                    setLoadingStates(prev => ({ ...prev, properties: false }));
+                // Auto-match names to IDs for booking requests
+                if (existingJob?.status === 'booking_request') {
+                    console.log('DEBUG: Full existingJob raw data:', existingJob);
+                    console.log('Matching data for booking request:', {
+                        appliance: existingJob.appliance || existingJob.category,
+                        brand: existingJob.brand,
+                        issue: existingJob.issue,
+                        customerCount: customersOnly.length,
+                        categoriesCount: categoriesData.length,
+                        brandsCount: data.brands?.length
+                    });
+
+                    setFormData(prev => {
+                        const updates = {};
+
+                        // Match customer - prioritizing account/ledger ID (number or string)
+                        const targetCustId = existingJob.account_id || existingJob.customer_id;
+                        if (targetCustId && !prev.customer) {
+                            const match = customersOnly.find(c =>
+                                String(c.id) === String(targetCustId) ||
+                                (c.ledger_id && String(c.ledger_id) === String(targetCustId))
+                            );
+                            if (match) {
+                                console.log('Matched customer account successfully:', match.name);
+                                updates.customer = match;
+                            }
+                        }
+
+                        // Match appliance (category in website settings)
+                        const rawAppliance = existingJob.appliance || existingJob.category || '';
+                        const applianceToMatch = (typeof rawAppliance === 'string' ? rawAppliance : rawAppliance?.name || '').toLowerCase().trim();
+                        if (applianceToMatch && !prev.product?.id) {
+                            const match = categoriesData.find(c => {
+                                const cName = (c.name || '').toLowerCase().trim();
+                                return cName === applianceToMatch || cName.includes(applianceToMatch) || applianceToMatch.includes(cName);
+                            });
+                            if (match) {
+                                console.log('Matched appliance successfully:', match.name);
+                                updates.product = match;
+                                // Clear error if it exists
+                                setErrors(errs => { const e = { ...errs }; delete e.product; return e; });
+                            }
+                        }
+
+                        // Match Brand from Library (Fuzzy Matching)
+                        const rawBrand = existingJob.brand;
+                        // Handle if brand is a string, an object with name, or an object with title
+                        const brandStr = (typeof rawBrand === 'string' ? rawBrand : (rawBrand?.name || rawBrand?.title || '')).toLowerCase().trim();
+
+                        if (brandStr && !prev.brand?.id) {
+                            console.log('Searching for brand match:', brandStr);
+                            const match = (data.brands || []).find(b => {
+                                const bName = (b.name || '').toLowerCase().trim();
+                                return bName === brandStr || bName.includes(brandStr) || brandStr.includes(bName);
+                            });
+                            if (match) {
+                                console.log('Matched brand successfully:', match.name);
+                                updates.brand = match;
+                            }
+                        }
+
+                        // Match Issue from Website Settings
+                        const rawIssue = (existingJob.issue || '').toLowerCase().trim();
+                        if (rawIssue && !prev.issue?.id) {
+                            console.log('Searching for issue match:', rawIssue);
+                            // Find match anywhere in flattened issues, ignore category mismatch for the initial pre-selection if name matches
+                            const match = flattenedIssues.find(i =>
+                                (i.name || '').toLowerCase().trim() === rawIssue ||
+                                (i.title || '').toLowerCase().trim() === rawIssue ||
+                                rawIssue.includes((i.name || '').toLowerCase().trim())
+                            );
+                            if (match) {
+                                console.log('Matched issue successfully:', match.name, 'for category:', match.categoryId);
+                                updates.issue = match;
+
+                                // FORCE matched category if not already set or mismatched
+                                if (match.categoryId && (!updates.product || updates.product.id !== match.categoryId)) {
+                                    const catMatch = categoriesData.find(c => c.id === match.categoryId);
+                                    if (catMatch) {
+                                        console.log('Adjusting category to match issue:', catMatch.name);
+                                        updates.product = catMatch;
+                                        setErrors(errs => { const e = { ...errs }; delete e.product; return e; });
+                                    }
+                                }
+                                setErrors(errs => { const e = { ...errs }; delete e.issue; return e; });
+                            }
+                        }
+
+                        if (Object.keys(updates).length > 0) {
+                            console.log('Applying booking updates to formData:', Object.keys(updates));
+                            return {
+                                ...prev,
+                                ...updates,
+                                jobName: prev.jobName || updates.issue?.name || existingJob.issue || existingJob.description || ''
+                            };
+                        }
+                        return prev;
+                    });
                 }
+                setLoadingStates(prev => ({
+                    ...prev,
+                    customers: false,
+                    technicians: false,
+                    brands: false,
+                    websiteSettings: false
+                }));
             } catch (err) {
-                console.error('Error fetching master data:', err);
+                console.error('Error in fetchMasterData:', err);
+            } finally {
+                setLoadingStates(prev => ({
+                    ...prev,
+                    customers: false,
+                    technicians: false,
+                    brands: false,
+                    websiteSettings: false
+                }));
             }
         };
 
         fetchMasterData();
     }, [existingJob]);
+
+    // Unified Property Fetching - Watch customer changes
+    useEffect(() => {
+        const loadProperties = async () => {
+            const customer = formData.customer;
+            if (!customer) {
+                setProperties([]);
+                return;
+            }
+
+            setLoadingStates(prev => ({ ...prev, properties: true }));
+            try {
+                // RESOLVE UUID if needed: The properties table uses UUIDs as customer_id.
+                // Accounts/Ledger entries use integers.
+                let resolvedCustomerId = customer.id;
+                try {
+                    const customerRecords = await customersAPI.getAll({ ledger_id: customer.id });
+                    if (customerRecords && customerRecords.length > 0) {
+                        resolvedCustomerId = customerRecords[0].id;
+                        console.log('Resolved Ledger ID', customer.id, 'to Customer UUID for properties:', resolvedCustomerId);
+                    }
+                } catch (err) {
+                    console.warn('Failed to resolve customer UUID for properties:', err.message);
+                }
+
+                // Combine Legacy DB properties and Ledger-based properties
+                let dbProps = [];
+                try {
+                    dbProps = await propertiesAPI.getAll(resolvedCustomerId) || [];
+                } catch (e) {
+                    console.warn('Properties fetch failed:', e.message);
+                }
+
+                const ledgerProps = (customer.properties || [])
+                    .map((p, index) => ({
+                        id: p.id || `ledger-${customer.id}-${index}`, // STABLE ID
+                        property_name: p.name || p.label || 'Home',
+                        address: p.address,
+                        contactPerson: p.contactPerson || '',
+                        contactPhone: p.contactPhone || '',
+                        _source: 'ledger'
+                    }));
+
+                const allProps = [...dbProps, ...ledgerProps];
+                setProperties(allProps);
+                console.log('Available properties for customer:', allProps.length, allProps.map(p => p.property_name));
+
+                // Auto-match property for booking requests or existing jobs
+                if (allProps.length > 0 && !formData.property?.id) {
+                    const bookingAddrNormalized = normalizeAddress(existingJob?.property?.address || existingJob?.address);
+                    console.log('Attempting property match for normalized address:', bookingAddrNormalized);
+
+                    let match = allProps.find(p =>
+                        (existingJob?.property?.id && String(p.id) === String(existingJob.property.id)) ||
+                        (bookingAddrNormalized && normalizeAddress(p.address) === bookingAddrNormalized)
+                    );
+
+                    // Fallback: If only one property exists, auto-select it
+                    if (!match && allProps.length === 1) {
+                        console.log('Auto-selecting single available property:', allProps[0].property_name);
+                        match = allProps[0];
+                    }
+
+                    if (match) {
+                        console.log('Setting matched property:', match.property_name);
+                        setFormData(prev => ({ ...prev, property: match }));
+                        setErrors(prev => {
+                            const newErr = { ...prev };
+                            delete newErr.property;
+                            return newErr;
+                        });
+                    }
+                }
+            } finally {
+                setLoadingStates(prev => ({ ...prev, properties: false }));
+            }
+        };
+
+        loadProperties();
+    }, [formData.customer?.id, existingJob]);
 
     // Lazy load account groups when customer creation modal is opened
     useEffect(() => {
@@ -127,98 +382,76 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         }
     };
 
-    const handleCustomerChange = async (customerId) => {
-        const customer = customers.find(c => c.id === customerId);
-        setFormData({
-            ...formData,
+    const handleCustomerChange = (customerId) => {
+        const customer = customers.find(c => String(c.id) === String(customerId));
+        setFormData(prev => ({
+            ...prev,
             customer,
             property: null, // Reset property when customer changes
-        });
-
-        // Fetch properties for selected customer from both sources and merge
-        if (customerId) {
-            try {
-                setLoadingStates(prev => ({ ...prev, properties: true }));
-
-                // Source 1: Old DB table (properties table with customer_id FK)
-                let dbProps = [];
-                try {
-                    dbProps = await propertiesAPI.getAll(customerId) || [];
-                } catch (e) {
-                    console.warn('propertiesAPI failed (may not exist):', e.message);
-                }
-
-                // Source 2: New JSONB array on the account record
-                const accountProps = (customer?.properties || [])
-                    .filter(p => p.name?.trim() || p.address?.trim?.() || (typeof p.address === 'object' && p.address?.line1))
-                    .map(p => ({
-                        // Normalize to a consistent shape
-                        id: p.id || `acct-${Date.now()}-${Math.random()}`,
-                        property_name: p.name || p.label || '',
-                        address: p.address,
-                        contactPerson: p.contactPerson || '',
-                        contactPhone: p.contactPhone || '',
-                        _source: 'account'
-                    }));
-
-                // Merge: DB props first, then account props (avoiding duplicates by id)
-                const dbIds = new Set(dbProps.map(p => String(p.id)));
-                const merged = [
-                    ...dbProps,
-                    ...accountProps.filter(p => !dbIds.has(String(p.id)))
-                ];
-
-                setProperties(merged);
-            } catch (err) {
-                console.error('Error fetching properties:', err);
-                setProperties([]);
-            } finally {
-                setLoadingStates(prev => ({ ...prev, properties: false }));
-            }
-        } else {
-            setProperties([]);
-        }
+        }));
     };
 
     const handlePropertyChange = (propertyId) => {
-        const property = properties.find(p => p.id === propertyId);
-        setFormData({ ...formData, property });
+        const selected = properties.find(p => String(p.id) === String(propertyId));
+        console.log('Manual property selection:', propertyId, 'Found:', selected?.property_name);
+        setFormData(prev => ({ ...prev, property: selected }));
+        if (errors.property) {
+            const newErrors = { ...errors };
+            delete newErrors.property;
+            setErrors(newErrors);
+        }
     };
 
     const handleProductChange = (productId) => {
-        const product = allProducts.find(p => p.id === productId);
-        setFormData({ ...formData, product });
+        const selected = allProducts.find(p => String(p.id) === String(productId));
+        setFormData(prev => ({ ...prev, product: selected, issue: null }));
+        // Clear related errors
+        setErrors(errs => {
+            const e = { ...errs };
+            delete e.product;
+            delete e.issue;
+            return e;
+        });
     };
 
     const handleBrandChange = (brandId) => {
-        const brand = brands.find(b => b.id === brandId);
-        setFormData({ ...formData, brand });
+        const selected = brands.find(b => String(b.id) === String(brandId) || b.name === brandId);
+        setFormData(prev => ({ ...prev, brand: selected }));
+        if (errors.brand) {
+            const newErrors = { ...errors };
+            delete newErrors.brand;
+            setErrors(newErrors);
+        }
     };
 
     const handleIssueChange = (issueId) => {
-        const issue = issues.find(i => i.id === issueId);
-        setFormData({ ...formData, issue });
-
+        const selected = issues.find(i => String(i.id) === String(issueId));
+        setFormData(prev => ({ ...prev, issue: selected }));
+        if (errors.issue) {
+            const newErrors = { ...errors };
+            delete newErrors.issue;
+            setErrors(newErrors);
+        }
         // Auto-populate job name if empty
-        if (!formData.jobName && issue) {
-            setFormData(prev => ({ ...prev, issue, jobName: issue.title || issue.name }));
+        if (!formData.jobName && selected) {
+            setFormData(prev => ({ ...prev, jobName: selected.title || selected.name }));
         }
     };
 
     const handleTechnicianChange = (techId) => {
-        const tech = technicians.find(t => t.id === techId);
-        setFormData({
-            ...formData,
+        const tech = technicians.find(t => String(t.id) === String(techId));
+        setFormData(prev => ({
+            ...prev,
             assignedTo: tech?.id || '',
             assignedToName: tech?.name || ''
-        });
+        }));
     };
 
     const toggleTag = (tag) => {
         const newTags = formData.tags.includes(tag)
             ? formData.tags.filter(t => t !== tag)
             : [...formData.tags, tag];
-        setFormData({ ...formData, tags: newTags });
+        setFormData(prev => ({ ...prev, tags: newTags }));
     };
 
     // Inline Creation Handlers
@@ -232,29 +465,24 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 result = await accountsAPI.create(accountData);
             }
 
-            // Refresh customers list
-            const updatedCustomers = await customersAPI.getAll();
-            setCustomers(updatedCustomers);
+            // Refresh customers list (from the accounts table, same logic as fetchMasterData)
+            const allAccounts = await accountsAPI.getAll();
+            const customersOnly = allAccounts.filter(a =>
+                a.type === 'customer' ||
+                a.under?.toLowerCase().includes('customer') ||
+                a.under?.toLowerCase().includes('debtor') ||
+                (a.under_name || '').toLowerCase().includes('customer') ||
+                (a.under_name || '').toLowerCase().includes('debtor')
+            );
+            setCustomers(customersOnly);
 
-            // Find the updated/new customer record
-            const updatedCustomer = updatedCustomers.find(c => c.ledger_id === result.id);
+            // Find the updated/new account record
+            const updatedAccount = customersOnly.find(c => String(c.id) === String(result.id));
 
-            if (updatedCustomer) {
-                setFormData({ ...formData, customer: updatedCustomer, property: formData.property });
-                // Normalize account.properties JSONB into the properties state
-                const accountProps = (updatedCustomer.properties || [])
-                    .filter(p => p.name?.trim() || p.address)
-                    .map(p => ({
-                        id: p.id || `acct-${Date.now()}-${Math.random()}`,
-                        property_name: p.name || p.label || '',
-                        address: p.address,
-                        contactPerson: p.contactPerson || '',
-                        contactPhone: p.contactPhone || '',
-                        _source: 'account'
-                    }));
-                setProperties(accountProps);
+            if (updatedAccount) {
+                console.log('Syncing new account to form state:', updatedAccount.id);
+                setFormData(prev => ({ ...prev, customer: updatedAccount }));
             }
-
             setShowCreateModal(null);
             setQuickFormData({});
             alert(`Customer ${accountData.id ? 'updated' : 'created'} successfully!`);
@@ -271,8 +499,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         try {
             setSubmitting(true);
             const newProperty = await propertiesAPI.create(propertyData);
-            setProperties([...properties, newProperty]);
-            setFormData({ ...formData, property: newProperty });
+            setProperties(prev => [...prev, newProperty]);
+            setFormData(prev => ({ ...prev, property: newProperty }));
             setShowCreateModal(null);
             alert('Property added successfully!');
         } catch (err) {
@@ -342,43 +570,71 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         setSubmitting(true);
 
         try {
+            // RESOLVE CUSTOMER UUID: The jobs table requires a UUID from the customers table.
+            // Since we are using Accounts as the UI source, we find the corresponding customer record.
+            let resolvedCustomerId = formData.customer.id; // Fallback to current ID
+
+            try {
+                const customerRecords = await customersAPI.getAll({ ledger_id: formData.customer.id });
+                if (customerRecords && customerRecords.length > 0) {
+                    resolvedCustomerId = customerRecords[0].id;
+                    console.log('Resolved Ledger ID', formData.customer.id, 'to Customer UUID', resolvedCustomerId);
+                } else {
+                    // MISSING CUSTOMER RECORD: If we have the ledger but no customer record, create it now.
+                    // This is the safety net for accounts that weren't synced (e.g., Sundry Debtors).
+                    console.log('No customer record found for ledger ID', formData.customer.id, '. Creating on-the-fly...');
+                    const newCustomer = await customersAPI.create({
+                        name: formData.customer.name,
+                        phone: formData.customer.phone || formData.customer.mobile || '',
+                        email: formData.customer.email || '',
+                        address: formData.customer.billing_address || formData.customer.mailing_address || {},
+                        ledger_id: formData.customer.id
+                    });
+                    if (newCustomer && newCustomer.id) {
+                        resolvedCustomerId = newCustomer.id;
+                        console.log('Successfully created on-the-fly customer record:', resolvedCustomerId);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to resolve or create customer UUID:', err.message);
+                // If it's already a UUID, it might just work, but if it's an integer and we failed to create a customer,
+                // the subsequent job create will likely fail with the FKEY error.
+            }
+
             // Map to Supabase Schema (snake_case)
             const jobData = {
                 // Generated fields
                 job_number: existingJob?.job_number || `JOB-${Date.now().toString().slice(-6)}`,
 
                 // References
-                customer_id: formData.customer.id,
+                customer_id: resolvedCustomerId,
                 customer_name: formData.customer.name,
                 technician_id: formData.assignedTo || null,
                 technician_name: formData.assignedToName || null,
 
                 // Details
                 description: formData.jobName,
-                status: existingJob?.status || 'pending',
-                priority: 'medium', // Default
+                status: existingJob?.status === 'booking_request' ? 'pending' : (existingJob?.status || 'pending'),
+                priority: 'normal',
 
-                // JSONB or Text fields depending on schema
-                // Schema has 'property JSONB', 'brand TEXT', 'issue TEXT', 'appliance TEXT'
-                // But previously viewed schema showed relations? No, Schema showed TEXT for brand/issue/appliance.
-                // Wait, Schema (Step 5537) Lines 53-58:
-                // category TEXT, subcategory TEXT, appliance TEXT, brand TEXT, model TEXT, issue TEXT
-                // and property JSONB.
-
-                category: formData.product?.category || 'General',
+                category: formData.product?.name || 'General',
                 appliance: formData.product?.name,
                 brand: formData.brand?.name,
-                issue: formData.issue?.title || formData.issue?.name, // Issue table has title
+                issue: formData.issue?.name,
 
                 // Dates
                 scheduled_date: formData.dueDate || null,
-                created_at: new Date().toISOString(),
 
                 // Extra fields
-                amount: 0, // Default
-                property: formData.property, // Store full property object in JSONB
-                notes: formData.warranty ? `Warranty Claim: ${formData.warrantyProof}` : '',
+                amount: 0,
+                property: formData.property,
+                notes: formData.warranty ? `Warranty Claim: ${formData.warrantyProof}` : (existingJob?.notes || ''),
             };
+
+            // If technician is assigned, set status to assigned
+            if (jobData.technician_id && jobData.status === 'pending') {
+                jobData.status = 'assigned';
+            }
 
             await onCreate(jobData);
             onClose();
@@ -468,7 +724,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 <option value="">{loadingStates.customers ? 'Loading customers...' : 'Select customer...'}</option>
                                 {customers.map(customer => (
                                     <option key={customer.id} value={customer.id}>
-                                        {customer.name} - {customer.phone}
+                                        {customer.name} {customer.phone || customer.mobile ? `- ${customer.phone || customer.mobile}` : ''}
                                     </option>
                                 ))}
                             </select>
@@ -591,24 +847,13 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     onChange={(e) => handleProductChange(e.target.value)}
                                     style={{ flex: 1 }}
                                 >
-                                    <option value="">{loadingStates.products ? 'Loading appliances...' : 'Select appliance...'}</option>
-                                    {allProducts.map(product => (
-                                        <option key={product.id} value={product.id}>
-                                            {product.name} ({product.category})
+                                    <option value="">{loadingStates.websiteSettings ? 'Loading appliances...' : 'Select appliance...'}</option>
+                                    {allProducts.map(cat => (
+                                        <option key={cat.id} value={cat.id}>
+                                            {cat.isOperational ? `📦 ${cat.name}` : cat.name}
                                         </option>
                                     ))}
                                 </select>
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setShowCreateModal('product');
-                                        setQuickFormData({ name: '', category: '' });
-                                    }}
-                                    title="Add new product"
-                                >
-                                    <Plus size={16} />
-                                </button>
                             </div>
                             {errors.product && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.product}</span>}
 
@@ -681,17 +926,6 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                         </option>
                                     ))}
                                 </select>
-                                <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setShowCreateModal('brand');
-                                        setQuickFormData({ name: '' });
-                                    }}
-                                    title="Add new brand"
-                                >
-                                    <Plus size={16} />
-                                </button>
                             </div>
                             {errors.brand && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.brand}</span>}
 
@@ -751,24 +985,13 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 onChange={(e) => handleIssueChange(e.target.value)}
                                 style={{ flex: 1 }}
                             >
-                                <option value="">{loadingStates.issues ? 'Loading issues...' : 'Select issue...'}</option>
-                                {issues.map(issue => (
+                                <option value="">{loadingStates.websiteSettings ? 'Loading issues...' : (formData.product ? 'Select issue...' : 'Select appliance first')}</option>
+                                {issues.filter(i => !formData.product || i.categoryId === formData.product.id).map(issue => (
                                     <option key={issue.id} value={issue.id}>
-                                        {issue.title || issue.name} ({issue.category})
+                                        {issue.name}
                                     </option>
                                 ))}
                             </select>
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => {
-                                    setShowCreateModal('issue');
-                                    setQuickFormData({ title: '', category: '' });
-                                }}
-                                title="Add new issue"
-                            >
-                                <Plus size={16} />
-                            </button>
                         </div>
                         {errors.issue && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.issue}</span>}
 
@@ -896,10 +1119,11 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             </select>
                         </div>
                     </div>
-                </div>
+                </div >
 
                 {/* Footer - Fixed */}
-                <div className="modal-footer" style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-md)' }}>
+                < div className="modal-footer" style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-md)' }
+                }>
                     <button className="btn btn-secondary" onClick={onClose} disabled={submitting}>
                         Cancel
                     </button>
@@ -916,9 +1140,9 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             </>
                         )}
                     </button>
-                </div>
-            </div>
-        </div>
+                </div >
+            </div >
+        </div >
     );
 }
 

@@ -6,6 +6,7 @@ export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
         const search = searchParams.get('search')
+        const ledgerId = searchParams.get('ledger_id')
 
         let query = supabase
             .from('customers')
@@ -15,6 +16,10 @@ export async function GET(request) {
 
         if (search) {
             query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
+        }
+
+        if (ledgerId) {
+            query = query.eq('ledger_id', ledgerId)
         }
 
         const { data, error } = await query

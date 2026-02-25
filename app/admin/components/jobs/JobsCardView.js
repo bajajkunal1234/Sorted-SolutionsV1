@@ -29,6 +29,7 @@ function JobsCardView({ jobs, onJobClick }) {
             gap: 'var(--spacing-md)'
         }}>
             {jobs.map(job => {
+                const isBooking = job.status === 'booking_request';
                 const statusColor = getStatusColor(job.status);
                 // Handle different field names (camelCase vs snake_case)
                 const dueDate = job.scheduled_date || job.dueDate;
@@ -38,31 +39,42 @@ function JobsCardView({ jobs, onJobClick }) {
                 const jobTitle = job.description || job.jobName || job.job_number || 'Untitled Job';
                 const priority = job.priority;
 
+                let bd = {};
+                if (isBooking) {
+                    try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
+                }
+
                 return (
                     <div
                         key={job.id}
                         onClick={() => onJobClick?.(job)}
                         style={{
                             backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
+                            border: isBooking ? '2px solid #f59e0b' : '1px solid var(--border-primary)',
                             borderRadius: 'var(--radius-lg)',
                             overflow: 'hidden',
                             cursor: 'pointer',
                             transition: 'all var(--transition-fast)',
                             display: 'flex',
-                            flexDirection: 'column'
+                            flexDirection: 'column',
+                            position: 'relative'
                         }}
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
                             e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
-                            e.currentTarget.style.borderColor = 'var(--color-primary)';
+                            e.currentTarget.style.borderColor = isBooking ? '#f59e0b' : 'var(--color-primary)';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
                             e.currentTarget.style.boxShadow = 'none';
-                            e.currentTarget.style.borderColor = 'var(--border-primary)';
+                            e.currentTarget.style.borderColor = isBooking ? '#f59e0b' : 'var(--border-primary)';
                         }}
                     >
+                        {isBooking && (
+                            <div style={{ backgroundColor: '#f59e0b', color: 'white', padding: '4px 8px', fontSize: '10px', fontWeight: 800, textAlign: 'center' }}>
+                                NEW WEBSITE BOOKING
+                            </div>
+                        )}
                         {/* Thumbnail */}
                         {job.thumbnail && (
                             <div style={{
@@ -97,7 +109,7 @@ function JobsCardView({ jobs, onJobClick }) {
                         )}
 
                         {/* Content */}
-                        <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                        <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', flex: 1 }}>
                             {/* Title */}
                             <h3 style={{
                                 fontSize: 'var(--font-size-base)',
@@ -122,7 +134,7 @@ function JobsCardView({ jobs, onJobClick }) {
                                 <User size={14} color="var(--text-secondary)" />
                                 <div>
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
-                                        {job.customer?.name || job.customer}
+                                        {job.customer?.name || job.customer || (isBooking ? (bd.customer?.name || 'New Customer') : 'Walk-in')}
                                     </span>
                                     {job.property && (
                                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginLeft: 'var(--spacing-xs)' }}>
@@ -133,21 +145,22 @@ function JobsCardView({ jobs, onJobClick }) {
                             </div>
 
                             {/* Location */}
-                            {locality && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                    <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
-                                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                        {locality}
-                                    </span>
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
+                                <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                    {locality || (isBooking ? bd.customer?.address?.locality : 'No location')}
+                                </span>
+                            </div>
 
-                            {/* Due Date */}
-                            {dueDate && (
+                            {/* Due Date / Slot */}
+                            {(dueDate || isBooking) && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                     <Calendar size={14} style={{ color: 'var(--text-tertiary)' }} />
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                        {new Date(dueDate).toLocaleDateString()}
+                                        {isBooking
+                                            ? `${bd.schedule?.date || ''} ${bd.schedule?.slot ? `(${bd.schedule.slot})` : ''}`.trim() || 'No schedule'
+                                            : new Date(dueDate).toLocaleDateString()
+                                        }
                                     </span>
                                 </div>
                             )}
@@ -197,41 +210,49 @@ function JobsCardView({ jobs, onJobClick }) {
                                 alignItems: 'center',
                                 marginTop: 'auto'
                             }}>
-                                {/* Technician */}
-                                {technicianName && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                        <div style={{
-                                            width: '24px',
-                                            height: '24px',
-                                            borderRadius: '50%',
-                                            background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: 'var(--text-inverse)',
-                                            fontSize: 'var(--font-size-xs)',
-                                            fontWeight: 600
-                                        }}>
-                                            {getInitials(technicianName)}
-                                        </div>
-                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                            {technicianName}
-                                        </span>
-                                    </div>
-                                )}
+                                {isBooking ? (
+                                    <button className="btn btn-primary" style={{ width: '100%', fontSize: '12px', padding: '6px', backgroundColor: '#f59e0b', border: 'none' }}>
+                                        Create & Assign
+                                    </button>
+                                ) : (
+                                    <>
+                                        {/* Technician */}
+                                        {technicianName && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                                <div style={{
+                                                    width: '24px',
+                                                    height: '24px',
+                                                    borderRadius: '50%',
+                                                    background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: 'var(--text-inverse)',
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    fontWeight: 600
+                                                }}>
+                                                    {getInitials(technicianName)}
+                                                </div>
+                                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                    {technicianName}
+                                                </span>
+                                            </div>
+                                        )}
 
-                                {/* Status Badge */}
-                                <div style={{
-                                    padding: '4px 10px',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: 'var(--font-size-xs)',
-                                    fontWeight: 600,
-                                    backgroundColor: `${statusColor}20`,
-                                    color: statusColor,
-                                    textTransform: 'capitalize'
-                                }}>
-                                    {job.status.replace('-', ' ')}
-                                </div>
+                                        {/* Status Badge */}
+                                        <div style={{
+                                            padding: '4px 10px',
+                                            borderRadius: 'var(--radius-sm)',
+                                            fontSize: 'var(--font-size-xs)',
+                                            fontWeight: 600,
+                                            backgroundColor: `${statusColor}20`,
+                                            color: statusColor,
+                                            textTransform: 'capitalize'
+                                        }}>
+                                            {job.status.replace('-', ' ')}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>
