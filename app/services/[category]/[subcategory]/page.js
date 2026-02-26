@@ -20,7 +20,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
 import { unstable_noStore as noStore } from 'next/cache';
-import { getBaseUrl } from '@/lib/get-base-url';
+import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
 
 export default async function SubCategoryPage({ params }) {
     noStore(); // Opt out of caching to ensure real-time Admin updates
@@ -37,97 +37,62 @@ export default async function SubCategoryPage({ params }) {
     let dynamicSettings = null
 
     try {
-        const baseUrl = getBaseUrl();
-        console.log(`[SubcatPage] Fetching settings for ${pageId} via API`);
-        const res = await fetch(`${baseUrl}/api/settings/page/${pageId}`, {
-            cache: 'no-store',
-            headers: { 'Content-Type': 'application/json' }
-        });
+        console.log(`[SubcatPage] Fetching settings for ${pageId} natively`);
+        const apiData = await getFullPageData(pageId);
 
-        if (!res.ok) {
-            console.error(`[SubcatPage] API returned ${res.status} for ${pageId}`);
-        } else {
-            const apiData = await res.json();
-            console.log(`[SubcatPage] API success=${apiData.success} has_data=${!!apiData.data}`);
+        if (apiData.success && apiData.data) {
+            const d = apiData.data;
+            const r = apiData.related || {};
 
-            if (apiData.success && apiData.data) {
-                const d = apiData.data;
-                const r = apiData.related || {};
+            // Resolve FAQs via internal DB query
+            let resolvedFaqsList = [];
+            if (r.faqIds?.length > 0) {
+                const faqRes = await resolveFaqs(r.faqIds);
+                if (faqRes.success) resolvedFaqsList = faqRes.faqs;
+            }
 
-                // Resolve FAQs: fetch content from IDs via internal API (two-step)
-                let resolvedFaqs = [];
-                if (r.faqIds?.length > 0) {
-                    try {
-                        const faqRes = await fetch(`${baseUrl}/api/settings/faqs/by-ids`, {
-                            method: 'POST',
-                            cache: 'no-store',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ ids: r.faqIds })
-                        });
-                        if (faqRes.ok) {
-                            const faqData = await faqRes.json();
-                            if (faqData.success && faqData.faqs?.length > 0) {
-                                resolvedFaqs = r.faqIds
-                                    .map(id => faqData.faqs.find(f => f.id === id))
-                                    .filter(Boolean)
-                                    .map(f => ({ question: f.question, answer: f.answer }));
-                            }
-                        }
-                    } catch (faqErr) {
-                        console.error('[SubcatPage] FAQ resolution error:', faqErr.message);
-                    }
-                }
+            dynamicSettings = {
+                heroSettings: d.hero_settings,
+                problems: (r.problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
+                services: (r.services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
+                localities: (r.localities || []).map(l => l.locality_name),
+                brandIds: r.brandIds || [],
+                faqs: resolvedFaqsList,
+                issuesSettings: d.issues_settings || null,
 
-                dynamicSettings = {
-                    heroSettings: d.hero_settings,
-                    problems: (r.problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
-                    services: (r.services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
-                    localities: (r.localities || []).map(l => l.locality_name),
-                    brandIds: r.brandIds || [],
-                    faqs: resolvedFaqs,
-                    issuesSettings: d.issues_settings || null,
+                subcategories: d.subcategories_settings?.items?.length > 0 ? d.subcategories_settings.items : null,
+                subcategoriesTitle: d.subcategories_settings?.title,
+                subcategoriesSubtitle: d.subcategories_settings?.subtitle,
 
-                    subcategories: d.subcategories_settings?.items?.length > 0 ? d.subcategories_settings.items : null,
-                    subcategoriesTitle: d.subcategories_settings?.title,
-                    subcategoriesSubtitle: d.subcategories_settings?.subtitle,
+                hero_title: d.hero_settings?.title,
+                hero_subtitle: d.hero_settings?.subtitle,
+                problems_title: d.problems_settings?.title,
+                problems_subtitle: d.problems_settings?.subtitle,
+                services_title: d.services_settings?.title,
+                services_subtitle: d.services_settings?.subtitle,
+                localities_title: d.localities_settings?.title,
+                localities_subtitle: d.localities_settings?.subtitle,
+                brands_title: d.brands_settings?.title,
+                brands_subtitle: d.brands_settings?.subtitle,
+                faqs_title: d.faqs_settings?.title,
+                faqs_subtitle: d.faqs_settings?.subtitle,
+                how_it_works_title: d.how_it_works_settings?.title,
+                how_it_works_subtitle: d.how_it_works_settings?.subtitle,
+                why_us_title: d.why_us_settings?.title,
+                why_us_subtitle: d.why_us_settings?.subtitle,
+                section_order: d.section_order,
 
-                    hero_title: d.hero_settings?.title,
-                    hero_subtitle: d.hero_settings?.subtitle,
-                    problems_title: d.problems_settings?.title,
-                    problems_subtitle: d.problems_settings?.subtitle,
-                    services_title: d.services_settings?.title,
-                    services_subtitle: d.services_settings?.subtitle,
-                    localities_title: d.localities_settings?.title,
-                    localities_subtitle: d.localities_settings?.subtitle,
-                    brands_title: d.brands_settings?.title,
-                    brands_subtitle: d.brands_settings?.subtitle,
-                    faqs_title: d.faqs_settings?.title,
-                    faqs_subtitle: d.faqs_settings?.subtitle,
-                    how_it_works_title: d.how_it_works_settings?.title,
-                    how_it_works_subtitle: d.how_it_works_settings?.subtitle,
-                    why_us_title: d.why_us_settings?.title,
-                    why_us_subtitle: d.why_us_settings?.subtitle,
-                    section_order: d.section_order,
+                sectionVisibility: d.section_visibility || {}
+            };
 
-                    sectionVisibility: d.section_visibility || {}
-                };
-
-                // Fallback to Global FAQs only if no page-specific FAQs selected
-                if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
-                    try {
-                        const gfRes = await fetch(`${baseUrl}/api/settings/faqs/global?limit=5`, { cache: 'no-store' });
-                        if (gfRes.ok) {
-                            const gfData = await gfRes.json();
-                            if (gfData.faqs?.length > 0) {
-                                dynamicSettings.faqs = gfData.faqs.map(f => ({ question: f.question, answer: f.answer }));
-                            }
-                        }
-                    } catch (gfErr) { /* ignore - static fallback FAQs will be used */ }
-                }
+            // Fallback to Global FAQs natively
+            if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
+                // To avoid another HTTP loopback for Global FAQs, 
+                // we'll just let the static getFAQs fallback handle logic below if needed
             }
         }
     } catch (error) {
-        console.error('[SubcatPage] Error fetching settings:', error.message);
+        console.error('[SubcatPage] Error natively fetching settings:', error.message);
     }
 
     // ── Fallbacks to static data if no dynamic settings exist ─────────────────
