@@ -748,3 +748,13 @@
 [2026-02-26T19:41:23.563Z] [API-PUT] Executing Raw SQL sync for sub-hob-repair-2br-hob...
 [2026-02-26T19:41:23.694Z] [API-PUT] Raw SQL Sync SUCCESS for sub-hob-repair-2br-hob
 [2026-02-26T19:41:23.695Z] [API-PUT] END: Successfully saved all data for sub-hob-repair-2br-hob
+[2026-02-26T23:10:19.308Z] [API-PUT] START: sloc-kandivali-ac-repair
+[2026-02-26T23:10:19.319Z] [API-PUT] START for sloc-kandivali-ac-repair. Items: problems=0, services=1, localities=0
+[2026-02-26T23:10:19.525Z] [API-PUT] Main Upsert FAILURE for sloc-kandivali-ac-repair: Could not find the 'other_locations_settings' column of 'page_settings' in the schema cache
+[2026-02-26T23:21:37.747Z] [API-PUT] START: sloc-kandivali-ac-repair
+[2026-02-26T23:21:37.749Z] [API-PUT] START for sloc-kandivali-ac-repair. Items: problems=0, services=1, localities=0
+[2026-02-26T23:21:37.943Z] [API-PUT] Main Upsert SUCCESS for sloc-kandivali-ac-repair.
+[2026-02-26T23:21:37.944Z] [API-PUT] Constructing Raw SQL sync for sloc-kandivali-ac-repair
+[2026-02-26T23:21:37.944Z] [API-PUT] Executing Raw SQL sync for sloc-kandivali-ac-repair...
+[2026-02-26T23:21:38.101Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-kandivali-ac-repair
+[2026-02-26T23:21:38.123Z] [API-PUT] END: Successfully saved all data for sloc-kandivali-ac-repair

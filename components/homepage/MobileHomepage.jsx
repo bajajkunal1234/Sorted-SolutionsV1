@@ -12,6 +12,7 @@ import TestimonialsSection from './TestimonialsSection';
 import FAQSection from './FAQSection';
 import FooterSection from './FooterSection';
 import Header from '../common/Header';
+import HomepageBrandLogosSection from './HomepageBrandLogosSection';
 import './MobileHomepage.css';
 
 function MobileHomepage({ initialBookingData }) {
@@ -165,6 +166,9 @@ function MobileHomepage({ initialBookingData }) {
 
             {/* Frequently Booked Services */}
             <FrequentlyBookedServices />
+
+            {/* Brand Logos Marquee */}
+            <HomepageBrandLogosSection />
 
             {/* How It Works */}
             <HowItWorksSection />

@@ -537,13 +537,15 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     const [settings, setSettings] = useState(null);
     const [globalFaqs, setGlobalFaqs] = useState([]);
     const [globalBrands, setGlobalBrands] = useState([]);
+    const [globalActivePages, setGlobalActivePages] = useState([]);
     const [bookingSettings, setBookingSettings] = useState(null); // for issues picker
     const [issueSearch, setIssueSearch] = useState('');
+    const [locationSearch, setLocationSearch] = useState('');
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [sectionVisibility, setSectionVisibility] = useState({
         hero: true, issues: true, subcategories: true, booking: true,
         problems: true, how_it_works: true, why_us: true,
-        brands: true, localities: true, services: true, faqs: true
+        brands: true, localities: true, services: true, faqs: true, other_locations: true
     });
 
     // Ref that always mirrors the latest settings — prevents stale closure reads in handleSave
@@ -551,6 +553,8 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     useEffect(() => { settingsRef.current = settings; }, [settings]);
     const sectionVisibilityRef = useRef(null);
     useEffect(() => { sectionVisibilityRef.current = sectionVisibility; }, [sectionVisibility]);
+    const globalActivePagesRef = useRef([]);
+    useEffect(() => { globalActivePagesRef.current = globalActivePages; }, [globalActivePages]);
 
     // Search states
     const [brandSearch, setBrandSearch] = useState('');
@@ -620,6 +624,11 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                 subtitle: d?.subcategories_settings?.subtitle || 'Choose your specific appliance',
                 items: d?.subcategories_settings?.items || []
             },
+            other_locations_settings: {
+                title: d?.other_locations_settings?.title || 'Other locations',
+                subtitle: d?.other_locations_settings?.subtitle || 'Explore more services near you',
+                items: d?.other_locations_settings?.items || []
+            },
             section_order: d?.section_order || null
         };
 
@@ -656,18 +665,21 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
 
     const fetchGlobalData = async () => {
         try {
-            console.log('[ST-DEBUG] Fetching global FAQs, Brands and Booking Settings...');
-            const [faqRes, brandRes, bookingRes] = await Promise.all([
+            console.log('[ST-DEBUG] Fetching global FAQs, Brands, Active Pages and Booking Settings...');
+            const [faqRes, brandRes, bookingRes, activePagesRes] = await Promise.all([
                 fetch('/api/settings/faqs'),
                 fetch('/api/settings/brand-logos'),
-                fetch('/api/settings/quick-booking')
+                fetch('/api/settings/quick-booking'),
+                fetch('/api/settings/active-pages')
             ]);
             const faqData = await faqRes.json();
             const brandData = await brandRes.json();
             const bookingData = await bookingRes.json();
+            const activePagesData = await activePagesRes.json();
             if (faqData.success) setGlobalFaqs(faqData.data);
             if (brandData.success) setGlobalBrands(brandData.data);
             if (bookingData.success) setBookingSettings(bookingData.data);
+            if (activePagesData.success) setGlobalActivePages(activePagesData.data.filter(p => p.page_type === 'location' || p.page_type === 'sublocation'));
         } catch (error) {
             console.error('[ST-DEBUG] Error fetching global data:', error);
         }
@@ -685,7 +697,20 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
         const lItems = currentSettings?.localities_settings?.items || [];
         const pItems = currentSettings?.problems_settings?.items || [];
 
-        console.log(`[ST-DEBUG] handleSave Stats (from ref) - S:${sItems.length}, L:${lItems.length}, P:${pItems.length}`);
+        // Transform other_locations_settings.items (array of IDs) to array of rich objects
+        const oItemsRaw = currentSettings?.other_locations_settings?.items || [];
+        // If it's already an object (saved previously), keep it. Otherwise resolve it.
+        const oItems = oItemsRaw.map(item => {
+            if (typeof item === 'object' && item !== null) return item;
+            const page = globalActivePagesRef.current.find(p => p.page_id === item);
+            return {
+                id: item,
+                title: page?.hero_settings?.title || 'Unknown Location',
+                url: getPageUrl(item)
+            };
+        });
+
+        console.log(`[ST-DEBUG] handleSave Stats (from ref) - S:${sItems.length}, L:${lItems.length}, P:${pItems.length}, O:${oItems.length}`);
         console.log(`[ST-DEBUG] RAW SETTINGS from ref:`, currentSettings);
 
         try {
@@ -694,7 +719,8 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                 section_visibility: currentVisibility,
                 services_settings: { ...currentSettings.services_settings, items: sItems },
                 localities_settings: { ...currentSettings.localities_settings, items: lItems },
-                problems_settings: { ...currentSettings.problems_settings, items: pItems }
+                problems_settings: { ...currentSettings.problems_settings, items: pItems },
+                other_locations_settings: { ...currentSettings.other_locations_settings, items: oItems }
             };
 
             const payloadString = JSON.stringify(payload);
@@ -874,11 +900,12 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
         { id: 'localities', label: 'Localities', icon: MapPin },
         { id: 'brands', label: 'Brands', icon: ImageIcon },
         { id: 'subcategories', label: pageId.startsWith('cat-') ? 'Sub-Services' : 'Category Cards', icon: Layout },
+        { id: 'other_locations', label: 'Other Locations', icon: MapPin },
         { id: 'faqs', label: 'FAQs', icon: HelpCircle },
         { id: 'layout', label: 'Layout & Navigation', icon: Rows }
     ];
     // Map from tab id to section_visibility key
-    const tabVisibilityKey = { hero: 'hero', issues: 'issues', problems: 'problems', services: 'services', localities: 'localities', brands: 'brands', subcategories: 'subcategories', faqs: 'faqs', layout: null };
+    const tabVisibilityKey = { hero: 'hero', issues: 'issues', problems: 'problems', services: 'services', localities: 'localities', brands: 'brands', subcategories: 'subcategories', other_locations: 'other_locations', faqs: 'faqs', layout: null };
 
     // Helper: get all issues from booking settings for the current subcategory page
     const getPageIssues = () => {
@@ -1634,12 +1661,106 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                         </div>
                     </div>
                 )}
+                {/* ── OTHER LOCATIONS TAB ── */}
+                {activeTab === 'other_locations' && (
+                    <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
+                        <SectionVisibilityBanner sectionKey="other_locations" visible={sectionVisibility.other_locations} onToggle={toggleSectionVisibility} />
+                        <div style={{ opacity: sectionVisibility.other_locations ? 1 : 0.45, pointerEvents: sectionVisibility.other_locations ? 'auto' : 'none', transition: 'opacity 0.2s', display: 'grid', gap: 'var(--spacing-lg)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
+                                    <input type="text" value={settings.other_locations_settings.title} onChange={(e) => updateSection('other_locations_settings', 'title', e.target.value)} className="form-control" />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                                    <input type="text" value={settings.other_locations_settings.subtitle} onChange={(e) => updateSection('other_locations_settings', 'subtitle', e.target.value)} className="form-control" />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: '#eef2ff', borderRadius: 'var(--radius-md)', color: 'var(--color-primary)', flex: 1 }}>
+                                    <MapPin size={20} />
+                                    <p style={{ margin: 0, fontSize: '14px' }}>Selected {settings.other_locations_settings.items.length} locations for this page</p>
+                                </div>
+                                <div style={{ position: 'relative', width: '300px' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Search active location pages..."
+                                        value={locationSearch}
+                                        onChange={(e) => setLocationSearch(e.target.value)}
+                                        className="form-control"
+                                        style={{ paddingLeft: '36px' }}
+                                    />
+                                    <MapPin size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gap: '12px', maxHeight: '500px', overflowY: 'auto', padding: '4px' }}>
+                                {globalActivePages
+                                    .filter(p => (p.page_id.toLowerCase().includes(locationSearch.toLowerCase()) || (p.hero_settings?.title || '').toLowerCase().includes(locationSearch.toLowerCase())))
+                                    .map(loc => {
+                                        // The items array could be mixed format right after load, so handle both object and string ID
+                                        const currentItems = settings.other_locations_settings.items;
+                                        const isSelected = currentItems.some(i => (typeof i === 'object' ? i.id === loc.page_id : i === loc.page_id));
+
+                                        // Use custom toggle logic because toggleSelection assumes primitive arrays
+                                        const handleToggle = () => {
+                                            setSettings(prev => {
+                                                const items = [...(prev.other_locations_settings?.items || [])];
+                                                const existingIdx = items.findIndex(i => (typeof i === 'object' ? i.id === loc.page_id : i === loc.page_id));
+                                                if (existingIdx >= 0) {
+                                                    items.splice(existingIdx, 1);
+                                                } else {
+                                                    items.push(loc.page_id);
+                                                }
+                                                return { ...prev, other_locations_settings: { ...prev.other_locations_settings, items } };
+                                            });
+                                        };
+
+                                        return (
+                                            <div
+                                                key={loc.page_id}
+                                                onClick={handleToggle}
+                                                style={{
+                                                    padding: '16px', borderRadius: 'var(--radius-md)',
+                                                    border: `1.5px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                                    backgroundColor: isSelected ? 'var(--color-primary)08' : 'var(--bg-secondary)',
+                                                    cursor: 'pointer', display: 'flex', gap: '16px', alignItems: 'center',
+                                                    boxShadow: isSelected ? '0 2px 8px rgba(99, 102, 241, 0.1)' : 'none'
+                                                }}
+                                            >
+                                                <div style={{ flexShrink: 0, width: '24px', height: '24px', borderRadius: '50%', border: `2px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-tertiary)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', backgroundColor: isSelected ? 'var(--color-primary)' : 'transparent' }}>
+                                                    {isSelected && <Save size={14} color="white" strokeWidth={3} />}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{loc.hero_settings?.title || 'Untitled Location Page'} ({loc.page_id})</div>
+                                                    <div style={{ fontSize: '13px', opacity: 0.7, color: 'var(--text-tertiary)' }}>{getPageUrl(loc.page_id)}</div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                            {globalActivePages.length === 0 && <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '40px' }}>No active location or sub-location pages found.</p>}
+                        </div>
+                    </div>
+                )}
+
                 {/* ── LAYOUT TAB ── */}
                 {activeTab === 'layout' && (() => {
-                    const displayOrder = (settings.section_order || [
+                    const DEFAULT_ORDER = [
                         'hero', 'booking', 'issues', 'subcategories', 'problems',
-                        'how_it_works', 'why_us', 'brands', 'localities', 'services', 'faqs'
-                    ]).filter(key => {
+                        'how_it_works', 'why_us', 'brands', 'localities', 'services', 'other_locations', 'faqs'
+                    ];
+
+                    let baseOrder = settings.section_order || DEFAULT_ORDER;
+                    // Append any missing sections to the end so nothing vanishes if added later
+                    if (settings.section_order) {
+                        const missing = DEFAULT_ORDER.filter(item => !baseOrder.includes(item));
+                        if (missing.length > 0) {
+                            baseOrder = [...baseOrder, ...missing];
+                        }
+                    }
+
+                    const displayOrder = baseOrder.filter(key => {
                         // Hide 'issues' from the layout list if not on a sub-page
                         if (key === 'issues' && !isSubPage) return false;
                         return true;
@@ -1648,14 +1769,15 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                     const SECTION_INFO = {
                         hero: { label: 'Hero Section', icon: Layout },
                         booking: { label: 'Booking Form', icon: Check },
-                        issues: { label: 'Common Issues', icon: AlertCircle },
-                        subcategories: { label: 'Related Categories', icon: Tag },
-                        problems: { label: 'Problems We Solve', icon: HelpCircle },
-                        how_it_works: { label: 'How It Works', icon: Rows },
-                        why_us: { label: 'Why Choose Us', icon: ImageIcon },
+                        issues: { label: 'Issues Picker', icon: AlertCircle },
+                        subcategories: { label: 'Category / Brands Cards', icon: Layout },
+                        problems: { label: 'Problems We Fix', icon: AlertCircle },
+                        how_it_works: { label: 'How It Works', icon: HelpCircle },
+                        why_us: { label: 'Why Choose Us', icon: Layout },
                         brands: { label: 'Brand Logos', icon: ImageIcon },
-                        localities: { label: 'Service Areas', icon: MapPin },
-                        services: { label: 'Full Service List', icon: Tag },
+                        localities: { label: 'Areas We Serve', icon: MapPin },
+                        services: { label: 'Popular Services', icon: Tag },
+                        other_locations: { label: 'Other Locations', icon: MapPin },
                         faqs: { label: 'FAQs', icon: HelpCircle }
                     };
 

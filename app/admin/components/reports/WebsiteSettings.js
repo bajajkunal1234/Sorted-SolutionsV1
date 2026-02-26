@@ -13,6 +13,7 @@ import FAQsManagement from './FAQsManagement';
 import HowItWorksSettings from './HowItWorksSettings';
 import WhyChooseUsSettings from './WhyChooseUsSettings';
 import BrandLogosSettings from './BrandLogosSettings';
+import HomepageBrandLogosSettings from './HomepageBrandLogosSettings';
 import CustomerTestimonialsSettings from './CustomerTestimonialsSettings';
 import StaticPagesSettings from './StaticPagesSettings';
 import PageSettingsManager from '@/components/reports/PageSettingsManager';
@@ -388,6 +389,8 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 <HowItWorksSettings />
             ) : activeCategory === 'why-choose-us' ? (
                 <WhyChooseUsSettings />
+            ) : activeCategory === 'homepage-brand-logos' ? (
+                <HomepageBrandLogosSettings />
             ) : activeCategory === 'brand-logos' ? (
                 <BrandLogosSettings />
             ) : activeCategory === 'testimonials' ? (

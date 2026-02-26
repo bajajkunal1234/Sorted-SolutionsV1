@@ -149,6 +149,7 @@ export async function PUT(request, { params }) {
             services_settings: body.services_settings || { items: [] },
             subcategories_settings: body.subcategories_settings || { items: [] },
             faqs_settings: body.faqs_settings || { items: [] },
+            other_locations_settings: body.other_locations_settings || { items: [] },
             section_visibility: body.section_visibility || {},
             section_order: body.section_order || null,
             updated_at: new Date().toISOString()

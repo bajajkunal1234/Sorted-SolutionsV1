@@ -8,6 +8,7 @@ import BrandLogos from '@/components/services/BrandLogos'
 import LocationLinks from '@/components/services/LocationLinks'
 import FrequentlyBooked from '@/components/services/FrequentlyBooked'
 import FAQSection from '@/components/services/FAQSection'
+import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
 import { getFAQs } from '@/data/faqs'
@@ -77,6 +78,9 @@ export default async function SubLocationPage({ params }) {
                 how_it_works_subtitle: d.how_it_works_settings?.subtitle,
                 why_us_title: d.why_us_settings?.title,
                 why_us_subtitle: d.why_us_settings?.subtitle,
+                other_locations_title: d.other_locations_settings?.title,
+                other_locations_subtitle: d.other_locations_settings?.subtitle,
+                other_locations: d.other_locations_settings?.items || [],
                 subcategories: d.subcategories_settings?.items || [],
                 subcategoriesTitle: d.subcategories_settings?.title,
                 subcategoriesSubtitle: d.subcategories_settings?.subtitle,
@@ -117,10 +121,15 @@ export default async function SubLocationPage({ params }) {
 
 
     const sv = dynamicSettings?.sectionVisibility || {}
-    const sectionOrder = dynamicSettings?.section_order || [
-        'hero', 'booking', 'problems', 'subcategories', 'localities',
-        'how_it_works', 'why_us', 'brands', 'services', 'faqs'
+    const defaultOrder = [
+        'hero', 'booking', 'subcategories', 'problems',
+        'how_it_works', 'why_us', 'brands', 'localities', 'services', 'other_locations', 'faqs'
     ];
+    let sectionOrder = dynamicSettings?.section_order || defaultOrder;
+    if (dynamicSettings?.section_order) {
+        const missing = defaultOrder.filter(k => !sectionOrder.includes(k));
+        if (missing.length > 0) sectionOrder = [...sectionOrder, ...missing];
+    }
 
     const renderSection = (key) => {
         switch (key) {
@@ -208,6 +217,16 @@ export default async function SubLocationPage({ params }) {
                             title={dynamicSettings?.services_title || `Popular Services in ${locationName}`}
                             subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
                             dynamicServices={dynamicSettings?.services}
+                        />
+                    </div>
+                );
+            case 'other_locations':
+                return sv.other_locations !== false && (
+                    <div id="other-locations" key="other_locations">
+                        <OtherLocationsSection
+                            title={dynamicSettings?.other_locations_title || "Other Locations"}
+                            subtitle={dynamicSettings?.other_locations_subtitle || "Explore more services near you"}
+                            locations={dynamicSettings?.other_locations || []}
                         />
                     </div>
                 );
