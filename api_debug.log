@@ -713,3 +713,10 @@
 [2026-02-26T17:25:44.995Z] [API-PUT] START: sloc-ghatkopar-ac-repair
 [2026-02-26T17:25:44.998Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=0
 [2026-02-26T17:26:06.028Z] [API-PUT] Main Upsert FAILURE for sloc-ghatkopar-ac-repairs: Error: connect ETIMEDOUT 104.18.38.10:443
+[2026-02-26T19:03:28.249Z] [API-PUT] START: sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:03:28.253Z] [API-PUT] START for sub-hob-repair--services-hob-repair-2br. Items: problems=0, services=0, localities=0
+[2026-02-26T19:03:28.944Z] [API-PUT] Main Upsert SUCCESS for sub-hob-repair--services-hob-repair-2br.
+[2026-02-26T19:03:28.945Z] [API-PUT] Constructing Raw SQL sync for sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:03:28.945Z] [API-PUT] Executing Raw SQL sync for sub-hob-repair--services-hob-repair-2br...
+[2026-02-26T19:03:29.133Z] [API-PUT] Raw SQL Sync SUCCESS for sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:03:29.134Z] [API-PUT] END: Successfully saved all data for sub-hob-repair--services-hob-repair-2br

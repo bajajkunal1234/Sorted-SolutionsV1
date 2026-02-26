@@ -127,12 +127,70 @@ function WebsiteSettings({ subSection, setSubSection }) {
     const fetchApplianceData = async () => {
         setLoadingAppliances(true);
         try {
-            const res = await fetch('/api/settings/appliances');
-            const data = await res.json();
-            if (data.success) {
-                const dynamicSettings = buildDynamicSettings(data.data, staticSettingsByCategory);
-                setSettingsByCategory(dynamicSettings);
+            // Fetch appliance metadata (for auto-generated pages) and the actual active pages from DB in parallel
+            const [applianceRes, activePagesRes] = await Promise.all([
+                fetch('/api/settings/appliances'),
+                fetch('/api/settings/active-pages')
+            ]);
+            const [applianceData, activePagesData] = await Promise.all([
+                applianceRes.json(),
+                activePagesRes.json()
+            ]);
+
+            let dynamicSettings = buildDynamicSettings(
+                applianceData.success ? applianceData.data : [],
+                staticSettingsByCategory
+            );
+
+            // Also merge any manually-created pages that aren't yet in appliance data
+            if (activePagesData.success && activePagesData.data?.length > 0) {
+                const KNOWN_LOCS = ['andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
+                    'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim', 'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla'];
+
+                const getPageUrlFromId = (pageId) => {
+                    if (pageId.startsWith('cat-')) return `/services/${pageId.replace('cat-', '')}`;
+                    if (pageId.startsWith('sub-')) return `/services/${pageId.replace('sub-', '')}`;
+                    if (pageId.startsWith('loc-')) return `/location/${pageId.replace('loc-', '')}`;
+                    if (pageId.startsWith('sloc-')) {
+                        const rest = pageId.replace('sloc-', '');
+                        const loc = KNOWN_LOCS.find(l => rest.startsWith(l + '-'));
+                        return loc ? `/location/${loc}/${rest.replace(loc + '-', '')}` : `/location/${rest}`;
+                    }
+                    return `/${pageId}`;
+                };
+
+                const typeToCategoryKey = {
+                    category: 'category-pages', cat: 'category-pages',
+                    subcategory: 'subcategory-pages', sub: 'subcategory-pages',
+                    location: 'location-pages', loc: 'location-pages',
+                    sublocation: 'sublocation-pages', 'sub-loc': 'sublocation-pages',
+                };
+
+                activePagesData.data.forEach(page => {
+                    const categoryKey = typeToCategoryKey[page.page_type];
+                    if (!categoryKey) return;
+
+                    const existingIds = new Set((dynamicSettings[categoryKey] || []).map(p => p.id));
+                    if (!existingIds.has(page.page_id)) {
+                        // This is a manually-created page not in the appliance system — add it
+                        const displayTitle = page.hero_settings?.title ||
+                            page.page_id.replace(/^(cat|sub|loc|sloc)-/, '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                        dynamicSettings[categoryKey] = [
+                            ...(dynamicSettings[categoryKey] || []),
+                            {
+                                id: page.page_id,
+                                label: `${displayTitle} Page Settings`,
+                                url: getPageUrlFromId(page.page_id),
+                                icon: Icons.MapPin,
+                                description: `Manage sections for ${displayTitle}`,
+                                color: '#6366f1'
+                            }
+                        ];
+                    }
+                });
             }
+
+            setSettingsByCategory(dynamicSettings);
         } catch (e) {
             console.error('Failed to fetch appliance data for WebsiteSettings:', e);
         } finally {
