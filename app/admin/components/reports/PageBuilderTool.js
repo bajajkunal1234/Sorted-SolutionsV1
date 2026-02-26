@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import {
     Globe, Construction, CheckCircle, AlertCircle, Loader2,
     ChevronRight, Info, Search, RefreshCw, Layers, MapPin,
-    Rocket, Trash2, ExternalLink, Pencil, Eye
+    Rocket, Trash2, ExternalLink, Pencil, Eye, Plus, X, Link2
 } from 'lucide-react';
 
-export default function PageBuilderTool({ onEditPage }) {
+export default function PageBuilderTool({ onEditPage, onPageCreated }) {
     const [view, setView] = useState('build');
     const [appliances, setAppliances] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -27,6 +27,35 @@ export default function PageBuilderTool({ onEditPage }) {
     const [slug, setSlug] = useState('');
     const [color, setColor] = useState('#6366f1');
     const [iconName, setIconName] = useState('Package');
+
+    // ── Create Page Modal State ─────────────────────────────
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [creating, setCreating] = useState(false);
+    const [newPageType, setNewPageType] = useState('category');
+    const [newPageName, setNewPageName] = useState('');
+    const [newPageSlug, setNewPageSlug] = useState('');
+    const [newPageParentCat, setNewPageParentCat] = useState('');
+    const [newPageParentLoc, setNewPageParentLoc] = useState('');
+    const [createError, setCreateError] = useState('');
+    const [createSuccess, setCreateSuccess] = useState('');
+
+    const KNOWN_LOCS_CREATE = [
+        { slug: 'andheri', name: 'Andheri' },
+        { slug: 'malad', name: 'Malad' },
+        { slug: 'jogeshwari', name: 'Jogeshwari' },
+        { slug: 'kandivali', name: 'Kandivali' },
+        { slug: 'goregaon', name: 'Goregaon' },
+        { slug: 'ville-parle', name: 'Ville Parle' },
+        { slug: 'santacruz', name: 'Santacruz' },
+        { slug: 'bandra', name: 'Bandra' },
+        { slug: 'khar', name: 'Khar' },
+        { slug: 'mahim', name: 'Mahim' },
+        { slug: 'dadar', name: 'Dadar' },
+        { slug: 'powai', name: 'Powai' },
+        { slug: 'saki-naka', name: 'Saki Naka' },
+        { slug: 'ghatkopar', name: 'Ghatkopar' },
+        { slug: 'kurla', name: 'Kurla' },
+    ];
 
     useEffect(() => {
         if (view === 'build') {
@@ -59,6 +88,74 @@ export default function PageBuilderTool({ onEditPage }) {
             console.error('Failed to fetch active pages:', e);
         } finally {
             setLoadingPages(false);
+        }
+    };
+
+    // ── Create Page Helpers ────────────────────────────────
+    const getNewPageId = () => {
+        const s = newPageSlug.trim().toLowerCase().replace(/\s+/g, '-');
+        if (newPageType === 'category') return s ? `cat-${s}` : '';
+        if (newPageType === 'subcategory') {
+            const cat = newPageParentCat.replace(/^cat-/, '');
+            return s && cat ? `sub-${cat}-${s}` : '';
+        }
+        if (newPageType === 'location') return s ? `loc-${s}` : '';
+        if (newPageType === 'sublocation') {
+            const loc = newPageParentLoc;
+            const cat = newPageParentCat.replace(/^cat-/, '');
+            return s && loc && cat ? `sloc-${loc}-${cat}` : '';
+        }
+        return '';
+    };
+
+    const getNewPagePreviewUrl = () => {
+        const s = newPageSlug.trim().toLowerCase().replace(/\s+/g, '-');
+        const loc = newPageParentLoc;
+        const cat = newPageParentCat.replace(/^cat-/, '');
+        if (newPageType === 'category') return s ? `/services/${s}` : '';
+        if (newPageType === 'subcategory') return s && cat ? `/services/${cat}/${s}` : '';
+        if (newPageType === 'location') return s ? `/location/${s}` : '';
+        if (newPageType === 'sublocation') return loc && cat ? `/location/${loc}/${cat}` : '';
+        return '';
+    };
+
+    const handleCreatePage = async () => {
+        setCreateError('');
+        setCreateSuccess('');
+        const page_id = getNewPageId();
+        if (!page_id) { setCreateError('Please fill in all required fields.'); return; }
+        setCreating(true);
+        try {
+            const res = await fetch('/api/settings/page/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    page_id,
+                    page_type: newPageType,
+                    hero_title: newPageName.trim() || undefined
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setCreateSuccess(`✅ Page "${page_id}" created successfully!`);
+                await fetchActivePages();
+                if (onPageCreated) onPageCreated(page_id, newPageType);
+                // Reset form after 1.5s
+                setTimeout(() => {
+                    setShowCreateModal(false);
+                    setCreateSuccess('');
+                    setNewPageName('');
+                    setNewPageSlug('');
+                    setNewPageParentCat('');
+                    setNewPageParentLoc('');
+                }, 1500);
+            } else {
+                setCreateError(data.error || 'Failed to create page.');
+            }
+        } catch (e) {
+            setCreateError('Network error: ' + e.message);
+        } finally {
+            setCreating(false);
         }
     };
 
@@ -632,13 +729,27 @@ export default function PageBuilderTool({ onEditPage }) {
                             </select>
                         </div>
 
-                        {/* Count + Refresh */}
+                        {/* Count + Refresh + Create */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
                             <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500, whiteSpace: 'nowrap' }}>
                                 <b>{filteredPages.length}</b> of <b>{activePages.length}</b> pages
                             </span>
                             <button onClick={fetchActivePages} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex' }}>
                                 <RefreshCw size={16} />
+                            </button>
+                            <button
+                                onClick={() => { setShowCreateModal(true); setCreateError(''); setCreateSuccess(''); }}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '7px 14px', backgroundColor: 'var(--color-primary)',
+                                    color: 'white', border: 'none', borderRadius: 'var(--radius-md)',
+                                    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(99,102,241,0.4)', transition: 'transform 0.15s ease'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                            >
+                                <Plus size={15} strokeWidth={3} /> Create New Page
                             </button>
                         </div>
                     </div>
@@ -702,6 +813,182 @@ export default function PageBuilderTool({ onEditPage }) {
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 .list-row:hover { background-color: var(--bg-elevated); }
             `}</style>
+
+            {/* ── Create New Page Modal ── */}
+            {showCreateModal && (
+                <div style={{
+                    position: 'fixed', inset: 0, zIndex: 9999,
+                    backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+                }} onClick={(e) => e.target === e.currentTarget && setShowCreateModal(false)}>
+                    <div style={{
+                        backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-xl)',
+                        padding: '28px', width: '100%', maxWidth: '520px',
+                        border: '1px solid var(--border-primary)', boxShadow: '0 25px 60px rgba(0,0,0,0.4)'
+                    }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, fontWeight: 800, fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Plus size={20} style={{ color: 'var(--color-primary)' }} /> Create New Page
+                            </h3>
+                            <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '4px' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Page Type Selector */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>Page Type</label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                {[['category', '🏷️ Category', '/services/slug'], ['subcategory', '🔀 Subcategory', '/services/cat/slug'], ['location', '📍 Location', '/location/slug'], ['sublocation', '📌 Sub-location', '/location/loc/slug']].map(([val, label, eg]) => (
+                                    <button
+                                        key={val}
+                                        onClick={() => { setNewPageType(val); setNewPageSlug(''); setNewPageParentCat(''); setNewPageParentLoc(''); }}
+                                        style={{
+                                            padding: '10px 12px', borderRadius: 'var(--radius-md)',
+                                            border: newPageType === val ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                            backgroundColor: newPageType === val ? 'rgba(99,102,241,0.08)' : 'var(--bg-secondary)',
+                                            color: newPageType === val ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                            cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s'
+                                        }}
+                                    >
+                                        <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '2px' }}>{label}</div>
+                                        <div style={{ fontSize: '10px', opacity: 0.6, fontFamily: 'monospace' }}>{eg}</div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Page Name */}
+                        <div style={{ marginBottom: '14px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Page Title (optional)</label>
+                            <input
+                                type="text"
+                                value={newPageName}
+                                onChange={e => setNewPageName(e.target.value)}
+                                placeholder={`e.g. ${newPageType === 'category' ? 'TV Repair Services' : newPageType === 'subcategory' ? 'Window AC Repair' : newPageType === 'location' ? 'Thane Repairs' : 'AC Repair in Thane'}`}
+                                style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', boxSizing: 'border-box' }}
+                            />
+                        </div>
+
+                        {/* Parent Category (for Subcategory and Sub-location) */}
+                        {(newPageType === 'subcategory' || newPageType === 'sublocation') && (
+                            <div style={{ marginBottom: '14px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Parent Category Page *</label>
+                                <select
+                                    value={newPageParentCat}
+                                    onChange={e => setNewPageParentCat(e.target.value)}
+                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px' }}
+                                >
+                                    <option value="">— Select parent category —</option>
+                                    {activePages
+                                        .filter(p => ['category', 'cat'].includes(p.page_type))
+                                        .map(p => (
+                                            <option key={p.page_id} value={p.page_id}>
+                                                {p.hero_settings?.title || p.page_id} ({p.page_id})
+                                            </option>
+                                        ))
+                                    }
+                                    {activePages.filter(p => ['category', 'cat'].includes(p.page_type)).length === 0 && (
+                                        <option disabled>⚠️ No category pages found — create one first</option>
+                                    )}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Parent Location (for Sub-location) */}
+                        {newPageType === 'sublocation' && (
+                            <div style={{ marginBottom: '14px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>Parent Location Page *</label>
+                                <select
+                                    value={newPageParentLoc}
+                                    onChange={e => setNewPageParentLoc(e.target.value)}
+                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px' }}
+                                >
+                                    <option value="">— Select parent location —</option>
+                                    {KNOWN_LOCS_CREATE.map(loc => {
+                                        const exists = activePages.some(p => p.page_id === `loc-${loc.slug}`);
+                                        return (
+                                            <option key={loc.slug} value={loc.slug} style={{ color: exists ? 'inherit' : '#f59e0b' }}>
+                                                {loc.name}{!exists ? ' ⚠️ (not seeded yet)' : ''}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                {newPageParentLoc && !activePages.some(p => p.page_id === `loc-${newPageParentLoc}`) && (
+                                    <div style={{ marginTop: '6px', padding: '8px 12px', backgroundColor: 'rgba(245,158,11,0.1)', border: '1px solid #f59e0b', borderRadius: 'var(--radius-sm)', fontSize: '12px', color: '#b45309' }}>
+                                        ⚠️ Location page <strong>loc-{newPageParentLoc}</strong> doesn't exist yet. You can still create this sub-location — just make sure to create the parent location page too.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* URL Slug (not needed for sublocation - it uses cat+loc) */}
+                        {newPageType !== 'sublocation' && (
+                            <div style={{ marginBottom: '14px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>URL Slug *</label>
+                                <input
+                                    type="text"
+                                    value={newPageSlug}
+                                    onChange={e => setNewPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-'))}
+                                    placeholder={newPageType === 'category' ? 'e.g. tv-repair' : newPageType === 'subcategory' ? 'e.g. window-ac' : 'e.g. thane'}
+                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', fontFamily: 'monospace', boxSizing: 'border-box' }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Live Preview */}
+                        {(() => {
+                            const previewId = getNewPageId();
+                            const previewUrl = getNewPagePreviewUrl();
+                            if (!previewId) return null;
+                            return (
+                                <div style={{ marginBottom: '18px', padding: '12px 14px', backgroundColor: 'rgba(99,102,241,0.07)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(99,102,241,0.3)' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <Link2 size={12} /> Live Preview
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                        <div>ID: <code style={{ backgroundColor: 'var(--bg-elevated)', padding: '1px 6px', borderRadius: '4px', fontSize: '11px' }}>{previewId}</code></div>
+                                        <div style={{ marginTop: '4px' }}>URL: <code style={{ backgroundColor: 'var(--bg-elevated)', padding: '1px 6px', borderRadius: '4px', fontSize: '11px' }}>{previewUrl}</code></div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Error / Success */}
+                        {createError && (
+                            <div style={{ marginBottom: '14px', padding: '10px 14px', backgroundColor: 'rgba(220,38,38,0.08)', border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)', fontSize: '13px', color: '#dc2626' }}>
+                                ❌ {createError}
+                            </div>
+                        )}
+                        {createSuccess && (
+                            <div style={{ marginBottom: '14px', padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid #6ee7b7', borderRadius: 'var(--radius-md)', fontSize: '13px', color: '#065f46' }}>
+                                {createSuccess}
+                            </div>
+                        )}
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowCreateModal(false)} style={{ padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', background: 'none', cursor: 'pointer', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleCreatePage}
+                                disabled={creating || !getNewPageId()}
+                                style={{
+                                    padding: '10px 22px', borderRadius: 'var(--radius-md)',
+                                    border: 'none', backgroundColor: creating || !getNewPageId() ? 'var(--bg-tertiary)' : 'var(--color-primary)',
+                                    color: creating || !getNewPageId() ? 'var(--text-tertiary)' : 'white',
+                                    cursor: creating || !getNewPageId() ? 'not-allowed' : 'pointer',
+                                    fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px'
+                                }}
+                            >
+                                {creating ? <><Loader2 size={15} className="animate-spin" /> Creating...</> : <><Plus size={15} strokeWidth={3} /> Create Page</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

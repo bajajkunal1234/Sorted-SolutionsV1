@@ -324,6 +324,10 @@ function WebsiteSettings({ subSection, setSubSection }) {
                         setActiveCategory(page.page_id);
                         if (setSubSection) setSubSection(page.hero_settings?.title || page.page_id);
                     }}
+                    onPageCreated={(newPageId, newPageType) => {
+                        // Refresh the dynamic settings so the new page appears in the sidebar
+                        fetchApplianceData();
+                    }}
                 />
             ) : activeCategory === 'google-apis' ? (
                 <GoogleAPIsSettings />
