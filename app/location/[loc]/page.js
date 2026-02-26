@@ -18,6 +18,7 @@ import { getProblems } from '@/data/commonProblems'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
 import { unstable_noStore as noStore } from 'next/cache';
+import { getBaseUrl } from '@/lib/get-base-url';
 
 export default async function LocationPage({ params }) {
     noStore(); // Opt out of caching to ensure real-time Admin updates
@@ -31,7 +32,7 @@ export default async function LocationPage({ params }) {
     let dynamicSettings = null
 
     try {
-        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const baseUrl = getBaseUrl();
         const res = await fetch(`${baseUrl}/api/settings/page/${pageId}`, { cache: 'no-store' });
         if (res.ok) {
             const apiData = await res.json();
