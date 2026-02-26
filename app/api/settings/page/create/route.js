@@ -18,7 +18,7 @@ export async function POST(req) {
         return NextResponse.json({ success: false, error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const { page_id, page_type, hero_title } = body || {};
+    const { page_id, page_type, hero_title, page_url } = body || {};
 
     if (!page_id || !page_type) {
         return NextResponse.json({ success: false, error: 'page_id and page_type are required' }, { status: 400 });
@@ -70,6 +70,7 @@ export async function POST(req) {
             title: defaultTitle,
             subtitle: '',
         },
+        page_url: page_url || null,
         section_visibility: {
             hero: true,
             booking: true,

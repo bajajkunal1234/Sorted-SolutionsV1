@@ -40,11 +40,16 @@ export default async function SubCategoryPage({ params }) {
     try {
         console.log(`[LIVE DEBUG] Subcat PageID: ${pageId} fetching via SDK (noStore)`);
 
-        const { data: pageSettings } = await supabase
+        const { data: pageSettings, error: pageError } = await supabase
             .from('page_settings')
             .select('*')
             .eq('page_id', pageId)
-            .single();
+            .maybeSingle();
+
+        if (pageError) {
+            console.error(`[SubcatPage] page_settings fetch error for ${pageId}:`, pageError.message, pageError.code);
+        }
+        console.log(`[SubcatPage] pageId=${pageId} found=${!!pageSettings}`);
 
         if (pageSettings) {
             const [

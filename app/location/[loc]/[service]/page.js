@@ -43,11 +43,14 @@ export default async function SubLocationPage({ params }) {
     try {
         console.log(`[LIVE DEBUG] Subloc PageID: ${pageId} fetching via SDK (noStore)`);
 
-        const { data: pageSettings } = await supabase
+        const { data: pageSettings, error: pageError } = await supabase
             .from('page_settings')
             .select('*')
             .eq('page_id', pageId)
-            .single();
+            .maybeSingle();
+
+        if (pageError) console.error(`[SublocPage] page_settings fetch error for ${pageId}:`, pageError.message);
+        console.log(`[SublocPage] pageId=${pageId} found=${!!pageSettings}`);
 
         if (pageSettings) {
             const [

@@ -35,11 +35,14 @@ export default async function LocationPage({ params }) {
     try {
         console.log(`[LIVE DEBUG] Location PageID: ${pageId} fetching via SDK (noStore)`);
 
-        const { data: pageSettings } = await supabase
+        const { data: pageSettings, error: pageError } = await supabase
             .from('page_settings')
             .select('*')
             .eq('page_id', pageId)
-            .single();
+            .maybeSingle();
+
+        if (pageError) console.error(`[LocationPage] page_settings fetch error for ${pageId}:`, pageError.message);
+        console.log(`[LocationPage] pageId=${pageId} found=${!!pageSettings}`);
 
         if (pageSettings) {
             const [

@@ -35,11 +35,14 @@ export default async function CategoryPage({ params }) {
     try {
         console.log(`[LIVE DEBUG] Category PageID: ${pageId} fetching via SDK(noStore)`);
 
-        const { data: pageSettings } = await supabase
+        const { data: pageSettings, error: pageError } = await supabase
             .from('page_settings')
             .select('*')
             .eq('page_id', pageId)
-            .single();
+            .maybeSingle();
+
+        if (pageError) console.error(`[CategoryPage] page_settings fetch error for ${pageId}:`, pageError.message);
+        console.log(`[CategoryPage] pageId=${pageId} found=${!!pageSettings}`);
 
         if (pageSettings) {
             const [

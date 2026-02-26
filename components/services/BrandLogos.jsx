@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Image from 'next/image'
 import { brandLogos } from '@/data/servicePageContent'
 import './BrandLogos.css'
 
@@ -26,11 +25,9 @@ export default function BrandLogos({
             .then(data => {
                 if (data.success && data.data && data.data.length > 0) {
                     if (Array.isArray(selectedBrandIds) && selectedBrandIds.length > 0) {
-                        // Filter to only the admin-selected brand IDs
                         const filtered = data.data.filter(b => selectedBrandIds.includes(b.id))
                         setLogos(filtered)
                     } else {
-                        // null/undefined = not configured at all, show all brands
                         setLogos(data.data)
                     }
                 }
@@ -39,12 +36,6 @@ export default function BrandLogos({
             .finally(() => setLoading(false))
     }, [selectedBrandIds])
 
-    const sizeClasses = {
-        small: 'logo-small',
-        medium: 'logo-medium',
-        large: 'logo-large'
-    }
-
     if (loading) {
         return (
             <section className="brand-logos">
@@ -52,12 +43,19 @@ export default function BrandLogos({
                     <h2 className="logos-title">{title}</h2>
                     {subtitle && <p className="logos-subtitle">{subtitle}</p>}
                 </div>
-                <div className="logos-grid">
-                    <p style={{ textAlign: 'center', padding: '2rem' }}>Loading...</p>
+                <div className="logos-marquee-wrapper">
+                    <div className="logos-marquee-track logos-marquee-loading">
+                        <p>Loading brands...</p>
+                    </div>
                 </div>
             </section>
         )
     }
+
+    if (!logos || logos.length === 0) return null;
+
+    // Duplicate logos for seamless infinite loop
+    const duplicated = [...logos, ...logos, ...logos]
 
     return (
         <section className="brand-logos">
@@ -66,27 +64,31 @@ export default function BrandLogos({
                 {subtitle && <p className="logos-subtitle">{subtitle}</p>}
             </div>
 
-            <div className="logos-grid">
-                {logos.map((brand, index) => (
-                    <div
-                        key={brand.id || brand.name}
-                        className={`logo-item ${sizeClasses[brand.size] || 'logo-medium'}`}
-                        style={{ animationDelay: `${index * 0.05}s` }}
-                    >
-                        {brand.logo_url ? (
-                            <img
-                                src={brand.logo_url}
-                                alt={brand.name}
-                                className="brand-logo-img"
-                                style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                            />
-                        ) : (
-                            <div className="logo-placeholder">
-                                <span className="logo-text">{brand.name}</span>
-                            </div>
-                        )}
-                    </div>
-                ))}
+            <div className="logos-marquee-wrapper">
+                {/* Fade edges */}
+                <div className="logos-marquee-fade logos-marquee-fade-left" />
+                <div className="logos-marquee-fade logos-marquee-fade-right" />
+
+                <div className="logos-marquee-track">
+                    {duplicated.map((brand, index) => (
+                        <div
+                            key={`${brand.id || brand.name}-${index}`}
+                            className="logo-item"
+                        >
+                            {brand.logo_url ? (
+                                <img
+                                    src={brand.logo_url}
+                                    alt={brand.name}
+                                    className="brand-logo-img"
+                                />
+                            ) : (
+                                <div className="logo-placeholder">
+                                    <span className="logo-text">{brand.name}</span>
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
 
             <div className="logos-footer">

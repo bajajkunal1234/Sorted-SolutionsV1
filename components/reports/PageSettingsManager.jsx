@@ -490,15 +490,35 @@ function SectionVisibilityBanner({ sectionKey, visible, onToggle }) {
 }
 
 // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-const getPageUrl = (pageId) => {
+const getPageUrl = (pageId, storedUrl = null) => {
     if (!pageId) return '/';
+    // Use stored URL from DB if available (most reliable)
+    if (storedUrl) return storedUrl;
+
     const KNOWN_LOCS = [
         'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
         'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim',
         'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla'
     ];
     if (pageId.startsWith('cat-')) return `/services/${pageId.replace('cat-', '')}`;
-    if (pageId.startsWith('sub-')) return `/services/${pageId.replace('sub-', '')}`;
+    if (pageId.startsWith('sub-')) {
+        // sub-{cat}-{subcat}: split on second hyphen group — try known appliance slugs
+        const KNOWN_CATS = [
+            'ac-repair', 'washing-machine-repair', 'refrigerator-repair',
+            'oven-repair', 'hob-repair', 'water-purifier-repair',
+            'dishwasher-repair', 'microwave-repair', 'dryer-repair'
+        ];
+        const rest = pageId.replace('sub-', '');
+        const cat = KNOWN_CATS.find(c => rest.startsWith(c + '-'));
+        if (cat) return `/services/${cat}/${rest.replace(cat + '-', '')}`;
+        // Fallback: split at first occurrence of second segment
+        const parts = rest.split('-');
+        if (parts.length >= 2) {
+            const mid = Math.floor(parts.length / 2);
+            return `/services/${parts.slice(0, mid).join('-')}/${parts.slice(mid).join('-')}`;
+        }
+        return `/services/${rest}`;
+    }
     if (pageId.startsWith('loc-')) return `/location/${pageId.replace('loc-', '')}`;
     if (pageId.startsWith('sloc-')) {
         const rest = pageId.replace('sloc-', '');

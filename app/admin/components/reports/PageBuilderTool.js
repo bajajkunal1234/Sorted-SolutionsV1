@@ -126,13 +126,15 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
         if (!page_id) { setCreateError('Please fill in all required fields.'); return; }
         setCreating(true);
         try {
+            const page_url = getNewPagePreviewUrl();
             const res = await fetch('/api/settings/page/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     page_id,
                     page_type: newPageType,
-                    hero_title: newPageName.trim() || undefined
+                    hero_title: newPageName.trim() || undefined,
+                    page_url
                 })
             });
             const data = await res.json();
