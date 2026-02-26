@@ -171,9 +171,12 @@ export default function BookingWizard() {
     const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
     const [allSlots, setAllSlots] = useState([]);      // from /api/settings/booking-slots
     const [visitingFees, setVisitingFees] = useState([]); // from /api/settings/visiting-fees
+    const [brands, setBrands] = useState([]);          // from /api/settings/booking-brands
 
     const [formData, setFormData] = useState({
-        category: '', subcategory: '', issue: '', pincode: '',
+        category: '', subcategory: '', issue: '',
+        brand: '', brandName: '',
+        pincode: '',
         name: '', phone: '', email: '', whatsappAlerts: false,
         apartment: '', address: '', locality: '',
         city: 'Mumbai', state: 'Maharashtra', zip: '',
@@ -187,13 +190,14 @@ export default function BookingWizard() {
         const init = async () => {
             try {
                 setLoading(true);
-                const [bookingRes, slotsRes, feesRes] = await Promise.all([
+                const [bookingRes, slotsRes, feesRes, brandsRes] = await Promise.all([
                     fetch('/api/settings/quick-booking'),
                     fetch('/api/settings/booking-slots'),
                     fetch('/api/settings/visiting-fees'),
+                    fetch('/api/settings/booking-brands'),
                 ]);
-                const [bookingData, slotsData, feesData] = await Promise.all([
-                    bookingRes.json(), slotsRes.json(), feesRes.json()
+                const [bookingData, slotsData, feesData, brandsData] = await Promise.all([
+                    bookingRes.json(), slotsRes.json(), feesRes.json(), brandsRes.json()
                 ]);
 
                 if (bookingData.success) {
@@ -204,12 +208,15 @@ export default function BookingWizard() {
                 }
                 if (slotsData.success) setAllSlots(slotsData.data || []);
                 if (feesData.success) setVisitingFees(feesData.data || []);
+                if (brandsData.success) setBrands((brandsData.data || []).filter(b => b.is_active));
 
                 // Pre-fill from URL params
                 const categoryId = searchParams.get('category');
                 const subcategoryId = searchParams.get('subcategory');
                 const issueId = searchParams.get('issue');
                 const pincode = searchParams.get('pincode');
+                const brandId = searchParams.get('brand');
+                const brandName = searchParams.get('brandName');
                 if (categoryId) {
                     setFormData(prev => ({
                         ...prev,
@@ -218,6 +225,8 @@ export default function BookingWizard() {
                         issue: issueId || '',
                         pincode: pincode || '',
                         zip: pincode || '',
+                        brand: brandId || '',
+                        brandName: brandName || '',
                     }));
                 }
             } catch (err) {
@@ -281,6 +290,8 @@ export default function BookingWizard() {
             const categoryName = getName('appliance', formData.category);
             const subcategoryName = getName('type', formData.subcategory);
             const issueName = getName('issue', formData.issue);
+            const resolvedBrandName = formData.brandName ||
+                brands.find(b => String(b.id) === String(formData.brand))?.name || '';
 
             // Split name into first/last
             const nameParts = (formData.name || '').trim().split(' ');
@@ -294,6 +305,8 @@ export default function BookingWizard() {
                 subcategoryName,
                 issueId: formData.issue,
                 issueName,
+                brand: formData.brand,
+                brandName: resolvedBrandName,
                 pincode: formData.zip || formData.pincode,
                 description: formData.specialInstructions,
                 customer: {
@@ -363,6 +376,35 @@ export default function BookingWizard() {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Brand selector — editable in wizard */}
+                            {brands.length > 0 && (
+                                <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
+                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <span>🏷️</span> Appliance Brand
+                                        <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span>
+                                    </label>
+                                    <select
+                                        className="form-input"
+                                        value={formData.brand}
+                                        onChange={e => {
+                                            const selectedBrand = brands.find(b => String(b.id) === e.target.value);
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                brand: e.target.value,
+                                                brandName: selectedBrand?.name || ''
+                                            }));
+                                        }}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        <option value="">Select brand (optional)...</option>
+                                        {brands.map(b => (
+                                            <option key={b.id} value={b.id}>{b.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
                             <p style={{ marginTop: 'var(--spacing-md)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                                 ℹ️ Service details are pre-selected. Go back to homepage to change.
                             </p>
@@ -597,6 +639,14 @@ export default function BookingWizard() {
                                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Issue</div>
                                             <div style={{ fontWeight: 600 }}>{getName('issue', formData.issue)}</div>
                                         </div>
+                                        {formData.brand && (
+                                            <div>
+                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Brand</div>
+                                                <div style={{ fontWeight: 600 }}>
+                                                    🏷️ {formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name || 'Selected'}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

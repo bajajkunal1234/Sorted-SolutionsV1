@@ -16,103 +16,98 @@ import ServiceFooter from '@/components/services/ServiceFooter'
 import { subcategoriesByCategory } from '@/data/servicePageContent'
 import { getProblems } from '@/data/commonProblems'
 import { getFAQs } from '@/data/faqs'
+import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
+import { unstable_noStore as noStore } from 'next/cache';
 
 export default async function CategoryPage({ params }) {
+    noStore(); // Opt out of caching to ensure real-time Admin updates
     const { category } = params
-    const pageId = `cat-${category}`
-
-    // Format category name for display
     const categoryName = category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
-    // 1. Fetch Dynamic Data from Supabase
-    let dynamicSettings = null;
+    // Page ID for this category page
+    const pageId = `cat-${category}`
+
+    // ── Fetch dynamic settings from Supabase ──────────────────────────────────
+    let dynamicSettings = null
     const supabase = createServerSupabase();
+    if (!supabase) return null;
 
-    if (!supabase) {
-        console.error('[LIVE DEBUG] Supabase client not initialized');
-    } else {
-        try {
-            const { data: pageSettings, error: pageError } = await supabase
-                .from('page_settings')
-                .select('*')
-                .eq('page_id', pageId)
-                .single();
+    try {
+        console.log(`[LIVE DEBUG] Category PageID: ${pageId} fetching via SDK(noStore)`);
 
-            console.log(`[LIVE DEBUG] PageID: ${pageId}, Found: ${!!pageSettings}`);
-            if (pageError && pageError.code !== 'PGRST116') {
-                console.error('[LIVE DEBUG] DB Error:', pageError);
-            }
+        const { data: pageSettings } = await supabase
+            .from('page_settings')
+            .select('*')
+            .eq('page_id', pageId)
+            .single();
 
-            if (pageSettings) {
-                // Fetch related data
-                const [
-                    { data: problems },
-                    { data: services },
-                    { data: localities },
-                    { data: brandMappings },
-                    { data: faqMappings }
-                ] = await Promise.all([
-                    supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                    supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                    supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                    supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
-                    supabase.from('page_faqs_mapping').select('faq_id').eq('page_id', pageId)
-                ]);
+        if (pageSettings) {
+            const [
+                { data: problems },
+                { data: services },
+                { data: localities },
+                { data: brandMappings },
+                { data: faqsMapping }
+            ] = await Promise.all([
+                supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+                supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
+                supabase.from('page_faqs_mapping')
+                    .select('faq_id, website_faqs(question, answer)')
+                    .eq('page_id', pageId)
+                    .order('display_order', { ascending: true })
+            ]);
 
-                console.log(`[LIVE DEBUG] Fetched for ${pageId}:`, {
-                    problems: problems?.length || 0,
-                    services: services?.length || 0,
-                    localities: localities?.length || 0,
-                    brandMappings: brandMappings?.length || 0,
-                    faqMappings: faqMappings?.length || 0
-                });
+            dynamicSettings = {
+                heroSettings: pageSettings.hero_settings,
+                problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
+                services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
+                localities: (localities || []).map(l => l.locality_name),
+                brandIds: brandMappings?.map(m => m.brand_id) || [],
+                faqs: (faqsMapping || [])
+                    .filter(f => f.website_faqs)
+                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer })),
+                issuesSettings: pageSettings.issues_settings || null,
 
-                // Map data to component formats
-                dynamicSettings = {
-                    heroSettings: pageSettings.hero_settings,
-                    problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
-                    services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
-                    localities: (localities || []).map(l => l.locality_name),
-                    brandIds: brandMappings?.map(m => m.brand_id) || [],
-                    faqIds: faqMappings?.map(m => m.faq_id) || [],
+                // Section Mapping
+                subcategories: pageSettings.subcategories_settings?.items?.length > 0 ? pageSettings.subcategories_settings.items : null,
+                subcategoriesTitle: pageSettings.subcategories_settings?.title,
+                subcategoriesSubtitle: pageSettings.subcategories_settings?.subtitle,
 
-                    // New Subcategories Mapping
-                    subcategories: pageSettings.subcategories_settings?.items?.length > 0 ? pageSettings.subcategories_settings.items : null,
-                    subcategoriesTitle: pageSettings.subcategories_settings?.title,
-                    subcategoriesSubtitle: pageSettings.subcategories_settings?.subtitle,
+                // Section Title/Subtitle overrides (CRITICAL for matching sv flags)
+                hero_title: pageSettings.hero_settings?.title,
+                hero_subtitle: pageSettings.hero_settings?.subtitle,
+                problems_title: pageSettings.problems_settings?.title,
+                problems_subtitle: pageSettings.problems_settings?.subtitle,
+                services_title: pageSettings.services_settings?.title,
+                services_subtitle: pageSettings.services_settings?.subtitle,
+                localities_title: pageSettings.localities_settings?.title,
+                localities_subtitle: pageSettings.localities_settings?.subtitle,
+                brands_title: pageSettings.brands_settings?.title,
+                brands_subtitle: pageSettings.brands_settings?.subtitle,
+                faqs_title: pageSettings.faqs_settings?.title,
+                faqs_subtitle: pageSettings.faqs_settings?.subtitle,
+                how_it_works_title: pageSettings.how_it_works_settings?.title,
+                how_it_works_subtitle: pageSettings.how_it_works_settings?.subtitle,
+                why_us_title: pageSettings.why_us_settings?.title,
+                why_us_subtitle: pageSettings.why_us_settings?.subtitle,
+                section_order: pageSettings.section_order,
 
-                    // Section Title/Subtitle overrides
-                    problems_title: pageSettings.problems_settings?.title,
-                    problems_subtitle: pageSettings.problems_settings?.subtitle,
-                    services_title: pageSettings.services_settings?.title,
-                    services_subtitle: pageSettings.services_settings?.subtitle,
-                    localities_title: pageSettings.localities_settings?.title,
-                    localities_subtitle: pageSettings.localities_settings?.subtitle,
-                    brands_title: pageSettings.brands_settings?.title,
-                    brands_subtitle: pageSettings.brands_settings?.subtitle,
-                    faqs_title: pageSettings.faqs_settings?.title,
-                    faqs_subtitle: pageSettings.faqs_settings?.subtitle,
-                    heroSettings: pageSettings.hero_settings || null,
+                // Section visibility flags
+                sectionVisibility: pageSettings.section_visibility || {}
+            };
 
-                    // Section visibility flags (default true if not set)
-                    sectionVisibility: pageSettings.section_visibility || {}
-                };
-
-                // Fetch specific brand and FAQ objects if we have IDs
-                if (dynamicSettings.faqIds.length > 0) {
-                    const { data: fullFaqs } = await supabase.from('website_faqs').select('*').in('id', dynamicSettings.faqIds);
-                    dynamicSettings.faqs = fullFaqs?.map(f => ({ question: f.question, answer: f.answer }));
-                } else {
-                    // Fallback to Global FAQs if none selected specifically
-                    const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
-                    if (globalFaqs?.length > 0) {
-                        dynamicSettings.faqs = globalFaqs.map(f => ({ question: f.question, answer: f.answer }));
-                    }
+            // Fallback to Global FAQs if none selected
+            if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
+                const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
+                if (globalFaqs?.length > 0) {
+                    dynamicSettings.faqs = globalFaqs.map(f => ({ question: f.question, answer: f.answer }));
                 }
             }
-        } catch (error) {
-            console.error('Error fetching dynamic settings:', error);
         }
+    } catch (error) {
+        console.error('Error fetching dynamic settings for category:', error);
     }
 
     // 2. Fallbacks to hardcoded data
@@ -121,79 +116,106 @@ export default async function CategoryPage({ params }) {
     const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs(category);
     // Localities and Brands we'll pass to components (they need to handle dynamic IDs or default behavior)
 
-    const sv = dynamicSettings?.sectionVisibility || {}
+    // 3. Build clickable issues list from issues_settings
+    const qbData = await fetchQuickBookingData()
+    if (qbData?.categories) {
+        const idSet = new Set(issuesSettings.items.map(Number))
+        for (const cat of qbData.categories) {
+            for (const sub of (cat.subcategories || [])) {
+                for (const issue of (sub.issues || [])) {
+                    if (idSet.has(Number(issue.id))) {
+                        resolvedIssues.push({
+                            id: issue.id,
+                            name: issue.name,
+                            categoryId: cat.id,
+                            subcategoryId: sub.id
+                        })
+                    }
+                }
+            }
+        }
+    }
+} catch (err) {
+    console.error('[CategoryPage] Failed to resolve issues:', err)
+}
+    }
 
-    return (
-        <div className="service-page category-page">
-            <Header />
-            {/* Hero Section with Gradient Background */}
-            {sv.hero !== false && (
+const sv = dynamicSettings?.sectionVisibility || {}
+const sectionOrder = dynamicSettings?.section_order || [
+    'hero', 'booking', 'subcategories', 'problems',
+    'how_it_works', 'why_us', 'brands', 'localities', 'services', 'faqs'
+];
+
+const renderSection = (key) => {
+    switch (key) {
+        case 'hero':
+            return sv.hero !== false && (
                 <HeroSection
-                    title={`${categoryName} Solutions In Mumbai`}
-                    subtitle="Expert technicians • Same-day service • 90-day warranty"
+                    key="hero"
+                    title={dynamicSettings?.hero_title || `${categoryName} Solutions In Mumbai`}
+                    subtitle={dynamicSettings?.hero_subtitle || "Expert technicians • Same-day service • 90-day warranty"}
                     category={category}
                     heroSettings={dynamicSettings?.heroSettings}
                 />
-            )}
-
-            {/* Quick Booking Form */}
-            <div id="booking">
-                <QuickBookingEmbed preSelectedCategory={category} />
-            </div>
-
-            {/* Sub-Categories Grid with Images */}
-            {sv.subcategories !== false && (
-                <div id="services">
+            );
+        case 'booking':
+            return sv.booking !== false && (
+                <div id="booking" key="booking">
+                    <QuickBookingEmbed preSelectedCategory={category} />
+                </div>
+            );
+        case 'subcategories':
+            return sv.subcategories !== false && (
+                <div id="services" key="subcategories">
                     <CategoryCards
                         title={dynamicSettings?.subcategoriesTitle || `${categoryName} Services`}
                         subtitle={dynamicSettings?.subcategoriesSubtitle || "Choose your specific appliance type"}
                         cards={subcategories}
-                        baseUrl={`/services/${category}`}
+                        baseUrl={`/ services / ${category} `}
                     />
                 </div>
-            )}
-
-            {/* Problems We Solve - SEO Important */}
-            {sv.problems !== false && (
-                <div id="problems">
+            );
+        case 'problems':
+            return sv.problems !== false && (
+                <div id="problems" key="problems">
                     <ProblemsSection
                         title={dynamicSettings?.problems_title || "We Solve All The Problems"}
                         subtitle={dynamicSettings?.problems_subtitle || `Common ${categoryName.toLowerCase()} issues we fix`}
                         problems={problems}
                     />
                 </div>
-            )}
-
-            {/* How It Works - Standardized */}
-            <div id="how-it-works">
-                <HowItWorksSection
-                    title="How It Works"
-                    subtitle="Get your appliance fixed in 4 simple steps"
-                />
-            </div>
-
-            {/* Why Choose Us - Standardized */}
-            <div id="why-us">
-                <WhyChooseUsSection
-                    title="Why Choose Us?"
-                    subtitle="Experience the difference with our premium services"
-                />
-            </div>
-
-            {/* Brand Logos */}
-            {sv.brands !== false && (
-                <div id="brands">
+            );
+        case 'how_it_works':
+            return sv.how_it_works !== false && (
+                <div id="how-it-works" key="how_it_works">
+                    <HowItWorksSection
+                        title={dynamicSettings?.how_it_works_title || "How It Works"}
+                        subtitle={dynamicSettings?.how_it_works_subtitle || "Get your appliance fixed in 4 simple steps"}
+                    />
+                </div>
+            );
+        case 'why_us':
+            return sv.why_us !== false && (
+                <div id="why-us" key="why_us">
+                    <WhyChooseUsSection
+                        title={dynamicSettings?.why_us_title || "Why Choose Us?"}
+                        subtitle={dynamicSettings?.why_us_subtitle || "Experience the difference with our premium services"}
+                    />
+                </div>
+            );
+        case 'brands':
+            return sv.brands !== false && (
+                <div id="brands" key="brands">
                     <BrandLogos
                         title={dynamicSettings?.brands_title || "Brands We Serve"}
                         subtitle={dynamicSettings?.brands_subtitle || "Trusted by leading appliance manufacturers"}
                         selectedBrandIds={dynamicSettings?.brandIds}
                     />
                 </div>
-            )}
-
-            {/* Location Links */}
-            {sv.localities !== false && (
-                <div id="areas">
+            );
+        case 'localities':
+            return sv.localities !== false && (
+                <div id="areas" key="localities">
                     <LocationLinks
                         title={dynamicSettings?.localities_title || "We are Right In your Neighbourhood"}
                         subtitle={dynamicSettings?.localities_subtitle || "Find us in your area"}
@@ -201,34 +223,39 @@ export default async function CategoryPage({ params }) {
                         dynamicLocalities={dynamicSettings?.localities}
                     />
                 </div>
-            )}
-
-            {/* Frequently Booked Services Carousel */}
-            {sv.services !== false && (
-                <div id="popular">
+            );
+        case 'services':
+            return sv.services !== false && (
+                <div id="popular" key="services">
                     <FrequentlyBooked
                         title={dynamicSettings?.services_title || "Frequently Booked Services"}
                         subtitle={dynamicSettings?.services_subtitle || "Popular services in your area"}
                         dynamicServices={dynamicSettings?.services}
                     />
                 </div>
-            )}
-
-            {/* FAQ Section - Category Specific */}
-            {sv.faqs !== false && (
-                <div id="faqs">
+            );
+        case 'faqs':
+            return sv.faqs !== false && (
+                <div id="faqs" key="faqs">
                     <FAQSection
                         title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
                         subtitle={dynamicSettings?.faqs_subtitle || `Common questions about ${categoryName.toLowerCase()} repair`}
                         faqs={faqs}
                     />
                 </div>
-            )}
+            );
+        default:
+            return null;
+    }
+};
 
-            {/* Footer */}
-            <ServiceFooter />
-        </div>
-    )
+return (
+    <div className="service-page category-page">
+        <Header />
+        {sectionOrder.map(renderSection)}
+        <ServiceFooter />
+    </div>
+);
 }
 
 // Generate static params for all categories
@@ -250,7 +277,7 @@ export async function generateMetadata({ params }) {
 
     return {
         title: `${categoryName} Repair in Mumbai | Same Day Service | SORTED`,
-        description: `Expert ${categoryName} repair in Mumbai. Transparent pricing, licensed technicians, 90-day warranty. Book now! ☎ +91-8928895590`,
+        description: `Expert ${categoryName} repair in Mumbai.Transparent pricing, licensed technicians, 90 - day warranty.Book now! ☎ +91 - 8928895590`,
         keywords: `${categoryName} repair Mumbai, ${categoryName} service, appliance repair near me`,
         openGraph: {
             title: `${categoryName} Repair in Mumbai`,

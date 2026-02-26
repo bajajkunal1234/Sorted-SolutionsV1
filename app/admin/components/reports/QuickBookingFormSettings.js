@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import {
     Calendar, Plus, Trash2, Edit2, Save, X, Upload, Loader2,
     Package, Layers, AlertCircle, Eye, EyeOff, ChevronDown, ChevronUp,
-    Globe, CheckCircle, Construction, Settings2
+    Globe, CheckCircle, Construction, Settings2, Tag
 } from 'lucide-react';
 import { quickBookingAPI } from '@/lib/adminAPI';
 
@@ -28,9 +28,80 @@ function QuickBookingFormSettings() {
     const [expandedCategory, setExpandedCategory] = useState(null);
     const [expandedSubcategory, setExpandedSubcategory] = useState(null);
 
+    // ── Brands ────────────────────────────────────────────────────────────────
+    const [brands, setBrands] = useState([]);
+    const [brandsLoading, setBrandsLoading] = useState(false);
+    const [newBrandName, setNewBrandName] = useState('');
+    const [brandsSaving, setBrandsSaving] = useState(false);
+
     useEffect(() => {
         fetchSettings();
+        fetchBrands();
     }, []);
+
+    const fetchBrands = async () => {
+        setBrandsLoading(true);
+        try {
+            const res = await fetch('/api/settings/booking-brands');
+            const data = await res.json();
+            if (data.success) setBrands(data.data || []);
+        } catch (e) {
+            console.error('Error fetching brands:', e);
+        } finally {
+            setBrandsLoading(false);
+        }
+    };
+
+    const handleAddBrand = async () => {
+        if (!newBrandName.trim()) return;
+        setBrandsSaving(true);
+        try {
+            const res = await fetch('/api/settings/booking-brands', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: newBrandName.trim() })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            setNewBrandName('');
+            await fetchBrands();
+        } catch (e) {
+            alert('Failed to add brand: ' + e.message);
+        } finally {
+            setBrandsSaving(false);
+        }
+    };
+
+    const handleDeleteBrand = async (id, name) => {
+        if (!confirm(`Delete brand "${name}"?`)) return;
+        try {
+            const res = await fetch('/api/settings/booking-brands', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            await fetchBrands();
+        } catch (e) {
+            alert('Failed to delete brand: ' + e.message);
+        }
+    };
+
+    const handleToggleBrand = async (id, currentActive) => {
+        try {
+            const res = await fetch('/api/settings/booking-brands', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, is_active: !currentActive })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            await fetchBrands();
+        } catch (e) {
+            alert('Failed to update brand: ' + e.message);
+        }
+    };
 
     const fetchSettings = async () => {
         setLoading(true);
@@ -228,7 +299,8 @@ function QuickBookingFormSettings() {
                     { id: 'general', icon: Calendar, label: 'General & Pin' },
                     { id: 'categories', icon: Package, label: 'Appliances', count: settings.categories?.length },
                     { id: 'subcategories', icon: Layers, label: 'Appliance Types', count: getAllSubcategories().length },
-                    { id: 'issues', icon: AlertCircle, label: 'All Issues', count: getAllIssues().length }
+                    { id: 'issues', icon: AlertCircle, label: 'All Issues', count: getAllIssues().length },
+                    { id: 'brands', icon: Tag, label: 'Brands', count: brands.length }
                 ].map(tab => {
                     const Icon = tab.icon;
                     return (
@@ -484,6 +556,106 @@ function QuickBookingFormSettings() {
                                     ))}
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* Brands Tab */}
+                    {activeTab === 'brands' && (
+                        <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                            {/* Add Brand */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px dashed #f97316', backgroundColor: '#f9731608' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: '#ea580c' }}>Add New Brand</h4>
+                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Samsung, LG, Whirlpool..."
+                                        value={newBrandName}
+                                        onChange={e => setNewBrandName(e.target.value)}
+                                        onKeyPress={e => e.key === 'Enter' && handleAddBrand()}
+                                        style={{
+                                            flex: 1,
+                                            padding: 'var(--spacing-sm)',
+                                            border: '1px solid #f97316',
+                                            borderRadius: 'var(--radius-md)',
+                                            fontSize: 'var(--font-size-sm)'
+                                        }}
+                                    />
+                                    <button
+                                        onClick={handleAddBrand}
+                                        disabled={brandsSaving || !newBrandName.trim()}
+                                        className="btn btn-primary"
+                                        style={{ padding: '8px 20px', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#ea580c', borderColor: '#ea580c' }}
+                                    >
+                                        {brandsSaving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Plus size={16} />}
+                                        Add Brand
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Brand list */}
+                            <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                        🏷️ Brand List
+                                    </h4>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', padding: '4px 10px', backgroundColor: '#f9731620', borderRadius: 'var(--radius-sm)', color: '#ea580c', fontWeight: 600 }}>
+                                        {brands.filter(b => b.is_active).length} active
+                                    </span>
+                                </div>
+                                {brandsLoading ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: 'var(--spacing-lg)', justifyContent: 'center' }}>
+                                        <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} />
+                                        <span style={{ color: 'var(--text-secondary)' }}>Loading brands...</span>
+                                    </div>
+                                ) : brands.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
+                                        No brands added yet. Add your first brand above.
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                                        {brands.map(brand => (
+                                            <div key={brand.id} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 'var(--spacing-sm)',
+                                                padding: 'var(--spacing-sm) var(--spacing-md)',
+                                                backgroundColor: brand.is_active ? '#f9731608' : 'var(--bg-secondary)',
+                                                border: `1px solid ${brand.is_active ? '#f97316' : 'var(--border-primary)'}`,
+                                                borderRadius: 'var(--radius-md)',
+                                                opacity: brand.is_active ? 1 : 0.6
+                                            }}>
+                                                <span style={{ fontSize: '1em' }}>🏷️</span>
+                                                <span style={{ flex: 1, fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>{brand.name}</span>
+                                                <button
+                                                    onClick={() => handleToggleBrand(brand.id, brand.is_active)}
+                                                    style={{
+                                                        display: 'flex', alignItems: 'center', gap: '4px',
+                                                        padding: '4px 10px', border: 'none', borderRadius: 'var(--radius-sm)',
+                                                        backgroundColor: brand.is_active ? '#10b98115' : '#ef444415',
+                                                        color: brand.is_active ? '#10b981' : '#ef4444',
+                                                        cursor: 'pointer', fontSize: 'var(--font-size-xs)', fontWeight: 500
+                                                    }}
+                                                >
+                                                    {brand.is_active ? <Eye size={12} /> : <EyeOff size={12} />}
+                                                    {brand.is_active ? 'Active' : 'Hidden'}
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteBrand(brand.id, brand.name)}
+                                                    style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px' }}
+                                                    title="Delete brand"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Note */}
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: '#3b82f610', borderRadius: 'var(--radius-md)', border: '1px solid #3b82f630', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                ℹ️ Brands marked as <strong>Active</strong> will appear in the Brand dropdown on the website booking form. The brand the customer selects is saved with the booking request.
+                            </div>
                         </div>
                     )}
                 </>

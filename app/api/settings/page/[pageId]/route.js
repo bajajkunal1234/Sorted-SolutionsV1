@@ -18,53 +18,51 @@ function logToFile(message) {
 export const dynamic = 'force-dynamic';
 
 async function getFullPageData(supabase, pageId) {
-    // All reads use REST with cache:'no-store' to bypass Next.js fetch cache and SDK bugs
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    const headers = { 'apikey': serviceKey, 'Authorization': `Bearer ${serviceKey}` };
-    const encoded = encodeURIComponent(pageId);
-    const fetchOpts = { headers, cache: 'no-store' };
-
-    // Fetch main page_settings row
-    const pageRes = await fetch(
-        `${supabaseUrl}/rest/v1/page_settings?page_id=eq.${encoded}&select=*`,
-        fetchOpts
-    );
-    const pageArr = await pageRes.json();
-    const page = Array.isArray(pageArr) && pageArr.length > 0 ? pageArr[0] : null;
-
-    // Fetch mapping tables
-    const [problemsRes, servicesRes, localitiesRes, brandsRes, faqsRes] = await Promise.all([
-        fetch(`${supabaseUrl}/rest/v1/page_problems?page_id=eq.${encoded}&order=display_order.asc&select=*`, fetchOpts),
-        fetch(`${supabaseUrl}/rest/v1/page_services?page_id=eq.${encoded}&order=display_order.asc&select=*`, fetchOpts),
-        fetch(`${supabaseUrl}/rest/v1/page_localities?page_id=eq.${encoded}&order=display_order.asc&select=*`, fetchOpts),
-        fetch(`${supabaseUrl}/rest/v1/page_brands_mapping?page_id=eq.${encoded}&select=brand_id`, fetchOpts),
-        fetch(`${supabaseUrl}/rest/v1/page_faqs_mapping?page_id=eq.${encoded}&select=faq_id`, fetchOpts)
+    // Use the Supabase SDK for reads — avoids Windows Node.js TLS issues with raw fetch()
+    const [
+        pageRes,
+        problemsRes,
+        servicesRes,
+        localitiesRes,
+        brandsRes,
+        faqsRes
+    ] = await Promise.all([
+        supabase.from('page_settings').select('*').eq('page_id', pageId).maybeSingle(),
+        supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+        supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+        supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
+        supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
+        supabase.from('page_faqs_mapping').select('faq_id').eq('page_id', pageId).order('display_order', { ascending: true })
     ]);
 
-    const [problems, services, localities, brandsMapping, faqsMapping] = await Promise.all([
-        problemsRes.json(),
-        servicesRes.json(),
-        localitiesRes.json(),
-        brandsRes.json(),
-        faqsRes.json()
-    ]);
+    const page = pageRes.data || null;
+    const problems = problemsRes.data || [];
+    const services = servicesRes.data || [];
+    const localities = localitiesRes.data || [];
+    const brandsMapping = brandsRes.data || [];
+    const faqsMapping = faqsRes.data || [];
 
-    logToFile(`[getFullPageData-REST] ${pageId} → L=${Array.isArray(localities) ? localities.length : 'err'} S=${Array.isArray(services) ? services.length : 'err'} P=${Array.isArray(problems) ? problems.length : 'err'}`);
-    console.log(`[getFullPageData-REST] ${pageId} → localities: ${Array.isArray(localities) ? localities.length : JSON.stringify(localities)}`);
+    // Log any individual SDK errors (helps diagnose ipv4-fetch issues)
+    if (pageRes.error) console.error(`[getFullPageData] page_settings error: ${pageRes.error.message}`);
+    if (problemsRes.error) console.error(`[getFullPageData] page_problems error: ${problemsRes.error.message}`);
+    if (servicesRes.error) console.error(`[getFullPageData] page_services error: ${servicesRes.error.message}`);
+
+    console.log(`[getFullPageData-SDK] ${pageId} → page=${!!page} L=${localities.length} S=${services.length} P=${problems.length}`);
+
+    console.log(`[getFullPageData-SDK] ${pageId} → L=${localities.length} S=${services.length} P=${problems.length}`);
 
     return {
-        data: page || null,
+        data: page,
         related: {
-            problems: Array.isArray(problems) ? problems : [],
-            services: Array.isArray(services) ? services : [],
-            localities: Array.isArray(localities) ? localities : [],
-            brandIds: Array.isArray(brandsMapping) ? brandsMapping.map(m => m.brand_id) : [],
-            faqIds: Array.isArray(faqsMapping) ? faqsMapping.map(m => m.faq_id) : []
+            problems,
+            services,
+            localities,
+            brandIds: brandsMapping.map(m => m.brand_id),
+            faqIds: faqsMapping.map(m => m.faq_id)
         }
     };
-
 }
+
 
 export async function GET(request, { params }) {
     const { pageId } = params;
@@ -136,10 +134,15 @@ export async function PUT(request, { params }) {
             if (id.startsWith('loc-')) return 'location';
             return 'page';
         };
+
+        const newPageId = body.page_id || pageId;
+        const isRename = newPageId !== pageId;
+
         const upsertData = {
-            page_id: pageId,
-            page_type: getPageType(pageId),
+            page_id: newPageId,
+            page_type: getPageType(newPageId),
             hero_settings: body.hero_settings || {},
+            issues_settings: body.issues_settings || {},
             problems_settings: body.problems_settings || {},
             brands_settings: body.brands_settings || { items: [] },
             localities_settings: body.localities_settings || { items: [] },
@@ -147,17 +150,18 @@ export async function PUT(request, { params }) {
             subcategories_settings: body.subcategories_settings || { items: [] },
             faqs_settings: body.faqs_settings || { items: [] },
             section_visibility: body.section_visibility || {},
+            section_order: body.section_order || null,
             updated_at: new Date().toISOString()
         };
 
-        console.log(`[API-PUT] Executing main upsert for ${pageId}...`);
+        console.log(`[API-PUT] Executing main upsert for ${newPageId}${isRename ? ` (RENAME from ${pageId})` : ''}...`);
         const { data: upsertedRows, error: mainError } = await supabase
             .from('page_settings')
             .upsert(upsertData, { onConflict: 'page_id' })
             .select();
 
         if (mainError) {
-            const err = `[API-PUT] Main Upsert FAILURE for ${pageId}: ${mainError.message}`;
+            const err = `[API-PUT] Main Upsert FAILURE for ${newPageId}: ${mainError.message}`;
             console.error(err);
             logToFile(err);
             return NextResponse.json({
@@ -167,136 +171,92 @@ export async function PUT(request, { params }) {
                 code: mainError.code
             }, { status: 500 });
         }
-        logToFile(`[API-PUT] Main Upsert SUCCESS for ${pageId}. Row ID: ${upsertedRows?.[0]?.id}`);
-        console.log(`[API-PUT] Main Upsert SUCCESS. ID: ${upsertedRows?.[0]?.id}`);
+        logToFile(`[API-PUT] Main Upsert SUCCESS for ${newPageId}.`);
 
-        // 2. Conditionally clear and update related tables via REST API
-        // NOTE: The Supabase JS SDK silently inserts only 1 row for mapping tables.
-        // Direct REST calls are used instead as they work correctly.
         const problemsItems = body.problems_settings?.items || [];
         const servicesItems = body.services_settings?.items || [];
         const localitiesItems = body.localities_settings?.items || [];
         const brandsItems = body.brands_settings?.items || [];
         const faqsItems = body.faqs_settings?.items || [];
 
-        logToFile(`[API-PUT] Items to save for ${pageId}: P=${problemsItems.length}, S=${servicesItems.length}, L=${localitiesItems.length}, B=${brandsItems.length}, F=${faqsItems.length}`);
-        console.log(`[API-PUT] Items counts: P=${problemsItems.length}, S=${servicesItems.length}, L=${localitiesItems.length}`);
+        // 2. Sync mapping tables using RAW SQL
+        // If it's a rename, we MUST ensure the old records (which might be under pageId) are gone
+        // The sync logic below uses newPageId for INSERTs.
+        logToFile(`[API-PUT] Constructing Raw SQL sync for ${newPageId}`);
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        const restHeaders = {
-            'apikey': serviceKey,
-            'Authorization': `Bearer ${serviceKey}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-        };
-        const encoded = encodeURIComponent(pageId);
+        let syncSql = `
+            -- Delete existing records for the NEW ID (standard sync)
+            DELETE FROM page_problems WHERE page_id = '${newPageId}';
+            DELETE FROM page_services WHERE page_id = '${newPageId}';
+            DELETE FROM page_localities WHERE page_id = '${newPageId}';
+            DELETE FROM page_brands_mapping WHERE page_id = '${newPageId}';
+            DELETE FROM page_faqs_mapping WHERE page_id = '${newPageId}';
+        `;
 
-        // Helper: DELETE all rows for this page from a table via REST
-        const restDelete = (table) =>
-            fetch(`${supabaseUrl}/rest/v1/${table}?page_id=eq.${encoded}`, {
-                method: 'DELETE',
-                headers: restHeaders
-            });
-
-        // Helper: INSERT rows into a table via REST
-        const restInsert = (table, rows) =>
-            fetch(`${supabaseUrl}/rest/v1/${table}`, {
-                method: 'POST',
-                headers: restHeaders,
-                body: JSON.stringify(rows)
-            });
-
-        // Only touch a table's rows when the incoming items array is non-empty
-        const ops = [];
+        // If it's a rename, also clean up the OLD ID records
+        if (isRename) {
+            syncSql += `
+                DELETE FROM page_problems WHERE page_id = '${pageId}';
+                DELETE FROM page_services WHERE page_id = '${pageId}';
+                DELETE FROM page_localities WHERE page_id = '${pageId}';
+                DELETE FROM page_brands_mapping WHERE page_id = '${pageId}';
+                DELETE FROM page_faqs_mapping WHERE page_id = '${pageId}';
+                DELETE FROM page_settings WHERE page_id = '${pageId}';
+            `;
+        }
 
         if (problemsItems.length > 0) {
-            ops.push(async () => {
-                await restDelete('page_problems');
-                const res = await restInsert('page_problems', problemsItems.map((item, i) => ({
-                    page_id: pageId,
-                    problem_title: item.question || item.title || 'Unnamed Problem',
-                    problem_description: item.answer || item.description || '',
-                    display_order: i
-                })));
-                const ok = res.ok || res.status === 201;
-                logToFile(`[API-PUT] ${ok ? 'INSERT SUCCESS' : 'INSERT ERROR'} for problems (${pageId}) rows=${problemsItems.length}`);
-            });
+            const values = problemsItems.map((item, i) => {
+                const title = (item.question || item.title || 'Unnamed Problem').replace(/'/g, "''");
+                const desc = (item.answer || item.description || '').replace(/'/g, "''");
+                return `('${newPageId}', '${title}', '${desc}', ${i})`;
+            }).join(', ');
+            syncSql += `INSERT INTO page_problems (page_id, problem_title, problem_description, display_order) VALUES ${values};`;
         }
 
         if (servicesItems.length > 0) {
-            ops.push(async () => {
-                await restDelete('page_services');
-                const res = await restInsert('page_services', servicesItems.map((item, i) => ({
-                    page_id: pageId,
-                    service_name: item.name || 'Unnamed Service',
-                    price_starts_at: (item.price || 0).toString(),
-                    display_order: i
-                })));
-                const ok = res.ok || res.status === 201;
-                logToFile(`[API-PUT] ${ok ? 'INSERT SUCCESS' : 'INSERT ERROR'} for services (${pageId}) rows=${servicesItems.length}`);
-            });
+            const values = servicesItems.map((item, i) => {
+                const name = (item.name || 'Unnamed Service').replace(/'/g, "''");
+                const price = (item.price || 0).toString().replace(/'/g, "''");
+                return `('${newPageId}', '${name}', '${price}', ${i})`;
+            }).join(', ');
+            syncSql += `INSERT INTO page_services (page_id, service_name, price_starts_at, display_order) VALUES ${values};`;
         }
 
         if (localitiesItems.length > 0) {
-            ops.push(async () => {
-                await restDelete('page_localities');
-                const res = await restInsert('page_localities', localitiesItems.map((item, i) => ({
-                    page_id: pageId,
-                    locality_name: typeof item === 'string' ? item : (item.name || 'Unnamed Locality'),
-                    display_order: i
-                })));
-                const ok = res.ok || res.status === 201;
-                logToFile(`[API-PUT] ${ok ? 'INSERT SUCCESS' : 'INSERT ERROR'} for localities (${pageId}) rows=${localitiesItems.length}`);
-                if (!ok) {
-                    const text = await res.text();
-                    logToFile(`[API-PUT] Insert localities error body: ${text}`);
-                }
-            });
+            const values = localitiesItems.map((item, i) => {
+                const name = (typeof item === 'string' ? item : (item.name || 'Unnamed Locality')).replace(/'/g, "''");
+                return `('${newPageId}', '${name}', ${i})`;
+            }).join(', ');
+            syncSql += `INSERT INTO page_localities (page_id, locality_name, display_order) VALUES ${values};`;
         }
 
-        // Always delete+reinsert brands mapping (delete even when empty, to allow full deselection)
-        ops.push(async () => {
-            await restDelete('page_brands_mapping');
-            if (brandsItems.length > 0) {
-                const res = await restInsert('page_brands_mapping', brandsItems.map((brandId, i) => ({
-                    page_id: pageId,
-                    brand_id: brandId,
-                    display_order: i
-                })));
-                const ok = res.ok || res.status === 201;
-                logToFile(`[API-PUT] ${ok ? 'INSERT SUCCESS' : 'INSERT ERROR'} for brands (${pageId}) rows=${brandsItems.length}`);
-            } else {
-                logToFile(`[API-PUT] Cleared all brands for ${pageId}`);
-            }
-        });
+        if (brandsItems.length > 0) {
+            const values = brandsItems.map((brandId, i) => `('${newPageId}', '${brandId}', ${i})`).join(', ');
+            syncSql += `INSERT INTO page_brands_mapping (page_id, brand_id, display_order) VALUES ${values};`;
+        }
 
-        // Always delete+reinsert faqs mapping (delete even when empty, to allow full deselection)
-        ops.push(async () => {
-            await restDelete('page_faqs_mapping');
-            if (faqsItems.length > 0) {
-                const res = await restInsert('page_faqs_mapping', faqsItems.map((faqId, i) => ({
-                    page_id: pageId,
-                    faq_id: faqId,
-                    display_order: i
-                })));
-                const ok = res.ok || res.status === 201;
-                logToFile(`[API-PUT] ${ok ? 'INSERT SUCCESS' : 'INSERT ERROR'} for faqs (${pageId}) rows=${faqsItems.length}`);
-            } else {
-                logToFile(`[API-PUT] Cleared all FAQs for ${pageId}`);
-            }
-        });
+        if (faqsItems.length > 0) {
+            const values = faqsItems.map((faqId, i) => `('${newPageId}', '${faqId}', ${i})`).join(', ');
+            syncSql += `INSERT INTO page_faqs_mapping (page_id, faq_id, display_order) VALUES ${values};`;
+        }
 
-        // Run all delete+insert sequences in parallel
-        await Promise.all(ops.map(op => op()));
+        logToFile(`[API-PUT] Executing Raw SQL sync for ${newPageId}...`);
+        const { error: syncError } = await supabase.rpc('exec_sql', { sql_query: syncSql });
 
+        if (syncError) {
+            logToFile(`[API-PUT] Sync ERROR for ${newPageId}: ${syncError.message}`);
+        } else {
+            logToFile(`[API-PUT] Raw SQL Sync SUCCESS for ${newPageId}`);
+        }
 
-        const endMsg = `[API-PUT] END: Successfully saved all data for ${pageId}`;
+        const endMsg = `[API-PUT] END: Successfully saved all data for ${newPageId}`;
         console.log(endMsg);
         logToFile(endMsg);
 
         // Fetch fresh state to return
-        const fullData = await getFullPageData(supabase, pageId);
+        // We use newPageId here!
+        const fullData = await getFullPageData(supabase, newPageId);
         return NextResponse.json({ success: true, ...fullData });
 
     } catch (error) {

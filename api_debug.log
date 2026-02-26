@@ -539,3 +539,160 @@
 [2026-02-23T17:22:30.241Z] [getFullPageData-REST] sub-refrigerator-repair-single-door → L=1 S=0 P=2
 [2026-02-23T20:47:50.836Z] [getFullPageData-REST] sub-washing-machine-repair-front-load → L=0 S=0 P=0
 [2026-02-23T20:47:50.853Z] [getFullPageData-REST] sub-washing-machine-repair-front-load → L=0 S=0 P=0
+[2026-02-25T19:15:38.301Z] [API-PUT] START: sub-washing-machine-repair-front-load
+[2026-02-25T19:15:38.314Z] [API-PUT] START for sub-washing-machine-repair-front-load. Items: problems=0, services=0, localities=0
+[2026-02-25T19:15:38.493Z] [API-PUT] Main Upsert FAILURE for sub-washing-machine-repair-front-load: Could not find the 'issues_settings' column of 'page_settings' in the schema cache
+[2026-02-25T19:17:54.422Z] [API-PUT] START: sub-washing-machine-repair-front-load
+[2026-02-25T19:17:54.423Z] [API-PUT] START for sub-washing-machine-repair-front-load. Items: problems=0, services=0, localities=0
+[2026-02-25T19:17:54.813Z] [API-PUT] Main Upsert SUCCESS for sub-washing-machine-repair-front-load. Row ID: b4943cb3-5edd-42b7-82cf-7b30ac1df1f7
+[2026-02-25T19:17:54.815Z] [API-PUT] Items to save for sub-washing-machine-repair-front-load: P=0, S=0, L=0, B=0, F=0
+[2026-02-25T19:30:02.873Z] [API-PUT] START: sub-washing-machine-repair-front-load
+[2026-02-25T19:30:02.875Z] [API-PUT] START for sub-washing-machine-repair-front-load. Items: problems=0, services=0, localities=0
+[2026-02-25T19:30:03.600Z] [API-PUT] Main Upsert SUCCESS for sub-washing-machine-repair-front-load. Row ID: b4943cb3-5edd-42b7-82cf-7b30ac1df1f7
+[2026-02-25T19:30:03.601Z] [API-PUT] Items to save for sub-washing-machine-repair-front-load: P=0, S=0, L=0, B=0, F=0
+[2026-02-25T19:31:51.187Z] [API-PUT] START: sub-ac-repair-split-ac
+[2026-02-25T19:31:51.189Z] [API-PUT] START for sub-ac-repair-split-ac. Items: problems=8, services=1, localities=0
+[2026-02-25T19:31:51.381Z] [API-PUT] Main Upsert SUCCESS for sub-ac-repair-split-ac. Row ID: 30867edd-c9ae-42f3-b80f-145f529db450
+[2026-02-25T19:31:51.381Z] [API-PUT] Items to save for sub-ac-repair-split-ac: P=8, S=1, L=0, B=0, F=7
+[2026-02-25T19:32:25.830Z] [API-PUT] START: sub-ac-repair-split-ac
+[2026-02-25T19:32:25.831Z] [API-PUT] START for sub-ac-repair-split-ac. Items: problems=8, services=1, localities=0
+[2026-02-25T19:32:26.024Z] [API-PUT] Main Upsert SUCCESS for sub-ac-repair-split-ac. Row ID: 30867edd-c9ae-42f3-b80f-145f529db450
+[2026-02-25T19:32:26.025Z] [API-PUT] Items to save for sub-ac-repair-split-ac: P=8, S=1, L=0, B=0, F=7
+[2026-02-25T19:36:06.156Z] [API-PUT] START: sub-ac-repair-split-ac
+[2026-02-25T19:36:06.159Z] [API-PUT] START for sub-ac-repair-split-ac. Items: problems=1, services=0, localities=0
+[2026-02-25T19:36:06.360Z] [API-PUT] Main Upsert SUCCESS for sub-ac-repair-split-ac. Row ID: 30867edd-c9ae-42f3-b80f-145f529db450
+[2026-02-25T19:36:06.361Z] [API-PUT] Items to save for sub-ac-repair-split-ac: P=1, S=0, L=0, B=0, F=0
+[2026-02-25T19:38:00.248Z] [API-PUT] START: sub-ac-repair-split-ac
+[2026-02-25T19:38:00.250Z] [API-PUT] START for sub-ac-repair-split-ac. Items: problems=0, services=0, localities=0
+[2026-02-25T19:38:00.694Z] [API-PUT] Main Upsert SUCCESS for sub-ac-repair-split-ac. Row ID: 30867edd-c9ae-42f3-b80f-145f529db450
+[2026-02-25T19:38:00.694Z] [API-PUT] Items to save for sub-ac-repair-split-ac: P=0, S=0, L=0, B=0, F=0
+[2026-02-25T19:51:46.371Z] [API-PUT] START: sub-ac-repair-split-ac
+[2026-02-25T19:51:46.383Z] [API-PUT] START for sub-ac-repair-split-ac. Items: problems=0, services=0, localities=0
+[2026-02-25T19:51:47.361Z] [API-PUT] Main Upsert SUCCESS for sub-ac-repair-split-ac. Row ID: 30867edd-c9ae-42f3-b80f-145f529db450
+[2026-02-25T19:51:47.424Z] [API-PUT] Items to save for sub-ac-repair-split-ac: P=0, S=0, L=0, B=0, F=0
+[2026-02-25T20:03:21.956Z] [API-PUT] START: sub-water-purifier-repair-uv-purifier
+[2026-02-25T20:03:21.972Z] [API-PUT] START for sub-water-purifier-repair-uv-purifier. Items: problems=0, services=0, localities=0
+[2026-02-25T20:03:22.594Z] [API-PUT] Main Upsert SUCCESS for sub-water-purifier-repair-uv-purifier. Row ID: d8c79ea7-b6a2-4f2a-8bb2-2024d2bba79c
+[2026-02-25T20:03:22.596Z] [API-PUT] Items to save for sub-water-purifier-repair-uv-purifier: P=0, S=0, L=0, B=0, F=0
+[2026-02-25T20:21:52.444Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-25T20:21:52.449Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-25T20:21:52.687Z] [API-PUT] Main Upsert FAILURE for sub-refrigerator-repair-single-door: Could not find the 'section_order' column of 'page_settings' in the schema cache
+[2026-02-25T20:25:25.011Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-25T20:25:25.037Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-25T20:25:25.265Z] [API-PUT] Main Upsert FAILURE for sub-refrigerator-repair-single-door: Could not find the 'section_order' column of 'page_settings' in the schema cache
+[2026-02-25T20:25:28.964Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-25T20:25:28.967Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-25T20:25:29.122Z] [API-PUT] Main Upsert FAILURE for sub-refrigerator-repair-single-door: Could not find the 'section_order' column of 'page_settings' in the schema cache
+[2026-02-25T20:25:36.113Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-25T20:25:36.115Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-25T20:25:36.310Z] [API-PUT] Main Upsert FAILURE for sub-refrigerator-repair-single-door: Could not find the 'section_order' column of 'page_settings' in the schema cache
+[2026-02-25T20:26:50.370Z] [API-PUT] START: sub-ac-repair-window-ac
+[2026-02-25T20:26:50.373Z] [API-PUT] START for sub-ac-repair-window-ac. Items: problems=13, services=0, localities=1
+[2026-02-25T20:26:50.550Z] [API-PUT] Main Upsert FAILURE for sub-ac-repair-window-ac: Could not find the 'section_order' column of 'page_settings' in the schema cache
+[2026-02-25T21:01:13.677Z] [API-PUT] START: sub-ac-repair-window-ac
+[2026-02-25T21:01:13.679Z] [API-PUT] START for sub-ac-repair-window-ac. Items: problems=13, services=0, localities=1
+[2026-02-25T21:01:14.349Z] [API-PUT] Main Upsert SUCCESS for sub-ac-repair-window-ac. Row ID: e23fd15e-05ee-4c81-99bf-ee8c677ed186
+[2026-02-25T21:01:14.350Z] [API-PUT] Items to save for sub-ac-repair-window-ac: P=13, S=0, L=1, B=0, F=8
+[2026-02-25T21:01:48.158Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-25T21:01:48.160Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-25T21:01:48.660Z] [API-PUT] Main Upsert SUCCESS for sub-refrigerator-repair-single-door. Row ID: 9f6b6191-59be-499d-8335-339f4c7d603a
+[2026-02-25T21:01:48.661Z] [API-PUT] Items to save for sub-refrigerator-repair-single-door: P=2, S=0, L=1, B=0, F=0
+[2026-02-25T21:05:07.214Z] [API-PUT] START: sub-oven-repair-otg-oven
+[2026-02-25T21:05:07.215Z] [API-PUT] START for sub-oven-repair-otg-oven. Items: problems=12, services=0, localities=1
+[2026-02-25T21:05:07.402Z] [API-PUT] Main Upsert SUCCESS for sub-oven-repair-otg-oven. Row ID: 9292ec4e-211e-4f0d-bcda-5af9a26395da
+[2026-02-25T21:05:07.403Z] [API-PUT] Items to save for sub-oven-repair-otg-oven: P=12, S=0, L=1, B=0, F=8
+[2026-02-25T21:05:07.404Z] [API-PUT] STARTING sequential sync for sub-oven-repair-otg-oven
+[2026-02-25T21:05:07.404Z] [API-PUT] Syncing problems for sub-oven-repair-otg-oven...
+
+[2026-02-26 02:36:03] --- NEW SAVE ATTEMPT START ---
+
+[2026-02-25T21:06:39.489Z] [API-PUT] START: sloc-kandivali-ac-repair
+[2026-02-25T21:06:39.491Z] [API-PUT] START for sloc-kandivali-ac-repair. Items: problems=1, services=1, localities=1
+[2026-02-25T21:06:39.626Z] [API-PUT] Main Upsert SUCCESS for sloc-kandivali-ac-repair. Row ID: 05783be4-bb67-4526-95e7-6fe1bf85ac75
+[2026-02-25T21:06:39.627Z] [API-PUT] Items to save for sloc-kandivali-ac-repair: P=1, S=1, L=1, B=0, F=0
+[2026-02-25T21:06:39.628Z] [API-PUT] STARTING sequential sync for sloc-kandivali-ac-repair
+[2026-02-25T21:06:39.628Z] [API-PUT] Syncing problems for sloc-kandivali-ac-repair...
+[2026-02-25T21:14:38.403Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T21:14:38.405Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T21:14:38.576Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T21:14:38.576Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T21:14:38.577Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T21:14:38.729Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T21:14:38.730Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T21:14:56.532Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T21:14:56.533Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T21:14:56.704Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T21:14:56.705Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T21:14:56.706Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T21:14:56.846Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T21:14:56.847Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T21:30:44.065Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T21:30:44.069Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T21:30:44.528Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T21:30:44.530Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T21:30:44.531Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T21:30:44.805Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T21:30:44.807Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T21:32:34.241Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T21:32:34.243Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T21:32:34.406Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T21:32:34.407Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T21:32:34.408Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T21:32:34.566Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T21:32:34.568Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T21:33:54.457Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T21:33:54.459Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T21:33:54.626Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T21:33:54.627Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T21:33:54.628Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T21:33:54.766Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T21:33:54.767Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T21:40:47.442Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T21:40:47.443Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T21:40:47.631Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T21:40:47.631Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T21:40:47.632Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T21:40:47.789Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T21:40:47.791Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:09.017Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:09.018Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T22:02:09.241Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T22:02:09.243Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:09.244Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T22:02:09.424Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:09.425Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:30.731Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:30.810Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T22:02:31.226Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T22:02:31.230Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:31.233Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T22:02:31.434Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T22:02:31.485Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T22:03:05.411Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-25T22:03:05.412Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=1
+[2026-02-25T22:03:05.600Z] [API-PUT] Main Upsert SUCCESS for sloc-ghatkopar-ac-repair. Row ID: 22848bd3-c92d-4f11-8e80-5a5755239c06
+[2026-02-25T22:03:05.602Z] [API-PUT] Constructing Raw SQL sync for sloc-ghatkopar-ac-repair
+[2026-02-25T22:03:05.602Z] [API-PUT] Executing Raw SQL sync for sloc-ghatkopar-ac-repair...
+[2026-02-25T22:03:05.782Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-ghatkopar-ac-repair
+[2026-02-25T22:03:05.793Z] [API-PUT] END: Successfully saved all data for sloc-ghatkopar-ac-repair
+[2026-02-25T23:23:08.799Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-25T23:23:08.802Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-25T23:23:09.010Z] [API-PUT] Main Upsert SUCCESS for sub-refrigerator-repair-single-door. Row ID: 9f6b6191-59be-499d-8335-339f4c7d603a
+[2026-02-25T23:23:09.012Z] [API-PUT] Constructing Raw SQL sync for sub-refrigerator-repair-single-door
+[2026-02-25T23:23:09.013Z] [API-PUT] Executing Raw SQL sync for sub-refrigerator-repair-single-door...
+[2026-02-25T23:23:09.194Z] [API-PUT] Raw SQL Sync SUCCESS for sub-refrigerator-repair-single-door
+[2026-02-25T23:23:09.194Z] [API-PUT] END: Successfully saved all data for sub-refrigerator-repair-single-door
+[2026-02-25T23:23:16.549Z] [API-PUT] START: sub-refrigerator-repair-single-door
+[2026-02-25T23:23:16.550Z] [API-PUT] START for sub-refrigerator-repair-single-door. Items: problems=2, services=0, localities=1
+[2026-02-25T23:23:16.711Z] [API-PUT] Main Upsert SUCCESS for sub-refrigerator-repair-single-door. Row ID: 9f6b6191-59be-499d-8335-339f4c7d603a
+[2026-02-25T23:23:16.712Z] [API-PUT] Constructing Raw SQL sync for sub-refrigerator-repair-single-door
+[2026-02-25T23:23:16.713Z] [API-PUT] Executing Raw SQL sync for sub-refrigerator-repair-single-door...
+[2026-02-25T23:23:16.844Z] [API-PUT] Raw SQL Sync SUCCESS for sub-refrigerator-repair-single-door
+[2026-02-25T23:23:16.845Z] [API-PUT] END: Successfully saved all data for sub-refrigerator-repair-single-door
+[2026-02-26T01:34:56.264Z] [API-PUT] START: loc-andheri
+[2026-02-26T01:34:56.273Z] [API-PUT] START for loc-andheri. Items: problems=0, services=0, localities=0
+[2026-02-26T01:34:56.516Z] [API-PUT] Main Upsert SUCCESS for loc-andheri-v2.
+[2026-02-26T01:34:56.517Z] [API-PUT] Constructing Raw SQL sync for loc-andheri-v2
+[2026-02-26T01:34:56.518Z] [API-PUT] Executing Raw SQL sync for loc-andheri-v2...
+[2026-02-26T01:34:56.717Z] [API-PUT] Raw SQL Sync SUCCESS for loc-andheri-v2
+[2026-02-26T01:34:56.723Z] [API-PUT] END: Successfully saved all data for loc-andheri-v2

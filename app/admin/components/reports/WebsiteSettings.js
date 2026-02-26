@@ -319,7 +319,12 @@ function WebsiteSettings({ subSection, setSubSection }) {
             ) : activeCategory === 'testimonials' ? (
                 <CustomerTestimonialsSettings />
             ) : activeCategory === 'page-builder' ? (
-                <PageBuilderTool />
+                <PageBuilderTool
+                    onEditPage={(page) => {
+                        setActiveCategory(page.page_id);
+                        if (setSubSection) setSubSection(page.hero_settings?.title || page.page_id);
+                    }}
+                />
             ) : activeCategory === 'google-apis' ? (
                 <GoogleAPIsSettings />
             ) : activeCategory === 'website-analytics' ? (
@@ -351,9 +356,16 @@ function WebsiteSettings({ subSection, setSubSection }) {
                                 ← Back
                             </button>
                             <PageSettingsManager
+                                key={activeCategory}
                                 pageId={activeCategory}
                                 pageLabel={setting?.label || activeCategory}
                                 pageUrl={setting?.url}
+                                onRename={(newId) => {
+                                    setActiveCategory(newId);
+                                    if (setSubSection) setSubSection(newId);
+                                    // Optionally refresh appliance data to update the sidebar/menu
+                                    fetchApplianceData();
+                                }}
                             />
                         </div>
                     );

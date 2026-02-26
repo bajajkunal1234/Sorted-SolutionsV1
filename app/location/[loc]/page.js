@@ -15,74 +15,90 @@ import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
 import { getFAQs } from '@/data/faqs'
 import { getProblems } from '@/data/commonProblems'
+import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
+
+import { unstable_noStore as noStore } from 'next/cache';
 
 export default async function LocationPage({ params }) {
+    noStore(); // Opt out of caching to ensure real-time Admin updates
     const { loc } = params
-    const pageId = `loc-${loc}`
-
-    // Format location name
     const locationName = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 
-    // 1. Fetch Dynamic Data from Supabase
-    let dynamicSettings = null;
+    // Page ID for this location page
+    const pageId = `loc-${loc}`
+
+    // ── Fetch dynamic settings from Supabase ──────────────────────────────────
+    let dynamicSettings = null
     const supabase = createServerSupabase();
     if (!supabase) return null;
 
     try {
-        const { data: pageSettings, error: pageError } = await supabase
+        console.log(`[LIVE DEBUG] Location PageID: ${pageId} fetching via SDK (noStore)`);
+
+        const { data: pageSettings } = await supabase
             .from('page_settings')
             .select('*')
             .eq('page_id', pageId)
             .single();
 
-        console.log(`[LIVE DEBUG] Loc PageID: ${pageId}, Found: ${!!pageSettings}`);
-
         if (pageSettings) {
-            // Fetch related data
             const [
                 { data: problems },
                 { data: services },
                 { data: localities },
                 { data: brandMappings },
-                { data: faqMappings }
+                { data: faqsMapping }
             ] = await Promise.all([
                 supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
                 supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
                 supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
                 supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
-                supabase.from('page_faqs_mapping').select('faq_id').eq('page_id', pageId)
+                supabase.from('page_faqs_mapping')
+                    .select('faq_id, website_faqs(question, answer)')
+                    .eq('page_id', pageId)
+                    .order('display_order', { ascending: true })
             ]);
 
-            // Map data to component formats
             dynamicSettings = {
+                heroSettings: pageSettings.hero_settings,
                 problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
                 services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
                 localities: (localities || []).map(l => l.locality_name),
                 brandIds: brandMappings?.map(m => m.brand_id) || [],
-                faqIds: faqMappings?.map(m => m.faq_id) || [],
+                faqs: (faqsMapping || [])
+                    .filter(f => f.website_faqs)
+                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer })),
+
+                // Section Mapping
+                subcategories: pageSettings.subcategories_settings?.items?.length > 0 ? pageSettings.subcategories_settings.items : null,
+                subcategories_title: pageSettings.subcategories_settings?.title,
+                subcategories_subtitle: pageSettings.subcategories_settings?.subtitle,
+
+                // Section Title/Subtitle overrides (CRITICAL for matching sv flags)
+                hero_title: pageSettings.hero_settings?.title,
+                hero_subtitle: pageSettings.hero_settings?.subtitle,
                 problems_title: pageSettings.problems_settings?.title,
                 problems_subtitle: pageSettings.problems_settings?.subtitle,
-                localities_title: pageSettings.localities_settings?.title,
-                localities_subtitle: pageSettings.localities_settings?.subtitle,
                 services_title: pageSettings.services_settings?.title,
                 services_subtitle: pageSettings.services_settings?.subtitle,
-                heroSettings: pageSettings.hero_settings || null,
-                sectionVisibility: pageSettings.section_visibility || {},
+                localities_title: pageSettings.localities_settings?.title,
+                localities_subtitle: pageSettings.localities_settings?.subtitle,
                 brands_title: pageSettings.brands_settings?.title,
                 brands_subtitle: pageSettings.brands_settings?.subtitle,
                 faqs_title: pageSettings.faqs_settings?.title,
                 faqs_subtitle: pageSettings.faqs_settings?.subtitle,
-                subcategories: pageSettings.subcategories_settings?.items || [],
-                subcategories_title: pageSettings.subcategories_settings?.title,
-                subcategories_subtitle: pageSettings.subcategories_settings?.subtitle,
+                how_it_works_title: pageSettings.how_it_works_settings?.title,
+                how_it_works_subtitle: pageSettings.how_it_works_settings?.subtitle,
+                why_us_title: pageSettings.why_us_settings?.title,
+                why_us_subtitle: pageSettings.why_us_settings?.subtitle,
+                section_order: pageSettings.section_order,
+
+                // Section visibility flags
+                sectionVisibility: pageSettings.section_visibility || {}
             };
 
-            // Fetch specific brand and FAQ objects if we have IDs
-            if (dynamicSettings.faqIds.length > 0) {
-                const { data: fullFaqs } = await supabase.from('website_faqs').select('*').in('id', dynamicSettings.faqIds);
-                dynamicSettings.faqs = fullFaqs?.map(f => ({ question: f.question, answer: f.answer }));
-            } else {
-                // Fallback to Global FAQs if none selected specifically
+            // Fallback to Global FAQs if none selected
+            if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
                 const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
                 if (globalFaqs?.length > 0) {
                     dynamicSettings.faqs = globalFaqs.map(f => ({ question: f.question, answer: f.answer }));
@@ -90,7 +106,7 @@ export default async function LocationPage({ params }) {
             }
         }
     } catch (error) {
-        console.error('Error fetching dynamic settings:', error);
+        console.error('Error fetching dynamic settings for location:', error);
     }
 
     // Main service categories available in this location (Keep static as it's general for all locations)
@@ -112,114 +128,125 @@ export default async function LocationPage({ params }) {
         `${locationName} Central`,
     ]
 
+
+
     const sv = dynamicSettings?.sectionVisibility || {}
+    const sectionOrder = dynamicSettings?.section_order || [
+        'hero', 'booking', 'subcategories', 'problems',
+        'how_it_works', 'why_us', 'brands', 'localities', 'services', 'faqs'
+    ];
+
+    const renderSection = (key) => {
+        switch (key) {
+            case 'hero':
+                return sv.hero !== false && (
+                    <HeroSection
+                        key="hero"
+                        title={dynamicSettings?.hero_title || `Appliance Repair Services in ${locationName}`}
+                        subtitle={dynamicSettings?.hero_subtitle || "Expert technicians • All brands • Same-day service available"}
+                        category="ac-repair"
+                        location={locationName}
+                        heroSettings={dynamicSettings?.heroSettings}
+                    />
+                );
+            case 'booking':
+                return sv.booking !== false && (
+                    <div id="booking" key="booking">
+                        <QuickBookingEmbed />
+                    </div>
+                );
+
+            case 'subcategories':
+                return (sv.subcategories !== false && (dynamicSettings?.subcategories?.length > 0 || serviceCategories.length > 0)) && (
+                    <div id="services" key="subcategories">
+                        <CategoryCards
+                            title={dynamicSettings?.subcategories_title || `Our Services in ${locationName}`}
+                            subtitle={dynamicSettings?.subcategories_subtitle || "Choose your appliance type"}
+                            cards={dynamicSettings?.subcategories?.length > 0 ? dynamicSettings.subcategories : serviceCategories}
+                            baseUrl="/services"
+                        />
+                    </div>
+                );
+            case 'problems':
+                return sv.problems !== false && (
+                    <div id="problems" key="problems">
+                        <ProblemsSection
+                            title={dynamicSettings?.problems_title || "Problems We Solve"}
+                            subtitle={dynamicSettings?.problems_subtitle || `Common appliance issues in ${locationName}`}
+                            problems={problems}
+                        />
+                    </div>
+                );
+            case 'how_it_works':
+                return sv.how_it_works !== false && (
+                    <div id="how-it-works" key="how_it_works">
+                        <HowItWorksSection
+                            title={dynamicSettings?.how_it_works_title || "How It Works"}
+                            subtitle={dynamicSettings?.how_it_works_subtitle || "Scroll through our simple process"}
+                        />
+                    </div>
+                );
+            case 'why_us':
+                return sv.why_us !== false && (
+                    <div id="why-us" key="why_us">
+                        <WhyChooseUsSection
+                            title={dynamicSettings?.why_us_title || `Why Choose Us in ${locationName}?`}
+                            subtitle={dynamicSettings?.why_us_subtitle || "Local service with premium quality"}
+                        />
+                    </div>
+                );
+            case 'brands':
+                return sv.brands !== false && (
+                    <div id="brands" key="brands">
+                        <BrandLogos
+                            title="Brands We Serve"
+                            subtitle="Trusted by leading appliance manufacturers"
+                            selectedBrandIds={dynamicSettings?.brandIds}
+                        />
+                    </div>
+                );
+            case 'localities':
+                return sv.localities !== false && (
+                    <div id="areas" key="localities">
+                        <LocationLinks
+                            title={dynamicSettings?.localities_title || `We Serve All Areas in ${locationName}`}
+                            subtitle={dynamicSettings?.localities_subtitle || "Find your specific locality"}
+                            dynamicLocalities={dynamicSettings?.localities}
+                        />
+                    </div>
+                );
+            case 'services':
+                return sv.services !== false && (
+                    <div id="popular" key="services">
+                        <FrequentlyBooked
+                            title={dynamicSettings?.services_title || `Popular in ${locationName}`}
+                            subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
+                            dynamicServices={dynamicSettings?.services}
+                        />
+                    </div>
+                );
+            case 'faqs':
+                return sv.faqs !== false && (
+                    <div id="faqs" key="faqs">
+                        <FAQSection
+                            title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
+                            subtitle={dynamicSettings?.faqs_subtitle || "Common questions about our services"}
+                            faqs={faqs}
+                        />
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
 
     return (
         <div className="service-page location-page">
             <Header />
-            {/* Hero Section */}
-            {sv.hero !== false && (
-                <HeroSection
-                    title={`Appliance Repair Services in ${locationName}`}
-                    subtitle="Expert technicians • All brands • Same-day service available"
-                    category="ac-repair"
-                    location={locationName}
-                    heroSettings={dynamicSettings?.heroSettings}
-                />
-            )}
-
-            {/* Quick Booking Form */}
-            <div id="booking">
-                <QuickBookingEmbed />
-            </div>
-
-            {/* Service Categories Available */}
-            {(sv.subcategories !== false && (dynamicSettings?.subcategories?.length > 0 || serviceCategories.length > 0)) && (
-                <div id="services">
-                    <CategoryCards
-                        title={dynamicSettings?.subcategories_title || `Our Services in ${locationName}`}
-                        subtitle={dynamicSettings?.subcategories_subtitle || "Choose your appliance type"}
-                        cards={dynamicSettings?.subcategories?.length > 0 ? dynamicSettings.subcategories : serviceCategories}
-                        baseUrl="/services"
-                    />
-                </div>
-            )}
-
-            {/* Common Problems */}
-            {sv.problems !== false && (
-                <div id="problems">
-                    <ProblemsSection
-                        title={dynamicSettings?.problems_title || "Problems We Solve"}
-                        subtitle={dynamicSettings?.problems_subtitle || `Common appliance issues in ${locationName}`}
-                        problems={problems}
-                    />
-                </div>
-            )}
-
-            {/* How It Works - Standardized */}
-            <div id="how-it-works">
-                <HowItWorksSection
-                    title="How It Works"
-                    subtitle="Scroll through our simple process"
-                />
-            </div>
-
-            {/* Why Choose Us - Standardized */}
-            <div id="why-us">
-                <WhyChooseUsSection
-                    title={`Why Choose Us in ${locationName}?`}
-                    subtitle="Local service with premium quality"
-                />
-            </div>
-
-            {/* Brand Logos */}
-            {sv.brands !== false && (
-                <div id="brands">
-                    <BrandLogos
-                        title="Brands We Serve"
-                        subtitle="Trusted by leading appliance manufacturers"
-                        selectedBrandIds={dynamicSettings?.brandIds}
-                    />
-                </div>
-            )}
-
-            {/* Nearby Sublocations */}
-            {sv.localities !== false && (
-                <div id="areas">
-                    <LocationLinks
-                        title={dynamicSettings?.localities_title || `We Serve All Areas in ${locationName}`}
-                        subtitle={dynamicSettings?.localities_subtitle || "Find your specific locality"}
-                        dynamicLocalities={dynamicSettings?.localities}
-                    />
-                </div>
-            )}
-
-            {/* Frequently Booked Services */}
-            {sv.services !== false && (
-                <div id="popular">
-                    <FrequentlyBooked
-                        title={dynamicSettings?.services_title || `Popular in ${locationName}`}
-                        subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
-                        dynamicServices={dynamicSettings?.services}
-                    />
-                </div>
-            )}
-
-            {/* FAQ Section */}
-            {sv.faqs !== false && (
-                <div id="faqs">
-                    <FAQSection
-                        title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}
-                        subtitle={dynamicSettings?.faqs_subtitle || "Common questions about our services"}
-                        faqs={faqs}
-                    />
-                </div>
-            )}
-
-            {/* Footer */}
+            {sectionOrder.map(renderSection)}
             <ServiceFooter />
         </div>
-    )
+    );
 }
 
 // Generate static params for all locations

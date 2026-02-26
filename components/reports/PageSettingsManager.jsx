@@ -17,7 +17,10 @@ import {
     Eye,
     EyeOff,
     ExternalLink,
-    Check
+    Check,
+    Rows,
+    ArrowUp,
+    ArrowDown
 } from 'lucide-react';
 
 const DEFAULT_HERO = {
@@ -487,17 +490,20 @@ function SectionVisibilityBanner({ sectionKey, visible, onToggle }) {
 }
 
 // â”€â”€ Main PageSettingsManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
+function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     const [activeTab, setActiveTab] = useState('hero');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [settings, setSettings] = useState(null);
     const [globalFaqs, setGlobalFaqs] = useState([]);
     const [globalBrands, setGlobalBrands] = useState([]);
+    const [bookingSettings, setBookingSettings] = useState(null); // for issues picker
+    const [issueSearch, setIssueSearch] = useState('');
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [sectionVisibility, setSectionVisibility] = useState({
-        hero: true, problems: true, services: true,
-        localities: true, brands: true, faqs: true, subcategories: true
+        hero: true, issues: true, subcategories: true, booking: true,
+        problems: true, how_it_works: true, why_us: true,
+        brands: true, localities: true, services: true, faqs: true
     });
 
     // Ref that always mirrors the latest settings — prevents stale closure reads in handleSave
@@ -533,6 +539,11 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
             ...(d || {}),
             page_id: pageId,
             hero_settings: { ...DEFAULT_HERO, ...(d?.hero_settings || {}) },
+            issues_settings: {
+                title: d?.issues_settings?.title || 'Common Issues We Fix',
+                subtitle: d?.issues_settings?.subtitle || 'Click any issue to book a repair instantly',
+                items: d?.issues_settings?.items || []
+            },
             problems_settings: {
                 title: d?.problems_settings?.title || 'Problems We Solve',
                 subtitle: d?.problems_settings?.subtitle || 'Common issues we fix',
@@ -568,7 +579,8 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                 title: d?.subcategories_settings?.title || 'Appliance Types',
                 subtitle: d?.subcategories_settings?.subtitle || 'Choose your specific appliance',
                 items: d?.subcategories_settings?.items || []
-            }
+            },
+            section_order: d?.section_order || null
         };
 
         return initialized;
@@ -604,15 +616,18 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
 
     const fetchGlobalData = async () => {
         try {
-            console.log('[ST-DEBUG] Fetching global FAQs and Brands...');
-            const [faqRes, brandRes] = await Promise.all([
+            console.log('[ST-DEBUG] Fetching global FAQs, Brands and Booking Settings...');
+            const [faqRes, brandRes, bookingRes] = await Promise.all([
                 fetch('/api/settings/faqs'),
-                fetch('/api/settings/brand-logos')
+                fetch('/api/settings/brand-logos'),
+                fetch('/api/settings/quick-booking')
             ]);
             const faqData = await faqRes.json();
             const brandData = await brandRes.json();
+            const bookingData = await bookingRes.json();
             if (faqData.success) setGlobalFaqs(faqData.data);
             if (brandData.success) setGlobalBrands(brandData.data);
+            if (bookingData.success) setBookingSettings(bookingData.data);
         } catch (error) {
             console.error('[ST-DEBUG] Error fetching global data:', error);
         }
@@ -657,9 +672,16 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
             if (data.success) {
                 setSaveSuccess(true);
                 setTimeout(() => setSaveSuccess(false), 3000);
-                // Refetch from DB to get the authoritative state after save
-                await fetchSettings();
-                console.log(`[ST-DEBUG] Save SUCCESS — refetching from DB.`);
+
+                // If renamed, notify parent
+                if (currentSettings.page_id !== pageId && onRename) {
+                    console.log(`[ST-DEBUG] Rename detected! ${pageId} -> ${currentSettings.page_id}`);
+                    onRename(currentSettings.page_id);
+                } else {
+                    // Refetch from DB to get the authoritative state after save
+                    await fetchSettings();
+                }
+                console.log(`[ST-DEBUG] Save SUCCESS — ${currentSettings.page_id !== pageId ? 'RENAMED' : 'refetching'}.`);
             } else {
                 console.error('[ST-DEBUG] Save FAILURE:', data.error, data.details);
                 alert(`CRITICAL SAVE FAILURE:\n\nError: ${data.error}\nDetails: ${data.details || 'No extra info'}\n\nPlease check server logs.`);
@@ -733,6 +755,27 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
         });
     };
 
+    const moveSection = (index, direction) => {
+        setSettings(prev => {
+            if (!prev) return prev;
+            const currentOrder = prev.section_order || [
+                'hero', 'booking', 'issues', 'subcategories', 'problems',
+                'how_it_works', 'why_us', 'brands', 'localities', 'services', 'faqs'
+            ];
+            const newOrder = [...currentOrder];
+            const newIndex = index + direction;
+            if (newIndex < 0 || newIndex >= newOrder.length) return prev;
+
+            const [moved] = newOrder.splice(index, 1);
+            newOrder.splice(newIndex, 0, moved);
+
+            return {
+                ...prev,
+                section_order: newOrder
+            };
+        });
+    };
+
     const updateItem = (section, index, field, value) => {
         setSettings(prev => {
             if (!prev) return prev;
@@ -782,17 +825,45 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
         );
     }
 
+    const isSubPage = pageId.startsWith('sub-');
     const tabs = [
         { id: 'hero', label: 'Hero Section', icon: Layout },
+        ...(isSubPage ? [{ id: 'issues', label: 'Issues', icon: AlertCircle }] : []),
         { id: 'problems', label: 'Problems', icon: AlertCircle },
         { id: 'services', label: 'Services', icon: Tag },
         { id: 'localities', label: 'Localities', icon: MapPin },
         { id: 'brands', label: 'Brands', icon: ImageIcon },
         { id: 'subcategories', label: pageId.startsWith('cat-') ? 'Sub-Services' : 'Category Cards', icon: Layout },
-        { id: 'faqs', label: 'FAQs', icon: HelpCircle }
+        { id: 'faqs', label: 'FAQs', icon: HelpCircle },
+        { id: 'layout', label: 'Layout & Navigation', icon: Rows }
     ];
     // Map from tab id to section_visibility key
-    const tabVisibilityKey = { hero: 'hero', problems: 'problems', services: 'services', localities: 'localities', brands: 'brands', subcategories: 'subcategories', faqs: 'faqs' };
+    const tabVisibilityKey = { hero: 'hero', issues: 'issues', problems: 'problems', services: 'services', localities: 'localities', brands: 'brands', subcategories: 'subcategories', faqs: 'faqs', layout: null };
+
+    // Helper: get all issues from booking settings for the current subcategory page
+    const getPageIssues = () => {
+        if (!bookingSettings?.categories) return [];
+        // pageId format: sub-{category-slug}-{subcategory-slug}
+        // We show ALL issues across the category's subcategories, grouped by subcategory
+        const parts = pageId.replace('sub-', '').split('-');
+        // Match category by slug (try longest match)
+        const allIssues = [];
+        for (const cat of (bookingSettings.categories || [])) {
+            for (const sub of (cat.subcategories || [])) {
+                for (const issue of (sub.issues || [])) {
+                    allIssues.push({
+                        id: issue.id,
+                        name: issue.name,
+                        subcategoryId: sub.id,
+                        subcategoryName: sub.name,
+                        categoryId: cat.id,
+                        categoryName: cat.name,
+                    });
+                }
+            }
+        }
+        return allIssues;
+    };
 
     return (
         <div className="page-settings-manager" style={{ paddingBottom: '80px' }}>
@@ -812,9 +883,30 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                         {pageLabel}
                     </h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '6px' }}>
-                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                            ID: <span style={{ fontFamily: 'monospace', opacity: 0.7 }}>{pageId}</span>
-                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                                ID:
+                            </p>
+                            <input
+                                type="text"
+                                value={settings.page_id}
+                                onChange={(e) => setSettings(prev => ({ ...prev, page_id: e.target.value }))}
+                                className="form-control"
+                                style={{
+                                    fontFamily: 'monospace',
+                                    fontSize: '11px',
+                                    padding: '2px 8px',
+                                    width: '280px',
+                                    height: '24px',
+                                    backgroundColor: 'var(--bg-primary)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: '4px'
+                                }}
+                            />
+                            <p style={{ fontSize: '10px', color: 'var(--text-tertiary)', margin: 0 }}>
+                                <AlertCircle size={10} inline /> Changing this will rename the page URL
+                            </p>
+                        </div>
                         {pageUrl && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>
@@ -969,6 +1061,169 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                         </div>
                     </div>
                 )}
+
+                {/* ── ISSUES TAB (subcategory pages only) ── */}
+                {activeTab === 'issues' && isSubPage && (() => {
+                    const allIssues = getPageIssues();
+                    const selectedIds = settings.issues_settings?.items || [];
+                    const filtered = issueSearch
+                        ? allIssues.filter(i =>
+                            i.name.toLowerCase().includes(issueSearch.toLowerCase()) ||
+                            i.subcategoryName.toLowerCase().includes(issueSearch.toLowerCase())
+                        )
+                        : allIssues;
+
+                    // Group filtered issues by subcategory
+                    const grouped = filtered.reduce((acc, issue) => {
+                        const key = issue.subcategoryName;
+                        if (!acc[key]) acc[key] = { categoryId: issue.categoryId, subcategoryId: issue.subcategoryId, issues: [] };
+                        acc[key].issues.push(issue);
+                        return acc;
+                    }, {});
+
+                    return (
+                        <div>
+                            <SectionVisibilityBanner sectionKey="issues" visible={sectionVisibility.issues} onToggle={toggleSectionVisibility} />
+                            <div style={{ opacity: sectionVisibility.issues ? 1 : 0.45, pointerEvents: sectionVisibility.issues ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
+                                <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
+                                    {/* Section title/subtitle */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
+                                            <input
+                                                type="text"
+                                                value={settings.issues_settings?.title || ''}
+                                                onChange={(e) => updateSection('issues_settings', 'title', e.target.value)}
+                                                className="form-control"
+                                                placeholder="e.g. Common Issues We Fix"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                                            <input
+                                                type="text"
+                                                value={settings.issues_settings?.subtitle || ''}
+                                                onChange={(e) => updateSection('issues_settings', 'subtitle', e.target.value)}
+                                                className="form-control"
+                                                placeholder="e.g. Click any issue to book a repair"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Stats + search */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                                        <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                            <strong style={{ color: 'var(--color-primary)' }}>{selectedIds.length}</strong> issues selected from{' '}
+                                            <strong>{allIssues.length}</strong> total
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Search issues..."
+                                                value={issueSearch}
+                                                onChange={(e) => setIssueSearch(e.target.value)}
+                                                className="form-control"
+                                                style={{ width: '200px', padding: '6px 12px', fontSize: '13px' }}
+                                            />
+                                            {selectedIds.length > 0 && (
+                                                <button
+                                                    onClick={() => updateSection('issues_settings', 'items', [])}
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '6px 12px', fontSize: '12px', color: '#ef4444' }}
+                                                >
+                                                    Clear All
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Issue picker grouped by subcategory */}
+                                    {bookingSettings ? (
+                                        Object.keys(grouped).length === 0 ? (
+                                            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
+                                                {issueSearch ? `No issues match "${issueSearch}"` : 'No issues found in global booking settings.'}
+                                            </div>
+                                        ) : (
+                                            <div style={{ display: 'grid', gap: '20px' }}>
+                                                {Object.entries(grouped).map(([subName, group]) => (
+                                                    <div key={subName} style={{
+                                                        padding: '16px',
+                                                        backgroundColor: 'var(--bg-secondary)',
+                                                        borderRadius: 'var(--radius-lg)',
+                                                        border: '1px solid var(--border-primary)'
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                                                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                                🔧 {subName}
+                                                            </h4>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const groupIds = group.issues.map(i => i.id);
+                                                                    const allSelected = groupIds.every(id => selectedIds.includes(id));
+                                                                    if (allSelected) {
+                                                                        updateSection('issues_settings', 'items', selectedIds.filter(id => !groupIds.includes(id)));
+                                                                    } else {
+                                                                        const merged = [...new Set([...selectedIds, ...groupIds])];
+                                                                        updateSection('issues_settings', 'items', merged);
+                                                                    }
+                                                                }}
+                                                                className="btn btn-secondary"
+                                                                style={{ padding: '3px 10px', fontSize: '11px' }}
+                                                            >
+                                                                {group.issues.every(i => selectedIds.includes(i.id)) ? 'Deselect All' : 'Select All'}
+                                                            </button>
+                                                        </div>
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                                                            {group.issues.map(issue => {
+                                                                const isSelected = selectedIds.includes(issue.id);
+                                                                return (
+                                                                    <label
+                                                                        key={issue.id}
+                                                                        style={{
+                                                                            display: 'flex', alignItems: 'center', gap: '10px',
+                                                                            padding: '10px 12px',
+                                                                            backgroundColor: isSelected ? 'var(--color-primary)12' : 'var(--bg-primary)',
+                                                                            border: `1.5px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                                                            borderRadius: 'var(--radius-md)',
+                                                                            cursor: 'pointer',
+                                                                            fontSize: '13px',
+                                                                            fontWeight: isSelected ? 600 : 400,
+                                                                            transition: 'all 0.15s ease'
+                                                                        }}
+                                                                    >
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={isSelected}
+                                                                            onChange={() => {
+                                                                                const newItems = isSelected
+                                                                                    ? selectedIds.filter(id => id !== issue.id)
+                                                                                    : [...selectedIds, issue.id];
+                                                                                updateSection('issues_settings', 'items', newItems);
+                                                                            }}
+                                                                            style={{ accentColor: 'var(--color-primary)', width: '15px', height: '15px', flexShrink: 0 }}
+                                                                        />
+                                                                        <span style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)' }}>
+                                                                            {issue.name}
+                                                                        </span>
+                                                                    </label>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )
+                                    ) : (
+                                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
+                                            <Loader2 className="animate-spin" size={24} style={{ marginBottom: '8px' }} />
+                                            <p>Loading global issues...</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>{/* end opacity wrapper */}
+                        </div>
+                    );
+                })()}
 
                 {/* ── PROBLEMS TAB ── */}
                 {activeTab === 'problems' && (
@@ -1331,6 +1586,146 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl }) {
                         </div>
                     </div>
                 )}
+                {/* ── LAYOUT TAB ── */}
+                {activeTab === 'layout' && (() => {
+                    const displayOrder = (settings.section_order || [
+                        'hero', 'booking', 'issues', 'subcategories', 'problems',
+                        'how_it_works', 'why_us', 'brands', 'localities', 'services', 'faqs'
+                    ]).filter(key => {
+                        // Hide 'issues' from the layout list if not on a sub-page
+                        if (key === 'issues' && !isSubPage) return false;
+                        return true;
+                    });
+
+                    const SECTION_INFO = {
+                        hero: { label: 'Hero Section', icon: Layout },
+                        booking: { label: 'Booking Form', icon: Check },
+                        issues: { label: 'Common Issues', icon: AlertCircle },
+                        subcategories: { label: 'Related Categories', icon: Tag },
+                        problems: { label: 'Problems We Solve', icon: HelpCircle },
+                        how_it_works: { label: 'How It Works', icon: Rows },
+                        why_us: { label: 'Why Choose Us', icon: ImageIcon },
+                        brands: { label: 'Brand Logos', icon: ImageIcon },
+                        localities: { label: 'Service Areas', icon: MapPin },
+                        services: { label: 'Full Service List', icon: Tag },
+                        faqs: { label: 'FAQs', icon: HelpCircle }
+                    };
+
+                    return (
+                        <div style={{ display: 'grid', gap: '20px' }}>
+                            <div style={{
+                                padding: '16px',
+                                backgroundColor: '#6366f110',
+                                border: '1px solid #6366f140',
+                                borderRadius: 'var(--radius-lg)',
+                                marginBottom: '10px'
+                            }}>
+                                <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', fontWeight: 700, color: 'var(--color-primary)' }}>
+                                    Page Arrangement
+                                </h3>
+                                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    Drag items ↑ or ↓ to change their vertical position on the live website.
+                                    Toggle the eye icon to hide/show sections completely.
+                                </p>
+                            </div>
+
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                                {currentOrder.map((key, index) => {
+                                    const info = SECTION_INFO[key] || { label: key, icon: Layout };
+                                    const isVisible = sectionVisibility[key] !== false;
+                                    const isFirst = index === 0;
+                                    const isLast = index === currentOrder.length - 1;
+
+                                    return (
+                                        <div key={key} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            padding: '12px 16px',
+                                            backgroundColor: isVisible ? 'var(--bg-secondary)' : 'rgba(239, 68, 68, 0.05)',
+                                            border: `1.5px solid ${isVisible ? 'var(--border-primary)' : 'rgba(239, 68, 68, 0.2)'}`,
+                                            borderRadius: 'var(--radius-md)',
+                                            gap: '16px',
+                                            transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                                            opacity: isVisible ? 1 : 0.7
+                                        }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '4px',
+                                                color: 'var(--text-tertiary)'
+                                            }}>
+                                                <button
+                                                    onClick={() => moveSection(index, -1)}
+                                                    disabled={isFirst}
+                                                    style={{
+                                                        border: 'none', background: 'none', padding: 0,
+                                                        cursor: isFirst ? 'not-allowed' : 'pointer',
+                                                        opacity: isFirst ? 0.3 : 1,
+                                                        color: '#ffffff'
+                                                    }}
+                                                >
+                                                    <ArrowUp size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={() => moveSection(index, 1)}
+                                                    disabled={isLast}
+                                                    style={{
+                                                        border: 'none', background: 'none', padding: 0,
+                                                        cursor: isLast ? 'not-allowed' : 'pointer',
+                                                        opacity: isLast ? 0.3 : 1,
+                                                        color: '#ffffff'
+                                                    }}
+                                                >
+                                                    <ArrowDown size={16} />
+                                                </button>
+                                            </div>
+
+                                            <div style={{
+                                                width: '32px', height: '32px',
+                                                borderRadius: '8px',
+                                                backgroundColor: isVisible ? 'var(--color-primary-alpha)' : 'var(--bg-tertiary)',
+                                                color: isVisible ? 'var(--color-primary)' : 'var(--text-tertiary)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <info.icon size={18} />
+                                            </div>
+
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: 700, fontSize: '14px', color: isVisible ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                                                    {info.label}
+                                                </div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                                    Position: {index + 1} of {currentOrder.length}
+                                                </div>
+                                            </div>
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <button
+                                                    onClick={() => toggleSectionVisibility(key)}
+                                                    style={{
+                                                        border: 'none',
+                                                        background: 'none',
+                                                        padding: '8px',
+                                                        cursor: 'pointer',
+                                                        color: isVisible ? '#10b981' : '#ef4444',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 600
+                                                    }}
+                                                >
+                                                    {isVisible ? <Eye size={18} /> : <EyeOff size={18} />}
+                                                    {isVisible ? 'Visible' : 'Hidden'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
 
             {/* â”€â”€ Sticky Save Bar â”€â”€ */}

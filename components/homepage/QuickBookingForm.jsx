@@ -21,10 +21,13 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
     const [formData, setFormData] = useState({
         category: initialCategory,
         subcategory: '',
+        brand: '',
         issue: '',
         pincode: ''
     });
     const [isPincodeValid, setIsPincodeValid] = useState(false);
+    const [prefilledIssueName, setPrefilledIssueName] = useState(null);
+    const [brands, setBrands] = useState([]);
     const [settings, setSettings] = useState(initialData || {
         title: 'Book A Technician Now',
         subtitle: 'Get same day service | Transparent pricing | Licensed technicians',
@@ -44,11 +47,14 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
             setLoading(true);
             try {
                 // Load global settings from API
-                const res = await fetch('/api/settings/quick-booking');
-                const data = await res.json();
-                if (data.success) {
-                    setSettings(data.data);
-                }
+                const [settingsRes, brandsRes] = await Promise.all([
+                    fetch('/api/settings/quick-booking'),
+                    fetch('/api/settings/booking-brands')
+                ]);
+                const settingsData = await settingsRes.json();
+                const brandsData = await brandsRes.json();
+                if (settingsData.success) setSettings(settingsData.data);
+                if (brandsData.success) setBrands((brandsData.data || []).filter(b => b.is_active));
             } catch (error) {
                 console.error('Error loading booking data:', error);
             } finally {
@@ -57,6 +63,33 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
         };
 
         loadData();
+    }, [initialData]);
+
+    // Listen for pre-selection events from IssuesSection
+    useEffect(() => {
+        const handlePreselect = (e) => {
+            const { categoryId, subcategoryId, issueId, issueName } = e.detail || {};
+            if (categoryId && subcategoryId && issueId) {
+                setFormData(prev => ({
+                    ...prev,
+                    category: String(categoryId),
+                    subcategory: String(subcategoryId),
+                    issue: String(issueId),
+                }));
+                setPrefilledIssueName(issueName || 'Selected issue');
+            }
+        };
+        window.addEventListener('bookingPreselect', handlePreselect);
+        return () => window.removeEventListener('bookingPreselect', handlePreselect);
+    }, []);
+
+    // Also fetch brands when initialData is supplied (server render path)
+    useEffect(() => {
+        if (!initialData) return;
+        fetch('/api/settings/booking-brands')
+            .then(r => r.json())
+            .then(d => { if (d.success) setBrands((d.data || []).filter(b => b.is_active)); })
+            .catch(() => { });
     }, [initialData]);
 
     // Get filtered data (only items with showOnBookingForm: true)
@@ -82,11 +115,13 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
         e.preventDefault();
         if (isPincodeValid && formData.category && formData.subcategory && formData.issue) {
             // Redirect to universal booking wizard
+            const selectedBrand = brands.find(b => String(b.id) === String(formData.brand));
             const params = new URLSearchParams({
                 category: formData.category,
                 subcategory: formData.subcategory,
                 issue: formData.issue,
-                pincode: formData.pincode
+                pincode: formData.pincode,
+                ...(formData.brand && { brand: formData.brand, brandName: selectedBrand?.name || '' })
             });
             window.location.href = `/booking?${params.toString()}`;
         }
@@ -97,7 +132,28 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
             <h3 className="form-title">{settings.title}</h3>
             <p className="form-subtitle">{settings.subtitle}</p>
 
+            {/* Pre-fill banner shown when issue is clicked from IssuesSection */}
+            {prefilledIssueName && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    gap: '10px', padding: '10px 16px', marginBottom: '16px',
+                    backgroundColor: '#ecfdf5', border: '1.5px solid #10b981',
+                    borderRadius: '10px', fontSize: '13px'
+                }}>
+                    <span style={{ color: '#065f46', fontWeight: 600 }}>
+                        ✓ Pre-selected: <em style={{ fontStyle: 'normal', color: '#059669' }}>{prefilledIssueName}</em>
+                        &nbsp;— select your brand &amp; enter pincode to book
+                    </span>
+                    <button
+                        onClick={() => { setPrefilledIssueName(null); setFormData(prev => ({ ...prev, category: initialCategory, subcategory: '', issue: '' })); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', color: '#6b7280', lineHeight: 1 }}
+                        title="Clear pre-selection"
+                    >✕</button>
+                </div>
+            )}
+
             <form onSubmit={handleSubmit}>
+
                 {/* Field 1: Select Appliance (Category) */}
                 <div className="form-group">
                     <label htmlFor="category">Select Your Appliance</label>
@@ -147,28 +203,56 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
                     </div>
                 )}
 
-                {/* Field 3: What's the Problem? (Issue) */}
+                {/* Fields 3 & 4: Brand + Issue in one row (or Issue-only if no brands) */}
                 {formData.subcategory && (
-                    <div className="form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
-                        <label htmlFor="issue">What's the Problem?</label>
-                        <select
-                            id="issue"
-                            value={formData.issue}
-                            onChange={(e) => setFormData({ ...formData, issue: e.target.value })}
-                            required
-                            aria-label="Select issue type"
-                        >
-                            <option value="">Select issue...</option>
-                            {visibleIssues.map((issue) => (
-                                <option key={issue.id} value={issue.id}>
-                                    {issue.name}
-                                </option>
-                            ))}
-                        </select>
+                    <div style={{
+                        display: 'flex',
+                        gap: '10px',
+                        animation: 'fadeIn 0.3s ease-in',
+                        alignItems: 'flex-end'
+                    }}>
+                        {/* Brand — narrower, optional */}
+                        {brands.length > 0 && (
+                            <div className="form-group" style={{ flex: '0 0 38%', margin: 0 }}>
+                                <label htmlFor="brand">Brand</label>
+                                <select
+                                    id="brand"
+                                    value={formData.brand}
+                                    onChange={(e) => setFormData({ ...formData, brand: e.target.value, issue: '' })}
+                                    aria-label="Select appliance brand"
+                                >
+                                    <option value="">Any brand</option>
+                                    {brands.map((brand) => (
+                                        <option key={brand.id} value={brand.id}>
+                                            {brand.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Issue — takes remaining space */}
+                        <div className="form-group" style={{ flex: 1, margin: 0 }}>
+                            <label htmlFor="issue">What's the Problem?</label>
+                            <select
+                                id="issue"
+                                value={formData.issue}
+                                onChange={(e) => setFormData({ ...formData, issue: e.target.value })}
+                                required
+                                aria-label="Select issue type"
+                            >
+                                <option value="">Select issue...</option>
+                                {visibleIssues.map((issue) => (
+                                    <option key={issue.id} value={issue.id}>
+                                        {issue.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 )}
 
-                {/* Field 4: Your Area Pincode */}
+                {/* Field 5: Your Area Pincode — shown after issue is selected */}
                 {formData.issue && (
                     <div className="form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
                         <label htmlFor="pincode">Your Area Pincode</label>
@@ -200,12 +284,22 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
                     </div>
                 )}
 
-                {isPincodeValid && formData.category && formData.subcategory && formData.issue && (
-                    <button type="submit" className="book-button" aria-label="Book technician">
-                        <Search size={18} />
-                        Book Technician Now
-                    </button>
-                )}
+                {/* Book button — always visible, greyed out until all fields + valid pincode */}
+                {(() => {
+                    const ready = isPincodeValid && formData.category && formData.subcategory && formData.issue;
+                    return (
+                        <button
+                            type="submit"
+                            className="book-button"
+                            aria-label="Book technician"
+                            disabled={!ready}
+                            style={!ready ? { opacity: 0.45, cursor: 'not-allowed', filter: 'grayscale(40%)' } : {}}
+                        >
+                            <Search size={18} />
+                            Book Technician Now
+                        </button>
+                    );
+                })()}
             </form>
 
             {/* Trust indicators */}

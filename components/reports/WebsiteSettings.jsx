@@ -58,65 +58,132 @@ function Breadcrumb({ crumbs, onNavigate }) {
         <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
+            gap: '8px',
             marginBottom: 'var(--spacing-lg)',
-            flexWrap: 'wrap'
+            fontSize: 'var(--font-size-sm)',
+            color: 'var(--text-tertiary)'
         }}>
-            {crumbs.map((crumb, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {i > 0 && <ChevronRight size={14} style={{ opacity: 0.4 }} />}
-                    {i < crumbs.length - 1 ? (
-                        <button
-                            onClick={() => onNavigate(i)}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--color-primary)',
-                                cursor: 'pointer',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                padding: '2px 6px',
-                                borderRadius: 'var(--radius-sm)',
-                                transition: 'background 0.15s'
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--color-primary)10'}
-                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                        >
-                            {crumb.label}
-                        </button>
-                    ) : (
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {crumb.label}
-                        </span>
-                    )}
+            {crumbs.map((crumb, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {idx > 0 && <span>/</span>}
+                    <button
+                        onClick={() => onNavigate(crumbs.length - 1 - idx)}
+                        style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: idx === crumbs.length - 1 ? 'var(--text-primary)' : 'inherit',
+                            fontWeight: idx === crumbs.length - 1 ? 600 : 400,
+                            cursor: idx === crumbs.length - 1 ? 'default' : 'pointer',
+                            fontSize: 'inherit'
+                        }}
+                    >
+                        {crumb.label}
+                    </button>
                 </div>
             ))}
         </div>
     );
 }
 
-// ── Page Card ────────────────────────────────────────────────────────────────
-function PageCard({ label, subLabel, color, pageUrl, isBuilt, onClick }) {
-    const [hovered, setHovered] = useState(false);
+// ── Group Card Component ─────────────────────────────────────────────────────
+function GroupCard({ group, count, onClick }) {
+    const [hover, setHover] = useState(false);
+
     return (
         <button
             onClick={onClick}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+            style={{
+                padding: 'var(--spacing-lg)',
+                border: '2px solid var(--border-primary)',
+                borderColor: hover ? group.color : 'var(--border-primary)',
+                borderRadius: 'var(--radius-lg)',
+                backgroundColor: 'var(--bg-elevated)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                textAlign: 'left',
+                position: 'relative',
+                overflow: 'hidden',
+                transform: hover ? 'translateY(-4px)' : 'none',
+                boxShadow: hover ? `0 8px 24px ${group.color}20` : 'none'
+            }}
+        >
+            <div style={{
+                position: 'absolute',
+                top: '-20px',
+                right: '-20px',
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                backgroundColor: group.color,
+                opacity: 0.1
+            }} />
+
+            <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
+                    <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+                        {group.label}
+                    </h3>
+                    {count !== null && (
+                        <span style={{
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            backgroundColor: `${group.color}20`,
+                            color: group.color
+                        }}>
+                            {count} pages
+                        </span>
+                    )}
+                </div>
+                <p style={{
+                    fontSize: 'var(--font-size-sm)',
+                    color: 'var(--text-secondary)',
+                    margin: 0,
+                    lineHeight: 1.5,
+                    paddingRight: '20px'
+                }}>
+                    {group.description}
+                </p>
+                <div style={{
+                    position: 'absolute',
+                    bottom: '0',
+                    right: '0',
+                    color: group.color,
+                    opacity: 0.5
+                }}>
+                    <ChevronRight size={20} />
+                </div>
+            </div>
+        </button>
+    );
+}
+
+// ── Page Card Component ──────────────────────────────────────────────────────
+function PageCard({ label, subLabel, color, pageUrl, isBuilt, onClick }) {
+    const [hover, setHover] = useState(false);
+
+    return (
+        <button
+            onClick={onClick}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
             style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '14px',
-                padding: '14px 16px',
-                border: `1.5px solid ${hovered ? color : 'var(--border-primary)'}`,
-                borderRadius: 'var(--radius-lg)',
-                backgroundColor: hovered ? `${color}08` : 'var(--bg-elevated)',
+                gap: '12px',
+                padding: '12px 16px',
+                width: '100%',
+                border: '1px solid var(--border-primary)',
+                borderColor: hover ? color : 'var(--border-primary)',
+                borderRadius: 'var(--radius-md)',
+                backgroundColor: hover ? 'var(--bg-secondary)' : 'var(--bg-elevated)',
                 cursor: 'pointer',
-                textAlign: 'left',
                 transition: 'all 0.2s ease',
-                transform: hovered ? 'translateY(-2px)' : 'none',
-                boxShadow: hovered ? `0 4px 16px ${color}20` : 'none',
-                width: '100%'
+                textAlign: 'left'
             }}
         >
             <div style={{
@@ -126,16 +193,32 @@ function PageCard({ label, subLabel, color, pageUrl, isBuilt, onClick }) {
                 backgroundColor: isBuilt ? '#10b981' : '#94a3b8',
                 flexShrink: 0
             }} />
+
             <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    color: 'var(--text-primary)',
+                    marginBottom: '2px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                }}>
                     {label}
                 </div>
                 {subLabel && (
-                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{
+                        fontSize: '11px',
+                        color: 'var(--text-tertiary)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                    }}>
                         {subLabel}
                     </div>
                 )}
             </div>
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                 {pageUrl && (
                     <a
@@ -145,15 +228,12 @@ function PageCard({ label, subLabel, color, pageUrl, isBuilt, onClick }) {
                         onClick={e => e.stopPropagation()}
                         title="View live page"
                         style={{
+                            padding: '6px',
+                            color: 'var(--text-tertiary)',
+                            borderRadius: '4px',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '28px',
-                            height: '28px',
-                            borderRadius: '50%',
-                            backgroundColor: 'var(--bg-secondary)',
-                            color: 'var(--text-tertiary)',
-                            transition: 'all 0.2s ease'
+                            justifyContent: 'center'
                         }}
                     >
                         <ExternalLink size={12} />
@@ -165,66 +245,13 @@ function PageCard({ label, subLabel, color, pageUrl, isBuilt, onClick }) {
     );
 }
 
-// ── Group Card (top-level) ───────────────────────────────────────────────────
-function GroupCard({ group, count, onClick }) {
-    const [hovered, setHovered] = useState(false);
-    return (
-        <button
-            onClick={onClick}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            className="card"
-            style={{
-                padding: 'var(--spacing-lg)',
-                border: `2px solid ${hovered ? group.color : 'var(--border-primary)'}`,
-                borderRadius: 'var(--radius-lg)',
-                backgroundColor: 'var(--bg-elevated)',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                textAlign: 'left',
-                position: 'relative',
-                overflow: 'hidden',
-                transform: hovered ? 'translateY(-4px)' : 'none',
-                boxShadow: hovered ? `0 8px 24px ${group.color}20` : 'none'
-            }}
-        >
-            <div style={{
-                position: 'absolute', top: '-20px', right: '-20px',
-                width: '100px', height: '100px', borderRadius: '50%',
-                backgroundColor: group.color, opacity: 0.1
-            }} />
-            <div style={{ position: 'relative', zIndex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
-                    <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
-                        {group.label}
-                    </h3>
-                    {count !== null && (
-                        <span style={{
-                            fontSize: '11px', padding: '3px 8px',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: `${group.color}20`,
-                            color: group.color, fontWeight: 700
-                        }}>
-                            {count} pages
-                        </span>
-                    )}
-                </div>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                    {group.description}
-                </p>
-            </div>
-            <div style={{
-                position: 'absolute', bottom: 'var(--spacing-md)', right: 'var(--spacing-md)',
-                fontSize: 'var(--font-size-xl)', color: group.color, opacity: 0.5
-            }}>→</div>
-        </button>
-    );
-}
-
-// ── Page List View: Category Pages ──────────────────────────────────────────
+// ── Page List View: Category Pages ───────────────────────────────────────────
 function CategoryPageList({ appliances, color, onSelectPage }) {
     const [search, setSearch] = useState('');
-    const filtered = appliances.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
+
+    const filtered = appliances.filter(a =>
+        a.name.toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
@@ -235,18 +262,31 @@ function CategoryPageList({ appliances, color, onSelectPage }) {
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     style={{
-                        width: '100%', padding: '10px 12px 10px 36px',
-                        border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)',
-                        backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                        width: '100%',
+                        padding: '10px 12px 10px 36px',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        color: 'var(--text-primary)',
                         fontSize: '13px'
                     }}
                 />
-                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+                <Search size={16} style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    opacity: 0.4
+                }} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: '10px'
+            }}>
                 {filtered.map(appliance => {
                     const pageId = `cat-${appliance.slug}`;
-                    const ApIcon = getIcon(appliance.icon_name);
                     return (
                         <PageCard
                             key={pageId}
@@ -254,7 +294,7 @@ function CategoryPageList({ appliances, color, onSelectPage }) {
                             subLabel={`/${appliance.slug}`}
                             color={appliance.color || color}
                             pageUrl={`/${appliance.slug}`}
-                            isBuilt={appliance.isBuilt}
+                            isBuilt={appliance.pageIds?.built > 0}
                             onClick={() => onSelectPage({
                                 pageId,
                                 pageLabel: `${appliance.name} Repair — Category Page`,
@@ -263,9 +303,10 @@ function CategoryPageList({ appliances, color, onSelectPage }) {
                         />
                     );
                 })}
+
                 {filtered.length === 0 && (
                     <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
-                        No categories match "{search}"
+                        No category pages found matching "{search}"
                     </div>
                 )}
             </div>
@@ -273,9 +314,10 @@ function CategoryPageList({ appliances, color, onSelectPage }) {
     );
 }
 
-// ── Page List View: Sub Category Pages ──────────────────────────────────────
+// ── Page List View: Sub Category Pages ───────────────────────────────────────
 function SubCategoryPageList({ appliances, color, onSelectPage }) {
     const [search, setSearch] = useState('');
+
     const allSubs = appliances.flatMap(a =>
         (a.subcategories || []).map(sub => ({
             ...sub,
@@ -284,7 +326,10 @@ function SubCategoryPageList({ appliances, color, onSelectPage }) {
             parentColor: a.color || color,
             pageId: `sub-${a.slug}-${sub.slug}`
         }))
-    ).filter(s => s.name.toLowerCase().includes(search.toLowerCase()) || s.parentName.toLowerCase().includes(search.toLowerCase()));
+    ).filter(s =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.parentName.toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
@@ -295,15 +340,29 @@ function SubCategoryPageList({ appliances, color, onSelectPage }) {
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     style={{
-                        width: '100%', padding: '10px 12px 10px 36px',
-                        border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)',
-                        backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                        width: '100%',
+                        padding: '10px 12px 10px 36px',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        color: 'var(--text-primary)',
                         fontSize: '13px'
                     }}
                 />
-                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+                <Search size={16} style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    opacity: 0.4
+                }} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: '10px'
+            }}>
                 {allSubs.map(sub => (
                     <PageCard
                         key={sub.pageId}
@@ -311,7 +370,7 @@ function SubCategoryPageList({ appliances, color, onSelectPage }) {
                         subLabel={`Under ${sub.parentName} → /${sub.parentSlug}/${sub.slug}`}
                         color={sub.parentColor}
                         pageUrl={`/${sub.parentSlug}/${sub.slug}`}
-                        isBuilt={sub.isBuilt}
+                        isBuilt={false} // Would need specific build check for each sub
                         onClick={() => onSelectPage({
                             pageId: sub.pageId,
                             pageLabel: `${sub.name} — ${sub.parentName} Sub-Category Page`,
@@ -319,9 +378,10 @@ function SubCategoryPageList({ appliances, color, onSelectPage }) {
                         })}
                     />
                 ))}
+
                 {allSubs.length === 0 && (
                     <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
-                        No sub-categories match "{search}"
+                        No sub-category pages found matching "{search}"
                     </div>
                 )}
             </div>
@@ -329,10 +389,13 @@ function SubCategoryPageList({ appliances, color, onSelectPage }) {
     );
 }
 
-// ── Page List View: Location Pages ──────────────────────────────────────────
+// ── Page List View: Location Pages ───────────────────────────────────────────
 function LocationPageList({ locations, color, onSelectPage }) {
     const [search, setSearch] = useState('');
-    const filtered = locations.filter(l => l.name.toLowerCase().includes(search.toLowerCase()));
+
+    const filtered = locations.filter(l =>
+        l.name.toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
@@ -343,15 +406,29 @@ function LocationPageList({ locations, color, onSelectPage }) {
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     style={{
-                        width: '100%', padding: '10px 12px 10px 36px',
-                        border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)',
-                        backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                        width: '100%',
+                        padding: '10px 12px 10px 36px',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        color: 'var(--text-primary)',
                         fontSize: '13px'
                     }}
                 />
-                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
+                <Search size={16} style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    opacity: 0.4
+                }} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px' }}>
+
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: '10px'
+            }}>
                 {filtered.map(loc => {
                     const slug = loc.slug || loc.name.toLowerCase().replace(/\s+/g, '-');
                     const pageId = `loc-${slug}`;
@@ -371,9 +448,10 @@ function LocationPageList({ locations, color, onSelectPage }) {
                         />
                     );
                 })}
+
                 {filtered.length === 0 && (
                     <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
-                        No locations match "{search}"
+                        No location pages found matching "{search}"
                     </div>
                 )}
             </div>
@@ -381,96 +459,89 @@ function LocationPageList({ locations, color, onSelectPage }) {
     );
 }
 
-// ── Page List View: Sub Location Pages ──────────────────────────────────────
+// ── Page List View: Sub Location Pages ───────────────────────────────────────
 function SubLocationPageList({ appliances, color, onSelectPage }) {
     const [search, setSearch] = useState('');
-    const [selectedAppliance, setSelectedAppliance] = useState('all');
+    const LOCATIONS = [
+        "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
+        "ville-parle", "santacruz", "bandra", "khar", "mahim",
+        "dadar", "powai", "saki-naka", "ghatkopar", "kurla"
+    ];
 
-    // Build flat list from appliances' built-in sublocations list
-    const sublocations = appliances.flatMap(appliance =>
-        (appliance.sublocations || []).map(locSlug => {
-            const locName = locSlug.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    const allSlocs = appliances.flatMap(a =>
+        LOCATIONS.map(loc => {
+            const locLabel = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             return {
-                pageId: `sloc-${locSlug}-${appliance.slug}`,
-                label: `${appliance.name} Repair in ${locName}`,
-                locName,
-                locSlug,
-                applianceName: appliance.name,
-                applianceSlug: appliance.slug,
-                color: appliance.color || color
+                applianceName: a.name,
+                applianceSlug: a.slug,
+                location: loc,
+                locationLabel: locLabel,
+                color: a.color || color,
+                pageId: `sloc-${loc}-${a.slug}`
             };
         })
+    ).filter(s =>
+        s.applianceName.toLowerCase().includes(search.toLowerCase()) ||
+        s.locationLabel.toLowerCase().includes(search.toLowerCase())
     );
-
-    const filteredAppliances = ['all', ...appliances.map(a => a.slug)];
-    const filtered = sublocations.filter(s => {
-        const matchSearch = s.label.toLowerCase().includes(search.toLowerCase());
-        const matchAppliance = selectedAppliance === 'all' || s.applianceSlug === selectedAppliance;
-        return matchSearch && matchAppliance;
-    });
 
     return (
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
-                    <input
-                        type="text"
-                        placeholder="Search sub-location pages..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        style={{
-                            width: '100%', padding: '10px 12px 10px 36px',
-                            border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)',
-                            backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
-                            fontSize: '13px'
-                        }}
-                    />
-                    <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
-                </div>
-                <select
-                    value={selectedAppliance}
-                    onChange={e => setSelectedAppliance(e.target.value)}
+            <div style={{ position: 'relative' }}>
+                <input
+                    type="text"
+                    placeholder="Search sub-location pages..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
                     style={{
-                        padding: '10px 12px', border: '1px solid var(--border-primary)',
-                        borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)',
-                        color: 'var(--text-primary)', fontSize: '13px', cursor: 'pointer'
+                        width: '100%',
+                        padding: '10px 12px 10px 36px',
+                        border: '1px solid var(--border-primary)',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px'
                     }}
-                >
-                    <option value="all">All Appliances</option>
-                    {appliances.map(a => (
-                        <option key={a.slug} value={a.slug}>{a.name}</option>
-                    ))}
-                </select>
+                />
+                <Search size={16} style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    opacity: 0.4
+                }} />
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '-8px' }}>
-                Showing {filtered.length} of {sublocations.length} sub-location pages
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '10px', maxHeight: '60vh', overflowY: 'auto', padding: '4px' }}>
-                {filtered.map(s => (
+
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                gap: '10px'
+            }}>
+                {allSlocs.map(sloc => (
                     <PageCard
-                        key={s.pageId}
-                        label={s.label}
-                        subLabel={`/repairs/${s.locSlug}/${s.applianceSlug}`}
-                        color={s.color}
-                        pageUrl={`/repairs/${s.locSlug}/${s.applianceSlug}`}
+                        key={sloc.pageId}
+                        label={`${sloc.applianceName} in ${sloc.locationLabel}`}
+                        subLabel={`/location/${sloc.location}/${sloc.applianceSlug}`}
+                        color={sloc.color}
+                        pageUrl={`/location/${sloc.location}/${sloc.applianceSlug}`}
                         isBuilt={false}
                         onClick={() => onSelectPage({
-                            pageId: s.pageId,
-                            pageLabel: s.label,
-                            pageUrl: `/repairs/${s.locSlug}/${s.applianceSlug}`
+                            pageId: sloc.pageId,
+                            pageLabel: `${sloc.applianceName} in ${sloc.locationLabel} — Sub-Location Page`,
+                            pageUrl: `/location/${sloc.location}/${sloc.applianceSlug}`
                         })}
                     />
                 ))}
-                {filtered.length === 0 && (
+
+                {allSlocs.length === 0 && (
                     <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>
-                        No sub-location pages match your filters
+                        No sub-location pages found matching "{search}"
                     </div>
                 )}
             </div>
         </div>
     );
 }
-
 
 // ── Main WebsiteSettings ─────────────────────────────────────────────────────
 function WebsiteSettings({ subSection, setSubSection }) {
@@ -493,34 +564,17 @@ function WebsiteSettings({ subSection, setSubSection }) {
         fetchData();
     }, []);
 
-    // Sync with parent subSection prop (back navigation from parent)
-    useEffect(() => {
-        if (!subSection) {
-            setNav({ level: 'groups' });
-        }
-    }, [subSection]);
-
     const fetchData = async () => {
         setLoadingData(true);
         try {
-            const [appRes, locRes] = await Promise.all([
-                fetch('/api/settings/appliances'),
-                fetch('/api/settings/locations')
-            ]);
-            const appData = await appRes.json();
-            const locData = await locRes.json();
-
-            if (appData.success) {
-                // Attach sublocations list to each appliance
-                const enriched = (appData.data || []).map(a => ({
-                    ...a,
-                    sublocations: SUBLOCATION_LIST
-                }));
-                setAppliances(enriched);
+            const res = await fetch('/api/settings/appliances');
+            const data = await res.json();
+            if (data.success) {
+                setAppliances(data.data);
+                if (data.locations) setLocations(data.locations.map(l => ({ name: l.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), slug: l })));
             }
-            if (locData.success) setLocations(locData.data || []);
         } catch (err) {
-            console.error('Error fetching website pages data:', err);
+            console.error('Failed to fetch data:', err);
         } finally {
             setLoadingData(false);
         }
@@ -531,16 +585,16 @@ function WebsiteSettings({ subSection, setSubSection }) {
         if (setSubSection) setSubSection(groupId);
     };
 
-    const navigateToPage = (groupId, pageInfo) => {
-        setNav({ level: 'page', group: groupId, ...pageInfo });
+    const navigateToPage = (group, pageInfo) => {
+        setNav({ level: 'page', group, ...pageInfo });
         if (setSubSection) setSubSection(pageInfo.pageLabel);
     };
 
-    const navigateBack = (toLevel) => {
-        if (toLevel === 0) {
+    const navigateBack = (steps = 1) => {
+        if (steps === 2 || nav.level === 'page') {
             setNav({ level: 'groups' });
             if (setSubSection) setSubSection(null);
-        } else if (toLevel === 1) {
+        } else {
             setNav(prev => ({ level: 'list', group: prev.group }));
             if (setSubSection) setSubSection(nav.group);
         }
@@ -636,20 +690,30 @@ function WebsiteSettings({ subSection, setSubSection }) {
                                         borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)',
                                         cursor: 'pointer', transition: 'all 0.2s ease', textAlign: 'left', position: 'relative', overflow: 'hidden'
                                     }}
-                                    onMouseEnter={e => { e.currentTarget.style.borderColor = s.color; e.currentTarget.style.transform = 'translateY(-4px)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-primary)'; e.currentTarget.style.transform = 'none'; }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = s.color;
+                                        e.currentTarget.style.transform = 'translateY(-4px)';
+                                        e.currentTarget.style.boxShadow = `0 8px 24px ${s.color}20`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                    }}
                                 >
-                                    <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', backgroundColor: s.color, opacity: 0.1 }} />
-                                    <div style={{ position: 'relative', zIndex: 1 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                                            <div style={{ padding: '8px', borderRadius: 'var(--radius-md)', backgroundColor: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Icon size={20} style={{ color: s.color }} />
-                                            </div>
-                                            <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{s.label}</h3>
+                                    <div style={{ position: 'absolute', top: '-15px', right: '-15px', width: '80px', height: '80px', borderRadius: '50%', backgroundColor: s.color, opacity: 0.1 }} />
+                                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Icon size={20} style={{ color: s.color }} />
                                         </div>
-                                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>{s.description}</p>
+                                        <div>
+                                            <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, margin: 0 }}>{s.label}</h3>
+                                            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>{s.description}</p>
+                                        </div>
                                     </div>
-                                    <div style={{ position: 'absolute', bottom: '12px', right: '12px', fontSize: '18px', color: s.color, opacity: 0.5 }}>→</div>
+                                    <div style={{ position: 'absolute', bottom: '12px', right: '12px', color: s.color, opacity: 0.5 }}>
+                                        <ChevronRight size={16} />
+                                    </div>
                                 </button>
                             );
                         })}
@@ -671,20 +735,30 @@ function WebsiteSettings({ subSection, setSubSection }) {
                                         borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)',
                                         cursor: 'pointer', transition: 'all 0.2s ease', textAlign: 'left', position: 'relative', overflow: 'hidden'
                                     }}
-                                    onMouseEnter={e => { e.currentTarget.style.borderColor = s.color; e.currentTarget.style.transform = 'translateY(-4px)'; }}
-                                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-primary)'; e.currentTarget.style.transform = 'none'; }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.borderColor = s.color;
+                                        e.currentTarget.style.transform = 'translateY(-4px)';
+                                        e.currentTarget.style.boxShadow = `0 8px 24px ${s.color}20`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                        e.currentTarget.style.boxShadow = 'none';
+                                    }}
                                 >
-                                    <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', backgroundColor: s.color, opacity: 0.1 }} />
-                                    <div style={{ position: 'relative', zIndex: 1 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                                            <div style={{ padding: '8px', borderRadius: 'var(--radius-md)', backgroundColor: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                <Icon size={20} style={{ color: s.color }} />
-                                            </div>
-                                            <h3 style={{ fontSize: '14px', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>{s.label}</h3>
+                                    <div style={{ position: 'absolute', top: '-15px', right: '-15px', width: '80px', height: '80px', borderRadius: '50%', backgroundColor: s.color, opacity: 0.1 }} />
+                                    <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <Icon size={20} style={{ color: s.color }} />
                                         </div>
-                                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>{s.description}</p>
+                                        <div>
+                                            <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, margin: 0 }}>{s.label}</h3>
+                                            <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>{s.description}</p>
+                                        </div>
                                     </div>
-                                    <div style={{ position: 'absolute', bottom: '12px', right: '12px', fontSize: '18px', color: s.color, opacity: 0.5 }}>→</div>
+                                    <div style={{ position: 'absolute', bottom: '12px', right: '12px', color: s.color, opacity: 0.5 }}>
+                                        <ChevronRight size={16} />
+                                    </div>
                                 </button>
                             );
                         })}
@@ -788,22 +862,24 @@ function WebsiteSettings({ subSection, setSubSection }) {
                     crumbs={[{ label: 'Website Settings' }, { label: 'Global Settings' }, { label: nav.pageLabel }]}
                     onNavigate={navigateBack}
                 />
-                {nav.pageId === 'faqs' && <FAQsManagement />}
                 {nav.pageId === 'how-it-works' && <HowItWorksSettings />}
                 {nav.pageId === 'why-choose-us' && <WhyChooseUsSettings />}
-                {nav.pageId === 'brand-logos' && <BrandLogosSettings />}
                 {nav.pageId === 'testimonials' && <CustomerTestimonialsSettings />}
-                {(nav.pageId === 'static-pages' || nav.pageId === 'terms-conditions' || nav.pageId === 'privacy-policy' || nav.pageId === 'accessibility') && <StaticPagesSettings />}
+                {nav.pageId === 'brand-logos' && <BrandLogosSettings />}
+                {nav.pageId === 'static-pages' && <StaticPagesSettings />}
+                {nav.pageId === 'terms-conditions' && <StaticPagesSettings initialTab="Terms & Conditions" />}
+                {nav.pageId === 'privacy-policy' && <StaticPagesSettings initialTab="Privacy Policy" />}
+                {nav.pageId === 'accessibility' && <StaticPagesSettings initialTab="Accessibility Statement" />}
+                {nav.pageId === 'faqs' && <FAQsManagement />}
             </div>
         );
     }
 
-    // ── Google APIs (direct render, no sub-list) ──────────────────────────────
-    if (nav.level === 'list' && nav.group === 'google-apis') {
+    if (nav.group === 'google-apis') {
         return (
             <div style={{ padding: 'var(--spacing-lg)' }}>
                 <Breadcrumb
-                    crumbs={[{ label: 'Website Settings' }, { label: 'Google APIs & Integrations' }]}
+                    crumbs={[{ label: 'Website Settings' }, { label: 'Google APIs' }]}
                     onNavigate={navigateBack}
                 />
                 <GoogleAPIsSettings />
@@ -811,8 +887,7 @@ function WebsiteSettings({ subSection, setSubSection }) {
         );
     }
 
-    // ── Website Analytics (direct render, no sub-list) ─────────────────────────
-    if (nav.level === 'list' && nav.group === 'website-analytics') {
+    if (nav.group === 'website-analytics') {
         return (
             <div style={{ padding: 'var(--spacing-lg)' }}>
                 <Breadcrumb

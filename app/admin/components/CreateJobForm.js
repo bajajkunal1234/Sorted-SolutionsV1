@@ -9,7 +9,7 @@ import {
     accountsAPI,
     customersAPI,
     quickBookingAPI,
-    websiteBrandsAPI,
+    bookingBrandsAPI,
     productsAPI,
     brandsAPI,
     issuesAPI
@@ -36,6 +36,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [allProducts, setAllProducts] = useState([]); // Merged list (Categories + Operational Products)
     const [properties, setProperties] = useState([]); // Fetched when customer is selected
     const [groups, setGroups] = useState([]); // Account groups for NewAccountForm
+    const [bookingAddressHint, setBookingAddressHint] = useState(''); // Visitor's address from booking notes
     const [loadingStates, setLoadingStates] = useState({
         customers: true,
         technicians: true,
@@ -52,6 +53,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         customer: (existingJob?.customer?.id || existingJob?.customer_id) ? { id: existingJob.customer_id || existingJob.customer.id, ...existingJob.customer } : null,
         property: existingJob?.property?.id ? { id: existingJob.property.id, ...existingJob.property } : null,
         product: existingJob?.product?.id ? { id: existingJob.product.id, ...existingJob.product } : null,
+        subcategory: null, // Appliance Type — matched from notes
         brand: (existingJob?.brand && typeof existingJob.brand === 'object' && existingJob.brand.id) ? { id: existingJob.brand.id, ...existingJob.brand } : null,
         issue: (existingJob?.issue && typeof existingJob.issue === 'object' && existingJob.issue.id) ? { id: existingJob.issue.id, ...existingJob.issue } : null,
         warranty: existingJob?.warranty || false,
@@ -75,7 +77,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 const fetchPromises = [
                     { key: 'customers', api: accountsAPI.getAll() },
                     { key: 'technicians', api: techniciansAPI.getAll() },
-                    { key: 'brands', api: websiteBrandsAPI.getAll() },
+                    { key: 'brands', api: bookingBrandsAPI.getAll() },
                     { key: 'websiteSettings', api: quickBookingAPI.getSettings() },
                     { key: 'operationalProducts', api: productsAPI.getAll() }
                 ];
@@ -104,7 +106,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 );
                 setCustomers(customersOnly);
                 setTechnicians(data.technicians || []);
-                setBrands(data.brands || []);
+                // Filter to active booking brands only
+                setBrands((data.brands || []).filter(b => b.is_active !== false));
 
                 // Extract categories and all issues from website settings
                 const categoriesData = (data.websiteSettings?.categories || []).map(cat => ({
@@ -149,15 +152,21 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                 // Auto-match names to IDs for booking requests
                 if (existingJob?.status === 'booking_request') {
-                    console.log('DEBUG: Full existingJob raw data:', existingJob);
-                    console.log('Matching data for booking request:', {
-                        appliance: existingJob.appliance || existingJob.category,
-                        brand: existingJob.brand,
-                        issue: existingJob.issue,
-                        customerCount: customersOnly.length,
-                        categoriesCount: categoriesData.length,
-                        brandsCount: data.brands?.length
-                    });
+                    // Parse the booking notes JSON for richer matching data
+                    let bookingNotes = {};
+                    try {
+                        bookingNotes = typeof existingJob.notes === 'string'
+                            ? JSON.parse(existingJob.notes)
+                            : (existingJob.notes || {});
+                    } catch (e) { /* notes may not be JSON */ }
+
+                    // Show visitor's booking address as a hint
+                    const visitorAddr = bookingNotes.customer?.address;
+                    if (visitorAddr) {
+                        const addrStr = [visitorAddr.line1, visitorAddr.locality, visitorAddr.city, visitorAddr.pincode]
+                            .filter(Boolean).join(', ');
+                        if (addrStr) setBookingAddressHint(addrStr);
+                    }
 
                     setFormData(prev => {
                         const updates = {};
@@ -169,64 +178,70 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 String(c.id) === String(targetCustId) ||
                                 (c.ledger_id && String(c.ledger_id) === String(targetCustId))
                             );
-                            if (match) {
-                                console.log('Matched customer account successfully:', match.name);
-                                updates.customer = match;
-                            }
+                            if (match) updates.customer = match;
                         }
 
                         // Match appliance (category in website settings)
-                        const rawAppliance = existingJob.appliance || existingJob.category || '';
+                        const rawAppliance = existingJob.appliance || existingJob.category || bookingNotes.categoryName || '';
                         const applianceToMatch = (typeof rawAppliance === 'string' ? rawAppliance : rawAppliance?.name || '').toLowerCase().trim();
+                        let matchedCategory = null;
                         if (applianceToMatch && !prev.product?.id) {
-                            const match = categoriesData.find(c => {
+                            matchedCategory = categoriesData.find(c => {
                                 const cName = (c.name || '').toLowerCase().trim();
                                 return cName === applianceToMatch || cName.includes(applianceToMatch) || applianceToMatch.includes(cName);
                             });
-                            if (match) {
-                                console.log('Matched appliance successfully:', match.name);
-                                updates.product = match;
-                                // Clear error if it exists
+                            if (matchedCategory) {
+                                updates.product = matchedCategory;
                                 setErrors(errs => { const e = { ...errs }; delete e.product; return e; });
                             }
                         }
 
-                        // Match Brand from Library (Fuzzy Matching)
-                        const rawBrand = existingJob.brand;
-                        // Handle if brand is a string, an object with name, or an object with title
-                        const brandStr = (typeof rawBrand === 'string' ? rawBrand : (rawBrand?.name || rawBrand?.title || '')).toLowerCase().trim();
-
-                        if (brandStr && !prev.brand?.id) {
-                            console.log('Searching for brand match:', brandStr);
-                            const match = (data.brands || []).find(b => {
-                                const bName = (b.name || '').toLowerCase().trim();
-                                return bName === brandStr || bName.includes(brandStr) || brandStr.includes(bName);
+                        // Match Appliance Type (subcategory) using notes.subcategoryName / existingJob.subcategory
+                        const rawSubcat = existingJob.subcategory || bookingNotes.subcategoryName || '';
+                        const subcatToMatch = (typeof rawSubcat === 'string' ? rawSubcat : rawSubcat?.name || '').toLowerCase().trim();
+                        if (subcatToMatch && !prev.subcategory?.id) {
+                            // Look inside the matched category's subcategories first, then all categories
+                            const searchIn = matchedCategory
+                                ? (matchedCategory.subcategories || [])
+                                : categoriesData.flatMap(c => c.subcategories || []);
+                            const subcatMatch = searchIn.find(s => {
+                                const sName = (s.name || '').toLowerCase().trim();
+                                return sName === subcatToMatch || sName.includes(subcatToMatch) || subcatToMatch.includes(sName);
                             });
-                            if (match) {
-                                console.log('Matched brand successfully:', match.name);
-                                updates.brand = match;
+                            if (subcatMatch) {
+                                updates.subcategory = subcatMatch;
                             }
                         }
 
+                        // Match Brand from Booking Brands (active only)
+                        // Try: existingJob.brand (name string) then notes.brandName
+                        const rawBrand = existingJob.brand;
+                        const brandStr = (typeof rawBrand === 'string' ? rawBrand
+                            : (rawBrand?.name || rawBrand?.title || bookingNotes.brandName || '')).toLowerCase().trim();
+
+                        if (brandStr && !prev.brand?.id) {
+                            const activeBrands = (data.brands || []).filter(b => b.is_active !== false);
+                            const match = activeBrands.find(b => {
+                                const bName = (b.name || '').toLowerCase().trim();
+                                return bName === brandStr || bName.includes(brandStr) || brandStr.includes(bName);
+                            });
+                            if (match) updates.brand = match;
+                        }
+
                         // Match Issue from Website Settings
-                        const rawIssue = (existingJob.issue || '').toLowerCase().trim();
+                        const rawIssue = (existingJob.issue || bookingNotes.issueName || '').toLowerCase().trim();
                         if (rawIssue && !prev.issue?.id) {
-                            console.log('Searching for issue match:', rawIssue);
-                            // Find match anywhere in flattened issues, ignore category mismatch for the initial pre-selection if name matches
                             const match = flattenedIssues.find(i =>
                                 (i.name || '').toLowerCase().trim() === rawIssue ||
                                 (i.title || '').toLowerCase().trim() === rawIssue ||
                                 rawIssue.includes((i.name || '').toLowerCase().trim())
                             );
                             if (match) {
-                                console.log('Matched issue successfully:', match.name, 'for category:', match.categoryId);
                                 updates.issue = match;
-
-                                // FORCE matched category if not already set or mismatched
-                                if (match.categoryId && (!updates.product || updates.product.id !== match.categoryId)) {
+                                // If appliance not yet matched, pick it from the issue's categoryId
+                                if (match.categoryId && !updates.product) {
                                     const catMatch = categoriesData.find(c => c.id === match.categoryId);
                                     if (catMatch) {
-                                        console.log('Adjusting category to match issue:', catMatch.name);
                                         updates.product = catMatch;
                                         setErrors(errs => { const e = { ...errs }; delete e.product; return e; });
                                     }
@@ -236,7 +251,6 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         }
 
                         if (Object.keys(updates).length > 0) {
-                            console.log('Applying booking updates to formData:', Object.keys(updates));
                             return {
                                 ...prev,
                                 ...updates,
@@ -404,14 +418,21 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
     const handleProductChange = (productId) => {
         const selected = allProducts.find(p => String(p.id) === String(productId));
-        setFormData(prev => ({ ...prev, product: selected, issue: null }));
-        // Clear related errors
+        // Reset subcategory and issue when appliance changes
+        setFormData(prev => ({ ...prev, product: selected, subcategory: null, issue: null }));
         setErrors(errs => {
             const e = { ...errs };
             delete e.product;
             delete e.issue;
             return e;
         });
+    };
+
+    const handleSubcategoryChange = (subcategoryId) => {
+        // Find subcategory within the selected appliance
+        const subcats = formData.product?.subcategories || [];
+        const selected = subcats.find(s => String(s.id) === String(subcategoryId));
+        setFormData(prev => ({ ...prev, subcategory: selected || null, issue: null }));
     };
 
     const handleBrandChange = (brandId) => {
@@ -619,6 +640,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                 category: formData.product?.name || 'General',
                 appliance: formData.product?.name,
+                subcategory: formData.subcategory?.name || null,
                 brand: formData.brand?.name,
                 issue: formData.issue?.name,
 
@@ -832,6 +854,19 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     (formData.property.address || '')}
                             </div>
                         )}
+                        {/* Show visitor's booking address as a hint when property not yet matched */}
+                        {!formData.property && bookingAddressHint && (
+                            <div style={{
+                                marginTop: 'var(--spacing-xs)',
+                                fontSize: 'var(--font-size-xs)',
+                                color: 'var(--color-warning, #f59e0b)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}>
+                                📍 Visitor’s address: {bookingAddressHint}
+                            </div>
+                        )}
                     </div>
 
                     <div style={{ height: '1px', backgroundColor: 'var(--border-primary)', margin: 'var(--spacing-md) 0' }} />
@@ -974,6 +1009,25 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             )}
                         </div>
                     </div>
+
+                    {/* 5. Appliance Type (subcategory) — shown when appliance has subcategories */}
+                    {formData.product && (formData.product.subcategories || []).length > 0 && (
+                        <div className="form-group">
+                            <label className="form-label">Appliance Type</label>
+                            <select
+                                className="form-select"
+                                value={formData.subcategory?.id || ''}
+                                onChange={(e) => handleSubcategoryChange(e.target.value)}
+                            >
+                                <option value="">Select type...</option>
+                                {(formData.product.subcategories || []).map(sub => (
+                                    <option key={sub.id} value={sub.id}>
+                                        {sub.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     {/* 6. Issue */}
                     <div className="form-group">
