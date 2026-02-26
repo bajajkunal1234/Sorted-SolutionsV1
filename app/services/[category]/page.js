@@ -27,98 +27,76 @@ export default async function CategoryPage({ params }) {
     // Page ID for this category page
     const pageId = `cat-${category}`
 
-    // ── Fetch dynamic settings from Supabase ──────────────────────────────────
+    // ── Fetch dynamic settings via internal API (avoids Supabase SDK issues in Server Components) ──
     let dynamicSettings = null
-    const supabase = createServerSupabase();
-    if (!supabase) return null;
 
     try {
-        console.log(`[LIVE DEBUG] Category PageID: ${pageId} fetching via SDK(noStore)`);
+        const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+        const res = await fetch(`${baseUrl}/api/settings/page/${pageId}`, { cache: 'no-store' });
+        if (res.ok) {
+            const apiData = await res.json();
+            if (apiData.success && apiData.data) {
+                const d = apiData.data;
+                const r = apiData.related || {};
 
-        const { data: pageSettings, error: pageError } = await supabase
-            .from('page_settings')
-            .select('*')
-            .eq('page_id', pageId)
-            .maybeSingle();
-
-        if (pageError) console.error(`[CategoryPage] page_settings fetch error for ${pageId}:`, pageError.message);
-        console.log(`[CategoryPage] pageId=${pageId} found=${!!pageSettings}`);
-
-        if (pageSettings) {
-            const [
-                { data: problems },
-                { data: services },
-                { data: localities },
-                { data: brandMappings },
-                { data: faqMappings }
-            ] = await Promise.all([
-                supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
-                supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
-                supabase.from('page_faqs_mapping').select('faq_id').eq('page_id', pageId).order('display_order', { ascending: true })
-            ]);
-
-            // Two-step FAQ fetch: IDs → content (avoids relying on FK join)
-            let resolvedFaqs = []
-            if (faqMappings?.length > 0) {
-                const faqIds = faqMappings.map(f => f.faq_id)
-                const { data: faqRows } = await supabase.from('website_faqs').select('id, question, answer').in('id', faqIds)
-                if (faqRows?.length > 0) {
-                    resolvedFaqs = faqIds
-                        .map(id => faqRows.find(f => f.id === id))
-                        .filter(Boolean)
-                        .map(f => ({ question: f.question, answer: f.answer }))
+                let resolvedFaqs = [];
+                if (r.faqIds?.length > 0) {
+                    try {
+                        const faqRes = await fetch(`${baseUrl}/api/settings/faqs/by-ids`, {
+                            method: 'POST', cache: 'no-store',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ids: r.faqIds })
+                        });
+                        if (faqRes.ok) {
+                            const faqData = await faqRes.json();
+                            if (faqData.faqs?.length > 0) {
+                                resolvedFaqs = r.faqIds.map(id => faqData.faqs.find(f => f.id === id)).filter(Boolean).map(f => ({ question: f.question, answer: f.answer }));
+                            }
+                        }
+                    } catch { /* ignore */ }
                 }
-            }
 
-            dynamicSettings = {
-                heroSettings: pageSettings.hero_settings,
-                problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
-                services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
-                localities: (localities || []).map(l => l.locality_name),
-                brandIds: brandMappings?.map(m => m.brand_id) || [],
-                faqs: resolvedFaqs,
-                issuesSettings: pageSettings.issues_settings || null,
+                dynamicSettings = {
+                    heroSettings: d.hero_settings,
+                    problems: (r.problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
+                    services: (r.services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
+                    localities: (r.localities || []).map(l => l.locality_name),
+                    brandIds: r.brandIds || [],
+                    faqs: resolvedFaqs,
+                    issuesSettings: d.issues_settings || null,
+                    subcategories: d.subcategories_settings?.items?.length > 0 ? d.subcategories_settings.items : null,
+                    subcategoriesTitle: d.subcategories_settings?.title,
+                    subcategoriesSubtitle: d.subcategories_settings?.subtitle,
+                    hero_title: d.hero_settings?.title,
+                    hero_subtitle: d.hero_settings?.subtitle,
+                    problems_title: d.problems_settings?.title,
+                    problems_subtitle: d.problems_settings?.subtitle,
+                    services_title: d.services_settings?.title,
+                    services_subtitle: d.services_settings?.subtitle,
+                    localities_title: d.localities_settings?.title,
+                    localities_subtitle: d.localities_settings?.subtitle,
+                    brands_title: d.brands_settings?.title,
+                    brands_subtitle: d.brands_settings?.subtitle,
+                    faqs_title: d.faqs_settings?.title,
+                    faqs_subtitle: d.faqs_settings?.subtitle,
+                    how_it_works_title: d.how_it_works_settings?.title,
+                    how_it_works_subtitle: d.how_it_works_settings?.subtitle,
+                    why_us_title: d.why_us_settings?.title,
+                    why_us_subtitle: d.why_us_settings?.subtitle,
+                    section_order: d.section_order,
+                    sectionVisibility: d.section_visibility || {}
+                };
 
-                // Section Mapping
-                subcategories: pageSettings.subcategories_settings?.items?.length > 0 ? pageSettings.subcategories_settings.items : null,
-                subcategoriesTitle: pageSettings.subcategories_settings?.title,
-                subcategoriesSubtitle: pageSettings.subcategories_settings?.subtitle,
-
-                // Section Title/Subtitle overrides
-                hero_title: pageSettings.hero_settings?.title,
-                hero_subtitle: pageSettings.hero_settings?.subtitle,
-                problems_title: pageSettings.problems_settings?.title,
-                problems_subtitle: pageSettings.problems_settings?.subtitle,
-                services_title: pageSettings.services_settings?.title,
-                services_subtitle: pageSettings.services_settings?.subtitle,
-                localities_title: pageSettings.localities_settings?.title,
-                localities_subtitle: pageSettings.localities_settings?.subtitle,
-                brands_title: pageSettings.brands_settings?.title,
-                brands_subtitle: pageSettings.brands_settings?.subtitle,
-                faqs_title: pageSettings.faqs_settings?.title,
-                faqs_subtitle: pageSettings.faqs_settings?.subtitle,
-                how_it_works_title: pageSettings.how_it_works_settings?.title,
-                how_it_works_subtitle: pageSettings.how_it_works_settings?.subtitle,
-                why_us_title: pageSettings.why_us_settings?.title,
-                why_us_subtitle: pageSettings.why_us_settings?.subtitle,
-                section_order: pageSettings.section_order,
-
-                // Section visibility flags
-                sectionVisibility: pageSettings.section_visibility || {}
-            };
-
-            // Fallback to Global FAQs only if no page-specific FAQs selected
-            if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
-                const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
-                if (globalFaqs?.length > 0) {
-                    dynamicSettings.faqs = globalFaqs.map(f => ({ question: f.question, answer: f.answer }));
+                if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
+                    try {
+                        const gfRes = await fetch(`${baseUrl}/api/settings/faqs/by-ids?limit=5`, { cache: 'no-store' });
+                        if (gfRes.ok) { const gf = await gfRes.json(); if (gf.faqs?.length > 0) dynamicSettings.faqs = gf.faqs.map(f => ({ question: f.question, answer: f.answer })); }
+                    } catch { /* ignore */ }
                 }
             }
         }
     } catch (error) {
-        console.error('Error fetching dynamic settings for category:', error);
+        console.error('[CategoryPage] Error fetching settings:', error.message);
     }
 
     // 2. Fallbacks to hardcoded data

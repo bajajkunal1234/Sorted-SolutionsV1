@@ -81,15 +81,15 @@
 /* ── Individual logo card ── */
 .logo-item {
     flex: 0 0 auto;
-    width: 130px;
-    height: 80px;
+    width: 225px;
+    height: 138px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg-primary);
     border: 1.5px solid var(--border-primary);
     border-radius: var(--radius-lg);
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.25rem;
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     cursor: default;
 }
@@ -144,8 +144,13 @@
 /* We render 3× the logo list. One full copy = 33.333% of total width.
    Translating by -33.333% moves exactly 1 copy, looping seamlessly. */
 @keyframes marquee-scroll {
-    from { transform: translateX(0); }
-    to   { transform: translateX(-33.333%); }
+    from {
+        transform: translateX(0);
+    }
+
+    to {
+        transform: translateX(-33.333%);
+    }
 }
 
 /* ── Responsive ── */
@@ -159,8 +164,8 @@
     }
 
     .logo-item {
-        width: 100px;
-        height: 64px;
+        width: 160px;
+        height: 112px;
     }
 
     .logos-marquee-fade {
