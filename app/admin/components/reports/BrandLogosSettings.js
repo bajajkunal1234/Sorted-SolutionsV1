@@ -120,11 +120,22 @@ function BrandLogosSettings() {
         try {
             const res = await fetch(`/api/settings/brand-logos?id=${id}`, { method: 'DELETE' });
             const data = await res.json();
-            if (!data.success) throw new Error(data.error || 'Failed to delete');
+            if (!data.success) {
+                // Specific error formatting for clarity
+                const errMsg = data.error || 'Failed to delete';
+                const details = data.details ? `\n\nDetails: ${data.details}` : '';
+                throw new Error(`${errMsg}${details}`);
+            }
             setBrands(brands.filter(b => b.id !== id));
             showToast('Brand deleted.');
         } catch (err) {
-            showToast(err.message, 'error');
+            console.error('[UI-DELETE] Error:', err);
+            // Show alert for critical constraint errors or toast for others
+            if (err.message.includes('in use') || err.message.includes('constraint')) {
+                alert(`DELETE FAILED\n\n${err.message}`);
+            } else {
+                showToast(err.message, 'error');
+            }
         }
     };
 

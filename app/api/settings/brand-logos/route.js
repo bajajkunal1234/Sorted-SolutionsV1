@@ -86,10 +86,21 @@ export async function DELETE(request) {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('[API-DELETE] Brand deletion failed:', error);
+            // If it's a constraint error, provide a clearer message
+            if (error.code === '23503') {
+                return NextResponse.json({
+                    success: false,
+                    error: 'Cannot delete: This brand is still in use on some pages. Please remove it from all pages first or ensure cascading is enabled.',
+                    details: error.message
+                }, { status: 409 });
+            }
+            throw error;
+        }
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error deleting brand:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: error.message || 'Unknown error occurred during deletion' }, { status: 500 });
     }
 }

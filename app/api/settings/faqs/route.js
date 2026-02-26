@@ -76,10 +76,20 @@ export async function DELETE(request) {
             .delete()
             .eq('id', id);
 
-        if (error) throw error;
+        if (error) {
+            console.error('[API-DELETE] FAQ deletion failed:', error);
+            if (error.code === '23503') {
+                return NextResponse.json({
+                    success: false,
+                    error: 'Cannot delete: This FAQ is still in use on some pages. Please remove it from all pages first or ensure cascading is enabled.',
+                    details: error.message
+                }, { status: 409 });
+            }
+            throw error;
+        }
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error deleting FAQ:', error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: error.message || 'Unknown error occurred during FAQ deletion' }, { status: 500 });
     }
 }

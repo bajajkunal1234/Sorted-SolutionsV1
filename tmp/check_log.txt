@@ -1,0 +1,18 @@
+Checking local API endpoint: /api/settings/brand-logos...
+Status: 200
+SUCCESS: API responding.
+{
+  "success": true,
+  "data": [
+    {
+      "id": "b16a04a3-e0eb-4458-8272-06344a5b51e8",
+      "name": "sdrfgdfgh",
+      "logo_url": "https://oqwvbwaqcdbggcqvzswv.supabase.co/storage/v1/object/public/website-assets/brands/1771793292143-w44ezuc5lb.webp",
+      "website_url": null,
+      "display_order": 1,
+      "is_active": true,
+      "created_at": "2026-02-22T20:37:07.143677+00:00",
+      "updated_at": "2026-02-22T20:48:13.371+00:00"
+    }
+  ]
+}

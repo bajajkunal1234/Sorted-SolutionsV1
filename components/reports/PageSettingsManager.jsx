@@ -489,6 +489,26 @@ function SectionVisibilityBanner({ sectionKey, visible, onToggle }) {
     );
 }
 
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const getPageUrl = (pageId) => {
+    if (!pageId) return '/';
+    const KNOWN_LOCS = [
+        'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
+        'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim',
+        'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla'
+    ];
+    if (pageId.startsWith('cat-')) return `/services/${pageId.replace('cat-', '')}`;
+    if (pageId.startsWith('sub-')) return `/services/${pageId.replace('sub-', '')}`;
+    if (pageId.startsWith('loc-')) return `/location/${pageId.replace('loc-', '')}`;
+    if (pageId.startsWith('sloc-')) {
+        const rest = pageId.replace('sloc-', '');
+        const loc = KNOWN_LOCS.find(l => rest.startsWith(l + '-'));
+        if (loc) return `/location/${loc}/${rest.replace(loc + '-', '')}`;
+        return `/location/${rest}`;
+    }
+    return `/${pageId}`;
+};
+
 // â”€â”€ Main PageSettingsManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     const [activeTab, setActiveTab] = useState('hero');
@@ -907,33 +927,41 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                 <AlertCircle size={10} inline /> Changing this will rename the page URL
                             </p>
                         </div>
-                        {pageUrl && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>
-                                    URL: <span style={{ fontFamily: 'monospace' }}>{pageUrl}</span>
-                                </p>
-                                <a
-                                    href={pageUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        fontSize: '11px',
-                                        color: 'white',
-                                        backgroundColor: 'var(--color-primary)',
-                                        padding: '2px 8px',
-                                        borderRadius: '99px',
-                                        textDecoration: 'none',
-                                        fontWeight: 700
-                                    }}
-                                >
-                                    <ExternalLink size={12} />
-                                    View Live Page
-                                </a>
-                            </div>
-                        )}
+                        {(() => {
+                            const effectiveUrl = pageUrl || (settings.page_id ? getPageUrl(settings.page_id) : null);
+                            if (!effectiveUrl) return null;
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 600, margin: 0 }}>
+                                        URL: <span style={{ fontFamily: 'monospace', fontWeight: 400, opacity: 0.8 }}>{effectiveUrl}</span>
+                                    </p>
+                                    <a
+                                        href={effectiveUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '6px',
+                                            fontSize: '11px',
+                                            color: 'white',
+                                            backgroundColor: 'var(--color-primary)',
+                                            padding: '4px 12px',
+                                            borderRadius: '99px',
+                                            textDecoration: 'none',
+                                            fontWeight: 700,
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                            transition: 'transform 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                                    >
+                                        <ExternalLink size={12} />
+                                        View Live Page
+                                    </a>
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
                 <button

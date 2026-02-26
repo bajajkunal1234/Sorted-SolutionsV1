@@ -710,3 +710,6 @@
 [2026-02-26T16:46:02.054Z] [API-PUT] Executing Raw SQL sync for sloc-andheri-water-purifier-repairs...
 [2026-02-26T16:46:02.347Z] [API-PUT] Raw SQL Sync SUCCESS for sloc-andheri-water-purifier-repairs
 [2026-02-26T16:46:02.348Z] [API-PUT] END: Successfully saved all data for sloc-andheri-water-purifier-repairs
+[2026-02-26T17:25:44.995Z] [API-PUT] START: sloc-ghatkopar-ac-repair
+[2026-02-26T17:25:44.998Z] [API-PUT] START for sloc-ghatkopar-ac-repair. Items: problems=0, services=0, localities=0
+[2026-02-26T17:26:06.028Z] [API-PUT] Main Upsert FAILURE for sloc-ghatkopar-ac-repairs: Error: connect ETIMEDOUT 104.18.38.10:443
