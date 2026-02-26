@@ -340,7 +340,7 @@ export default function PageBuilderTool({ onEditPage }) {
                         </button>
                         <a href={pageUrl} target="_blank" rel="noopener noreferrer" title="View live page"
                             style={{ ...actionBtnStyle, textDecoration: 'none', color: 'inherit' }}>
-                            <Eye size={13} />
+                            <ExternalLink size={13} /> View Live
                         </a>
                         <button
                             onClick={() => handleDeletePage(page.page_id)}
