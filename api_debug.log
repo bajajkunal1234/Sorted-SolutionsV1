@@ -720,3 +720,31 @@
 [2026-02-26T19:03:28.945Z] [API-PUT] Executing Raw SQL sync for sub-hob-repair--services-hob-repair-2br...
 [2026-02-26T19:03:29.133Z] [API-PUT] Raw SQL Sync SUCCESS for sub-hob-repair--services-hob-repair-2br
 [2026-02-26T19:03:29.134Z] [API-PUT] END: Successfully saved all data for sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:12:23.016Z] [API-PUT] START: sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:12:23.027Z] [API-PUT] START for sub-hob-repair--services-hob-repair-2br. Items: problems=0, services=0, localities=0
+[2026-02-26T19:12:23.431Z] [API-PUT] Main Upsert SUCCESS for sub-hob-repair--services-hob-repair-2br.
+[2026-02-26T19:12:23.432Z] [API-PUT] Constructing Raw SQL sync for sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:12:23.432Z] [API-PUT] Executing Raw SQL sync for sub-hob-repair--services-hob-repair-2br...
+[2026-02-26T19:12:23.610Z] [API-PUT] Raw SQL Sync SUCCESS for sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:12:23.611Z] [API-PUT] END: Successfully saved all data for sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:26:05.560Z] [API-PUT] START: sub-hob-repair--services-hob-repair-2br
+[2026-02-26T19:26:05.566Z] [API-PUT] START for sub-hob-repair--services-hob-repair-2br. Items: problems=0, services=0, localities=0
+[2026-02-26T19:26:05.785Z] [API-PUT] Main Upsert SUCCESS for sub-hob-repair-2br-hob.
+[2026-02-26T19:26:05.786Z] [API-PUT] Constructing Raw SQL sync for sub-hob-repair-2br-hob
+[2026-02-26T19:26:05.787Z] [API-PUT] Executing Raw SQL sync for sub-hob-repair-2br-hob...
+[2026-02-26T19:26:05.974Z] [API-PUT] Raw SQL Sync SUCCESS for sub-hob-repair-2br-hob
+[2026-02-26T19:26:05.976Z] [API-PUT] END: Successfully saved all data for sub-hob-repair-2br-hob
+[2026-02-26T19:40:50.705Z] [API-PUT] START: sub-hob-repair-2br-hob
+[2026-02-26T19:40:50.708Z] [API-PUT] START for sub-hob-repair-2br-hob. Items: problems=0, services=0, localities=0
+[2026-02-26T19:40:50.872Z] [API-PUT] Main Upsert SUCCESS for sub-hob-repair-2br-hob.
+[2026-02-26T19:40:50.873Z] [API-PUT] Constructing Raw SQL sync for sub-hob-repair-2br-hob
+[2026-02-26T19:40:50.874Z] [API-PUT] Executing Raw SQL sync for sub-hob-repair-2br-hob...
+[2026-02-26T19:40:51.026Z] [API-PUT] Raw SQL Sync SUCCESS for sub-hob-repair-2br-hob
+[2026-02-26T19:40:51.027Z] [API-PUT] END: Successfully saved all data for sub-hob-repair-2br-hob
+[2026-02-26T19:41:23.369Z] [API-PUT] START: sub-hob-repair-2br-hob
+[2026-02-26T19:41:23.370Z] [API-PUT] START for sub-hob-repair-2br-hob. Items: problems=0, services=0, localities=0
+[2026-02-26T19:41:23.550Z] [API-PUT] Main Upsert SUCCESS for sub-hob-repair-2br-hob.
+[2026-02-26T19:41:23.551Z] [API-PUT] Constructing Raw SQL sync for sub-hob-repair-2br-hob
+[2026-02-26T19:41:23.563Z] [API-PUT] Executing Raw SQL sync for sub-hob-repair-2br-hob...
+[2026-02-26T19:41:23.694Z] [API-PUT] Raw SQL Sync SUCCESS for sub-hob-repair-2br-hob
+[2026-02-26T19:41:23.695Z] [API-PUT] END: Successfully saved all data for sub-hob-repair-2br-hob

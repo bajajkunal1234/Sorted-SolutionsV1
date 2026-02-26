@@ -55,17 +55,27 @@ export default async function SubLocationPage({ params }) {
                 { data: services },
                 { data: localities },
                 { data: brandsMapping },
-                { data: faqsMapping }
+                { data: faqMappings }
             ] = await Promise.all([
                 supabase.from('page_problems').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
                 supabase.from('page_services').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
                 supabase.from('page_localities').select('*').eq('page_id', pageId).order('display_order', { ascending: true }),
                 supabase.from('page_brands_mapping').select('brand_id').eq('page_id', pageId),
-                supabase.from('page_faqs_mapping')
-                    .select('faq_id, website_faqs(question, answer)')
-                    .eq('page_id', pageId)
-                    .order('display_order', { ascending: true })
+                supabase.from('page_faqs_mapping').select('faq_id').eq('page_id', pageId).order('display_order', { ascending: true })
             ]);
+
+            // Two-step FAQ fetch: IDs → content (avoids relying on FK join)
+            let resolvedFaqs = []
+            if (faqMappings?.length > 0) {
+                const faqIds = faqMappings.map(f => f.faq_id)
+                const { data: faqRows } = await supabase.from('website_faqs').select('id, question, answer').in('id', faqIds)
+                if (faqRows?.length > 0) {
+                    resolvedFaqs = faqIds
+                        .map(id => faqRows.find(f => f.id === id))
+                        .filter(Boolean)
+                        .map(f => ({ question: f.question, answer: f.answer }))
+                }
+            }
 
             dynamicSettings = {
                 heroSettings: pageSettings.hero_settings || null,
@@ -74,13 +84,11 @@ export default async function SubLocationPage({ params }) {
                 problems: (problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
                 localities: (localities || []).map(l => l.locality_name),
                 services: (services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
-                faqs: (faqsMapping || [])
-                    .filter(f => f.website_faqs)
-                    .map(f => ({ question: f.website_faqs.question, answer: f.website_faqs.answer })),
+                faqs: resolvedFaqs,
                 brandIds: brandsMapping?.map(m => m.brand_id) || [],
                 sectionVisibility: pageSettings.section_visibility || {},
 
-                // Title/Subtitle Overrides (CRITICAL for matching sv flags)
+                // Title/Subtitle Overrides
                 hero_title: pageSettings.hero_settings?.title,
                 hero_subtitle: pageSettings.hero_settings?.subtitle,
                 problems_title: pageSettings.problems_settings?.title,
@@ -103,7 +111,7 @@ export default async function SubLocationPage({ params }) {
                 section_order: pageSettings.section_order
             }
 
-            // Fallback to Global FAQs if none selected
+            // Fallback to Global FAQs only if no page-specific FAQs selected
             if (!dynamicSettings.faqs || dynamicSettings.faqs.length === 0) {
                 const { data: globalFaqs } = await supabase.from('website_faqs').select('*').order('display_order', { ascending: true }).limit(5);
                 if (globalFaqs?.length > 0) {
