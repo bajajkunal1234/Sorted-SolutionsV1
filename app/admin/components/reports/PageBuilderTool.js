@@ -103,7 +103,7 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
         if (newPageType === 'sublocation') {
             const loc = newPageParentLoc;
             const cat = newPageParentCat.replace(/^cat-/, '');
-            return s && loc && cat ? `sloc-${loc}-${cat}` : '';
+            return s && loc && cat ? `sloc-${loc}-${cat}-${s}` : '';
         }
         return '';
     };
@@ -115,7 +115,7 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
         if (newPageType === 'category') return s ? `/services/${s}` : '';
         if (newPageType === 'subcategory') return s && cat ? `/services/${cat}/${s}` : '';
         if (newPageType === 'location') return s ? `/location/${s}` : '';
-        if (newPageType === 'sublocation') return loc && cat ? `/location/${loc}/${cat}` : '';
+        if (newPageType === 'sublocation') return s && loc ? `/location/${loc}/${s}` : '';
         return '';
     };
 
@@ -134,15 +134,14 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                     page_id,
                     page_type: newPageType,
                     hero_title: newPageName.trim() || undefined,
-                    page_url
                 })
             });
             const data = await res.json();
             if (data.success) {
-                setCreateSuccess(`✅ Page "${page_id}" created successfully!`);
+                setCreateSuccess(`✅ Page "${page_id}" created! Opening editor...`);
                 await fetchActivePages();
                 if (onPageCreated) onPageCreated(page_id, newPageType);
-                // Reset form after 1.5s
+                // Auto-jump to Edit Sections immediately
                 setTimeout(() => {
                     setShowCreateModal(false);
                     setCreateSuccess('');
@@ -150,7 +149,14 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                     setNewPageSlug('');
                     setNewPageParentCat('');
                     setNewPageParentLoc('');
-                }, 1500);
+                    if (onEditPage) {
+                        onEditPage({
+                            page_id,
+                            page_type: newPageType,
+                            hero_settings: { title: newPageName.trim() || page_id },
+                        });
+                    }
+                }, 800);
             } else {
                 setCreateError(data.error || 'Failed to create page.');
             }
@@ -941,15 +947,15 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                             </div>
                         )}
 
-                        {/* URL Slug (not needed for sublocation - it uses cat+loc) */}
-                        {newPageType !== 'sublocation' && (
+                        {/* URL Slug — required for all page types */}
+                        {(
                             <div style={{ marginBottom: '14px' }}>
                                 <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', display: 'block', marginBottom: '6px' }}>URL Slug *</label>
                                 <input
                                     type="text"
                                     value={newPageSlug}
                                     onChange={e => setNewPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-'))}
-                                    placeholder={newPageType === 'category' ? 'e.g. tv-repair' : newPageType === 'subcategory' ? 'e.g. window-ac' : 'e.g. thane'}
+                                    placeholder={newPageType === 'category' ? 'e.g. tv-repair' : newPageType === 'subcategory' ? 'e.g. window-ac' : newPageType === 'location' ? 'e.g. thane' : 'e.g. ac-repair'}
                                     style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', fontFamily: 'monospace', boxSizing: 'border-box' }}
                                 />
                             </div>

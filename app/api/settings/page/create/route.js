@@ -63,6 +63,11 @@ export async function POST(req) {
     // Create the new page with minimal default structure
     const defaultTitle = hero_title || page_id.replace(/^(cat|sub|loc|sloc)-/, '').split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
+    // 'issues' section only exists on subcategory pages
+    const sectionOrder = page_type === 'subcategory'
+        ? ['hero', 'booking', 'issues', 'subcategories', 'problems', 'how_it_works', 'why_us', 'brands', 'localities', 'services', 'other_locations', 'faqs']
+        : ['hero', 'booking', 'subcategories', 'problems', 'how_it_works', 'why_us', 'brands', 'localities', 'services', 'other_locations', 'faqs'];
+
     const { error: insertError } = await supabase.from('page_settings').insert({
         page_id,
         page_type,
@@ -70,18 +75,31 @@ export async function POST(req) {
             title: defaultTitle,
             subtitle: '',
         },
-        page_url: page_url || null,
         section_visibility: {
             hero: true,
             booking: true,
+            issues: true,
+            subcategories: true,
             problems: true,
             services: true,
             brands: true,
             faqs: true,
             how_it_works: true,
             why_us: true,
+            localities: true,
+            other_locations: true,
         },
-        section_order: ['hero', 'booking', 'problems', 'services', 'brands', 'faqs', 'how_it_works', 'why_us'],
+        section_order: sectionOrder,
+        // Seed empty JSONB sections so all editors appear in Admin immediately
+        problems_settings: { title: '', subtitle: '', items: [] },
+        localities_settings: { title: '', subtitle: '', items: [] },
+        brands_settings: { title: '', subtitle: '', items: [] },
+        faqs_settings: { title: '', subtitle: '', items: [] },
+        services_settings: { title: '', subtitle: '', items: [] },
+        subcategories_settings: { title: '', subtitle: '', items: [] },
+        other_locations_settings: { title: '', subtitle: '', items: [] },
+        how_it_works_settings: { title: '', subtitle: '' },
+        why_us_settings: { title: '', subtitle: '' },
         updated_at: new Date().toISOString(),
     });
 
