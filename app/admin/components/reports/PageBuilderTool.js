@@ -506,6 +506,7 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                 .animate-spin { animation: spin 1s linear infinite; }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 .list-row:hover { background-color: var(--bg-elevated); }
+                .modal-input { color: var(--text-primary) !important; }
             `}</style>
 
             {/* ── Create New Page Modal ── */}
@@ -561,7 +562,7 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                                 value={newPageName}
                                 onChange={e => setNewPageName(e.target.value)}
                                 placeholder={`e.g. ${newPageType === 'category' ? 'TV Repair Services' : newPageType === 'subcategory' ? 'Window AC Repair' : newPageType === 'location' ? 'Thane Repairs' : 'AC Repair in Thane'}`}
-                                style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', boxSizing: 'border-box' }}
+                                style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', boxSizing: 'border-box', color: 'var(--text-primary)' }}
                             />
                         </div>
 
@@ -572,7 +573,7 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                                 <select
                                     value={newPageParentCat}
                                     onChange={e => setNewPageParentCat(e.target.value)}
-                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px' }}
+                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', color: 'var(--text-primary)' }}
                                 >
                                     <option value="">— Select parent category —</option>
                                     {activePages
@@ -597,7 +598,7 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                                 <select
                                     value={newPageParentLoc}
                                     onChange={e => setNewPageParentLoc(e.target.value)}
-                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px' }}
+                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', color: 'var(--text-primary)' }}
                                 >
                                     <option value="">— Select parent location —</option>
                                     {KNOWN_LOCS_CREATE.map(loc => {
@@ -626,7 +627,7 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
                                     value={newPageSlug}
                                     onChange={e => setNewPageSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/--+/g, '-'))}
                                     placeholder={newPageType === 'category' ? 'e.g. tv-repair' : newPageType === 'subcategory' ? 'e.g. window-ac' : newPageType === 'location' ? 'e.g. thane' : 'e.g. ac-repair'}
-                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', fontFamily: 'monospace', boxSizing: 'border-box' }}
+                                    style={{ width: '100%', padding: '9px 12px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontSize: '14px', fontFamily: 'monospace', boxSizing: 'border-box', color: 'var(--text-primary)' }}
                                 />
                             </div>
                         )}

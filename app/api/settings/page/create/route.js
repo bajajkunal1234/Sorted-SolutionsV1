@@ -98,8 +98,6 @@ export async function POST(req) {
         services_settings: { title: '', subtitle: '', items: [] },
         subcategories_settings: { title: '', subtitle: '', items: [] },
         other_locations_settings: { title: '', subtitle: '', items: [] },
-        how_it_works_settings: { title: '', subtitle: '' },
-        why_us_settings: { title: '', subtitle: '' },
         updated_at: new Date().toISOString(),
     });
 
