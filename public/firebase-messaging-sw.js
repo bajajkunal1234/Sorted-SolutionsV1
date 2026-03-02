@@ -11,16 +11,14 @@ importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js'
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
 // ─── Firebase Config ────────────────────────────────────────────────────────
-// These values are injected at build time via next.config.js or hardcoded here
-// because service workers cannot access Next.js env vars at runtime.
-// Replace the placeholders after adding keys to .env
+// Service workers cannot read Next.js env vars, so these are hardcoded.
 const firebaseConfig = {
-    apiKey: self.FIREBASE_API_KEY || 'YOUR_FIREBASE_API_KEY',
-    authDomain: self.FIREBASE_AUTH_DOMAIN || 'YOUR_FIREBASE_AUTH_DOMAIN',
-    projectId: self.FIREBASE_PROJECT_ID || 'YOUR_FIREBASE_PROJECT_ID',
-    storageBucket: self.FIREBASE_STORAGE_BUCKET || 'YOUR_FIREBASE_STORAGE_BUCKET',
-    messagingSenderId: self.FIREBASE_MESSAGING_SENDER_ID || 'YOUR_FIREBASE_MESSAGING_SENDER_ID',
-    appId: self.FIREBASE_APP_ID || 'YOUR_FIREBASE_APP_ID',
+    apiKey: "AIzaSyCAPc5BIURGrPKig40qgRyaqi9eX8euXRA",
+    authDomain: "sorted-cx-otp.firebaseapp.com",
+    projectId: "sorted-cx-otp",
+    storageBucket: "sorted-cx-otp.firebasestorage.app",
+    messagingSenderId: "540860466737",
+    appId: "1:540860466737:web:e5a2d028c9bd3f0e873710",
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
