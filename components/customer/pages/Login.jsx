@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { LogIn, Mail, Lock, Zap } from 'lucide-react'
+import { requestNotificationPermission, saveFCMTokenToServer } from '@/lib/firebase-client'
 
 // ── Demo accounts for quick dev access ─────────────────────────────────────
 const DEMO_ACCOUNTS = [
@@ -11,6 +12,16 @@ const DEMO_ACCOUNTS = [
     { role: 'admin', label: 'Admin', emoji: '⚙️', color: '#f59e0b', route: '/admin', id: 'demo-admin-001', name: 'Demo Admin', phone: '7777777777' },
 ]
 
+// Helper: ask for push permission and save token for a logged-in user
+async function registerPushToken(userId, userType) {
+    try {
+        const token = await requestNotificationPermission();
+        if (token) await saveFCMTokenToServer(token, userType, userId);
+    } catch (e) {
+        console.warn('[FCM] Could not register push token:', e.message);
+    }
+}
+
 function demoLogin(account) {
     const session = { id: account.id, name: account.name, phone: account.phone, role: account.role, token: 'demo-token' }
     localStorage.setItem('user_session', JSON.stringify(session))
@@ -18,6 +29,9 @@ function demoLogin(account) {
     localStorage.setItem('customerId', account.id)
     if (account.role === 'admin') localStorage.setItem('isAdmin', 'true')
     else localStorage.removeItem('isAdmin')
+    // Register push token for customer or technician demo logins
+    if (account.role === 'customer') registerPushToken(account.id, 'customer');
+    if (account.role === 'technician') registerPushToken(account.id, 'technician');
     window.location.href = account.route
 }
 
@@ -52,6 +66,16 @@ function Login() {
             } else {
                 const { error } = await supabase.auth.signInWithPassword({ email, password })
                 if (error) throw error
+                // Get Supabase user to find their customer record
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    const { data: customer } = await supabase
+                        .from('customers')
+                        .select('id')
+                        .eq('user_id', user.id)
+                        .single()
+                    if (customer) registerPushToken(customer.id, 'customer');
+                }
             }
         } catch (error) {
             setError(error.message)
