@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { X, MapPin } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { X, MapPin, CheckCircle, AlertCircle } from 'lucide-react'
 
 const S = {
     overlay: {
@@ -55,11 +55,36 @@ function AddPropertyModal({ isOpen, onClose, onAdd }) {
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+    const [serviceablePincodes, setServiceablePincodes] = useState([]) // [] means not loaded
+    const [pincodeStatus, setPincodeStatus] = useState(null) // null | 'valid' | 'invalid'
+
+    useEffect(() => {
+        if (!isOpen) return
+        fetch('/api/settings/quick-booking')
+            .then(r => r.json())
+            .then(d => {
+                const raw = d.data?.serviceable_pincodes || d.data?.settings?.serviceable_pincodes || ''
+                const pincodes = typeof raw === 'string'
+                    ? raw.split(',').map(p => p.trim()).filter(Boolean)
+                    : Array.isArray(raw) ? raw.map(String) : []
+                setServiceablePincodes(pincodes)
+            })
+            .catch(() => { })
+    }, [isOpen])
+
+    const validatePincode = (pin) => {
+        if (!pin || pin.length < 6) { setPincodeStatus(null); return }
+        if (serviceablePincodes.length === 0) { setPincodeStatus(null); return } // no restriction if not set
+        setPincodeStatus(serviceablePincodes.includes(pin) ? 'valid' : 'invalid')
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
         setError('')
-        setLoading(true)
+        if (pincodeStatus === 'invalid') {
+            setError('We do not currently service this pincode. Please enter a pincode in our service area.')
+            return
+        }
         try {
             const customerId = localStorage.getItem('customerId')
             if (!customerId) throw new Error('Please log in first')
@@ -147,8 +172,32 @@ function AddPropertyModal({ isOpen, onClose, onAdd }) {
                         </div>
                         <div>
                             <label style={S.label}>Pincode *</label>
-                            <input style={S.input} value={formData.pincode} onChange={update('pincode')}
-                                placeholder="400001" required maxLength={6} />
+                            <input style={{
+                                ...S.input,
+                                borderColor: pincodeStatus === 'valid' ? 'rgba(16,185,129,0.5)'
+                                    : pincodeStatus === 'invalid' ? 'rgba(239,68,68,0.5)'
+                                        : 'rgba(255,255,255,0.1)'
+                            }}
+                                value={formData.pincode}
+                                onChange={e => {
+                                    update('pincode')(e)
+                                    validatePincode(e.target.value)
+                                }}
+                                placeholder="400001" required maxLength={6} inputMode="numeric" />
+                            {pincodeStatus === 'valid' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 11, color: '#10b981' }}>
+                                    <CheckCircle size={11} /> Serviceable area
+                                </div>
+                            )}
+                            {pincodeStatus === 'invalid' && (
+                                <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>
+                                    <AlertCircle size={11} style={{ display: 'inline', marginRight: 4 }} />
+                                    Not in our current service area
+                                    {serviceablePincodes.length > 0 && (
+                                        <div style={{ color: '#64748b', marginTop: 2 }}>Serviceable pincodes: {serviceablePincodes.join(', ')}</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </div>
 
