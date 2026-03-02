@@ -212,7 +212,6 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
         return (rawType && map[rawType]) ? map[rawType] : (rawType || 'unknown');
     };
 
-    const selectedApp = appliances.find(a => a.id === selectedCategoryId);
 
     const filteredPages = activePages.filter(page => {
         const title = page.hero_settings?.title || page.page_id;
