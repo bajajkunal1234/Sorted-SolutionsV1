@@ -5,7 +5,7 @@ import {
     Bell, MessageSquare, Smartphone, Users, Zap, Clock,
     Plus, Trash2, Edit2, Check, X, Loader2, Save,
     CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp,
-    Send, Star, Eye, EyeOff, RefreshCw, Toggle
+    Send, Star, Eye, EyeOff, RefreshCw, Toggle, PenLine
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -627,6 +627,202 @@ function LogsTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Compose Tab — manual send
+// ─────────────────────────────────────────────────────────────────────────────
+function ComposeTab() {
+    const [templates, setTemplates] = useState([]);
+    const [channel, setChannel] = useState('push');
+    const [audienceType, setAudienceType] = useState('all_customers');
+    const [title, setTitle] = useState('');
+    const [message, setMessage] = useState('');
+    const [selectedTemplateId, setSelectedTemplateId] = useState('');
+    const [sending, setSending] = useState(false);
+    const [results, setResults] = useState(null); // null = not sent yet
+
+    // Load templates for preview population
+    useEffect(() => {
+        fetch('/api/notifications/templates').then(r => r.json()).then(d => {
+            if (d.success) setTemplates(d.data);
+        });
+    }, []);
+
+    const channelTemplates = templates.filter(t => t.channel === channel);
+
+    const loadTemplate = (id) => {
+        setSelectedTemplateId(id);
+        const tmpl = templates.find(t => t.id === id);
+        if (tmpl) {
+            setTitle(tmpl.name);
+            setMessage(tmpl.content);
+        }
+    };
+
+    const handleSend = async () => {
+        if (!message.trim()) return;
+        setSending(true);
+        setResults(null);
+        try {
+            const res = await fetch('/api/notifications/compose', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    channel,
+                    audience_type: audienceType,
+                    title: title || 'Sorted Solutions',
+                    message,
+                }),
+            });
+            const data = await res.json();
+            setResults(data);
+        } catch (e) {
+            setResults({ success: false, error: e.message });
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const AUDIENCE_OPTIONS = [
+        { id: 'all_customers', label: '👥 All Customers', description: 'Every registered customer with a push token' },
+        { id: 'all_technicians', label: '🔧 All Technicians', description: 'Every active technician' },
+    ];
+
+    return (
+        <div style={{ maxWidth: '680px' }}>
+            <div style={{ padding: '12px 16px', backgroundColor: '#f59e0b10', borderRadius: 'var(--radius-md)', border: '1px solid #f59e0b30', marginBottom: '20px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-secondary)' }}>
+                    Send a one-off notification right now — not tied to any trigger. Use <code style={{ backgroundColor: 'var(--bg-secondary)', padding: '1px 4px', borderRadius: '3px' }}>{'{name}'}</code> to personalise per recipient.
+                </p>
+            </div>
+
+            <SectionCard title="Compose Message">
+                <div style={{ display: 'grid', gap: '16px' }}>
+
+                    {/* Channel */}
+                    <div>
+                        <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px', fontSize: '13px' }}>Channel</label>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            {CHANNELS.map(ch => {
+                                const Icon = ch.icon;
+                                const active = channel === ch.id;
+                                return (
+                                    <button key={ch.id} onClick={() => { setChannel(ch.id); setSelectedTemplateId(''); }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 18px',
+                                            borderRadius: 'var(--radius-md)', border: `2px solid ${active ? ch.color : 'var(--border-primary)'}`,
+                                            backgroundColor: active ? `${ch.color}12` : 'var(--bg-secondary)',
+                                            color: active ? ch.color : 'var(--text-secondary)', cursor: 'pointer', fontWeight: 700, fontSize: '13px',
+                                            transition: 'all 0.2s'
+                                        }}>
+                                        <Icon size={16} /> {ch.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Audience */}
+                    <div>
+                        <label style={{ display: 'block', fontWeight: 600, marginBottom: '8px', fontSize: '13px' }}>Send To</label>
+                        <div style={{ display: 'grid', gap: '8px' }}>
+                            {AUDIENCE_OPTIONS.map(opt => (
+                                <label key={opt.id} style={{
+                                    display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px',
+                                    border: `2px solid ${audienceType === opt.id ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                    borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                                    backgroundColor: audienceType === opt.id ? 'var(--color-primary-subtle, #6366f110)' : 'var(--bg-secondary)',
+                                    transition: 'all 0.2s'
+                                }}>
+                                    <input type="radio" name="audienceType" value={opt.id} checked={audienceType === opt.id}
+                                        onChange={() => setAudienceType(opt.id)} style={{ accentColor: 'var(--color-primary)' }} />
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: '13px' }}>{opt.label}</div>
+                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{opt.description}</div>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Load from template */}
+                    {channelTemplates.length > 0 && (
+                        <div>
+                            <label style={{ display: 'block', fontWeight: 600, marginBottom: '6px', fontSize: '13px' }}>Load from Template <span style={{ fontWeight: 400, color: 'var(--text-secondary)' }}>(optional)</span></label>
+                            <select className="form-control" value={selectedTemplateId} onChange={e => loadTemplate(e.target.value)}>
+                                <option value="">— start fresh —</option>
+                                {channelTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Title (push only) */}
+                    {channel === 'push' && (
+                        <div>
+                            <label style={{ display: 'block', fontWeight: 600, marginBottom: '6px', fontSize: '13px' }}>Notification Title</label>
+                            <input className="form-control" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Service Update from Sorted Solutions" />
+                        </div>
+                    )}
+
+                    {/* Message body */}
+                    <div>
+                        <label style={{ display: 'block', fontWeight: 600, marginBottom: '6px', fontSize: '13px' }}>Message *</label>
+                        <textarea className="form-control" rows={5} value={message} onChange={e => setMessage(e.target.value)}
+                            placeholder={`Hi {name}, your appointment has been confirmed! Our team will be there shortly.`}
+                            style={{ resize: 'vertical' }} />
+                        <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            <code style={{ backgroundColor: 'var(--bg-secondary)', padding: '1px 4px', borderRadius: '3px' }}>{'{name}'}</code> will be replaced with each recipient's name.
+                        </p>
+                    </div>
+
+                    {/* Send */}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <button onClick={handleSend} disabled={sending || !message.trim()} className="btn btn-primary"
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', fontSize: '14px', fontWeight: 700 }}>
+                            {sending ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
+                            {sending ? 'Sending...' : `Send via ${channel === 'push' ? 'Push' : 'WhatsApp'}`}
+                        </button>
+                    </div>
+                </div>
+            </SectionCard>
+
+            {/* Results */}
+            {results && (
+                <SectionCard title="Send Results">
+                    {!results.success && results.error ? (
+                        <div style={{ color: '#ef4444', fontSize: '13px' }}>❌ Error: {results.error}</div>
+                    ) : (
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                            <div style={{ display: 'flex', gap: '20px', padding: '14px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '22px', fontWeight: 800, color: '#10b981' }}>{results.sent}</div>
+                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>SENT</div>
+                                </div>
+                                {results.skipped > 0 && (
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '22px', fontWeight: 800, color: '#f59e0b' }}>{results.skipped}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>SKIPPED</div>
+                                    </div>
+                                )}
+                                {results.failed > 0 && (
+                                    <div style={{ textAlign: 'center' }}>
+                                        <div style={{ fontSize: '22px', fontWeight: 800, color: '#ef4444' }}>{results.failed}</div>
+                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>FAILED</div>
+                                    </div>
+                                )}
+                            </div>
+                            {results.results?.filter(r => r.status !== 'sent').map((r, i) => (
+                                <div key={i} style={{ fontSize: '12px', padding: '8px 12px', borderRadius: 'var(--radius-sm)', backgroundColor: r.status === 'failed' ? '#ef444410' : '#f59e0b10', color: r.status === 'failed' ? '#ef4444' : '#f59e0b' }}>
+                                    {r.status === 'failed' ? '❌' : '⚠️'} <strong>{r.name}</strong>: {r.error || r.status}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </SectionCard>
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main NotificationCenter
 // ─────────────────────────────────────────────────────────────────────────────
 export default function NotificationCenter() {
@@ -638,6 +834,7 @@ export default function NotificationCenter() {
         { id: 'templates', label: 'Templates', icon: MessageSquare },
         { id: 'audience', label: 'Audience', icon: Users },
         { id: 'triggers', label: 'Triggers', icon: Zap },
+        { id: 'compose', label: 'Compose & Send', icon: PenLine },
         { id: 'logs', label: 'Logs', icon: Clock },
     ];
 
@@ -662,6 +859,7 @@ export default function NotificationCenter() {
             {activeTab === 'templates' && <TemplatesTab />}
             {activeTab === 'audience' && <AudienceTab />}
             {activeTab === 'triggers' && <TriggersTab />}
+            {activeTab === 'compose' && <ComposeTab />}
             {activeTab === 'logs' && <LogsTab />}
 
             <style jsx>{`
