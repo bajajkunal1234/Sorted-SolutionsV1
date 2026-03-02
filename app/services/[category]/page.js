@@ -126,7 +126,7 @@ export default async function CategoryPage({ params }) {
                             title={dynamicSettings?.subcategoriesTitle || `${categoryName} Services`}
                             subtitle={dynamicSettings?.subcategoriesSubtitle || "Choose your specific appliance type"}
                             cards={subcategories}
-                            baseUrl={`/ services / ${category} `}
+                            baseUrl={`/services/${category}`}
                         />
                     </div>
                 );
