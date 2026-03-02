@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export async function GET(request) {
     try {
@@ -76,6 +77,17 @@ export async function POST(request) {
                 { status: 500 }
             )
         }
+
+        logInteractionServer({
+            type: 'appliance-created',
+            category: 'account',
+            customerId: String(customer_id),
+            performedBy: String(customer_id),
+            performedByName: 'Customer',
+            description: `Customer added appliance: ${brand} ${type}${model ? ` (${model})` : ''}`,
+            metadata: { type, brand, model, serial_number },
+            source: 'Customer App',
+        });
 
         return NextResponse.json({
             success: true,

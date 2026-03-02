@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export async function POST(request) {
     try {
@@ -26,6 +27,17 @@ export async function POST(request) {
         if (customerByUid) {
             user = customerByUid;
             role = 'customer';
+            // Log login immediately - fire and forget
+            logInteractionServer({
+                type: 'customer-login',
+                category: 'account',
+                customerId: String(customerByUid.id),
+                customerName: customerByUid.name || customerByUid.phone,
+                performedBy: firebaseUid,
+                performedByName: customerByUid.name || customerByUid.phone,
+                description: `Customer logged in via OTP`,
+                source: 'Customer App',
+            });
         } else {
             // Check Technicians
             const { data: techByUid } = await supabase
@@ -37,6 +49,14 @@ export async function POST(request) {
             if (techByUid) {
                 user = techByUid;
                 role = 'technician';
+                logInteractionServer({
+                    type: 'technician-login',
+                    category: 'account',
+                    performedBy: firebaseUid,
+                    performedByName: techByUid.name || techByUid.phone,
+                    description: `Technician logged in via OTP`,
+                    source: 'Technician App',
+                });
             }
         }
 
@@ -100,6 +120,16 @@ export async function POST(request) {
 
             user = newCustomer;
             role = 'customer';
+            logInteractionServer({
+                type: 'account-created-website',
+                category: 'account',
+                customerId: String(newCustomer.id),
+                customerName: newCustomer.name || newCustomer.phone,
+                performedBy: firebaseUid,
+                performedByName: newCustomer.name || newCustomer.phone,
+                description: `New customer account created via OTP login (${phoneNumber})`,
+                source: 'Customer App',
+            });
         }
 
         // Remove sensitive fields

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +62,18 @@ export async function POST(request) {
             user_name: body.created_by || 'Admin'
         }])
 
+        // Log to global interactions
+        logInteractionServer({
+            type: 'job-created-admin',
+            category: 'job',
+            jobId: String(data.id),
+            customerId: body.customer_id ? String(body.customer_id) : null,
+            customerName: data.customer_name || null,
+            performedByName: body.created_by || 'Admin',
+            description: `Job ${data.job_number || data.id} created by admin — ${data.category || ''} ${data.subcategory || ''}`.trim(),
+            source: 'Admin',
+        });
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -81,6 +94,27 @@ export async function PUT(request) {
             .single()
 
         if (error) throw error
+
+        // Log job lifecycle status changes
+        const statusInteractionMap = {
+            assigned: { type: 'job-assigned', description: `Job ${data.job_number || id} assigned to technician` },
+            in_progress: { type: 'job-started', description: `Job ${data.job_number || id} work started` },
+            completed: { type: 'job-completed', description: `Job ${data.job_number || id} marked completed` },
+            cancelled: { type: 'job-cancelled', description: `Job ${data.job_number || id} cancelled` },
+        };
+        const statusLog = statusInteractionMap[updates.status];
+        if (statusLog) {
+            logInteractionServer({
+                type: statusLog.type,
+                category: 'job',
+                jobId: String(id),
+                customerId: data.customer_id ? String(data.customer_id) : null,
+                customerName: data.customer_name || null,
+                performedByName: body.updated_by || 'Admin',
+                description: statusLog.description,
+                source: 'Admin',
+            });
+        }
 
         // Side effect: If job is marked as completed, generate a draft invoice
         if (updates.status === 'completed') {

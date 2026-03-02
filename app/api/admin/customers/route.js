@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 // GET - Fetch all customers
 export async function GET(request) {
@@ -45,6 +46,16 @@ export async function POST(request) {
 
         if (error) throw error
 
+        logInteractionServer({
+            type: 'account-created-admin',
+            category: 'account',
+            customerId: String(data.id),
+            customerName: data.name || data.phone,
+            performedByName: body.created_by || 'Admin',
+            description: `Customer account created by admin — ${data.name || data.phone}`,
+            source: 'Admin',
+        });
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -66,6 +77,16 @@ export async function PUT(request) {
 
         if (error) throw error
 
+        logInteractionServer({
+            type: 'account-updated',
+            category: 'account',
+            customerId: String(id),
+            customerName: data.name || data.phone,
+            performedByName: body.updated_by || 'Admin',
+            description: `Customer account updated — ${data.name || data.phone}`,
+            source: 'Admin',
+        });
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -84,6 +105,15 @@ export async function DELETE(request) {
             .eq('id', id)
 
         if (error) throw error
+
+        logInteractionServer({
+            type: 'account-deleted',
+            category: 'account',
+            customerId: String(id),
+            performedByName: 'Admin',
+            description: `Customer account deleted (ID: ${id})`,
+            source: 'Admin',
+        });
 
         return NextResponse.json({ success: true })
     } catch (error) {

@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export async function POST(request) {
     try {
@@ -81,6 +82,17 @@ export async function POST(request) {
             message: `Booking request submitted from website by ${customer.firstName} ${customer.lastName} (${customer.phone})`,
             user_name: 'System (Website)'
         }])
+
+        // Log to global interactions table
+        logInteractionServer({
+            type: 'booking-created-website',
+            category: 'job',
+            jobId: String(job.id),
+            customerName: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
+            description: `Website booking: ${categoryName || categoryId} — ${subcategoryName || subcategoryId} (${bookingNumber})`,
+            metadata: { bookingNumber, categoryId, subcategoryId, pincode },
+            source: 'Website',
+        });
 
         return NextResponse.json({
             success: true,
