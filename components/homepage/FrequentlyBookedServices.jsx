@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import { Wind, Droplets, Microwave, Refrigerator, Filter, Flame } from 'lucide-react';
 import './FrequentlyBookedServices.css';
 
+// Fire-and-forget: never blocks navigation
+const trackClick = (serviceId, serviceName, url) => {
+    fetch('/api/track/click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceId, serviceName, pageUrl: url, source: 'Homepage' }),
+    }).catch(() => { }); // swallow errors silently
+};
+
 function FrequentlyBookedServices() {
     const [displaySettings, setDisplaySettings] = useState({
         sectionTitle: 'Frequently Booked Appliance Repairs',
@@ -96,7 +105,12 @@ function FrequentlyBookedServices() {
                     {services.map((service) => {
                         const IconComponent = service.icon;
                         return (
-                            <a key={service.id} href={service.url} className="service-card">
+                            <a
+                                key={service.id}
+                                href={service.url}
+                                className="service-card"
+                                onClick={() => trackClick(service.id, service.title, service.url)}
+                            >
                                 {service.badge && (
                                     <span className={`service-badge ${service.badge.toLowerCase()}`}>
                                         {service.badge}

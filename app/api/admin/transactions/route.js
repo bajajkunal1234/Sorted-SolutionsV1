@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 // Map transaction types to Supabase tables
 const tableMap = {
@@ -8,6 +9,23 @@ const tableMap = {
     'quotation': 'quotations',
     'receipt': 'receipt_vouchers',
     'payment': 'payment_vouchers'
+};
+
+// Interaction type maps
+const createdInteractionMap = {
+    sales: { type: 'sales-invoice-created', category: 'sales', label: 'Sales Invoice' },
+    purchase: { type: 'purchase-invoice-created', category: 'sales', label: 'Purchase Invoice' },
+    quotation: { type: 'quotation-sent', category: 'sales', label: 'Quotation' },
+    receipt: { type: 'receipt-voucher-created', category: 'sales', label: 'Receipt Voucher' },
+    payment: { type: 'payment-voucher-created', category: 'sales', label: 'Payment Voucher' },
+};
+
+const editedInteractionMap = {
+    sales: { type: 'sales-invoice-edited', category: 'sales', label: 'Sales Invoice' },
+    purchase: { type: 'purchase-invoice-edited', category: 'sales', label: 'Purchase Invoice' },
+    quotation: { type: 'quotation-edited', category: 'sales', label: 'Quotation' },
+    receipt: { type: 'receipt-voucher-edited', category: 'sales', label: 'Receipt Voucher' },
+    payment: { type: 'payment-voucher-edited', category: 'sales', label: 'Payment Voucher' },
 };
 
 // GET - Fetch transactions based on type
@@ -25,7 +43,6 @@ export async function GET(request) {
         }
 
         if (type === 'all') {
-            // Fetch from all relevant financial tables
             const tables = ['sales_invoices', 'purchase_invoices', 'receipt_vouchers', 'payment_vouchers'];
             const results = await Promise.all(tables.map(async (table) => {
                 let query = supabase.from(table).select('*')
@@ -41,10 +58,7 @@ export async function GET(request) {
         }
 
         if (!tableMap[type]) {
-            return NextResponse.json({
-                success: false,
-                error: 'Invalid transaction type'
-            }, { status: 400 });
+            return NextResponse.json({ success: false, error: 'Invalid transaction type' }, { status: 400 });
         }
 
         const tableName = tableMap[type];
@@ -70,7 +84,7 @@ export async function GET(request) {
     }
 }
 
-// POST - Create new transaction in specific table
+// POST - Create new transaction
 export async function POST(request) {
     try {
         const { searchParams } = new URL(request.url)
@@ -90,6 +104,21 @@ export async function POST(request) {
             .single()
 
         if (error) throw error
+
+        // Log interaction
+        const info = createdInteractionMap[type];
+        if (info) {
+            logInteractionServer({
+                type: info.type,
+                category: info.category,
+                invoiceId: data.reference || data.invoice_number || String(data.id),
+                customerId: data.account_id ? String(data.account_id) : null,
+                customerName: data.account_name || null,
+                performedByName: body.created_by || 'Admin',
+                description: `${info.label} created: ${data.reference || data.invoice_number || data.id}`,
+                source: 'Admin',
+            });
+        }
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
@@ -119,6 +148,21 @@ export async function PUT(request) {
             .single()
 
         if (error) throw error
+
+        // Log interaction
+        const info = editedInteractionMap[type];
+        if (info) {
+            logInteractionServer({
+                type: info.type,
+                category: info.category,
+                invoiceId: data.reference || data.invoice_number || String(id),
+                customerId: data.account_id ? String(data.account_id) : null,
+                customerName: data.account_name || null,
+                performedByName: body.updated_by || 'Admin',
+                description: `${info.label} edited: ${data.reference || data.invoice_number || id}`,
+                source: 'Admin',
+            });
+        }
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
