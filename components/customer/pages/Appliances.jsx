@@ -56,13 +56,14 @@ export default function Appliances() {
       if (!customerId) return
 
       const payload = {
-        ...applianceData,
         customer_id: customerId,
-        type: applianceData.category,
+        type: applianceData.type || applianceData.category,
+        brand: applianceData.brand,
+        model: applianceData.model,
+        serial_number: applianceData.serialNumber,
         purchase_date: applianceData.purchaseDate,
         warranty_expiry: applianceData.warrantyExpiry,
-        serial_number: applianceData.serialNumber,
-        room: applianceData.room
+        room: applianceData.room,
       }
 
       const response = await fetch('/api/customer/appliances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
@@ -72,10 +73,10 @@ export default function Appliances() {
         setAppliances([data.appliance, ...appliances])
         setShowAddModal(false)
       } else {
-        alert('Failed to add: ' + data.error)
+        throw new Error(data.error || 'Failed to add appliance')
       }
     } catch (error) {
-      alert('An error occurred adding the appliance')
+      throw error // rethrow so modal shows inline error
     }
   }
 
@@ -132,8 +133,10 @@ export default function Appliances() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px' }}>
           {appliances.map(app => {
             const meta = APPLIANCE_META[app.type?.toLowerCase()] || APPLIANCE_META.default
-            const health = Math.floor(Math.random() * 20) + 80 // Mock Health Score 80-99
-            const isHealthy = health >= 85
+            const isInWarranty = app.warranty_expiry && new Date(app.warranty_expiry) > new Date()
+            const hasRecentService = app.last_service_date && (new Date() - new Date(app.last_service_date)) < 180 * 24 * 60 * 60 * 1000
+            const healthLabel = isInWarranty ? 'Covered' : 'Expired'
+            const healthColor = isInWarranty ? '#10b981' : '#f59e0b'
 
             return (
               <div key={app.id} style={{
@@ -159,11 +162,11 @@ export default function Appliances() {
                   </div>
                   <div style={{
                     display: 'flex', alignItems: 'center', gap: 4,
-                    background: isHealthy ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
-                    color: isHealthy ? '#10b981' : '#f59e0b',
+                    background: isInWarranty ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                    color: healthColor,
                     padding: '4px 8px', borderRadius: '12px', fontSize: 11, fontWeight: 700
                   }}>
-                    <Activity size={10} strokeWidth={3} /> {health}%
+                    <Activity size={10} strokeWidth={3} /> {healthLabel}
                   </div>
                 </div>
 
@@ -194,7 +197,7 @@ export default function Appliances() {
       )}
 
       {/* Modals */}
-      <AddApplianceModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onAdd={(a) => { handleAddAppliance(a) }} properties={properties} />
+      <AddApplianceModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onAdd={(a) => handleAddAppliance(a)} properties={properties} />
       <BookServiceModal
         isOpen={showServiceModal}
         onClose={() => { setShowServiceModal(false); setSelectedForService(null) }}

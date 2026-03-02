@@ -68,11 +68,11 @@ export default function Home() {
             // Setup Active Job Tracker if there is one
             if (activeJobs.length > 0) {
                 // Pick the most recent/relevant active job
-                setActiveJob(activeJobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0])
+                setActiveJob(activeJobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0])
             }
 
             // Timeline Activities
-            const timeline = jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5)
+            const timeline = jobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5)
             setActivities(timeline)
 
         } catch (error) {
@@ -204,6 +204,25 @@ export default function Home() {
                 </div>
             </div>
 
+            {/* ── STATS ROW ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                {[
+                    { label: 'Properties', value: stats.properties, color: '#f59e0b', emoji: '🏠' },
+                    { label: 'Devices', value: stats.appliances, color: '#8b5cf6', emoji: '📦' },
+                    { label: 'Active Jobs', value: stats.activeJobs, color: '#38bdf8', emoji: '🔧' },
+                    { label: 'Completed', value: stats.completedJobs, color: '#10b981', emoji: '✅' },
+                ].map(s => (
+                    <div key={s.label} style={{
+                        background: `${s.color}10`, border: `1px solid ${s.color}25`, borderRadius: 20,
+                        padding: '16px', display: 'flex', flexDirection: 'column', gap: 4
+                    }}>
+                        <div style={{ fontSize: 22 }}>{s.emoji}</div>
+                        <div style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                        <div style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>{s.label}</div>
+                    </div>
+                ))}
+            </div>
+
             {/* ── RECENT ACTIVITY TIMELINE ── */}
             <div>
                 <h2 style={{ fontSize: 16, fontWeight: 600, color: '#f8fafc', marginBottom: 16 }}>Recent Activity</h2>
@@ -238,7 +257,7 @@ export default function Home() {
                                                 {act.product?.type || 'Service'} - {act.status.replace('_', ' ')}
                                             </div>
                                             <div style={{ fontSize: 11, color: '#64748b' }}>
-                                                {new Date(act.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                                {new Date(act.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                                             </div>
                                         </div>
                                         <div style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.4 }}>
@@ -254,8 +273,8 @@ export default function Home() {
 
             {/* ── MODALS ── */}
             <AddPropertyModal isOpen={showPropertyModal} onClose={() => setShowPropertyModal(false)} onAdd={() => { fetchData(); setShowPropertyModal(false) }} />
-            <AddApplianceModal isOpen={showApplianceModal} onClose={() => setShowApplianceModal(false)} onAdd={() => { fetchData(); setShowApplianceModal(false) }} properties={properties} />
-            <BookServiceModal isOpen={showServiceModal} onClose={() => setShowServiceModal(false)} onBook={() => { fetchData(); setShowServiceModal(false) }} appliances={appliances} />
+            <AddApplianceModal isOpen={showApplianceModal} onClose={() => setShowApplianceModal(false)} onAdd={async (data) => { await handleAddAppliance(data); setShowApplianceModal(false) }} properties={properties} />
+            <BookServiceModal isOpen={showServiceModal} onClose={() => setShowServiceModal(false)} onBook={() => { fetchData(); setShowServiceModal(false) }} />
 
         </div>
     )

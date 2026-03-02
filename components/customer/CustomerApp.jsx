@@ -1,157 +1,111 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Home, Wrench, User, Package } from 'lucide-react'
-import { logNavigation } from '@/lib/interactions'
+import { Home, Wrench, User, Package, Layers } from 'lucide-react'
 
 import HomePage from '@/components/customer/pages/Home'
 import AppliancesPage from '@/components/customer/pages/Appliances'
 import ServicesPage from '@/components/customer/pages/Services'
 import ProfilePage from '@/components/customer/pages/Profile'
+import PlansPage from '@/components/customer/pages/Plans'
+
+const TABS = [
+    { id: 'home', label: 'Home', icon: Home, color: '#38bdf8' },
+    { id: 'appliances', label: 'Devices', icon: Package, color: '#8b5cf6' },
+    { id: 'services', label: 'Services', icon: Wrench, color: '#38bdf8' },
+    { id: 'plans', label: 'Plans', icon: Layers, color: '#10b981' },
+    { id: 'profile', label: 'Profile', icon: User, color: '#f59e0b' },
+]
+
+function renderTab(tab) {
+    switch (tab) {
+        case 'home': return <HomePage />
+        case 'appliances': return <AppliancesPage />
+        case 'services': return <ServicesPage />
+        case 'plans': return <PlansPage />
+        case 'profile': return <ProfilePage />
+        default: return <HomePage />
+    }
+}
+
+const NAV_HEIGHT = 64
 
 export default function CustomerApp() {
     const [activeTab, setActiveTab] = useState('home')
     const [mounted, setMounted] = useState(false)
 
-    useEffect(() => {
-        setMounted(true)
-    }, [])
-
-    const tabs = [
-        { id: 'home', label: 'Home', icon: Home },
-        { id: 'appliances', label: 'Appliances', icon: Package },
-        { id: 'services', label: 'Services', icon: Wrench },
-        { id: 'profile', label: 'Profile', icon: User },
-    ]
-
-    const renderTabContent = () => {
-        switch (activeTab) {
-            case 'home': return <HomePage />
-            case 'appliances': return <AppliancesPage />
-            case 'services': return <ServicesPage />
-            case 'profile': return <ProfilePage />
-            default: return <HomePage />
-        }
-    }
-
-    if (!mounted) return null // Prevent hydration mismatch
+    useEffect(() => { setMounted(true) }, [])
+    if (!mounted) return null
 
     return (
         <div style={{
-            height: '100vh',
-            display: 'flex',
-            flexDirection: 'column',
-            background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)', // Deep modern gradient
-            color: '#f8fafc',
-            fontFamily: "'Inter', system-ui, sans-serif",
-            overflow: 'hidden',
-            position: 'relative'
+            height: '100dvh', display: 'flex', flexDirection: 'column',
+            background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+            color: '#f8fafc', fontFamily: "'Inter', system-ui, sans-serif",
+            overflow: 'hidden', position: 'relative',
         }}>
+            {/* Ambient blobs */}
+            <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(56,189,248,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: '10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
-            {/* Dynamic Background Effects */}
-            <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(56,189,248,0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: '-10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(139,92,246,0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-
-            {/* Main Content Area */}
+            {/* Scrollable content area — padded bottom so content isn't behind the nav */}
             <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                paddingBottom: '100px', // Space for floating nav
-                position: 'relative',
-                zIndex: 10
+                flex: 1, overflowY: 'auto', overflowX: 'hidden',
+                paddingBottom: NAV_HEIGHT, position: 'relative', zIndex: 10,
+                WebkitOverflowScrolling: 'touch',
             }}>
-                {renderTabContent()}
+                {renderTab(activeTab)}
             </div>
 
-            {/* Floating Glassmorphic Bottom Navigation */}
-            <div style={{
-                position: 'absolute',
-                bottom: '24px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: 'calc(100% - 48px)',
-                maxWidth: '400px',
-                height: '64px',
-                background: 'rgba(15, 23, 42, 0.65)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
-                borderRadius: '32px',
-                display: 'flex',
-                justifyContent: 'space-around',
-                alignItems: 'center',
-                padding: '0 8px',
-                zIndex: 100,
-                transition: 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)'
+            {/* ── FULL-WIDTH SOLID BOTTOM NAV (5 tabs) ── */}
+            <nav style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0,
+                height: NAV_HEIGHT,
+                paddingBottom: 'env(safe-area-inset-bottom)',
+                background: '#0f172a',
+                borderTop: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex', alignItems: 'stretch', zIndex: 100,
             }}>
-                {tabs.map((tab) => {
+                {TABS.map(tab => {
                     const Icon = tab.icon
                     const isActive = activeTab === tab.id
-
                     return (
                         <button
                             key={tab.id}
-                            onClick={() => {
-                                setActiveTab(tab.id);
-                                logNavigation(tab.label, 'Customer', 'Customer App');
-                            }}
+                            onClick={() => setActiveTab(tab.id)}
                             style={{
-                                background: 'transparent',
-                                border: 'none',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                height: '100%',
-                                flex: 1,
-                                position: 'relative',
-                                color: isActive ? '#38bdf8' : '#64748b',
-                                transition: 'all 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
+                                flex: 1, display: 'flex', flexDirection: 'column',
+                                alignItems: 'center', justifyContent: 'center',
+                                gap: 4, background: 'transparent', border: 'none',
+                                outline: 'none', cursor: 'pointer', padding: '0 2px',
+                                position: 'relative', WebkitTapHighlightColor: 'transparent',
                             }}
                         >
-                            {/* Active Bubble Indicator */}
-                            <div style={{
-                                position: 'absolute',
-                                width: '40px',
-                                height: '40px',
-                                background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                                borderRadius: '50%',
-                                transform: isActive ? 'scale(1)' : 'scale(0.5)',
-                                opacity: isActive ? 1 : 0,
-                                transition: 'all 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
-                                zIndex: 0
-                            }} />
-
+                            {/* Active top bar */}
+                            {isActive && (
+                                <div style={{
+                                    position: 'absolute', top: 0, left: '22%', right: '22%',
+                                    height: 2, background: tab.color,
+                                    borderRadius: '0 0 2px 2px',
+                                    boxShadow: `0 0 8px ${tab.color}80`,
+                                }} />
+                            )}
                             <Icon
-                                size={22}
-                                strokeWidth={isActive ? 2.5 : 2}
-                                style={{
-                                    zIndex: 1,
-                                    transform: isActive ? 'translateY(-2px)' : 'translateY(2px)',
-                                    transition: 'all 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
-                                    filter: isActive ? 'drop-shadow(0 2px 8px rgba(56,189,248,0.5))' : 'none'
-                                }}
+                                size={20} strokeWidth={isActive ? 2.5 : 1.8}
+                                color={isActive ? tab.color : '#475569'}
+                                style={{ flexShrink: 0 }}
                             />
-
                             <span style={{
-                                fontSize: '10px',
-                                fontWeight: isActive ? 600 : 500,
-                                zIndex: 1,
-                                opacity: isActive ? 1 : 0,
-                                transform: isActive ? 'translateY(2px)' : 'translateY(10px)',
-                                transition: 'all 0.4s cubic-bezier(0.25, 1, 0.5, 1)',
-                                letterSpacing: '0.3px'
+                                fontSize: 10, fontWeight: isActive ? 700 : 500,
+                                color: isActive ? tab.color : '#475569',
+                                letterSpacing: isActive ? '0.2px' : 0, lineHeight: 1,
                             }}>
                                 {tab.label}
                             </span>
                         </button>
                     )
                 })}
-            </div>
+            </nav>
         </div>
     )
 }

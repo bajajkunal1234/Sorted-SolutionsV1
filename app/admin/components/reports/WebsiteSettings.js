@@ -20,6 +20,7 @@ import PageSettingsManager from '@/components/reports/PageSettingsManager';
 import PageBuilderTool from './PageBuilderTool';
 import GoogleAPIsSettings from '@/components/reports/GoogleAPIsSettings';
 import WebsiteAnalytics from '@/components/reports/WebsiteAnalytics';
+import BookingSlots from '@/components/reports/BookingSlots';
 
 const LOCATIONS = [
     "andheri", "malad", "jogeshwari", "kandivali", "goregaon",
@@ -117,6 +118,7 @@ function buildDynamicSettings(applianceData, staticSettings) {
 
 function WebsiteSettings({ subSection, setSubSection }) {
     const [activeCategory, setActiveCategory] = useState(null);
+    const [bookingSubTab, setBookingSubTab] = useState('form'); // 'form' | 'slots'
     const [settingsByCategory, setSettingsByCategory] = useState(staticSettingsByCategory || {});
     const [loadingAppliances, setLoadingAppliances] = useState(true);
 
@@ -380,7 +382,35 @@ function WebsiteSettings({ subSection, setSubSection }) {
             {activeCategory === 'header-locations' ? (
                 <HeaderLocations />
             ) : activeCategory === 'quick-booking' ? (
-                <QuickBookingFormSettings />
+                <div>
+                    {/* Sub-tab nav */}
+                    <div style={{ display: 'flex', gap: '4px', marginBottom: 'var(--spacing-lg)', borderBottom: '2px solid var(--border-primary)', paddingBottom: '0' }}>
+                        {[
+                            { id: 'form', label: '🛠️ Form Settings', desc: 'Appliances, types & issues' },
+                            { id: 'slots', label: '🕐 Booking Slots', desc: 'Time slots for each day' },
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setBookingSubTab(tab.id)}
+                                style={{
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    borderBottom: bookingSubTab === tab.id ? '3px solid var(--color-primary)' : '3px solid transparent',
+                                    backgroundColor: 'transparent',
+                                    cursor: 'pointer',
+                                    fontWeight: bookingSubTab === tab.id ? 700 : 500,
+                                    color: bookingSubTab === tab.id ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                    fontSize: 'var(--font-size-sm)',
+                                    transition: 'all 0.15s',
+                                    marginBottom: '-2px',
+                                }}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                    {bookingSubTab === 'form' ? <QuickBookingFormSettings /> : <BookingSlots />}
+                </div>
             ) : activeCategory === 'frequent-services' ? (
                 <FrequentlyBookedServicesSettings />
             ) : activeCategory === 'footer-locations' ? (

@@ -15,7 +15,7 @@ export default function CustomerPage() {
             router.push('/customer/dashboard');
         } else {
             // Redirect to login if not logged in
-            router.push('/login');
+            router.push('/customer/login');
         }
     }, [router]);
 
