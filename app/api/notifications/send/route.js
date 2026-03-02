@@ -65,6 +65,14 @@ export async function POST(request) {
             if (tech) recipientSets.push({ ...tech, recipientType: 'technician' });
         }
 
+        if (audience.includes('admins')) {
+            const { data: admins } = await supabase
+                .from('admin_recipients')
+                .select('id, name, fcm_token')
+                .not('fcm_token', 'is', null);
+            (admins || []).forEach(a => recipientSets.push({ ...a, recipientType: 'admin' }));
+        }
+
         // Fire notification for each recipient
         for (const recipient of recipientSets) {
             // Merge template variables

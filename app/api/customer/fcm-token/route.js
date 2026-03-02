@@ -50,3 +50,28 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
+
+/**
+ * PUT /api/customer/fcm-token
+ * Saves FCM token for an admin user into admin_recipients table.
+ * Body: { fcm_token, name? }
+ */
+export async function PUT(request) {
+    const supabase = createServerSupabase();
+    try {
+        const { fcm_token, name } = await request.json();
+        if (!fcm_token) {
+            return NextResponse.json({ success: false, error: 'fcm_token required' }, { status: 400 });
+        }
+
+        // Upsert by token so same browser never gets a duplicate row
+        const { error } = await supabase
+            .from('admin_recipients')
+            .upsert({ fcm_token, name: name || 'Admin' }, { onConflict: 'fcm_token' });
+
+        if (error) throw error;
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    }
+}

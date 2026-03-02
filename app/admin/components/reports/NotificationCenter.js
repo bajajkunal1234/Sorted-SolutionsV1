@@ -20,6 +20,7 @@ const AUDIENCE_GROUPS = [
     { id: 'customers', label: 'Customers', color: '#3b82f6' },
     { id: 'technicians', label: 'Technicians', color: '#f59e0b' },
     { id: 'visitors', label: 'Website Visitors', color: '#8b5cf6' },
+    { id: 'admins', label: 'Admins', color: '#ef4444' },
 ];
 
 const JOB_EVENTS = [
@@ -536,6 +537,7 @@ function AudienceTab() {
                                 {g.id === 'customers' && 'Registered customers with a customer account. Receives job status updates, booking confirmations.'}
                                 {g.id === 'technicians' && 'Technicians assigned to jobs. Receives job assignment, schedule change notifications.'}
                                 {g.id === 'visitors' && 'Non-registered website visitors. Currently only reachable via WhatsApp using the phone number from their booking form.'}
+                                {g.id === 'admins' && 'Admin users of the panel. Receives alerts for new bookings, job completions, or any event you configure.'}
                             </p>
                             <span style={{ marginTop: '8px', display: 'inline-block', fontSize: '11px', padding: '2px 8px', borderRadius: '99px', fontWeight: 700, backgroundColor: `${g.color}15`, color: g.color }}>
                                 {g.id === 'visitors' ? 'WhatsApp only' : 'Push + WhatsApp'}
@@ -684,6 +686,7 @@ function ComposeTab() {
     const AUDIENCE_OPTIONS = [
         { id: 'all_customers', label: '👥 All Customers', description: 'Every registered customer with a push token' },
         { id: 'all_technicians', label: '🔧 All Technicians', description: 'Every active technician' },
+        { id: 'all_admins', label: '⚙️ Admins Only', description: 'Admin devices that have allowed notifications' },
     ];
 
     return (

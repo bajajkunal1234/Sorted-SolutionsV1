@@ -32,6 +32,7 @@ function demoLogin(account) {
     // Register push token for customer or technician demo logins
     if (account.role === 'customer') registerPushToken(account.id, 'customer');
     if (account.role === 'technician') registerPushToken(account.id, 'technician');
+    if (account.role === 'admin') registerPushToken(account.name || 'Admin', 'admin');
     window.location.href = account.route
 }
 
