@@ -4,6 +4,19 @@ import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Fire-and-forget notification trigger.
+ * Calls the notification send endpoint for a given event without blocking the response.
+ */
+function fireNotification(event_type, context = {}) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    fetch(`${baseUrl}/api/notifications/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_type, ...context }),
+    }).catch(err => console.error('[fireNotification] Error:', err.message));
+}
+
 // GET - Fetch all jobs or filter by query params
 export async function GET(request) {
     try {
@@ -74,6 +87,13 @@ export async function POST(request) {
             source: 'Admin',
         });
 
+        // Fire notification trigger (fire-and-forget)
+        fireNotification('job_created_admin', {
+            job_id: String(data.id),
+            customer_id: body.customer_id ? String(body.customer_id) : undefined,
+            customer_name: data.customer_name || undefined,
+        });
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -113,6 +133,24 @@ export async function PUT(request) {
                 performedByName: body.updated_by || 'Admin',
                 description: statusLog.description,
                 source: 'Admin',
+            });
+        }
+
+        // Fire notification trigger for relevant status changes (fire-and-forget)
+        const statusEventMap = {
+            assigned: 'job_assigned',
+            in_progress: 'job_started',
+            completed: 'job_completed',
+            cancelled: 'job_cancelled',
+        };
+        const notifEvent = statusEventMap[updates.status];
+        if (notifEvent) {
+            fireNotification(notifEvent, {
+                job_id: String(id),
+                customer_id: data.customer_id ? String(data.customer_id) : undefined,
+                technician_id: data.assigned_to ? String(data.assigned_to) : undefined,
+                customer_name: data.customer_name || undefined,
+                technician_name: data.technician_name || undefined,
             });
         }
 

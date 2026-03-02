@@ -1,361 +1,305 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { Plus, Clock, Wrench, CheckCircle, XCircle, Phone, MapPin, Calendar } from 'lucide-react';
+import React, { useState, useEffect } from 'react'
+import { Clock, Wrench, CheckCircle, XCircle, MapPin, Calendar, Phone, Plus, Tag, ChevronRight, X } from 'lucide-react'
+import BookServiceModal from '../modals/BookServiceModal'
 
 export default function ServicesPage() {
-    const [jobs, setJobs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [filterStatus, setFilterStatus] = useState('all');
-    const [customerId, setCustomerId] = useState(null);
-    const [selectedJob, setSelectedJob] = useState(null);
+    const [jobs, setJobs] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
+    const [filterStatus, setFilterStatus] = useState('all') // 'all', 'active', 'past'
+    const [selectedJob, setSelectedJob] = useState(null)
+    const [showServiceModal, setShowServiceModal] = useState(false)
 
-    // Get customer ID from session/auth
     useEffect(() => {
-        // TODO: Replace with actual auth when implemented
-        // For now, get from localStorage or use a default
-        const storedCustomerId = localStorage.getItem('customerId');
-        if (storedCustomerId) {
-            setCustomerId(storedCustomerId);
-        } else {
-            // Use a default for testing
-            setCustomerId('default-customer-id');
-        }
-    }, []);
+        fetchJobs()
+    }, [filterStatus])
 
-    // Fetch jobs
-    useEffect(() => {
-        if (!customerId) return;
+    const fetchJobs = async () => {
+        try {
+            const customerId = localStorage.getItem('customerId') || 'default-customer-id'
+            setLoading(true)
 
-        const fetchJobs = async () => {
-            try {
-                setLoading(true);
-                const response = await fetch(`/api/customer/jobs?customerId=${customerId}&status=${filterStatus}`);
+            // Just fetch all and filter client side for better UX/speed
+            const response = await fetch(`/api/customer/jobs?customerId=${customerId}&status=all`)
+            if (!response.ok) throw new Error('Failed to fetch jobs')
 
-                if (!response.ok) {
-                    throw new Error('Failed to fetch jobs');
-                }
+            const data = await response.json()
+            const allJobs = data.jobs || []
 
-                const data = await response.json();
-                setJobs(data.jobs || []);
-                setError(null);
-            } catch (err) {
-                console.error('Error fetching jobs:', err);
-                setError('Failed to load service requests');
-            } finally {
-                setLoading(false);
+            if (filterStatus === 'all') {
+                setJobs(allJobs)
+            } else if (filterStatus === 'active') {
+                setJobs(allJobs.filter(j => ['pending', 'confirmed', 'in_progress'].includes(j.status)))
+            } else if (filterStatus === 'past') {
+                setJobs(allJobs.filter(j => ['completed', 'cancelled'].includes(j.status)))
             }
-        };
 
-        fetchJobs();
-    }, [customerId, filterStatus]);
-
-    const getStatusColor = (status) => {
-        const colors = {
-            'open': '#f59e0b',
-            'confirmed': '#3b82f6',
-            'in-progress': '#8b5cf6',
-            'completed': '#10b981',
-            'cancelled': '#ef4444'
-        };
-        return colors[status] || '#6b7280';
-    };
-
-    const getStatusIcon = (status) => {
-        switch (status) {
-            case 'completed':
-                return <CheckCircle size={18} />;
-            case 'cancelled':
-                return <XCircle size={18} />;
-            case 'in-progress':
-                return <Wrench size={18} />;
-            default:
-                return <Clock size={18} />;
+            setError(null)
+        } catch (err) {
+            console.error('Error fetching jobs:', err)
+            setError('Failed to load service requests')
+        } finally {
+            setLoading(false)
         }
-    };
+    }
+
+    const getStatusTheme = (status) => {
+        const t = {
+            'pending': { color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', icon: Clock, label: 'Pending' },
+            'confirmed': { color: '#38bdf8', bg: 'rgba(56,189,248,0.1)', icon: Calendar, label: 'Confirmed' },
+            'in_progress': { color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', icon: Wrench, label: 'In Progress' },
+            'completed': { color: '#10b981', bg: 'rgba(16,185,129,0.1)', icon: CheckCircle, label: 'Completed' },
+            'cancelled': { color: '#ef4444', bg: 'rgba(239,68,68,0.1)', icon: XCircle, label: 'Cancelled' }
+        }[status] || { color: '#64748b', bg: 'rgba(100,116,139,0.1)', icon: Clock, label: status }
+
+        return t
+    }
 
     const formatDate = (dateString) => {
-        if (!dateString) return 'Not scheduled';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-IN', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    };
+        if (!dateString) return 'Not scheduled'
+        return new Date(dateString).toLocaleDateString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    }
 
     const handleCancelJob = async (jobId) => {
-        if (!window.confirm('Are you sure you want to cancel this service request?')) {
-            return;
-        }
+        if (!window.confirm('Are you sure you want to cancel this service request?')) return
 
         try {
+            const customerId = localStorage.getItem('customerId')
             const response = await fetch(`/api/customer/jobs/${jobId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'cancel', customerId })
-            });
+            })
+            if (!response.ok) throw new Error('Failed to cancel job')
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to cancel job');
-            }
-
-            // Update jobs list
-            setJobs(jobs.map(j => j.id === jobId ? { ...j, status: 'cancelled' } : j));
-            alert('Service request cancelled successfully');
+            fetchJobs() // refresh
+            setSelectedJob(null)
         } catch (err) {
-            console.error('Error cancelling job:', err);
-            alert(err.message);
+            alert(err.message)
         }
-    };
+    }
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
+        <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: '24px', position: 'relative', minHeight: '100%' }}>
             {/* Header */}
-            <div style={{
-                padding: 'var(--spacing-md)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)'
-            }}>
-                <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-xs)' }}>
-                    My Services
-                </h1>
-                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                    Track your service requests
-                </p>
-            </div>
-
-            {/* Filters */}
-            <div style={{
-                padding: 'var(--spacing-sm)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                gap: 'var(--spacing-xs)',
-                overflowX: 'auto'
-            }}>
-                <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="form-input"
-                    style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)' }}
+            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ fontSize: '28px', fontWeight: 800, margin: 0, color: '#f8fafc', letterSpacing: '-0.5px' }}>
+                        Services
+                    </h1>
+                    <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '4px', fontWeight: 500 }}>
+                        Track repairs and maintenance
+                    </p>
+                </div>
+                <button
+                    onClick={() => setShowServiceModal(true)}
+                    style={{
+                        width: 44, height: 44, borderRadius: 16,
+                        background: 'linear-gradient(135deg, #38bdf8, #3b82f6)',
+                        border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 8px 20px rgba(56,189,248,0.3)', cursor: 'pointer', transition: 'transform 0.2s'
+                    }}
                 >
-                    <option value="all">All Requests</option>
-                    <option value="open">Pending</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
+                    <Plus size={22} strokeWidth={2.5} />
+                </button>
+            </header>
+
+            {/* Segmented Control */}
+            <div style={{
+                display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '14px', padding: '4px',
+                border: '1px solid rgba(255,255,255,0.05)'
+            }}>
+                {['all', 'active', 'past'].map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setFilterStatus(tab)}
+                        style={{
+                            flex: 1, padding: '8px 0', borderRadius: '10px',
+                            background: filterStatus === tab ? 'rgba(255,255,255,0.1)' : 'transparent',
+                            color: filterStatus === tab ? '#f8fafc' : '#94a3b8',
+                            border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            transition: 'all 0.2s', textTransform: 'capitalize',
+                            boxShadow: filterStatus === tab ? '0 2px 8px rgba(0,0,0,0.2)' : 'none'
+                        }}
+                    >
+                        {tab}
+                    </button>
+                ))}
             </div>
 
-            {/* Jobs List */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                {loading ? (
-                    <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
-                        Loading...
-                    </div>
-                ) : error ? (
-                    <div style={{
-                        textAlign: 'center',
-                        padding: 'var(--spacing-xl)',
-                        color: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        borderRadius: 'var(--radius-md)'
-                    }}>
-                        {error}
-                    </div>
-                ) : jobs.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
-                        <Wrench size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.3 }} />
-                        <div style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--spacing-xs)' }}>
-                            No service requests yet
-                        </div>
-                        <div style={{ fontSize: 'var(--font-size-sm)' }}>
-                            Book a service from the Home tab
-                        </div>
-                    </div>
-                ) : (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                        {jobs.map((job) => (
+            {/* Content */}
+            {loading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px 0', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ width: 30, height: 30, border: '2px solid rgba(255,255,255,0.1)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                </div>
+            ) : error ? (
+                <div style={{ padding: '20px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 16, color: '#f87171', textAlign: 'center' }}>
+                    {error}
+                </div>
+            ) : jobs.length === 0 ? (
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 24, padding: '40px 20px', textAlign: 'center', marginTop: 20 }}>
+                    <Wrench size={40} color="#64748b" style={{ marginBottom: 16, opacity: 0.5 }} />
+                    <h3 style={{ fontSize: 18, color: '#f8fafc', fontWeight: 700, margin: '0 0 8px 0' }}>No Services Here</h3>
+                    <p style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 24px 0' }}>You don't have any {filterStatus !== 'all' ? filterStatus : ''} service requests.</p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {jobs.map((job) => {
+                        const theme = getStatusTheme(job.status)
+                        const Icon = theme.icon
+
+                        return (
                             <div
                                 key={job.id}
-                                style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border-primary)',
-                                    borderRadius: 'var(--radius-lg)',
-                                    padding: 'var(--spacing-md)',
-                                    cursor: 'pointer',
-                                    transition: 'all var(--transition-normal)'
-                                }}
                                 onClick={() => setSelectedJob(job)}
+                                style={{
+                                    background: 'linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                    borderRadius: '20px', padding: '16px',
+                                    cursor: 'pointer', transition: 'all 0.2s', position: 'relative'
+                                }}
                             >
-                                {/* Header */}
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-sm)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                                     <div>
-                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: '4px' }}>
-                                            {job.product?.type} - {job.product?.brand}
-                                        </div>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                            {job.id}
-                                        </div>
+                                        <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>{job.product?.brand} {job.product?.type}</div>
+                                        <div style={{ fontSize: 12, color: '#64748b', fontFamily: 'monospace' }}>ID: {job.id.slice(0, 8)}</div>
                                     </div>
                                     <div style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '4px',
-                                        padding: '4px 10px',
-                                        backgroundColor: getStatusColor(job.status) + '20',
-                                        color: getStatusColor(job.status),
-                                        borderRadius: 'var(--radius-full)',
-                                        fontSize: 'var(--font-size-xs)',
-                                        fontWeight: 600
+                                        display: 'flex', alignItems: 'center', gap: 6,
+                                        padding: '4px 10px', background: theme.bg, color: theme.color,
+                                        borderRadius: '20px', fontSize: 11, fontWeight: 700
                                     }}>
-                                        {getStatusIcon(job.status)}
-                                        <span style={{ textTransform: 'capitalize' }}>{job.status}</span>
+                                        <Icon size={12} strokeWidth={3} /> {theme.label}
                                     </div>
                                 </div>
 
-                                {/* Issue */}
-                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
-                                    <strong>Issue:</strong> {job.issue}
-                                </div>
+                                <p style={{ fontSize: 14, color: '#cbd5e1', margin: '0 0 16px 0', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                    {job.issue}
+                                </p>
 
-                                {/* Address */}
-                                <div style={{ display: 'flex', alignItems: 'start', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
-                                    <MapPin size={14} style={{ color: 'var(--text-tertiary)', marginTop: '2px' }} />
-                                    <span style={{ color: 'var(--text-secondary)' }}>{job.locality}, {job.city}</span>
-                                </div>
-
-                                {/* Technician */}
-                                {job.assignedTechnician && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
-                                        <Wrench size={14} style={{ color: 'var(--text-tertiary)' }} />
-                                        <span style={{ color: 'var(--text-secondary)' }}>
-                                            Technician: {job.assignedTechnician}
-                                        </span>
-                                        {job.technicianMobile && (
-                                            <a href={`tel:${job.technicianMobile}`} style={{ color: '#3b82f6', marginLeft: 'auto' }}>
-                                                <Phone size={14} />
-                                            </a>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Visit Time */}
-                                {job.confirmedVisitTime && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
-                                        <Calendar size={14} style={{ color: 'var(--text-tertiary)' }} />
-                                        <span style={{ color: 'var(--text-secondary)' }}>
-                                            Visit: {formatDate(job.confirmedVisitTime)}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 12 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}>
+                                        <Calendar size={14} color="#64748b" />
+                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {job.confirmedVisitTime ? formatDate(job.confirmedVisitTime) : 'Pending Schedule'}
                                         </span>
                                     </div>
-                                )}
-
-                                {/* Actions */}
-                                {job.status !== 'completed' && job.status !== 'cancelled' && (
-                                    <div style={{ marginTop: 'var(--spacing-sm)', paddingTop: 'var(--spacing-sm)', borderTop: '1px solid var(--border-primary)' }}>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleCancelJob(job.id);
-                                            }}
-                                            className="btn btn-secondary"
-                                            style={{ width: '100%', fontSize: 'var(--font-size-sm)', padding: 'var(--spacing-xs)' }}
-                                        >
-                                            Cancel Request
-                                        </button>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}>
+                                        <Wrench size={14} color="#64748b" />
+                                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {job.assignedTechnician || 'Unassigned'}
+                                        </span>
                                     </div>
-                                )}
+                                </div>
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+                        )
+                    })}
+                </div>
+            )}
 
-            {/* Job Detail Modal */}
+            {/* Bottom Sheet Modal for Job Details */}
             {selectedJob && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    alignItems: 'flex-end'
-                }} onClick={() => setSelectedJob(null)}>
+                <>
+                    {/* Backdrop */}
+                    <div
+                        onClick={() => setSelectedJob(null)}
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 100 }}
+                    />
+
+                    {/* Sheet */}
                     <div style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        width: '100%',
-                        maxHeight: '80vh',
-                        borderTopLeftRadius: 'var(--radius-xl)',
-                        borderTopRightRadius: 'var(--radius-xl)',
-                        padding: 'var(--spacing-lg)',
-                        overflow: 'auto'
-                    }} onClick={(e) => e.stopPropagation()}>
-                        <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, marginBottom: 'var(--spacing-md)' }}>
-                            Service Request Details
-                        </h2>
+                        position: 'fixed', bottom: 0, left: 0, right: 0,
+                        background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
+                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: '28px 28px 0 0',
+                        padding: '24px', zIndex: 101,
+                        boxShadow: '0 -10px 40px rgba(0,0,0,0.5)',
+                        maxHeight: '85vh', overflowY: 'auto'
+                    }}>
+                        <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, margin: '0 auto 20px' }} />
 
-                        <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
                             <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Request ID</div>
-                                <div style={{ fontSize: 'var(--font-size-sm)' }}>{selectedJob.id}</div>
+                                <h2 style={{ fontSize: 22, fontWeight: 800, color: '#f8fafc', margin: '0 0 4px 0' }}>Job Details</h2>
+                                <p style={{ fontSize: 13, color: '#64748b', margin: 0, fontFamily: 'monospace' }}>#{selectedJob.id}</p>
                             </div>
+                            <button onClick={() => setSelectedJob(null)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#94a3b8', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <X size={16} />
+                            </button>
+                        </div>
 
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Product</div>
-                                <div style={{ fontSize: 'var(--font-size-sm)' }}>{selectedJob.product?.type} - {selectedJob.product?.brand}</div>
-                            </div>
-
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Issue</div>
-                                <div style={{ fontSize: 'var(--font-size-sm)' }}>{selectedJob.issue}</div>
-                            </div>
-
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Status</div>
-                                <div style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    padding: '4px 10px',
-                                    backgroundColor: getStatusColor(selectedJob.status) + '20',
-                                    color: getStatusColor(selectedJob.status),
-                                    borderRadius: 'var(--radius-full)',
-                                    fontSize: 'var(--font-size-xs)',
-                                    fontWeight: 600
-                                }}>
-                                    {getStatusIcon(selectedJob.status)}
-                                    <span style={{ textTransform: 'capitalize' }}>{selectedJob.status}</span>
+                        {/* Status Ribbon */}
+                        {(() => {
+                            const theme = getStatusTheme(selectedJob.status)
+                            const Icon = theme.icon
+                            return (
+                                <div style={{ background: theme.bg, color: theme.color, padding: '12px 16px', borderRadius: 16, display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, fontSize: 14, fontWeight: 700 }}>
+                                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: theme.color, color: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Icon size={16} />
+                                    </div>
+                                    Status: {theme.label}
                                 </div>
+                            )
+                        })()}
+
+                        {/* Info Groups */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 16 }}>
+                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 1 }}>Device</div>
+                                <div style={{ fontSize: 15, color: '#f8fafc', fontWeight: 600 }}>{selectedJob.product?.brand} {selectedJob.product?.type}</div>
+                            </div>
+
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 16 }}>
+                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 1 }}>Reported Issue</div>
+                                <div style={{ fontSize: 14, color: '#cbd5e1', lineHeight: 1.5 }}>{selectedJob.issue}</div>
                             </div>
 
                             {selectedJob.notes && (
-                                <div>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Notes</div>
-                                    <div style={{ fontSize: 'var(--font-size-sm)' }}>{selectedJob.notes}</div>
+                                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 16 }}>
+                                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 1 }}>Notes</div>
+                                    <div style={{ fontSize: 14, color: '#cbd5e1', lineHeight: 1.5 }}>{selectedJob.notes}</div>
                                 </div>
                             )}
+
+                            {/* Address & Tech */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 16 }}>
+                                <div>
+                                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={12} /> Service Address</div>
+                                    <div style={{ fontSize: 14, color: '#cbd5e1' }}>{selectedJob.locality}, {selectedJob.city}</div>
+                                </div>
+                                <div style={{ height: 1, background: 'rgba(255,255,255,0.05)' }} />
+                                <div>
+                                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 4 }}><Wrench size={12} /> Technician</div>
+                                    <div style={{ fontSize: 14, color: '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        {selectedJob.assignedTechnician || 'Assigning...'}
+                                        {selectedJob.technicianMobile && (
+                                            <a href={`tel:${selectedJob.technicianMobile}`} style={{ background: '#38bdf8', color: '#0f172a', padding: '6px 12px', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontWeight: 700 }}>Call</a>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <button
-                            onClick={() => setSelectedJob(null)}
-                            className="btn btn-primary"
-                            style={{ width: '100%', marginTop: 'var(--spacing-lg)' }}
-                        >
-                            Close
-                        </button>
+                        {/* Actions */}
+                        {!['completed', 'cancelled'].includes(selectedJob.status) && (
+                            <button
+                                onClick={() => handleCancelJob(selectedJob.id)}
+                                style={{
+                                    marginTop: 24, width: '100%', padding: '14px',
+                                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                                    borderRadius: 16, color: '#ef4444', fontSize: 14, fontWeight: 700, cursor: 'pointer'
+                                }}
+                            >
+                                Cancel Service Request
+                            </button>
+                        )}
                     </div>
-                </div>
+                </>
             )}
+
+            <BookServiceModal isOpen={showServiceModal} onClose={() => setShowServiceModal(false)} onBook={() => { fetchJobs(); setShowServiceModal(false) }} />
         </div>
-    );
+    )
 }

@@ -1,281 +1,137 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { User, Mail, Phone, MapPin, Edit2, Save, X } from 'lucide-react';
+import { useState, useEffect } from 'react'
+import { User, Mail, Phone, MapPin, Edit2, ShieldCheck, ChevronRight, LogOut, Settings, CreditCard, LifeBuoy } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export default function ProfilePage() {
-    const [customer, setCustomer] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [editing, setEditing] = useState(false);
-    const [formData, setFormData] = useState({});
-    const [customerId, setCustomerId] = useState(null);
+    const router = useRouter()
+    const [customer, setCustomer] = useState(null)
+    const [loading, setLoading] = useState(true)
 
-    // Get customer ID from session/auth
     useEffect(() => {
-        const storedCustomerId = localStorage.getItem('customerId');
-        if (storedCustomerId) {
-            setCustomerId(storedCustomerId);
-        } else {
-            setCustomerId('default-customer-id');
-        }
-    }, []);
-
-    // Fetch customer profile
-    useEffect(() => {
-        if (!customerId) return;
-
         const fetchProfile = async () => {
             try {
-                setLoading(true);
-                const response = await fetch(`/api/customer/profile?customerId=${customerId}`);
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch profile');
-                }
-
-                const data = await response.json();
-                setCustomer(data.customer);
-                setFormData(data.customer);
-                setError(null);
+                const customerId = localStorage.getItem('customerId') || 'default-customer-id'
+                const response = await fetch(`/api/customer/profile?customerId=${customerId}`)
+                const data = await response.json()
+                setCustomer(data.customer || { name: 'Customer', mobile: 'Not set' })
             } catch (err) {
-                console.error('Error fetching profile:', err);
-                setError('Failed to load profile');
+                console.error('Error fetching profile:', err)
             } finally {
-                setLoading(false);
+                setLoading(false)
             }
-        };
-
-        fetchProfile();
-    }, [customerId]);
-
-    const handleSave = async () => {
-        try {
-            setLoading(true);
-            const response = await fetch('/api/customer/profile', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customerId, ...formData })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to update profile');
-            }
-
-            setCustomer(data.customer);
-            setEditing(false);
-            alert('Profile updated successfully!');
-        } catch (err) {
-            console.error('Error updating profile:', err);
-            alert(err.message);
-        } finally {
-            setLoading(false);
         }
-    };
+        fetchProfile()
+    }, [])
 
-    const handleCancel = () => {
-        setFormData(customer);
-        setEditing(false);
-    };
-
-    if (loading && !customer) {
-        return (
-            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                Loading profile...
-            </div>
-        );
+    const handleLogout = () => {
+        if (window.confirm('Are you sure you want to log out?')) {
+            localStorage.clear()
+            router.push('/login')
+        }
     }
 
-    if (error) {
+    if (loading) {
         return (
-            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: '#ef4444' }}>
-                {error}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: 16 }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid rgba(245,158,11,0.2)', borderTopColor: '#f59e0b', animation: 'spin 1s linear infinite' }} />
             </div>
-        );
+        )
     }
 
     return (
-        <div style={{ height: '100%', overflow: 'auto', backgroundColor: 'var(--bg-primary)', padding: 'var(--spacing-md)' }}>
-            {/* Header */}
+        <div style={{ padding: '0 20px', display: 'flex', flexDirection: 'column', gap: '24px', minHeight: '100%' }}>
+
+            {/* Header Area (Extended into background) */}
             <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: 'var(--spacing-lg)'
+                margin: '0 -20px 20px -20px',
+                padding: '40px 20px 30px',
+                background: 'linear-gradient(180deg, rgba(56,189,248,0.1), transparent)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center'
             }}>
-                <h1 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700 }}>
-                    My Profile
+                <div style={{ position: 'relative', marginBottom: 16 }}>
+                    <div style={{
+                        width: 96, height: 96, borderRadius: '32px',
+                        background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 40, fontWeight: 800, color: '#fff',
+                        boxShadow: '0 10px 30px rgba(139,92,246,0.4)',
+                        transform: 'rotate(5deg)'
+                    }}>
+                        <div style={{ transform: 'rotate(-5deg)' }}>
+                            {customer?.name?.charAt(0).toUpperCase() || 'U'}
+                        </div>
+                    </div>
+                </div>
+
+                <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 4px 0', color: '#f8fafc' }}>
+                    {customer?.name || 'Sorted Customer'}
                 </h1>
-                {!editing && (
-                    <button
-                        onClick={() => setEditing(true)}
-                        className="btn btn-secondary"
-                        style={{ padding: 'var(--spacing-xs) var(--spacing-sm)' }}
-                    >
-                        <Edit2 size={16} style={{ marginRight: 'var(--spacing-xs)' }} />
-                        Edit
-                    </button>
-                )}
-            </div>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 14 }}>
+                    {customer?.mobile}
+                </p>
 
-            {/* Profile Picture */}
-            <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
-                <div style={{
-                    width: '100px',
-                    height: '100px',
-                    borderRadius: '50%',
-                    backgroundColor: '#3b82f6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto',
-                    fontSize: 'var(--font-size-3xl)',
-                    fontWeight: 700,
-                    color: 'white'
-                }}>
-                    {customer?.name?.charAt(0).toUpperCase() || 'U'}
+                {/* Member Badge */}
+                <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', padding: '6px 12px', borderRadius: '20px', color: '#10b981', fontSize: 12, fontWeight: 700 }}>
+                    <ShieldCheck size={14} /> Sorted Member
                 </div>
             </div>
 
-            {/* Profile Information */}
-            <div style={{
-                backgroundColor: 'var(--bg-elevated)',
-                borderRadius: 'var(--radius-lg)',
-                padding: 'var(--spacing-lg)',
-                border: '1px solid var(--border-primary)'
-            }}>
-                {editing ? (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                        <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: 600,
-                                marginBottom: 'var(--spacing-xs)',
-                                color: 'var(--text-primary)'
-                            }}>
-                                Name
-                            </label>
-                            <input
-                                type="text"
-                                value={formData.name || ''}
-                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="form-input"
-                                style={{ width: '100%' }}
-                            />
-                        </div>
+            {/* List Groups */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-                        <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: 600,
-                                marginBottom: 'var(--spacing-xs)',
-                                color: 'var(--text-primary)'
-                            }}>
-                                Email
-                            </label>
-                            <input
-                                type="email"
-                                value={formData.email || ''}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                className="form-input"
-                                style={{ width: '100%' }}
-                            />
-                        </div>
-
-                        <div>
-                            <label style={{
-                                display: 'block',
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: 600,
-                                marginBottom: 'var(--spacing-xs)',
-                                color: 'var(--text-primary)'
-                            }}>
-                                Mobile
-                            </label>
-                            <input
-                                type="tel"
-                                value={formData.mobile || ''}
-                                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                                className="form-input"
-                                style={{ width: '100%' }}
-                            />
-                        </div>
-
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-md)' }}>
-                            <button
-                                onClick={handleSave}
-                                disabled={loading}
-                                className="btn btn-primary"
-                                style={{ flex: 1 }}
-                            >
-                                <Save size={16} style={{ marginRight: 'var(--spacing-xs)' }} />
-                                {loading ? 'Saving...' : 'Save Changes'}
-                            </button>
-                            <button
-                                onClick={handleCancel}
-                                className="btn btn-secondary"
-                            >
-                                <X size={16} />
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                            <User size={20} style={{ color: 'var(--text-tertiary)' }} />
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Name</div>
-                                <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 500 }}>{customer?.name || 'Not set'}</div>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                            <Mail size={20} style={{ color: 'var(--text-tertiary)' }} />
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Email</div>
-                                <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 500 }}>{customer?.email || 'Not set'}</div>
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                            <Phone size={20} style={{ color: 'var(--text-tertiary)' }} />
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Mobile</div>
-                                <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 500 }}>{customer?.mobile || 'Not set'}</div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Account Info */}
-            <div style={{
-                backgroundColor: 'var(--bg-elevated)',
-                borderRadius: 'var(--radius-lg)',
-                padding: 'var(--spacing-lg)',
-                border: '1px solid var(--border-primary)',
-                marginTop: 'var(--spacing-md)'
-            }}>
-                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                    Account Information
-                </h3>
-                <div style={{ display: 'grid', gap: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Customer ID</span>
-                        <span style={{ fontWeight: 500 }}>{customer?.id}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Member Since</span>
-                        <span style={{ fontWeight: 500 }}>
-                            {customer?.created_at ? new Date(customer.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : 'N/A'}
-                        </span>
-                    </div>
+                {/* Account Group */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 24, padding: '8px 0' }}>
+                    <SettingsRow icon={User} color="#38bdf8" label="Edit Profile" />
+                    <SettingsRow divider icon={MapPin} color="#f59e0b" label="Saved Addresses" />
+                    <SettingsRow divider icon={CreditCard} color="#8b5cf6" label="Payment Methods" />
                 </div>
+
+                {/* Preferences Group */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 24, padding: '8px 0' }}>
+                    <SettingsRow icon={Settings} color="#94a3b8" label="App Settings" />
+                    <SettingsRow divider icon={LifeBuoy} color="#10b981" label="Help & Support" />
+                </div>
+
+                {/* Logout */}
+                <button
+                    onClick={handleLogout}
+                    style={{
+                        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
+                        borderRadius: 24, padding: '16px', color: '#ef4444', fontSize: 15, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        cursor: 'pointer', transition: 'background 0.2s'
+                    }}
+                >
+                    <LogOut size={18} /> Sign Out
+                </button>
             </div>
+
+            <div style={{ textAlign: 'center', marginTop: 24, color: '#475569', fontSize: 12 }}>
+                Sorted Solutions v2.0 • Build 8421
+            </div>
+
         </div>
-    );
+    )
+}
+
+function SettingsRow({ icon: Icon, color, label, divider }) {
+    return (
+        <div style={{ padding: '0 20px' }}>
+            {divider && <div style={{ height: 1, background: 'rgba(255,255,255,0.05)', marginLeft: 36 }} />}
+            <button style={{
+                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                background: 'none', border: 'none', padding: '16px 0', cursor: 'pointer'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 10, background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: color }}>
+                        <Icon size={16} strokeWidth={2.5} />
+                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: '#e2e8f0' }}>{label}</span>
+                </div>
+                <ChevronRight size={18} color="#475569" />
+            </button>
+        </div>
+    )
 }
