@@ -53,11 +53,6 @@ function WhyChooseUsSection({
                 size: 'small'
             }
         ],
-        brands: ['Samsung', 'Daikin', 'Siemens', 'Bosch', 'LG', 'Voltas', 'Bajaj', 'Haier', 'Mitsubishi', 'Faber'],
-        brandsConfig: {
-            sectionTitle: 'Trusted by Leading Brands',
-            disclaimerText: '*These trademarks or logos are used for illustration purposes only & we disclaim any specific connection with the brand in this regard.'
-        }
     });
     const [horizontalScroll, setHorizontalScroll] = useState(true);
 
@@ -98,20 +93,6 @@ function WhyChooseUsSection({
                             subtitle: dataWC.data.value.sectionDescription || prev.hero.subtitle
                         }
                     }));
-                }
-
-                // Fetch brands
-                const resB = await fetch('/api/settings/brands');
-                const dataB = await resB.json();
-                if (dataB.success && dataB.data?.length > 0) {
-                    setFeatures(prev => ({ ...prev, brands: dataB.data }));
-                }
-
-                // Fetch brands config
-                const resBC = await fetch('/api/settings/section-configs?id=brand-logos-config');
-                const dataBC = await resBC.json();
-                if (dataBC.success && dataBC.data?.value) {
-                    setFeatures(prev => ({ ...prev, brandsConfig: dataBC.data.value }));
                 }
             } catch (error) {
                 console.error('Error fetching Why Choose Us data:', error);
@@ -175,24 +156,6 @@ function WhyChooseUsSection({
                     ))}
                 </div>
 
-                {/* Brands Ticker */}
-                <div className="brands-ticker">
-                    <div className="ticker-label">{features.brandsConfig?.sectionTitle || 'Trusted by Leading Brands'}</div>
-                    <div className="ticker-wrapper">
-                        <div className="ticker-track">
-                            {(features.brands.length > 0 ? [...features.brands, ...features.brands, ...features.brands] : []).map((brand, index) => (
-                                <div key={index} className="ticker-item">
-                                    {typeof brand === 'string' ? brand : brand.name}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                    {features.brandsConfig?.disclaimerText && (
-                        <div className="ticker-disclaimer">
-                            {features.brandsConfig.disclaimerText}
-                        </div>
-                    )}
-                </div>
             </div>
         </section>
     );
