@@ -208,8 +208,10 @@ function WebsiteSettings({ subSection, setSubSection }) {
             }
 
             setSettingsByCategory(dynamicSettings);
+            return dynamicSettings; // Return so callers can use it immediately
         } catch (e) {
             console.error('Failed to fetch appliance data for WebsiteSettings:', e);
+            return null;
         } finally {
             setLoadingAppliances(false);
         }
@@ -397,12 +399,14 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 <CustomerTestimonialsSettings />
             ) : activeCategory === 'page-builder' ? (
                 <PageBuilderTool
-                    onEditPage={(page) => {
+                    onEditPage={async (page) => {
+                        // Fetch fresh data first and use it directly — don't rely on stale state
+                        const freshSettings = await fetchApplianceData();
                         setActiveCategory(page.page_id);
                         if (setSubSection) setSubSection(page.hero_settings?.title || page.page_id);
                     }}
                     onPageCreated={(newPageId, newPageType) => {
-                        // Refresh the dynamic settings so the new page appears in the sidebar
+                        // Already refreshed in onEditPage — no need to re-fetch
                         fetchApplianceData();
                     }}
                 />
@@ -420,6 +424,33 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 (() => {
                     const allSettings = Object.values(settingsByCategory).flat();
                     const setting = allSettings.find(s => s.id === activeCategory);
+
+                    // Derive URL from page_id directly as fallback (so newly created pages always get a URL)
+                    const derivePageUrl = (id) => {
+                        if (!id) return '/';
+                        if (id.startsWith('cat-')) return `/services/${id.replace('cat-', '')}`;
+                        if (id.startsWith('sub-')) {
+                            const rest = id.replace('sub-', '');
+                            const KNOWN_CATS = ['ac-repair', 'washing-machine-repair', 'refrigerator-repair', 'oven-repair', 'hob-repair', 'water-purifier-repair'];
+                            const cat = KNOWN_CATS.find(c => rest.startsWith(c + '-'));
+                            if (cat) return `/services/${cat}/${rest.replace(cat + '-', '')}`;
+                            const parts = rest.split('-');
+                            if (parts.length >= 2) {
+                                const mid = Math.ceil(parts.length / 2);
+                                return `/services/${parts.slice(0, mid).join('-')}/${parts.slice(mid).join('-')}`;
+                            }
+                            return `/services/${rest}`;
+                        }
+                        if (id.startsWith('loc-')) return `/location/${id.replace('loc-', '')}`;
+                        if (id.startsWith('sloc-')) {
+                            const rest = id.replace('sloc-', '');
+                            const KNOWN_LOCS = ['andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon', 'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim', 'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla'];
+                            const loc = KNOWN_LOCS.find(l => rest.startsWith(l + '-'));
+                            return loc ? `/location/${loc}/${rest.replace(loc + '-', '')}` : `/location/${rest}`;
+                        }
+                        return `/${id}`;
+                    };
+
                     return (
                         <div>
                             <button
@@ -440,7 +471,7 @@ function WebsiteSettings({ subSection, setSubSection }) {
                                 key={activeCategory}
                                 pageId={activeCategory}
                                 pageLabel={setting?.label || activeCategory}
-                                pageUrl={setting?.url}
+                                pageUrl={setting?.url || derivePageUrl(activeCategory)}
                                 onRename={(newId) => {
                                     setActiveCategory(newId);
                                     if (setSubSection) setSubSection(newId);
