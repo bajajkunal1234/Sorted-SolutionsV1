@@ -1957,7 +1957,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                                     {info.label}
                                                 </div>
                                                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                                                    Position: {index + 1} of {currentOrder.length}
+                                                    Position: {index + 1} of {displayOrder.length}
                                                 </div>
                                             </div>
 
@@ -2106,7 +2106,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                 </div>
             </div>
 
-                <style jsx>{`
+            <style jsx>{`
                 .form-control {
                     width: 100%;
                     padding: 10px 12px;
