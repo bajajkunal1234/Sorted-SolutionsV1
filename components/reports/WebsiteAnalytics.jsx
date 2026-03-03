@@ -274,8 +274,10 @@ export default function WebsiteAnalytics() {
     const ga4 = data?.ga4
     const ga4Connected = data?.ga4Connected
 
-    const statusSlices = Object.entries(sb?.bookings?.byStatus || {}).map(([k, v]) => ({ label: k, value: v, color: STATUS_COLORS[k] || '#94a3b8' }))
+    // GA4 Slices
     const channelSlices = (ga4?.trafficSources || []).map((s, i) => ({ label: s.channel, value: s.sessions, color: CHANNEL_COLORS[i % CHANNEL_COLORS.length] }))
+    const deviceSlices = (ga4?.deviceCategories || []).map((s, i) => ({ label: s.device, value: s.sessions, color: ['#8b5cf6', '#06b6d4', '#f59e0b'][i % 3] }))
+    const userTypeSlices = (ga4?.userTypes || []).map((s, i) => ({ label: s.type, value: s.users, color: ['#10b981', '#6366f1'][i % 2] }))
 
     // Is this drawer for customers or bookings?
     const isCustomerDrawer = drawer?.type?.startsWith('customers')
@@ -520,25 +522,78 @@ export default function WebsiteAnalytics() {
                         </>
                     )}
 
-                    {/* ── Traffic Sources ───────────────────────────────── */}
-                    {ga4Connected && channelSlices.length > 0 && (
+                    {/* ── Audience Insights (GA4) ───────────────────────────────── */}
+                    {ga4Connected && (channelSlices.length > 0 || deviceSlices.length > 0 || userTypeSlices.length > 0) && (
                         <>
-                            <SectionTitle>📣 Traffic Sources</SectionTitle>
-                            <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
-                                <Donut slices={channelSlices} size={140} />
-                                <div style={{ display: 'grid', gap: '8px', flex: 1 }}>
-                                    {channelSlices.map((s, i) => {
-                                        const total = channelSlices.reduce((a, c) => a + c.value, 0)
-                                        return (
-                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                <div style={{ width: '10px', height: '10px', borderRadius: '3px', backgroundColor: s.color, flexShrink: 0 }} />
-                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', flex: 1 }}>{s.label}</span>
-                                                <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>{((s.value / total) * 100).toFixed(1)}%</span>
-                                                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', width: '50px', textAlign: 'right' }}>{s.value.toLocaleString()}</span>
+                            <SectionTitle>📣 Audience Insights (via Google Analytics)</SectionTitle>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
+
+                                {/* Traffic Sources */}
+                                {channelSlices.length > 0 && (
+                                    <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '16px' }}>Traffic Sources</div>
+                                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <Donut slices={channelSlices} size={110} />
+                                            <div style={{ display: 'grid', gap: '8px', flex: 1 }}>
+                                                {channelSlices.slice(0, 4).map((s, i) => {
+                                                    const total = channelSlices.reduce((a, c) => a + c.value, 0)
+                                                    return (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: s.color, flexShrink: 0 }} />
+                                                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flex: 1 }}>{s.label}</span>
+                                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{((s.value / total) * 100).toFixed(0)}%</span>
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
-                                        )
-                                    })}
-                                </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Device Categories */}
+                                {deviceSlices.length > 0 && (
+                                    <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '16px' }}>Device Category</div>
+                                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <Donut slices={deviceSlices} size={110} />
+                                            <div style={{ display: 'grid', gap: '8px', flex: 1 }}>
+                                                {deviceSlices.map((s, i) => {
+                                                    const total = deviceSlices.reduce((a, c) => a + c.value, 0)
+                                                    return (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: s.color, flexShrink: 0 }} />
+                                                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flex: 1 }}>{s.label}</span>
+                                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{((s.value / total) * 100).toFixed(0)}%</span>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* User Types */}
+                                {userTypeSlices.length > 0 && (
+                                    <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '16px' }}>User Type</div>
+                                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <Donut slices={userTypeSlices} size={110} />
+                                            <div style={{ display: 'grid', gap: '8px', flex: 1 }}>
+                                                {userTypeSlices.map((s, i) => {
+                                                    const total = userTypeSlices.reduce((a, c) => a + c.value, 0)
+                                                    return (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            <div style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: s.color, flexShrink: 0 }} />
+                                                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', flex: 1 }}>{s.label}</span>
+                                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{((s.value / total) * 100).toFixed(0)}%</span>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                             </div>
                         </>
                     )}

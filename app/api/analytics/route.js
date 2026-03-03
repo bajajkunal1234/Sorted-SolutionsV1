@@ -144,7 +144,43 @@ async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
             pageViews: parseInt(r.metricValues[1].value)
         }))
 
-        return { traffic, topPages, trafficSources, dailyTrend }
+        // Device Categories
+        const deviceBody = {
+            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            metrics: [{ name: 'sessions' }],
+            dimensions: [{ name: 'deviceCategory' }],
+            orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+            limit: 5
+        }
+        const deviceRes = await fetch(
+            `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+            { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(deviceBody) }
+        )
+        const deviceReport = await deviceRes.json()
+        const deviceCategories = (deviceReport.rows || []).map(r => ({
+            device: r.dimensionValues[0].value,
+            sessions: parseInt(r.metricValues[0].value)
+        }))
+
+        // User Types (New vs Returning)
+        // GA4 uses 'newVsReturning' dimension and 'activeUsers' or 'sessions' metric
+        const userTypeBody = {
+            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            metrics: [{ name: 'activeUsers' }],
+            dimensions: [{ name: 'newVsReturning' }],
+            orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }]
+        }
+        const userTypeRes = await fetch(
+            `https://analyticsdata.googleapis.com/v1beta/${propertyId}:runReport`,
+            { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(userTypeBody) }
+        )
+        const userTypeReport = await userTypeRes.json()
+        const userTypes = (userTypeReport.rows || []).map(r => ({
+            type: r.dimensionValues[0].value,
+            users: parseInt(r.metricValues[0].value)
+        }))
+
+        return { traffic, topPages, trafficSources, dailyTrend, deviceCategories, userTypes }
     } catch (err) {
         console.error('[GA4 fetch error]', err)
         return null
