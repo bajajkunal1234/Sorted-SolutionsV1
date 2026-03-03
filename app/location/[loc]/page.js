@@ -1,5 +1,6 @@
 import { createServerSupabase } from '@/lib/supabase-server'
 import HeroSection from '@/components/services/HeroSection'
+import ServicesGrid from '@/components/services/ServicesGrid'
 
 export const dynamic = 'force-dynamic'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
@@ -45,6 +46,7 @@ export default async function LocationPage({ params }) {
 
             dynamicSettings = {
                 heroSettings: d.hero_settings,
+                servicesSettings: d.services_settings || null,
                 problems: (r.problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
                 services: (r.services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
                 localities: (r.localities || []).map(l => l.locality_name),
@@ -96,6 +98,29 @@ export default async function LocationPage({ params }) {
     // serviceCategories kept here as it serves as the "subcategories" section on location pages
     // and is admin-overridable via subcategories_settings
     const subcategories = dynamicSettings?.subcategories || []
+    const servicesSettings = dynamicSettings?.servicesSettings;
+
+    // ── Resolve service issue IDs to full objects ──
+    let resolvedServices = []
+    if (servicesSettings?.items?.length > 0) {
+        try {
+            const qbData = await fetchQuickBookingData()
+            if (qbData?.categories) {
+                for (const cat of qbData.categories) {
+                    for (const sub of (cat.subcategories || [])) {
+                        for (const issue of (sub.issues || [])) {
+                            const saved = servicesSettings.items.find(s => Number(s.id) === Number(issue.id))
+                            if (saved) {
+                                resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', categoryId: cat.id, subcategoryId: sub.id })
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[LocationPage] Failed to resolve services:', err)
+        }
+    }
 
 
 
@@ -190,15 +215,16 @@ export default async function LocationPage({ params }) {
                     </div>
                 );
             case 'services':
-                return sv.services !== false && (
-                    <div id="popular" key="services">
-                        <FrequentlyBooked
-                            title={dynamicSettings?.services_title || `Popular in ${locationName}`}
-                            subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
-                            dynamicServices={dynamicSettings?.services}
+                return sv.services !== false && resolvedServices.length > 0 && (
+                    <div key="services">
+                        <ServicesGrid
+                            title={servicesSettings?.title || "Popular Services"}
+                            subtitle={servicesSettings?.subtitle || "Click any service to book instantly"}
+                            services={resolvedServices}
                         />
                     </div>
                 );
+
             case 'other_locations':
                 return sv.other_locations !== false && (
                     <div id="other-locations" key="other_locations">

@@ -653,11 +653,9 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                     : (d?.problems_settings?.items || [])
             },
             services_settings: {
-                title: d?.services_settings?.title || 'Our Services',
-                subtitle: d?.services_settings?.subtitle || 'Best in class services',
-                items: (r.services?.length > 0)
-                    ? r.services.map(s => ({ name: s.service_name, price: s.price_starts_at }))
-                    : (d?.services_settings?.items || [])
+                title: d?.services_settings?.title || 'Popular Services',
+                subtitle: d?.services_settings?.subtitle || 'Click any service to book instantly',
+                items: d?.services_settings?.items || []
             },
             localities_settings: {
                 title: d?.localities_settings?.title || 'Areas We Serve',
@@ -1451,71 +1449,197 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
 
 
                 {/* ── SERVICES TAB ── */}
-                {activeTab === 'services' && (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
-                        <SectionVisibilityBanner sectionKey="services" visible={sectionVisibility.services} onToggle={toggleSectionVisibility} />
-                        <div style={{ opacity: sectionVisibility.services ? 1 : 0.45, pointerEvents: sectionVisibility.services ? 'auto' : 'none', transition: 'opacity 0.2s', display: 'grid', gap: 'var(--spacing-xl)' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
-                                    <input
-                                        type="text"
-                                        value={settings.services_settings.title}
-                                        onChange={(e) => updateSection('services_settings', 'title', e.target.value)}
-                                        className="form-control"
-                                    />
+                {activeTab === 'services' && (() => {
+                    const allIssues = getPageIssues();
+                    // services_settings.items = [{id, price}, ...]
+                    const selectedItems = settings.services_settings?.items || [];
+                    const selectedIds = selectedItems.map(i => Number(i.id));
+
+                    const filtered = issueSearch
+                        ? allIssues.filter(i =>
+                            i.name.toLowerCase().includes(issueSearch.toLowerCase()) ||
+                            i.subcategoryName.toLowerCase().includes(issueSearch.toLowerCase())
+                        )
+                        : allIssues;
+
+                    const grouped = filtered.reduce((acc, issue) => {
+                        const key = issue.subcategoryName;
+                        if (!acc[key]) acc[key] = { issues: [] };
+                        acc[key].issues.push(issue);
+                        return acc;
+                    }, {});
+
+                    const toggleServiceIssue = (issue) => {
+                        const existing = selectedItems.findIndex(i => Number(i.id) === Number(issue.id));
+                        let newItems;
+                        if (existing >= 0) {
+                            newItems = selectedItems.filter((_, idx) => idx !== existing);
+                        } else {
+                            newItems = [...selectedItems, { id: issue.id, price: '' }];
+                        }
+                        updateSection('services_settings', 'items', newItems);
+                    };
+
+                    const updateServicePrice = (issueId, price) => {
+                        const newItems = selectedItems.map(i =>
+                            Number(i.id) === Number(issueId) ? { ...i, price } : i
+                        );
+                        updateSection('services_settings', 'items', newItems);
+                    };
+
+                    return (
+                        <div>
+                            <SectionVisibilityBanner sectionKey="services" visible={sectionVisibility.services} onToggle={toggleSectionVisibility} />
+                            <div style={{ opacity: sectionVisibility.services ? 1 : 0.45, pointerEvents: sectionVisibility.services ? 'auto' : 'none', transition: 'opacity 0.2s', display: 'grid', gap: 'var(--spacing-xl)' }}>
+                                {/* Section title/subtitle */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
+                                        <input
+                                            type="text"
+                                            value={settings.services_settings?.title || ''}
+                                            onChange={(e) => updateSection('services_settings', 'title', e.target.value)}
+                                            className="form-control"
+                                            placeholder="e.g. Popular Services"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
+                                        <input
+                                            type="text"
+                                            value={settings.services_settings?.subtitle || ''}
+                                            onChange={(e) => updateSection('services_settings', 'subtitle', e.target.value)}
+                                            className="form-control"
+                                            placeholder="e.g. Click any service to book instantly"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Subtitle</label>
-                                    <input
-                                        type="text"
-                                        value={settings.services_settings.subtitle}
-                                        onChange={(e) => updateSection('services_settings', 'subtitle', e.target.value)}
-                                        className="form-control"
-                                    />
-                                </div>
-                            </div>
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                    <label style={{ fontWeight: 600 }}>Popular Services & Pricing</label>
-                                    <button onClick={() => addItem('services_settings')} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }}>
-                                        <Plus size={14} /> Add Service
-                                    </button>
-                                </div>
-                                <div style={{ display: 'grid', gap: '12px' }}>
-                                    {settings.services_settings.items.map((item, index) => (
-                                        <div key={index} style={{ display: 'flex', gap: '12px', padding: '12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', alignItems: 'center' }}>
-                                            <div style={{ flex: 2 }}>
-                                                <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Service Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={item.name}
-                                                    onChange={(e) => updateItem('services_settings', index, 'name', e.target.value)}
-                                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}
-                                                />
-                                            </div>
-                                            <div style={{ flex: 1 }}>
-                                                <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Starts From (₹)</label>
-                                                <input
-                                                    type="number"
-                                                    value={item.price}
-                                                    onChange={(e) => updateItem('services_settings', index, 'price', e.target.value)}
-                                                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)' }}
-                                                />
-                                            </div>
-                                            <button onClick={() => removeItem('services_settings', index)} className="btn btn-danger" style={{ marginTop: '20px' }}>
-                                                <Trash2 size={16} />
+
+                                {/* Stats + search */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        <strong style={{ color: 'var(--color-primary)' }}>{selectedIds.length}</strong> services selected from{' '}
+                                        <strong>{allIssues.length}</strong> total
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search issues..."
+                                            value={issueSearch}
+                                            onChange={(e) => setIssueSearch(e.target.value)}
+                                            className="form-control"
+                                            style={{ width: '200px', padding: '6px 12px', fontSize: '13px' }}
+                                        />
+                                        {selectedIds.length > 0 && (
+                                            <button
+                                                onClick={() => updateSection('services_settings', 'items', [])}
+                                                style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, backgroundColor: '#ef444415', color: '#ef4444', border: '1px solid #ef444430', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
+                                            >
+                                                Clear all
                                             </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Issue picker grouped by subcategory */}
+                                {allIssues.length === 0 && (
+                                    <div style={{ padding: '24px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)', color: 'var(--text-tertiary)' }}>
+                                        No issues found. Add issues in Quick Booking settings first.
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'grid', gap: '20px' }}>
+                                    {Object.entries(grouped).map(([subcatName, group]) => (
+                                        <div key={subcatName}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', paddingLeft: '4px' }}>
+                                                    {subcatName}
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        const groupIds = group.issues.map(i => Number(i.id));
+                                                        const allSelected = groupIds.every(id => selectedIds.includes(id));
+                                                        if (allSelected) {
+                                                            updateSection('services_settings', 'items', selectedItems.filter(i => !groupIds.includes(Number(i.id))));
+                                                        } else {
+                                                            const toAdd = group.issues.filter(i => !selectedIds.includes(Number(i.id)));
+                                                            updateSection('services_settings', 'items', [...selectedItems, ...toAdd.map(i => ({ id: i.id, price: '' }))]);
+                                                        }
+                                                    }}
+                                                    style={{ padding: '3px 10px', fontSize: '11px', fontWeight: 600, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '99px', cursor: 'pointer', color: 'var(--text-secondary)' }}
+                                                >
+                                                    {group.issues.every(i => selectedIds.includes(Number(i.id))) ? 'Deselect All' : 'Select All'}
+                                                </button>
+                                            </div>
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                {group.issues.map(issue => {
+                                                    const selected = selectedIds.includes(Number(issue.id));
+                                                    const savedItem = selectedItems.find(i => Number(i.id) === Number(issue.id));
+                                                    return (
+                                                        <div key={issue.id} style={{
+                                                            border: `2px solid ${selected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                                            borderRadius: 'var(--radius-lg)',
+                                                            backgroundColor: selected ? 'rgba(99,102,241,0.05)' : 'var(--bg-secondary)',
+                                                            overflow: 'hidden',
+                                                            transition: 'all 0.2s'
+                                                        }}>
+                                                            {/* Row 1: toggle issue */}
+                                                            <div
+                                                                onClick={() => toggleServiceIssue(issue)}
+                                                                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer' }}
+                                                            >
+                                                                <div style={{
+                                                                    width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                                                                    border: `2px solid ${selected ? 'var(--color-primary)' : 'var(--border-tertiary)'}`,
+                                                                    backgroundColor: selected ? 'var(--color-primary)' : 'transparent',
+                                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                                }}>
+                                                                    {selected && <Check size={13} color="white" strokeWidth={3} />}
+                                                                </div>
+                                                                <div style={{ flex: 1 }}>
+                                                                    <div style={{ fontWeight: 700, fontSize: '14px', color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{issue.name}</div>
+                                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>ID: {issue.id}</div>
+                                                                </div>
+                                                                {savedItem?.price && (
+                                                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#10b981' }}>₹{savedItem.price}</div>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Row 2: price input (only when selected) */}
+                                                            {selected && (
+                                                                <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border-primary)', paddingTop: '12px' }}>
+                                                                    <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                                                                        Price (₹) — shown on live page
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="e.g. 499 or 499-999"
+                                                                        value={savedItem?.price || ''}
+                                                                        onChange={e => updateServicePrice(issue.id, e.target.value)}
+                                                                        className="form-control"
+                                                                        style={{ fontSize: '13px', maxWidth: '200px' }}
+                                                                        onClick={e => e.stopPropagation()}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     ))}
-                                    {settings.services_settings.items.length === 0 && (
-                                        <p style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '24px' }}>No services added yet.</p>
-                                    )}
                                 </div>
+
+                                {selectedIds.length === 0 && allIssues.length > 0 && (
+                                    <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '4px', textAlign: 'center' }}>
+                                        Select issues above — this section will be <strong>hidden</strong> until at least one is selected.
+                                    </p>
+                                )}
                             </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
+
 
                 {/* ―― LOCALITIES TAB ―― */}
                 {activeTab === 'localities' && (

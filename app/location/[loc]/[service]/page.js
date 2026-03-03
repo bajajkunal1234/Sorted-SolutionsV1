@@ -1,4 +1,5 @@
 import HeroSection from '@/components/services/HeroSection'
+import ServicesGrid from '@/components/services/ServicesGrid'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import CategoryCards from '@/components/services/CategoryCards'
 import ProblemsSection from '@/components/services/ProblemsSection'
@@ -53,8 +54,9 @@ export default async function SubLocationPage({ params }) {
 
             dynamicSettings = {
                 heroSettings: d.hero_settings || null,
+                servicesSettings: d.services_settings || null,
                 problemsSettings: d.problems_settings,
-                servicesSettings: d.services_settings,
+
                 problems: (r.problems || []).map(p => ({ title: p.problem_title, description: p.problem_description })),
                 localities: (r.localities || []).map(l => l.locality_name),
                 services: (r.services || []).map(s => ({ name: s.service_name, price: s.price_starts_at })),
@@ -94,6 +96,29 @@ export default async function SubLocationPage({ params }) {
     const problems = dynamicSettings?.problems || []
     const faqs = dynamicSettings?.faqs || []
     const subcategories = dynamicSettings?.subcategories || []
+    const servicesSettings = dynamicSettings?.servicesSettings;
+
+    // ── Resolve service issue IDs to full objects ──
+    let resolvedServices = []
+    if (servicesSettings?.items?.length > 0) {
+        try {
+            const qbData = await fetchQuickBookingData()
+            if (qbData?.categories) {
+                for (const cat of qbData.categories) {
+                    for (const sub of (cat.subcategories || [])) {
+                        for (const issue of (sub.issues || [])) {
+                            const saved = servicesSettings.items.find(s => Number(s.id) === Number(issue.id))
+                            if (saved) {
+                                resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', categoryId: cat.id, subcategoryId: sub.id })
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('[SublocPage] Failed to resolve services:', err)
+        }
+    }
 
 
 
@@ -188,12 +213,12 @@ export default async function SubLocationPage({ params }) {
                     </div>
                 );
             case 'services':
-                return sv.services !== false && (
-                    <div id="popular" key="services">
-                        <FrequentlyBooked
-                            title={dynamicSettings?.services_title || `Popular Services in ${locationName}`}
-                            subtitle={dynamicSettings?.services_subtitle || "Most booked services in your area"}
-                            dynamicServices={dynamicSettings?.services}
+                return sv.services !== false && resolvedServices.length > 0 && (
+                    <div key="services">
+                        <ServicesGrid
+                            title={servicesSettings?.title || "Popular Services"}
+                            subtitle={servicesSettings?.subtitle || "Click any service to book instantly"}
+                            services={resolvedServices}
                         />
                     </div>
                 );

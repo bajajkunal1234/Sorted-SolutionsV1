@@ -1,6 +1,7 @@
 import HeroSection from '@/components/services/HeroSection'
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import IssuesSection from '@/components/services/IssuesSection'
+import ServicesGrid from '@/components/services/ServicesGrid'
 
 export const dynamic = 'force-dynamic'
 import CategoryCards from '@/components/services/CategoryCards'
@@ -58,6 +59,7 @@ export default async function SubCategoryPage({ params }) {
                 brandIds: r.brandIds || [],
                 faqs: resolvedFaqsList,
                 issuesSettings: d.issues_settings || null,
+                servicesSettings: d.services_settings || null,
 
                 subcategories: d.subcategories_settings?.items?.length > 0 ? d.subcategories_settings.items : null,
                 subcategoriesTitle: d.subcategories_settings?.title,
@@ -105,31 +107,45 @@ export default async function SubCategoryPage({ params }) {
     const subcategories = dynamicSettings?.subcategories || []
 
     // ── Build clickable issues list from issues_settings ──────────────────────
-    // Resolve saved issue IDs to full objects using booking data (direct DB call)
     let resolvedIssues = []
+    let resolvedServices = []
     const issuesSettings = dynamicSettings?.issuesSettings
-    if (issuesSettings?.items?.length > 0) {
+    const servicesSettings = dynamicSettings?.servicesSettings
+
+    const needsQBData = (issuesSettings?.items?.length > 0) || (servicesSettings?.items?.length > 0)
+    if (needsQBData) {
         try {
             const qbData = await fetchQuickBookingData()
             if (qbData?.categories) {
-                const idSet = new Set(issuesSettings.items.map(Number))
-                for (const cat of qbData.categories) {
-                    for (const sub of (cat.subcategories || [])) {
-                        for (const issue of (sub.issues || [])) {
-                            if (idSet.has(Number(issue.id))) {
-                                resolvedIssues.push({
-                                    id: issue.id,
-                                    name: issue.name,
-                                    categoryId: cat.id,
-                                    subcategoryId: sub.id
-                                })
+                // Resolve Issues
+                if (issuesSettings?.items?.length > 0) {
+                    const idSet = new Set(issuesSettings.items.map(Number))
+                    for (const cat of qbData.categories) {
+                        for (const sub of (cat.subcategories || [])) {
+                            for (const issue of (sub.issues || [])) {
+                                if (idSet.has(Number(issue.id))) {
+                                    resolvedIssues.push({ id: issue.id, name: issue.name, categoryId: cat.id, subcategoryId: sub.id })
+                                }
+                            }
+                        }
+                    }
+                }
+                // Resolve Services (same issues but with price)
+                if (servicesSettings?.items?.length > 0) {
+                    for (const cat of qbData.categories) {
+                        for (const sub of (cat.subcategories || [])) {
+                            for (const issue of (sub.issues || [])) {
+                                const saved = servicesSettings.items.find(s => Number(s.id) === Number(issue.id))
+                                if (saved) {
+                                    resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', categoryId: cat.id, subcategoryId: sub.id })
+                                }
                             }
                         }
                     }
                 }
             }
         } catch (err) {
-            console.error('[SubCategoryPage] Failed to resolve issues:', err)
+            console.error('[SubCategoryPage] Failed to resolve issues/services:', err)
         }
     }
 
@@ -232,12 +248,12 @@ export default async function SubCategoryPage({ params }) {
                     </div>
                 );
             case 'services':
-                return sv.services !== false && (
-                    <div id="popular" key="services">
-                        <FrequentlyBooked
-                            title={dynamicSettings?.services_title || "Popular Services"}
-                            subtitle={dynamicSettings?.services_subtitle || "Most booked by customers like you"}
-                            dynamicServices={dynamicSettings?.services}
+                return sv.services !== false && resolvedServices.length > 0 && (
+                    <div key="services">
+                        <ServicesGrid
+                            title={servicesSettings?.title || "Popular Services"}
+                            subtitle={servicesSettings?.subtitle || "Click any service to book instantly"}
+                            services={resolvedServices}
                         />
                     </div>
                 );
