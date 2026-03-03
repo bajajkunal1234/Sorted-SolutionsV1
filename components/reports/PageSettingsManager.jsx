@@ -1,6 +1,7 @@
 ﻿'use client'
 
 import { useState, useEffect, useRef } from 'react';
+import { exportPageSettingsToExcel, importPageSettingsFromExcel, applyImportPatch } from '@/lib/pageSettingsExcel';
 import {
     Save,
     Plus,
@@ -819,6 +820,34 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     const toggleSectionVisibility = (key) => {
         setSectionVisibility(prev => ({ ...prev, [key]: !prev[key] }));
     };
+
+    // ── Excel Export ──────────────────────────────────────────────────────────
+    const handleExport = async () => {
+        await exportPageSettingsToExcel(settings, pageLabel);
+    };
+
+    // ── Excel Import ──────────────────────────────────────────────────────────
+    const [importing, setImporting] = useState(false);
+    const importInputRef = useRef(null);
+
+    const handleImportFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setImporting(true);
+        try {
+            const patch = await importPageSettingsFromExcel(file);
+            setSettings(prev => applyImportPatch(prev, patch));
+            alert(`✅ Import successful!\n\nSheets imported:\n${Object.keys(patch).map(k => '• ' + k.replace(/_/g, ' ')).join('\n')}\n\nRemember to click "Save All Changes" to persist.`);
+        } catch (err) {
+            console.error('Import failed:', err);
+            alert('❌ Import failed: ' + err.message);
+        } finally {
+            setImporting(false);
+            // reset so the same file can be re-imported
+            if (importInputRef.current) importInputRef.current.value = '';
+        }
+    };
+
 
     const updateSection = (section, key, value) => {
         setSettings(prev => {
@@ -1990,29 +2019,85 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                         </span>
                     )}
                 </div>
-                <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="btn btn-primary"
-                    style={{
-                        padding: '10px 28px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        backgroundColor: saveSuccess ? '#10b981' : undefined,
-                        transition: 'background-color 0.3s ease',
-                        boxShadow: '0 2px 12px rgba(99,102,241,0.4)'
-                    }}
-                >
-                    {saving ? <Loader2 className="animate-spin" size={18} /> : (saveSuccess ? <Check size={18} /> : <Save size={18} />)}
-                    {saving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save All Changes'}
-                </button>
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {/* ── Export button ── */}
+                    <button
+                        type="button"
+                        onClick={handleExport}
+                        title="Export all section data to Excel (.xlsx)"
+                        style={{
+                            padding: '9px 16px', fontSize: '13px', fontWeight: 600,
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            backgroundColor: 'var(--bg-secondary)',
+                            color: 'var(--text-secondary)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-md)', cursor: 'pointer'
+                        }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Export .xlsx
+                    </button>
 
-            <style jsx>{`
+                    {/* ── Import button ── */}
+                    <label
+                        title="Import section data from Excel"
+                        style={{
+                            padding: '9px 16px', fontSize: '13px', fontWeight: 600,
+                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                            backgroundColor: importing ? 'var(--bg-secondary)' : '#059669',
+                            color: importing ? 'var(--text-tertiary)' : 'white',
+                            border: '1px solid transparent',
+                            borderRadius: 'var(--radius-md)', cursor: 'pointer'
+                        }}
+                    >
+                        {importing
+                            ? <Loader2 size={14} className="animate-spin" />
+                            : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 14 12 9 17 14" />
+                                    <line x1="12" y1="9" x2="12" y2="21" />
+                                </svg>
+                            )
+                        }
+                        {importing ? 'Importing…' : 'Import .xlsx'}
+                        <input
+                            ref={importInputRef}
+                            type="file"
+                            accept=".xlsx,.xls"
+                            style={{ display: 'none' }}
+                            onChange={handleImportFile}
+                        />
+                    </label>
+
+                    {/* ── Save button ── */}
+                    <button
+                        type="button"
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="btn btn-primary"
+                        style={{
+                            padding: '10px 28px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontSize: '14px',
+                            fontWeight: 700,
+                            backgroundColor: saveSuccess ? '#10b981' : undefined,
+                            transition: 'background-color 0.3s ease',
+                            boxShadow: '0 2px 12px rgba(99,102,241,0.4)'
+                        }}
+                    >
+                        {saving ? <Loader2 className="animate-spin" size={18} /> : (saveSuccess ? <Check size={18} /> : <Save size={18} />)}
+                        {saving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save All Changes'}
+                    </button>
+                </div>
+
+                <style jsx>{`
                 .form-control {
                     width: 100%;
                     padding: 10px 12px;
@@ -2045,9 +2130,8 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                     to { transform: rotate(360deg); }
                 }
             `}</style>
-        </div >
-    );
+            </div>
+            );
 }
 
-export default PageSettingsManager;
-
+            export default PageSettingsManager;
