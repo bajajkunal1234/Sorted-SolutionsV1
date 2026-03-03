@@ -2104,6 +2104,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                         {saving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save All Changes'}
                     </button>
                 </div>
+            </div>
 
                 <style jsx>{`
                 .form-control {
@@ -2138,8 +2139,8 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                     to { transform: rotate(360deg); }
                 }
             `}</style>
-            </div>
-            );
+        </div >
+    );
 }
 
-            export default PageSettingsManager;
+export default PageSettingsManager;
