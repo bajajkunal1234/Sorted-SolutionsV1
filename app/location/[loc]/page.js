@@ -14,8 +14,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
-import { getFAQs } from '@/data/faqs'
-import { getProblems } from '@/data/commonProblems'
+
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
 import { unstable_noStore as noStore } from 'next/cache';
@@ -91,14 +90,12 @@ export default async function LocationPage({ params }) {
         { slug: 'hob-repair', title: 'Gas Hob Repair', description: 'Gas stove and hob repair', price: 349, icon: '🔥' },
     ]
 
-    // Fallbacks
-    const problems = (dynamicSettings?.problems?.length > 0) ? dynamicSettings.problems : getProblems('ac-repair') // Default to AC problems for locations
-    const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs('ac-repair').slice(0, 3)
-    const sublocations = (dynamicSettings?.localities?.length > 0) ? dynamicSettings.localities : [
-        `${locationName} East`,
-        `${locationName} West`,
-        `${locationName} Central`,
-    ]
+    // Only use admin-configured data (Option B: no fallbacks)
+    const problems = dynamicSettings?.problems || []
+    const faqs = dynamicSettings?.faqs || []
+    // serviceCategories kept here as it serves as the "subcategories" section on location pages
+    // and is admin-overridable via subcategories_settings
+    const subcategories = dynamicSettings?.subcategories || []
 
 
 
@@ -134,18 +131,18 @@ export default async function LocationPage({ params }) {
                 );
 
             case 'subcategories':
-                return (sv.subcategories !== false && (dynamicSettings?.subcategories?.length > 0 || serviceCategories.length > 0)) && (
+                return sv.subcategories !== false && subcategories.length > 0 && (
                     <div id="services" key="subcategories">
                         <CategoryCards
                             title={dynamicSettings?.subcategories_title || `Our Services in ${locationName}`}
                             subtitle={dynamicSettings?.subcategories_subtitle || "Choose your appliance type"}
-                            cards={dynamicSettings?.subcategories?.length > 0 ? dynamicSettings.subcategories : serviceCategories}
+                            cards={subcategories}
                             baseUrl="/services"
                         />
                     </div>
                 );
             case 'problems':
-                return sv.problems !== false && (
+                return sv.problems !== false && problems.length > 0 && (
                     <div id="problems" key="problems">
                         <ProblemsSection
                             title={dynamicSettings?.problems_title || "Problems We Solve"}
@@ -213,7 +210,7 @@ export default async function LocationPage({ params }) {
                     </div>
                 );
             case 'faqs':
-                return sv.faqs !== false && (
+                return sv.faqs !== false && faqs.length > 0 && (
                     <div id="faqs" key="faqs">
                         <FAQSection
                             title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}

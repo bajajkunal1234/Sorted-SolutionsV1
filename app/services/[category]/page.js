@@ -14,9 +14,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
-import { subcategoriesByCategory } from '@/data/servicePageContent'
-import { getProblems } from '@/data/commonProblems'
-import { getFAQs } from '@/data/faqs'
+
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 import { unstable_noStore as noStore } from 'next/cache';
 import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
@@ -82,10 +80,10 @@ export default async function CategoryPage({ params }) {
         console.error('[CategoryPage] Error natively fetching settings:', error.message);
     }
 
-    // 2. Fallbacks to hardcoded data
-    const subcategories = (dynamicSettings?.subcategories?.length > 0) ? dynamicSettings.subcategories : (subcategoriesByCategory[category] || []);
-    const problems = (dynamicSettings?.problems?.length > 0) ? dynamicSettings.problems : getProblems(category);
-    const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs(category);
+    // Only use admin-configured data (Option B: no fallbacks)
+    const subcategories = dynamicSettings?.subcategories || [];
+    const problems = dynamicSettings?.problems || [];
+    const faqs = dynamicSettings?.faqs || [];
     // Localities and Brands we'll pass to components (they need to handle dynamic IDs or default behavior)
 
     const sv = dynamicSettings?.sectionVisibility || {}
@@ -120,7 +118,7 @@ export default async function CategoryPage({ params }) {
                     </div>
                 );
             case 'subcategories':
-                return sv.subcategories !== false && (
+                return sv.subcategories !== false && subcategories.length > 0 && (
                     <div id="services" key="subcategories">
                         <CategoryCards
                             title={dynamicSettings?.subcategoriesTitle || `${categoryName} Services`}
@@ -131,7 +129,7 @@ export default async function CategoryPage({ params }) {
                     </div>
                 );
             case 'problems':
-                return sv.problems !== false && (
+                return sv.problems !== false && problems.length > 0 && (
                     <div id="problems" key="problems">
                         <ProblemsSection
                             title={dynamicSettings?.problems_title || "We Solve All The Problems"}
@@ -200,7 +198,7 @@ export default async function CategoryPage({ params }) {
                     </div>
                 );
             case 'faqs':
-                return sv.faqs !== false && (
+                return sv.faqs !== false && faqs.length > 0 && (
                     <div id="faqs" key="faqs">
                         <FAQSection
                             title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}

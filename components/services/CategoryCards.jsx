@@ -8,9 +8,11 @@ import './CategoryCards.css'
 export default function CategoryCards({
     title = "Our Services",
     subtitle = "Choose your service category",
-    cards,
+    cards = [],
     baseUrl = "/services"
 }) {
+    if (!cards || cards.length === 0) return null;
+
     return (
         <section className="category-cards-section">
             <div className="section-header">
@@ -18,51 +20,39 @@ export default function CategoryCards({
                 {subtitle && <p className="section-subtitle">{subtitle}</p>}
             </div>
 
-            <div className="cards-grid">
+            <div className="subcategory-pills-grid">
                 {cards.map((card, index) => (
                     <Link
-                        key={card.slug}
+                        key={card.slug || index}
                         href={`${baseUrl}/${card.slug}`}
-                        className="category-card"
-                        style={{ animationDelay: `${index * 0.1}s` }}
+                        className="subcategory-pill"
+                        style={{ animationDelay: `${index * 0.05}s` }}
                     >
-                        <div className="card-image-wrapper">
+                        {/* Thumbnail */}
+                        <div className="subcategory-thumb">
                             {card.image ? (
-                                <Image
+                                <img
                                     src={card.image}
                                     alt={card.title}
-                                    width={300}
-                                    height={200}
-                                    className="card-image"
+                                    className="subcategory-thumb-img"
                                 />
                             ) : (
-                                <div className="card-image-placeholder">
-                                    <span className="placeholder-icon">{card.icon || '🔧'}</span>
+                                <div className="subcategory-thumb-placeholder">
+                                    <span>{card.icon || '🔧'}</span>
                                 </div>
                             )}
-                            <div className="card-overlay">
-                                <ArrowRight size={32} className="arrow-icon" />
-                            </div>
                         </div>
 
-                        <div className="card-content">
-                            <h3 className="card-title">{card.title}</h3>
+                        {/* Text */}
+                        <div className="subcategory-pill-content">
+                            <span className="subcategory-pill-title">{card.title}</span>
                             {card.description && (
-                                <p className="card-description">{card.description}</p>
-                            )}
-                            {card.price && (
-                                <div className="card-price">
-                                    Starting at <span className="price-value">₹{card.price}</span>
-                                </div>
+                                <span className="subcategory-pill-desc">{card.description}</span>
                             )}
                         </div>
 
-                        <div className="card-footer">
-                            <span className="view-details">
-                                View Details
-                                <ArrowRight size={16} />
-                            </span>
-                        </div>
+                        {/* Arrow */}
+                        <ArrowRight size={18} className="subcategory-pill-arrow" />
                     </Link>
                 ))}
             </div>

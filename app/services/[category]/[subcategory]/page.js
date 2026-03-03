@@ -14,9 +14,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
-import { subcategoriesByCategory } from '@/data/servicePageContent'
-import { getProblems } from '@/data/commonProblems'
-import { getFAQs } from '@/data/faqs'
+
 import { createServerSupabase } from '@/lib/supabase-server'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
@@ -99,14 +97,12 @@ export default async function SubCategoryPage({ params }) {
         console.error('[SubcatPage] Error natively fetching settings:', error.message);
     }
 
-    // ── Fallbacks to static data if no dynamic settings exist ─────────────────
-    const allSubcategories = subcategoriesByCategory[category] || []
-    const siblingSubcategories = allSubcategories.filter(sub => sub.slug !== subcategory)
-
+    // Only use admin-configured data (Option B: no fallbacks)
     const problemsTitle = dynamicSettings?.problems_title || `${subcategoryName} Problems We Fix`
     const problemsSubtitle = dynamicSettings?.problems_subtitle || 'Common issues with your appliance'
-    const problems = (dynamicSettings?.problems?.length > 0) ? dynamicSettings.problems : getProblems(category, subcategory)
-    const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs(category)
+    const problems = dynamicSettings?.problems || []
+    const faqs = dynamicSettings?.faqs || []
+    const subcategories = dynamicSettings?.subcategories || []
 
     // ── Build clickable issues list from issues_settings ──────────────────────
     // Resolve saved issue IDs to full objects using booking data (direct DB call)
@@ -176,18 +172,18 @@ export default async function SubCategoryPage({ params }) {
                     />
                 );
             case 'subcategories':
-                return sv.subcategories !== false && (
+                return sv.subcategories !== false && subcategories.length > 0 && (
                     <div id="services" key="subcategories">
                         <CategoryCards
                             title={dynamicSettings?.subcategories_title || `Other ${categoryName} Services`}
                             subtitle={dynamicSettings?.subcategories_subtitle || "Explore our complete range of services"}
-                            cards={(dynamicSettings?.subcategories?.length > 0) ? dynamicSettings.subcategories : siblingSubcategories}
+                            cards={subcategories}
                             baseUrl={`/services/${category}`}
                         />
                     </div>
                 );
             case 'problems':
-                return sv.problems !== false && (
+                return sv.problems !== false && problems.length > 0 && (
                     <div id="problems" key="problems">
                         <ProblemsSection
                             title={problemsTitle}
@@ -256,7 +252,7 @@ export default async function SubCategoryPage({ params }) {
                     </div>
                 );
             case 'faqs':
-                return sv.faqs !== false && (
+                return sv.faqs !== false && faqs.length > 0 && (
                     <div id="faqs" key="faqs">
                         <FAQSection
                             title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}

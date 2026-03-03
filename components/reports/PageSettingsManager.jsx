@@ -289,12 +289,73 @@ function HeroTab({ settings, updateSection }) {
     );
 }
 
-// â”€â”€ Subcategories Tab Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function SubcategoriesTab({ settings, updateSection, addItem, removeItem, updateItem }) {
+// â”€â”€// ── Subcategories Tab Content ───────────────────────────────────────────────────────────────────────
+function SubcategoriesTab({ settings, updateSection, pageId, bookingSettings }) {
     const subcats = settings.subcategories_settings || { items: [] };
+    const selectedItems = subcats.items || [];
+
+    // ── Derive the category slug from pageId (e.g. cat-ac-repair → ac-repair) ──
+    const catSlug = pageId?.startsWith('cat-') ? pageId.replace('cat-', '') : null;
+
+    // ── Build all subcategories grouped by category — admin picks the relevant ones ──
+    const groupedSubcats = (() => {
+        if (!bookingSettings?.categories) return [];
+        return bookingSettings.categories
+            .filter(cat => cat.subcategories?.length > 0)
+            .map(cat => ({
+                categoryName: cat.name,
+                subcategories: cat.subcategories.map(sub => ({
+                    id: sub.id,
+                    name: sub.name,
+                    slug: sub.slug || sub.name?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+                }))
+            }));
+    })();
+
+    // flat list for helper functions
+    const allSubcats = groupedSubcats.flatMap(g => g.subcategories);
+
+    const isSelected = (slug) => selectedItems.some(i => i.slug === slug);
+
+    const toggleSubcat = (sub) => {
+        const existing = selectedItems.findIndex(i => i.slug === sub.slug);
+        let newItems;
+        if (existing >= 0) {
+            newItems = selectedItems.filter((_, idx) => idx !== existing);
+        } else {
+            // Add with existing image if any was saved before
+            newItems = [...selectedItems, { slug: sub.slug, title: sub.name, image: '' }];
+        }
+        updateSection('subcategories_settings', 'items', newItems);
+    };
+
+    const updateImage = (slug, imageUrl) => {
+        const newItems = selectedItems.map(i => i.slug === slug ? { ...i, image: imageUrl } : i);
+        updateSection('subcategories_settings', 'items', newItems);
+    };
+
+    const [uploading, setUploading] = useState({});
+
+    const uploadImage = async (slug, file) => {
+        if (!file) return;
+        setUploading(prev => ({ ...prev, [slug]: true }));
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.url) updateImage(slug, data.url);
+            else if (data.success && data.data?.url) updateImage(slug, data.data.url);
+        } catch (e) {
+            console.error('Upload failed', e);
+        } finally {
+            setUploading(prev => ({ ...prev, [slug]: false }));
+        }
+    };
 
     return (
         <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
+            {/* Section Title/Subtitle */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
                 <div>
                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Section Title</label>
@@ -303,7 +364,7 @@ function SubcategoriesTab({ settings, updateSection, addItem, removeItem, update
                         value={subcats.title || ''}
                         onChange={(e) => updateSection('subcategories_settings', 'title', e.target.value)}
                         className="form-control"
-                        placeholder="e.g. Washing Machine Services"
+                        placeholder="e.g. AC Repair Services"
                     />
                 </div>
                 <div>
@@ -318,111 +379,106 @@ function SubcategoriesTab({ settings, updateSection, addItem, removeItem, update
                 </div>
             </div>
 
+            {/* Subcategory Picker */}
             <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <label style={{ fontWeight: 600 }}>Subcategory Cards</label>
-                    <button onClick={() => addItem('subcategories_settings')} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: '12px' }}>
-                        <Plus size={14} /> Add Subcategory
-                    </button>
-                </div>
-                <div style={{ display: 'grid', gap: '16px' }}>
-                    {subcats.items.map((item, index) => (
-                        <div key={index} style={{
-                            padding: '16px',
-                            backgroundColor: 'var(--bg-secondary)',
-                            borderRadius: 'var(--radius-lg)',
-                            border: '1px solid var(--border-primary)',
-                            display: 'grid',
-                            gridTemplateColumns: '120px 1fr auto',
-                            gap: '16px',
-                            alignItems: 'start'
-                        }}>
-                            {/* Image Preview / Input */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                <div style={{
-                                    width: '120px',
-                                    height: '80px',
-                                    backgroundColor: 'var(--bg-primary)',
-                                    borderRadius: 'var(--radius-md)',
-                                    overflow: 'hidden',
-                                    border: '1px solid var(--border-primary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    {item.image ? (
-                                        <img src={item.image} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    ) : (
-                                        <ImageIcon size={24} style={{ opacity: 0.3 }} />
-                                    )}
-                                </div>
-                                <input
-                                    type="text"
-                                    placeholder="Image URL"
-                                    value={item.image || ''}
-                                    onChange={(e) => updateItem('subcategories_settings', index, 'image', e.target.value)}
-                                    style={{ fontSize: '11px', padding: '4px', width: '100%' }}
-                                />
-                            </div>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: '12px' }}>
+                    Select Subcategories to Show
+                    <span style={{ marginLeft: '8px', fontSize: '12px', fontWeight: 400, color: 'var(--text-tertiary)' }}>
+                        ({selectedItems.length} selected)
+                    </span>
+                </label>
 
-                            {/* Content Fields */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Title</label>
-                                    <input
-                                        type="text"
-                                        value={item.title || ''}
-                                        onChange={(e) => updateItem('subcategories_settings', index, 'title', e.target.value)}
-                                        className="form-control"
-                                        placeholder="e.g. Front Load Repair"
-                                    />
-                                </div>
-                                <div style={{ gridColumn: 'span 2' }}>
-                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Description / Subtitle</label>
-                                    <input
-                                        type="text"
-                                        value={item.description || ''}
-                                        onChange={(e) => updateItem('subcategories_settings', index, 'description', e.target.value)}
-                                        className="form-control"
-                                        placeholder="Brief details about this type"
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Price (â‚¹)</label>
-                                    <input
-                                        type="number"
-                                        value={item.price || ''}
-                                        onChange={(e) => updateItem('subcategories_settings', index, 'price', e.target.value)}
-                                        className="form-control"
-                                        placeholder="599"
-                                    />
-                                </div>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: '11px', marginBottom: '4px', opacity: 0.7 }}>Slug / Path</label>
-                                    <input
-                                        type="text"
-                                        value={item.slug || ''}
-                                        onChange={(e) => updateItem('subcategories_settings', index, 'slug', e.target.value)}
-                                        className="form-control"
-                                        placeholder="front-load"
-                                    />
-                                </div>
-                            </div>
+                {groupedSubcats.length === 0 && (
+                    <div style={{ padding: '24px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)', color: 'var(--text-tertiary)' }}>
+                        No subcategories found in booking settings. Add subcategories in the Quick Booking settings first.
+                    </div>
+                )}
 
-                            <button onClick={() => removeItem('subcategories_settings', index)} className="btn btn-danger" style={{ marginTop: '4px' }}>
-                                <Trash2 size={16} />
-                            </button>
+                <div style={{ display: 'grid', gap: '20px' }}>
+                    {groupedSubcats.map(group => (
+                        <div key={group.categoryName}>
+                            {/* Category Group Header */}
+                            <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: '8px', paddingLeft: '4px' }}>
+                                {group.categoryName}
+                            </div>
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                                {group.subcategories.map(sub => {
+                                    const selected = isSelected(sub.slug);
+                                    const savedItem = selectedItems.find(i => i.slug === sub.slug);
+                                    return (
+                                        <div key={sub.slug}
+                                            style={{
+                                                border: `2px solid ${selected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                                borderRadius: 'var(--radius-lg)',
+                                                backgroundColor: selected ? 'rgba(99,102,241,0.05)' : 'var(--bg-secondary)',
+                                                overflow: 'hidden',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            {/* Row 1: Toggle */}
+                                            <div
+                                                onClick={() => toggleSubcat(sub)}
+                                                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer' }}
+                                            >
+                                                <div style={{
+                                                    width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                                                    border: `2px solid ${selected ? 'var(--color-primary)' : 'var(--border-tertiary)'}`,
+                                                    backgroundColor: selected ? 'var(--color-primary)' : 'transparent',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }}>
+                                                    {selected && <Check size={13} color="white" strokeWidth={3} />}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '14px', color: selected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{sub.name}</div>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace', marginTop: '2px' }}>/{sub.slug}</div>
+                                                </div>
+                                                {savedItem?.image && (
+                                                    <img src={savedItem.image} alt={sub.name} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-primary)' }} />
+                                                )}
+                                            </div>
+
+                                            {/* Row 2: Image upload (only when selected) */}
+                                            {selected && (
+                                                <div style={{ padding: '0 16px 14px', borderTop: '1px solid var(--border-primary)', paddingTop: '12px' }}>
+                                                    <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Card Image (optional)</label>
+                                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Image URL or upload below"
+                                                            value={savedItem?.image || ''}
+                                                            onChange={e => updateImage(sub.slug, e.target.value)}
+                                                            className="form-control"
+                                                            style={{ flex: 1, fontSize: '12px' }}
+                                                        />
+                                                        <label style={{
+                                                            padding: '6px 14px', fontSize: '12px', fontWeight: 600,
+                                                            backgroundColor: uploading[sub.slug] ? 'var(--bg-secondary)' : 'var(--color-primary)',
+                                                            color: uploading[sub.slug] ? 'var(--text-tertiary)' : 'white',
+                                                            borderRadius: 'var(--radius-md)', cursor: 'pointer', flexShrink: 0,
+                                                            border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px'
+                                                        }}>
+                                                            {uploading[sub.slug] ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                                                            {uploading[sub.slug] ? 'Uploading…' : 'Upload'}
+                                                            <input type="file" accept="image/*" style={{ display: 'none' }}
+                                                                onChange={e => uploadImage(sub.slug, e.target.files[0])}
+                                                            />
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     ))}
-                    {subcats.items.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--border-primary)' }}>
-                            <p style={{ color: 'var(--text-tertiary)', margin: 0 }}>No custom subcategories added. The page will use default fallbacks.</p>
-                            <button onClick={() => addItem('subcategories_settings')} className="btn btn-secondary" style={{ marginTop: '12px' }}>
-                                <Plus size={14} /> Add First Subcategory
-                            </button>
-                        </div>
-                    )}
                 </div>
+
+                {selectedItems.length === 0 && allSubcats.length > 0 && (
+                    <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginTop: '12px', textAlign: 'center' }}>
+                        Select subcategories above — this section will be <strong>hidden</strong> until at least one is selected.
+                    </p>
+                )}
             </div>
         </div>
     );
@@ -1364,21 +1420,6 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                     </div>
                 )}
 
-                {/* ── SUBCATEGORIES TAB ── */}
-                {activeTab === 'subcategories' && (
-                    <div>
-                        <SectionVisibilityBanner sectionKey="subcategories" visible={sectionVisibility.subcategories} onToggle={toggleSectionVisibility} />
-                        <div style={{ opacity: sectionVisibility.subcategories ? 1 : 0.45, pointerEvents: sectionVisibility.subcategories ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
-                            <SubcategoriesTab
-                                settings={settings}
-                                updateSection={updateSection}
-                                addItem={addItem}
-                                removeItem={removeItem}
-                                updateItem={updateItem}
-                            />
-                        </div>
-                    </div>
-                )}
 
                 {/* ── SERVICES TAB ── */}
                 {activeTab === 'services' && (
@@ -1575,6 +1616,20 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                     <span style={{ color: 'var(--color-primary)', cursor: 'pointer', marginLeft: '4px', fontWeight: 600 }}>Create in Global Brands Library â†’</span>
                                 </p>
                             </div>
+                        </div>
+                    </div>
+                )}
+                {/* ── SUBCATEGORIES (Sub-Services) TAB ── */}
+                {activeTab === 'subcategories' && (
+                    <div style={{ display: 'grid', gap: 'var(--spacing-xl)' }}>
+                        <SectionVisibilityBanner sectionKey="subcategories" visible={sectionVisibility.subcategories} onToggle={toggleSectionVisibility} />
+                        <div style={{ opacity: sectionVisibility.subcategories ? 1 : 0.45, pointerEvents: sectionVisibility.subcategories ? 'auto' : 'none', transition: 'opacity 0.2s' }}>
+                            <SubcategoriesTab
+                                settings={settings}
+                                updateSection={updateSection}
+                                pageId={pageId}
+                                bookingSettings={bookingSettings}
+                            />
                         </div>
                     </div>
                 )}

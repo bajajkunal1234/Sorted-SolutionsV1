@@ -11,7 +11,6 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
-import { getFAQs } from '@/data/faqs'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
@@ -91,32 +90,10 @@ export default async function SubLocationPage({ params }) {
         console.error('[SublocPage] Error natively fetching settings:', error.message);
     }
 
-    // ── Fallbacks ────────────────────────────────────────────────────────────
-    const problemsTitle = dynamicSettings?.problems_title
-        || `${serviceName} Problems We Solve in ${locationName}`
-    const problemsSubtitle = dynamicSettings?.problems_subtitle
-        || `Common ${serviceName.toLowerCase()} issues we fix in ${locationName}`
-
-    const serviceCategories = [
-        { slug: 'ac-repair', title: 'AC Repair', description: 'All types of AC repair and servicing', price: 499, icon: '❄️' },
-        { slug: 'refrigerator-repair', title: 'Refrigerator Repair', description: 'Fridge repair and gas refilling', price: 599, icon: '🧊' },
-        { slug: 'oven-repair', title: 'Oven Repair', description: 'Microwave and OTG repair', price: 399, icon: '🔥' },
-        { slug: 'washing-machine-repair', title: 'Washing Machine Repair', description: 'All washing machine repairs', price: 549, icon: '🌀' },
-        { slug: 'water-purifier-repair', title: 'Water Purifier Repair', description: 'RO and UV purifier service', price: 449, icon: '💧' },
-        { slug: 'hob-repair', title: 'Gas Hob Repair', description: 'Gas stove and hob repair', price: 349, icon: '🔥' },
-    ]
-
-    const problems = (dynamicSettings?.problems?.length > 0)
-        ? dynamicSettings.problems
-        : [
-            { question: `${serviceName} not working properly`, answer: 'Our technicians diagnose and fix all failure types.' },
-            { question: 'Making unusual noise', answer: 'We identify and resolve all mechanical sound issues.' },
-            { question: 'Performance issues', answer: 'We restore optimal performance through comprehensive service.' },
-            { question: 'Electrical problems', answer: 'Our certified technicians handle all electrical faults safely.' },
-            { question: 'Need regular maintenance', answer: 'We offer preventive care to extend your appliance lifespan.' }
-        ]
-
-    const faqs = (dynamicSettings?.faqs?.length > 0) ? dynamicSettings.faqs : getFAQs('ac-repair').slice(0, 5)
+    // Only use admin-configured data (Option B: no fallbacks)
+    const problems = dynamicSettings?.problems || []
+    const faqs = dynamicSettings?.faqs || []
+    const subcategories = dynamicSettings?.subcategories || []
 
 
 
@@ -152,22 +129,22 @@ export default async function SubLocationPage({ params }) {
                 );
 
             case 'problems':
-                return sv.problems !== false && (
+                return sv.problems !== false && problems.length > 0 && (
                     <div id="problems" key="problems">
                         <ProblemsSection
-                            title={problemsTitle}
-                            subtitle={problemsSubtitle}
+                            title={dynamicSettings?.problems_title || `${serviceName} Problems We Solve in ${locationName}`}
+                            subtitle={dynamicSettings?.problems_subtitle || `Common ${serviceName.toLowerCase()} issues we fix in ${locationName}`}
                             problems={problems}
                         />
                     </div>
                 );
             case 'subcategories':
-                return sv.subcategories !== false && (
+                return sv.subcategories !== false && subcategories.length > 0 && (
                     <div id="services" key="subcategories">
                         <CategoryCards
                             title={dynamicSettings?.subcategoriesTitle || "Other Services"}
                             subtitle={dynamicSettings?.subcategoriesSubtitle || "Explore our premium services"}
-                            cards={(dynamicSettings?.subcategories?.length > 0) ? dynamicSettings.subcategories : serviceCategories}
+                            cards={subcategories}
                             baseUrl={`/services`}
                         />
                     </div>
@@ -231,7 +208,7 @@ export default async function SubLocationPage({ params }) {
                     </div>
                 );
             case 'faqs':
-                return sv.faqs !== false && (
+                return sv.faqs !== false && faqs.length > 0 && (
                     <div id="faqs" key="faqs">
                         <FAQSection
                             title={dynamicSettings?.faqs_title || "Frequently Asked Questions"}

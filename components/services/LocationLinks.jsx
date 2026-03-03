@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { MapPin } from 'lucide-react'
 import './LocationLinks.css'
 
@@ -8,35 +7,19 @@ export default function LocationLinks({
     title = "We are Right In your Neighbourhood",
     subtitle = "Find us in your area",
     category,
-    locations = [],
-    dynamicLocalities = null // New prop
+    dynamicLocalities = null
 }) {
-    // Default Mumbai locations if none provided
-    const defaultLocations = [
-        { name: 'Andheri', slug: 'andheri' },
-        { name: 'Malad', slug: 'malad' },
-        { name: 'Ghatkopar', slug: 'ghatkopar' },
-        { name: 'Parel', slug: 'parel' },
-        { name: 'Mumbai Central', slug: 'mumbai-central' },
-        { name: 'Bandra', slug: 'bandra' },
-        { name: 'Kurla', slug: 'kurla' },
-        { name: 'Dadar', slug: 'dadar' },
-        { name: 'Borivali', slug: 'borivali' },
-        { name: 'Kandivali', slug: 'kandivali' },
-        { name: 'Goregaon', slug: 'goregaon' },
-        { name: 'Powai', slug: 'powai' }
-    ]
-
-    // Use dynamic localities if provided, else use locations prop, else use defaults
-    let locationList = defaultLocations
+    // Build location list from admin-configured data only (no hardcoded defaults)
+    let locationList = []
     if (dynamicLocalities && dynamicLocalities.length > 0) {
         locationList = dynamicLocalities.map(l => ({
-            name: l,
-            slug: l.toLowerCase().replace(/\s+/g, '-')
+            name: typeof l === 'string' ? l : (l.name || l),
+            slug: typeof l === 'string' ? l.toLowerCase().replace(/\s+/g, '-') : (l.slug || l.name?.toLowerCase().replace(/\s+/g, '-'))
         }))
-    } else if (locations && locations.length > 0) {
-        locationList = locations
     }
+
+    // Hide section entirely if no localities configured
+    if (locationList.length === 0) return null;
 
     return (
         <section className="location-links">
@@ -53,22 +36,16 @@ export default function LocationLinks({
                         : `Services in ${location.name}`
 
                     return (
-                        <Link
-                            key={location.slug}
-                            href={`/location/${location.slug}`}
-                            className="location-link-card"
+                        <div
+                            key={location.slug || index}
+                            className="location-link-card non-clickable"
                             style={{ animationDelay: `${index * 0.05}s` }}
                         >
                             <MapPin size={20} className="card-icon" />
                             <span className="card-text">{linkText}</span>
-                        </Link>
+                        </div>
                     )
                 })}
-            </div>
-
-            <div className="location-cta">
-                <p className="cta-text">Don't see your area?</p>
-                <button className="cta-button">Contact Us</button>
             </div>
         </section>
     )
