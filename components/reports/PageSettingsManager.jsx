@@ -1209,8 +1209,87 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                     );
                 })()}
 
+                {/* ── Section Info Banner ── */}
+                {(() => {
+                    const TAB_INFO = {
+                        hero: {
+                            icon: '🖼️',
+                            what: 'Full-width banner at the top of the page with a headline, subtitle, and a background (gradient, color, or image).',
+                            behavior: 'Static — not clickable. Sets the first impression for visitors.'
+                        },
+                        issues: {
+                            icon: '🔧',
+                            what: 'Grid of clickable issue cards (e.g. "Not Cooling", "Ice Formation"). Only shown on subcategory pages.',
+                            behavior: '✅ Clickable — visitor clicks an issue card → booking form scrolls into view and auto-selects the appliance, appliance type, and issue.'
+                        },
+                        problems: {
+                            icon: '⚠️',
+                            what: 'Accordion/list of problems the service solves (e.g. "AC not cooling", "Making noise"). Purely informational.',
+                            behavior: 'Accordion toggles expand/collapse — not linked to booking.'
+                        },
+                        services: {
+                            icon: '💼',
+                            what: 'Grid of service cards, each showing an issue name, price badge, and a "Book Now" button.',
+                            behavior: '✅ Clickable — visitor clicks "Book Now" → booking form prefills with the appliance, type, and issue selected.'
+                        },
+                        localities: {
+                            icon: '📍',
+                            what: 'A list of areas/localities where the service is available (e.g. Andheri, Bandra, Malad).',
+                            behavior: '✅ Each locality is a link — clicking navigates to the service\'s location page for that area.'
+                        },
+                        brands: {
+                            icon: '🏷️',
+                            what: 'Auto-scrolling logo strip showing supported brands (Samsung, LG, Whirlpool, etc.).',
+                            behavior: 'Static display — not clickable. Builds trust.'
+                        },
+                        subcategories: {
+                            icon: '🗂️',
+                            what: 'Grid of cards for service subcategories or appliance types (e.g. "Split AC", "Window AC", "Cassette AC").',
+                            behavior: '✅ Each card links to the corresponding subcategory page.'
+                        },
+                        other_locations: {
+                            icon: '🗺️',
+                            what: 'A row of links to the same service in other cities/locations.',
+                            behavior: '✅ Each location is a link — clicking navigates to that location\'s service page.'
+                        },
+                        faqs: {
+                            icon: '❓',
+                            what: 'Accordion of frequently asked questions about the service.',
+                            behavior: 'Accordion toggles expand/collapse answers — not linked to booking.'
+                        },
+                        layout: {
+                            icon: '⚙️',
+                            what: 'Controls the ORDER and VISIBILITY of all sections on this page.',
+                            behavior: 'Use the toggle switches to show/hide sections, and use ↑ ↓ arrows to reorder them. Changes take effect after saving.'
+                        }
+                    };
+                    const info = TAB_INFO[activeTab];
+                    if (!info) return null;
+                    return (
+                        <div style={{
+                            display: 'flex', gap: '12px', alignItems: 'flex-start',
+                            padding: '12px 16px', marginBottom: '20px',
+                            backgroundColor: 'rgba(99,102,241,0.06)',
+                            border: '1px solid rgba(99,102,241,0.2)',
+                            borderRadius: 'var(--radius-lg)',
+                            fontSize: '13px'
+                        }}>
+                            <span style={{ fontSize: '20px', lineHeight: 1, flexShrink: 0, marginTop: '1px' }}>{info.icon}</span>
+                            <div style={{ display: 'grid', gap: '4px' }}>
+                                <div style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                                    What this section is:
+                                    <span style={{ fontWeight: 400, color: 'var(--text-secondary)', marginLeft: '6px' }}>{info.what}</span>
+                                </div>
+                                <div style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>
+                                    <strong style={{ color: info.behavior.startsWith('✅') ? '#10b981' : 'var(--text-tertiary)' }}>Visitor behaviour:</strong>
+                                    {' '}{info.behavior}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
 
-                {/* ── HERO TAB ── */}
+
                 {activeTab === 'hero' && (
                     <div>
                         <SectionVisibilityBanner sectionKey="hero" visible={sectionVisibility.hero} onToggle={toggleSectionVisibility} />
