@@ -23,7 +23,7 @@ function QuickBookingFormSettings() {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [pincodeText, setPincodeText] = useState('');
+    const [newPincode, setNewPincode] = useState({ pincode: '', locality: '', appliances: [] });
     const [activeTab, setActiveTab] = useState('general');
     const [expandedCategory, setExpandedCategory] = useState(null);
     const [expandedSubcategory, setExpandedSubcategory] = useState(null);
@@ -163,7 +163,6 @@ function QuickBookingFormSettings() {
             const data = await quickBookingAPI.getSettings();
             if (data) {
                 setSettings(data);
-                setPincodeText((data.serviceable_pincodes || []).join(', '));
             }
         } catch (error) {
             console.error('Error fetching quick booking settings:', error);
@@ -175,8 +174,11 @@ function QuickBookingFormSettings() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            const pincodeArray = pincodeText.split(',').map(p => p.trim()).filter(p => !!p);
-            const updatedSettings = { ...settings, serviceable_pincodes: pincodeArray };
+            // Ensure legacy serviceable_pincodes stays somewhat in sync with advanced list
+            const advancedArray = settings.advanced_pincodes || [];
+            const legacyArray = advancedArray.map(ap => ap.pincode);
+            const updatedSettings = { ...settings, serviceable_pincodes: legacyArray };
+
             const data = await quickBookingAPI.updateSettings(updatedSettings);
             if (data) {
                 alert('Settings saved successfully!');
@@ -405,10 +407,130 @@ function QuickBookingFormSettings() {
                                 </div>
                             </div>
                             <div className="card" style={{ padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-md)' }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Serviceable Pincodes</h4>
-                                <textarea value={pincodeText} onChange={(e) => setPincodeText(e.target.value)} placeholder="400001, 400002, 400003..." rows={4} style={{ width: '100%', padding: 'var(--spacing-sm)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', fontFamily: 'monospace', resize: 'vertical' }} />
-                                <div style={{ marginTop: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                    Total pincodes: {pincodeText.split(',').map(p => p.trim()).filter(p => !!p).length}
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Serviceable Area Pincodes</h4>
+
+                                {/* Add new pincode form */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 2fr) auto', gap: '8px', alignItems: 'end', marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Pincode *</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. 400063"
+                                            value={newPincode.pincode}
+                                            onChange={e => setNewPincode({ ...newPincode, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                                            style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Locality Name *</label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. Goregaon East"
+                                            value={newPincode.locality}
+                                            onChange={e => setNewPincode({ ...newPincode, locality: e.target.value })}
+                                            style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)' }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Allowed Appliances</label>
+                                        <div style={{ padding: '4px 0' }}>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={newPincode.appliances.length === 0}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) setNewPincode({ ...newPincode, appliances: [] });
+                                                        }}
+                                                    /> All
+                                                </label>
+                                                {(settings.categories || []).map(cat => (
+                                                    <label key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={newPincode.appliances.includes(String(cat.id))}
+                                                            onChange={(e) => {
+                                                                const checked = e.target.checked;
+                                                                setNewPincode(prev => ({
+                                                                    ...prev,
+                                                                    appliances: checked
+                                                                        ? [...prev.appliances, String(cat.id)]
+                                                                        : prev.appliances.filter(id => id !== String(cat.id))
+                                                                }));
+                                                            }}
+                                                        /> {cat.name}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '8px 16px', height: '37px' }}
+                                        disabled={newPincode.pincode.length < 6 || !newPincode.locality.trim()}
+                                        onClick={() => {
+                                            const newEntry = {
+                                                pincode: newPincode.pincode,
+                                                locality: newPincode.locality.trim(),
+                                                appliances: [...newPincode.appliances]
+                                            };
+                                            const exists = (settings.advanced_pincodes || []).findIndex(p => p.pincode === newEntry.pincode);
+                                            let updatedList = [...(settings.advanced_pincodes || [])];
+                                            if (exists >= 0) {
+                                                updatedList[exists] = newEntry; // update if exists
+                                            } else {
+                                                updatedList.push(newEntry);
+                                            }
+                                            setSettings({ ...settings, advanced_pincodes: updatedList });
+                                            setNewPincode({ pincode: '', locality: '', appliances: [] });
+                                        }}
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+
+                                {/* List of active pincodes */}
+                                <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1.5fr 2fr 40px', gap: '12px', padding: '10px 16px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                        <div>Pincode</div>
+                                        <div>Locality Name</div>
+                                        <div>Allowed Appliances</div>
+                                        <div style={{ textAlign: 'right' }}></div>
+                                    </div>
+
+                                    {(settings.advanced_pincodes || []).length === 0 ? (
+                                        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                                            No pincodes added yet. Add one above.
+                                        </div>
+                                    ) : (
+                                        (settings.advanced_pincodes || []).map((pinData, idx) => (
+                                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '100px 1.5fr 2fr 40px', gap: '12px', padding: '10px 16px', borderBottom: idx < settings.advanced_pincodes.length - 1 ? '1px solid var(--border-primary)' : 'none', alignItems: 'center', fontSize: '13px' }}>
+                                                <div style={{ fontWeight: 600 }}>{pinData.pincode}</div>
+                                                <div>{pinData.locality}</div>
+                                                <div style={{ color: 'var(--text-secondary)' }}>
+                                                    {pinData.appliances?.length > 0
+                                                        ? pinData.appliances.map(id => settings.categories?.find(c => String(c.id) === String(id))?.name || `ID:${id}`).join(', ')
+                                                        : <span style={{ color: '#10b981', fontWeight: 500 }}>All Appliances</span>
+                                                    }
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = settings.advanced_pincodes.filter((_, i) => i !== idx);
+                                                            setSettings({ ...settings, advanced_pincodes: updated });
+                                                        }}
+                                                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                                                        title="Remove pincode"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div style={{ marginTop: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                    Total serviceable pincodes: {(settings.advanced_pincodes || []).length}
                                 </div>
                             </div>
                             <div className="card" style={{ padding: 'var(--spacing-lg)' }}>

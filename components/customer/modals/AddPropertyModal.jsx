@@ -55,27 +55,42 @@ function AddPropertyModal({ isOpen, onClose, onAdd }) {
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
-    const [serviceablePincodes, setServiceablePincodes] = useState([]) // [] means not loaded
+    const [advancedPincodes, setAdvancedPincodes] = useState([]) // [] means not loaded
     const [pincodeStatus, setPincodeStatus] = useState(null) // null | 'valid' | 'invalid'
+    const [matchedLocality, setMatchedLocality] = useState(null)
 
     useEffect(() => {
         if (!isOpen) return
         fetch('/api/settings/quick-booking')
             .then(r => r.json())
             .then(d => {
-                const raw = d.data?.serviceable_pincodes || d.data?.settings?.serviceable_pincodes || ''
-                const pincodes = typeof raw === 'string'
-                    ? raw.split(',').map(p => p.trim()).filter(Boolean)
-                    : Array.isArray(raw) ? raw.map(String) : []
-                setServiceablePincodes(pincodes)
+                const adv = d.data?.advanced_pincodes || d.data?.settings?.advanced_pincodes || []
+                if (adv.length > 0) {
+                    setAdvancedPincodes(adv)
+                } else {
+                    // Fallback to legacy
+                    const raw = d.data?.serviceable_pincodes || d.data?.settings?.serviceable_pincodes || ''
+                    const legacy = typeof raw === 'string'
+                        ? raw.split(',').map(p => p.trim()).filter(Boolean)
+                        : Array.isArray(raw) ? raw.map(String) : []
+                    setAdvancedPincodes(legacy.map(p => ({ pincode: p, locality: 'Area' })))
+                }
             })
             .catch(() => { })
     }, [isOpen])
 
     const validatePincode = (pin) => {
-        if (!pin || pin.length < 6) { setPincodeStatus(null); return }
-        if (serviceablePincodes.length === 0) { setPincodeStatus(null); return } // no restriction if not set
-        setPincodeStatus(serviceablePincodes.includes(pin) ? 'valid' : 'invalid')
+        if (!pin || pin.length < 6) { setPincodeStatus(null); setMatchedLocality(null); return }
+        if (advancedPincodes.length === 0) { setPincodeStatus(null); setMatchedLocality(null); return } // no restriction if not set
+
+        const match = advancedPincodes.find(p => p.pincode === pin)
+        if (match) {
+            setPincodeStatus('valid')
+            setMatchedLocality(match.locality)
+        } else {
+            setPincodeStatus('invalid')
+            setMatchedLocality(null)
+        }
     }
 
     const handleSubmit = async (e) => {
@@ -186,16 +201,13 @@ function AddPropertyModal({ isOpen, onClose, onAdd }) {
                                 placeholder="400001" required maxLength={6} inputMode="numeric" />
                             {pincodeStatus === 'valid' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4, fontSize: 11, color: '#10b981' }}>
-                                    <CheckCircle size={11} /> Serviceable area
+                                    <CheckCircle size={11} /> Serviceable area {matchedLocality ? `(${matchedLocality})` : ''}
                                 </div>
                             )}
                             {pincodeStatus === 'invalid' && (
                                 <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4 }}>
                                     <AlertCircle size={11} style={{ display: 'inline', marginRight: 4 }} />
                                     Not in our current service area
-                                    {serviceablePincodes.length > 0 && (
-                                        <div style={{ color: '#64748b', marginTop: 2 }}>Serviceable pincodes: {serviceablePincodes.join(', ')}</div>
-                                    )}
                                 </div>
                             )}
                         </div>

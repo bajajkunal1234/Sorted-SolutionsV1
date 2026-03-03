@@ -26,6 +26,7 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
         pincode: ''
     });
     const [isPincodeValid, setIsPincodeValid] = useState(false);
+    const [pincodeMessage, setPincodeMessage] = useState('');
     const [prefilledIssueName, setPrefilledIssueName] = useState(null);
     const [brands, setBrands] = useState([]);
     const [settings, setSettings] = useState(initialData || {
@@ -100,15 +101,48 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
     const visibleIssues = (selectedSubcategory?.issues || []).filter(i => i.showOnBookingForm !== false);
 
 
-    const handlePincodeChange = (e) => {
-        const pincode = e.target.value;
-        setFormData({ ...formData, pincode });
-
-        if (pincode.length === 6) {
-            setIsPincodeValid(settings.serviceable_pincodes.includes(pincode));
-        } else {
+    // Validate pincode whenever pincode or category changes
+    useEffect(() => {
+        if (formData.pincode.length !== 6) {
             setIsPincodeValid(false);
+            setPincodeMessage('');
+            return;
         }
+
+        const advanced = settings.advanced_pincodes || [];
+        // If there are advanced_pincodes, use them for validation
+        if (advanced.length > 0) {
+            const match = advanced.find(p => p.pincode === formData.pincode);
+            if (!match) {
+                setIsPincodeValid(false);
+                setPincodeMessage(settings.invalid_pincode_message || '✗ Not serviceable');
+                return;
+            }
+
+            // Check appliance mapping
+            if (formData.category) {
+                const allowed = match.appliances || [];
+                if (allowed.length > 0 && !allowed.includes(String(formData.category))) {
+                    setIsPincodeValid(false);
+                    setPincodeMessage(`✗ This appliance is not serviced in ${match.locality}`);
+                    return;
+                }
+            }
+
+            // Valid
+            setIsPincodeValid(true);
+            setPincodeMessage(`${settings.valid_pincode_message} (${match.locality})`);
+        } else {
+            // Legacy fallback validation
+            const isValid = (settings.serviceable_pincodes || []).includes(formData.pincode);
+            setIsPincodeValid(isValid);
+            setPincodeMessage(isValid ? settings.valid_pincode_message : settings.invalid_pincode_message);
+        }
+    }, [formData.pincode, formData.category, settings.advanced_pincodes, settings.valid_pincode_message, settings.invalid_pincode_message]);
+
+    const handlePincodeChange = (e) => {
+        const pincode = e.target.value.replace(/\D/g, '').slice(0, 6);
+        setFormData({ ...formData, pincode });
     };
 
     const handleSubmit = (e) => {
@@ -269,9 +303,9 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
                                 required
                                 aria-label="Enter pincode"
                             />
-                            {formData.pincode.length === 6 && (
+                            {formData.pincode.length === 6 && pincodeMessage && (
                                 <span className={`pincode-status ${isPincodeValid ? 'valid' : 'invalid'}`}>
-                                    {isPincodeValid ? settings.valid_pincode_message : settings.invalid_pincode_message}
+                                    {pincodeMessage}
                                 </span>
                             )}
                         </div>
