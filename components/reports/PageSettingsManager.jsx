@@ -1865,6 +1865,14 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                         faqs: { label: 'FAQs', icon: HelpCircle }
                     };
 
+                    const moveSection = (index, direction) => {
+                        const newOrder = [...displayOrder];
+                        const targetIndex = index + direction;
+                        if (targetIndex < 0 || targetIndex >= newOrder.length) return;
+                        [newOrder[index], newOrder[targetIndex]] = [newOrder[targetIndex], newOrder[index]];
+                        setSettings(prev => ({ ...prev, section_order: newOrder }));
+                    };
+
                     return (
                         <div style={{ display: 'grid', gap: '20px' }}>
                             <div style={{
@@ -1884,11 +1892,11 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                             </div>
 
                             <div style={{ display: 'grid', gap: '8px' }}>
-                                {currentOrder.map((key, index) => {
+                                {displayOrder.map((key, index) => {
                                     const info = SECTION_INFO[key] || { label: key, icon: Layout };
                                     const isVisible = sectionVisibility[key] !== false;
                                     const isFirst = index === 0;
-                                    const isLast = index === currentOrder.length - 1;
+                                    const isLast = index === displayOrder.length - 1;
 
                                     return (
                                         <div key={key} style={{
