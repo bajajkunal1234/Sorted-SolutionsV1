@@ -37,6 +37,7 @@ export async function PUT(request) {
                 title: settings.title,
                 subtitle: settings.subtitle,
                 serviceable_pincodes: settings.serviceable_pincodes,
+                advanced_pincodes: settings.advanced_pincodes,
                 valid_pincode_message: settings.valid_pincode_message,
                 invalid_pincode_message: settings.invalid_pincode_message,
                 help_text: settings.help_text,
