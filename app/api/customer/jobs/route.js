@@ -51,21 +51,30 @@ export async function GET(request) {
             return { address: typeof prop.address === 'string' ? prop.address : '', locality: prop.locality || '', city: prop.city || '' };
         };
 
-        // Transform data
+        // Transform data — support both FK-joined product and plain text category columns
         const transformedJobs = jobs.map(job => {
             const addr = resolveAddr(job.property);
+            // Parse notes JSONB for extra fields if present
+            let notesData = {};
+            if (job.notes && typeof job.notes === 'string') {
+                try { notesData = JSON.parse(job.notes); } catch (_) { notesData = {}; }
+            } else if (job.notes && typeof job.notes === 'object') {
+                notesData = job.notes;
+            }
+
             return {
                 id: job.id,
+                jobNumber: job.job_number,
                 propertyId: job.property_id,
                 address: addr.address,
                 locality: addr.locality,
                 city: addr.city,
                 product: {
-                    type: job.product?.category,
+                    type: job.product?.category || job.category || notesData.categoryName,
                     name: job.product?.name,
-                    brand: job.brand?.name
+                    brand: job.brand?.name || notesData.brandName
                 },
-                issue: job.issue?.title,
+                issue: job.issue?.title || job.issue || notesData.issueName,
                 issueCategory: job.issue?.category,
                 priority: job.priority,
                 status: job.status,
@@ -76,7 +85,7 @@ export async function GET(request) {
                 confirmedVisitTime: job.confirmed_visit_time,
                 completedAt: job.completed_at,
                 createdAt: job.created_at,
-                notes: job.notes
+                notes: job.description || ''   // show description as user-facing notes
             };
         })
 
@@ -99,54 +108,172 @@ export async function POST(request) {
     try {
         const jobData = await request.json()
 
-        // Validate required fields
-        if (!jobData.customer_id || !jobData.property_id || !jobData.product_id || !jobData.issue_id) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            )
+        // ── Validate required fields ──────────────────────────────────────────
+        // Accept the flexible payload from BookServiceModal:
+        //   { customer_id, property_id, appliance_type, brand, issue_type, issue_id,
+        //     description, preferred_date, preferred_time_slot, image_url }
+        const {
+            customer_id,
+            property_id,
+            appliance_type,
+            brand,
+            issue_type,
+            description,
+            preferred_date,
+            preferred_time_slot,
+            image_url
+        } = jobData
+
+        if (!customer_id) {
+            return NextResponse.json({ success: false, error: 'customer_id is required' }, { status: 400 })
+        }
+        if (!appliance_type) {
+            return NextResponse.json({ success: false, error: 'Please select an appliance type' }, { status: 400 })
+        }
+        if (!preferred_date || !preferred_time_slot) {
+            return NextResponse.json({ success: false, error: 'Preferred date and time slot are required' }, { status: 400 })
         }
 
-        // Create job
+        // ── Fix 3: Slot capacity check ────────────────────────────────────────
+        // Fetch the slot maxBookings from booking_slots settings
+        const { data: slotsConfig } = await supabase
+            .from('website_section_configs')
+            .select('config')
+            .eq('section_id', 'booking-slots')
+            .single()
+
+        const allSlots = slotsConfig?.config?.slots || []
+        const matchedSlot = allSlots.find(s =>
+            (s.label || `${s.startTime}–${s.endTime}`) === preferred_time_slot && s.active !== false
+        )
+
+        if (matchedSlot?.maxBookings) {
+            // Count existing active bookings for same date + slot
+            const { count: existingCount } = await supabase
+                .from('jobs')
+                .select('id', { count: 'exact', head: true })
+                .eq('scheduled_date', preferred_date)
+                .eq('scheduled_time', preferred_time_slot)
+                .not('status', 'in', '("cancelled","rejected")')
+
+            if (existingCount >= matchedSlot.maxBookings) {
+                return NextResponse.json(
+                    { success: false, error: 'This time slot is fully booked. Please choose a different date or time.' },
+                    { status: 409 }
+                )
+            }
+        }
+
+        // ── Fetch property details to store as JSONB ──────────────────────────
+        let propertyBlob = null
+        if (property_id) {
+            const { data: prop } = await supabase
+                .from('customer_properties')
+                .select('*')
+                .eq('id', property_id)
+                .single()
+            if (prop) {
+                propertyBlob = {
+                    id: prop.id,
+                    name: prop.name || prop.address,
+                    address: prop.address,
+                    locality: prop.locality || '',
+                    city: prop.city || '',
+                    pincode: prop.pincode || ''
+                }
+            }
+        }
+
+        // ── Build a clean booking_data JSONB blob for reference ───────────────
+        const bookingData = {
+            applianceType: appliance_type,
+            brandName: brand || '',
+            issueType: issue_type || '',
+            imageUrl: image_url || null,
+            preferredDate: preferred_date,
+            preferredTimeSlot: preferred_time_slot,
+        }
+
+        // ── Insert job using confirmed existing columns ────────────────────────
+        // We map app fields → existing jobs columns to avoid schema errors:
+        //   appliance_type → category   (text appliance name)
+        //   issue_type     → issue      (text issue description)
+        //   brand          → stored in notes JSONB
+        //   preferred_date → scheduled_date
+        //   preferred_time_slot → scheduled_time
         const { data: job, error } = await supabase
             .from('jobs')
             .insert({
-                customer_id: jobData.customer_id,
-                property_id: jobData.property_id,
-                product_id: jobData.product_id,
-                brand_id: jobData.brand_id,
-                issue_id: jobData.issue_id,
-                priority: jobData.priority || 'normal',
-                status: 'open',
+                customer_id,
+                property_id: property_id || null,
+                property: propertyBlob,            // JSONB blob for address display
+                category: appliance_type,          // appliance name in category column
+                issue: issue_type || null,         // issue text in issue column
+                description: description || null,  // optional description
+                scheduled_date: preferred_date,    // reuse website column
+                scheduled_time: preferred_time_slot,
+                notes: JSON.stringify(bookingData), // full context as JSONB
+                priority: 'normal',
+                status: 'pending',
                 stage: 'new',
-                warranty_status: jobData.warranty_status || 'unknown',
-                preferred_date: jobData.preferred_date,
-                preferred_time_slot: jobData.preferred_time_slot,
-                notes: jobData.notes,
+                source: 'customer_app',
                 created_at: new Date().toISOString()
             })
             .select()
             .single()
 
         if (error) {
-            console.error('Error creating job:', error)
+            console.error('Error creating job (customer app):', error)
+            // Handle unknown column gracefully — retry without `source`
+            if (error.code === '42703') {
+                const { data: jobRetry, error: retryError } = await supabase
+                    .from('jobs')
+                    .insert({
+                        customer_id,
+                        property_id: property_id || null,
+                        property: propertyBlob,
+                        category: appliance_type,
+                        issue: issue_type || null,
+                        description: description || null,
+                        scheduled_date: preferred_date,
+                        scheduled_time: preferred_time_slot,
+                        notes: JSON.stringify(bookingData),
+                        priority: 'normal',
+                        status: 'pending',
+                        stage: 'new',
+                        created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single()
+
+                if (retryError) {
+                    return NextResponse.json(
+                        { success: false, error: 'Failed to create service request: ' + retryError.message },
+                        { status: 500 }
+                    )
+                }
+                // Log and return with retry result
+                await supabase.from('job_interactions').insert({
+                    job_id: jobRetry.id,
+                    type: 'created',
+                    message: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
+                    user_name: 'Customer App'
+                })
+                return NextResponse.json({ success: true, job: jobRetry, message: 'Service request created successfully' })
+            }
             return NextResponse.json(
-                { error: 'Failed to create job' },
+                { success: false, error: 'Failed to create service request: ' + error.message },
                 { status: 500 }
             )
         }
 
-        // Log interaction
-        await supabase
-            .from('interactions')
-            .insert({
-                job_id: job.id,
-                customer_id: jobData.customer_id,
-                type: 'job_created',
-                description: 'Customer created a new service request',
-                created_by: jobData.customer_id,
-                created_at: new Date().toISOString()
-            })
+        // ── Log interaction ───────────────────────────────────────────────────
+        await supabase.from('job_interactions').insert({
+            job_id: job.id,
+            type: 'created',
+            message: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
+            user_name: 'Customer App'
+        })
 
         return NextResponse.json({
             success: true,
@@ -157,7 +284,7 @@ export async function POST(request) {
     } catch (error) {
         console.error('Error in job creation API:', error)
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { success: false, error: 'Internal server error' },
             { status: 500 }
         )
     }

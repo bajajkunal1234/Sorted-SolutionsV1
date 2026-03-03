@@ -617,6 +617,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     const [brandSearch, setBrandSearch] = useState('');
     const [faqSearch, setFaqSearch] = useState('');
     const [fetchError, setFetchError] = useState(null);
+    const [uploadingIssue, setUploadingIssue] = useState({});
 
     // Unified fetch effect
     useEffect(() => {
@@ -993,10 +994,6 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     // Helper: get all issues from booking settings for the current subcategory page
     const getPageIssues = () => {
         if (!bookingSettings?.categories) return [];
-        // pageId format: sub-{category-slug}-{subcategory-slug}
-        // We show ALL issues across the category's subcategories, grouped by subcategory
-        const parts = pageId.replace('sub-', '').split('-');
-        // Match category by slug (try longest match)
         const allIssues = [];
         for (const cat of (bookingSettings.categories || [])) {
             for (const sub of (cat.subcategories || [])) {
@@ -1008,6 +1005,9 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                         subcategoryName: sub.name,
                         categoryId: cat.id,
                         categoryName: cat.name,
+                        // Global price from Quick Booking Form settings
+                        bookingPrice: issue.price != null ? String(issue.price) : null,
+                        bookingPriceLabel: issue.price_label || 'Starting from',
                     });
                 }
             }
@@ -1302,7 +1302,18 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                 {/* ── ISSUES TAB (subcategory pages only) ── */}
                 {activeTab === 'issues' && isSubPage && (() => {
                     const allIssues = getPageIssues();
-                    const selectedIds = settings.issues_settings?.items || [];
+                    // items now stored as rich objects { id, price, description, image } OR plain IDs (legacy)
+                    const rawItems = settings.issues_settings?.items || [];
+
+                    // Normalise to rich objects
+                    const selectedItems = rawItems.map(item =>
+                        typeof item === 'object' && item !== null
+                            ? item
+                            : { id: item, price: '', description: '', image: '' }
+                    );
+
+                    const selectedIds = selectedItems.map(i => i.id);
+
                     const filtered = issueSearch
                         ? allIssues.filter(i =>
                             i.name.toLowerCase().includes(issueSearch.toLowerCase()) ||
@@ -1317,6 +1328,43 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                         acc[key].issues.push(issue);
                         return acc;
                     }, {});
+
+                    const isIssueSelected = (id) => selectedIds.includes(id);
+
+                    const toggleIssue = (issue) => {
+                        const existingIdx = selectedItems.findIndex(i => Number(i.id) === Number(issue.id));
+                        let newItems;
+                        if (existingIdx >= 0) {
+                            newItems = selectedItems.filter((_, idx) => idx !== existingIdx);
+                        } else {
+                            newItems = [...selectedItems, { id: issue.id, price: '', description: '', image: '' }];
+                        }
+                        updateSection('issues_settings', 'items', newItems);
+                    };
+
+                    const updateIssueField = (id, field, value) => {
+                        const newItems = selectedItems.map(i =>
+                            Number(i.id) === Number(id) ? { ...i, [field]: value } : i
+                        );
+                        updateSection('issues_settings', 'items', newItems);
+                    };
+
+                    const uploadIssueImage = async (id, file) => {
+                        if (!file) return;
+                        setUploadingIssue(prev => ({ ...prev, [id]: true }));
+                        try {
+                            const formData = new FormData();
+                            formData.append('file', file);
+                            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+                            const data = await res.json();
+                            if (data.url) updateIssueField(id, 'image', data.url);
+                            else if (data.success && data.data?.url) updateIssueField(id, 'image', data.data.url);
+                        } catch (e) {
+                            console.error('Upload failed', e);
+                        } finally {
+                            setUploadingIssue(prev => ({ ...prev, [id]: false }));
+                        }
+                    };
 
                     return (
                         <div>
@@ -1350,7 +1398,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                     {/* Stats + search */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                                         <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                            <strong style={{ color: 'var(--color-primary)' }}>{selectedIds.length}</strong> issues selected from{' '}
+                                            <strong style={{ color: 'var(--color-primary)' }}>{selectedItems.length}</strong> issues selected from{' '}
                                             <strong>{allIssues.length}</strong> total
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
@@ -1362,7 +1410,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                                 className="form-control"
                                                 style={{ width: '200px', padding: '6px 12px', fontSize: '13px' }}
                                             />
-                                            {selectedIds.length > 0 && (
+                                            {selectedItems.length > 0 && (
                                                 <button
                                                     onClick={() => updateSection('issues_settings', 'items', [])}
                                                     className="btn btn-secondary"
@@ -1372,6 +1420,14 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                                 </button>
                                             )}
                                         </div>
+                                    </div>
+
+                                    {/* Info callout about rich fields */}
+                                    <div style={{ padding: '12px 16px', backgroundColor: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 'var(--radius-md)', fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                        <span style={{ fontSize: '16px', flexShrink: 0 }}>✨</span>
+                                        <span>
+                                            <strong style={{ color: 'var(--text-primary)' }}>New: Rich issue cards</strong> — After selecting an issue, expand it to add an <strong>image</strong>, <strong>price</strong>, and a short <strong>description</strong>. These appear on the live page as premium service cards.
+                                        </span>
                                     </div>
 
                                     {/* Issue picker grouped by subcategory */}
@@ -1398,10 +1454,14 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                                                     const groupIds = group.issues.map(i => i.id);
                                                                     const allSelected = groupIds.every(id => selectedIds.includes(id));
                                                                     if (allSelected) {
-                                                                        updateSection('issues_settings', 'items', selectedIds.filter(id => !groupIds.includes(id)));
+                                                                        const newItems = selectedItems.filter(i => !groupIds.includes(i.id));
+                                                                        updateSection('issues_settings', 'items', newItems);
                                                                     } else {
-                                                                        const merged = [...new Set([...selectedIds, ...groupIds])];
-                                                                        updateSection('issues_settings', 'items', merged);
+                                                                        const existingIds = new Set(selectedIds.map(Number));
+                                                                        const toAdd = group.issues
+                                                                            .filter(i => !existingIds.has(Number(i.id)))
+                                                                            .map(i => ({ id: i.id, price: '', description: '', image: '' }));
+                                                                        updateSection('issues_settings', 'items', [...selectedItems, ...toAdd]);
                                                                     }
                                                                 }}
                                                                 className="btn btn-secondary"
@@ -1410,39 +1470,125 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                                                 {group.issues.every(i => selectedIds.includes(i.id)) ? 'Deselect All' : 'Select All'}
                                                             </button>
                                                         </div>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '8px' }}>
+                                                        <div style={{ display: 'grid', gap: '10px' }}>
                                                             {group.issues.map(issue => {
-                                                                const isSelected = selectedIds.includes(issue.id);
+                                                                const isSel = isIssueSelected(issue.id);
+                                                                const savedItem = selectedItems.find(i => Number(i.id) === Number(issue.id));
                                                                 return (
-                                                                    <label
+                                                                    <div
                                                                         key={issue.id}
                                                                         style={{
-                                                                            display: 'flex', alignItems: 'center', gap: '10px',
-                                                                            padding: '10px 12px',
-                                                                            backgroundColor: isSelected ? 'var(--color-primary)12' : 'var(--bg-primary)',
-                                                                            border: `1.5px solid ${isSelected ? 'var(--color-primary)' : 'var(--border-primary)'}`,
-                                                                            borderRadius: 'var(--radius-md)',
-                                                                            cursor: 'pointer',
-                                                                            fontSize: '13px',
-                                                                            fontWeight: isSelected ? 600 : 400,
-                                                                            transition: 'all 0.15s ease'
+                                                                            border: `2px solid ${isSel ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                                                            borderRadius: 'var(--radius-lg)',
+                                                                            backgroundColor: isSel ? 'rgba(99,102,241,0.04)' : 'var(--bg-primary)',
+                                                                            overflow: 'hidden',
+                                                                            transition: 'all 0.2s'
                                                                         }}
                                                                     >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={isSelected}
-                                                                            onChange={() => {
-                                                                                const newItems = isSelected
-                                                                                    ? selectedIds.filter(id => id !== issue.id)
-                                                                                    : [...selectedIds, issue.id];
-                                                                                updateSection('issues_settings', 'items', newItems);
-                                                                            }}
-                                                                            style={{ accentColor: 'var(--color-primary)', width: '15px', height: '15px', flexShrink: 0 }}
-                                                                        />
-                                                                        <span style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-primary)' }}>
-                                                                            {issue.name}
-                                                                        </span>
-                                                                    </label>
+                                                                        {/* Row 1: Toggle */}
+                                                                        <div
+                                                                            onClick={() => toggleIssue(issue)}
+                                                                            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', cursor: 'pointer' }}
+                                                                        >
+                                                                            <div style={{
+                                                                                width: '22px', height: '22px', borderRadius: '50%', flexShrink: 0,
+                                                                                border: `2px solid ${isSel ? 'var(--color-primary)' : 'var(--border-tertiary)'}`,
+                                                                                backgroundColor: isSel ? 'var(--color-primary)' : 'transparent',
+                                                                                display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                                            }}>
+                                                                                {isSel && <span style={{ color: 'white', fontSize: '13px', fontWeight: 700, lineHeight: 1 }}>✓</span>}
+                                                                            </div>
+                                                                            <div style={{ flex: 1 }}>
+                                                                                <div style={{ fontWeight: 700, fontSize: '14px', color: isSel ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{issue.name}</div>
+                                                                                {savedItem?.price && <div style={{ fontSize: '11px', color: 'var(--color-primary)', marginTop: '2px' }}>Price: {savedItem.price}</div>}
+                                                                            </div>
+                                                                            {savedItem?.image && (
+                                                                                <img src={savedItem.image} alt={issue.name} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--border-primary)', flexShrink: 0 }} />
+                                                                            )}
+                                                                        </div>
+
+                                                                        {/* Row 2: Rich fields (only when selected) */}
+                                                                        {isSel && (
+                                                                            <div style={{ padding: '0 16px 16px', borderTop: '1px solid var(--border-primary)', paddingTop: '14px', display: 'grid', gap: '12px' }}>
+
+                                                                                {/* Image */}
+                                                                                <div>
+                                                                                    <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Card Image <span style={{ fontWeight: 400 }}>(optional — shown on the live card)</span></label>
+                                                                                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder="Image URL or upload →"
+                                                                                            value={savedItem?.image || ''}
+                                                                                            onChange={e => updateIssueField(issue.id, 'image', e.target.value)}
+                                                                                            className="form-control"
+                                                                                            style={{ flex: 1, fontSize: '12px' }}
+                                                                                        />
+                                                                                        <label style={{
+                                                                                            padding: '6px 14px', fontSize: '12px', fontWeight: 600,
+                                                                                            backgroundColor: uploadingIssue[issue.id] ? 'var(--bg-secondary)' : 'var(--color-primary)',
+                                                                                            color: uploadingIssue[issue.id] ? 'var(--text-tertiary)' : 'white',
+                                                                                            borderRadius: 'var(--radius-md)', cursor: 'pointer', flexShrink: 0,
+                                                                                            border: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px'
+                                                                                        }}>
+                                                                                            {uploadingIssue[issue.id] ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                                                                                            {uploadingIssue[issue.id] ? 'Uploading…' : 'Upload'}
+                                                                                            <input type="file" accept="image/*" style={{ display: 'none' }}
+                                                                                                onChange={e => uploadIssueImage(issue.id, e.target.files[0])}
+                                                                                            />
+                                                                                        </label>
+                                                                                    </div>
+                                                                                </div>
+
+                                                                                {/* Price + Description side by side */}
+                                                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                                                                    <div>
+                                                                                        <label style={{ fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                                                                                            Price on card
+                                                                                            {/* Show global price badge */}
+                                                                                            {(() => {
+                                                                                                const globalIssue = allIssues.find(i => Number(i.id) === Number(issue.id));
+                                                                                                if (globalIssue?.bookingPrice) {
+                                                                                                    return (
+                                                                                                        <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '999px', backgroundColor: '#10b98115', color: '#059669', border: '1px solid #10b98130' }}>
+                                                                                                            🌐 Global: {globalIssue.bookingPriceLabel} ₹{Number(globalIssue.bookingPrice).toLocaleString('en-IN')}
+                                                                                                        </span>
+                                                                                                    );
+                                                                                                }
+                                                                                                return <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>(no global price set)</span>;
+                                                                                            })()}
+                                                                                        </label>
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder={(() => {
+                                                                                                const g = allIssues.find(i => Number(i.id) === Number(issue.id));
+                                                                                                return g?.bookingPrice
+                                                                                                    ? `Auto: ${g.bookingPriceLabel} ₹${Number(g.bookingPrice).toLocaleString('en-IN')} — override here`
+                                                                                                    : 'e.g. ₹499 onwards';
+                                                                                            })()}
+                                                                                            value={savedItem?.price || ''}
+                                                                                            onChange={e => updateIssueField(issue.id, 'price', e.target.value)}
+                                                                                            className="form-control"
+                                                                                            style={{ fontSize: '12px' }}
+                                                                                        />
+                                                                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                                                            Leave blank to use the global price automatically.
+                                                                                        </div>
+                                                                                    </div>
+                                                                                    <div>
+                                                                                        <label style={{ fontSize: '12px', fontWeight: 600, display: 'block', marginBottom: '8px', color: 'var(--text-secondary)' }}>Short Description <span style={{ fontWeight: 400 }}>(1–2 lines)</span></label>
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder="e.g. Fast, professional repair with 90-day warranty"
+                                                                                            value={savedItem?.description || ''}
+                                                                                            onChange={e => updateIssueField(issue.id, 'description', e.target.value)}
+                                                                                            className="form-control"
+                                                                                            style={{ fontSize: '12px' }}
+                                                                                        />
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 );
                                                             })}
                                                         </div>

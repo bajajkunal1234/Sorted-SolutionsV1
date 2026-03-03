@@ -118,13 +118,35 @@ export default async function SubCategoryPage({ params }) {
             const qbData = await fetchQuickBookingData()
             if (qbData?.categories) {
                 // Resolve Issues
+                // items can be plain IDs (legacy) or rich objects { id, price, description, image }
                 if (issuesSettings?.items?.length > 0) {
-                    const idSet = new Set(issuesSettings.items.map(Number))
+                    const itemsMap = new Map()
+                    for (const item of issuesSettings.items) {
+                        if (typeof item === 'object' && item !== null) {
+                            itemsMap.set(Number(item.id), item)
+                        } else {
+                            itemsMap.set(Number(item), {})
+                        }
+                    }
                     for (const cat of qbData.categories) {
                         for (const sub of (cat.subcategories || [])) {
                             for (const issue of (sub.issues || [])) {
-                                if (idSet.has(Number(issue.id))) {
-                                    resolvedIssues.push({ id: issue.id, name: issue.name, categoryId: cat.id, subcategoryId: sub.id })
+                                const extraData = itemsMap.get(Number(issue.id))
+                                if (extraData !== undefined) {
+                                    // Price priority: per-page override → global booking price → ''
+                                    const resolvedPrice = extraData.price
+                                        || (issue.price != null
+                                            ? `${issue.price_label || 'Starting from'} \u20B9${Number(issue.price).toLocaleString('en-IN')}`
+                                            : '')
+                                    resolvedIssues.push({
+                                        id: issue.id,
+                                        name: issue.name,
+                                        categoryId: cat.id,
+                                        subcategoryId: sub.id,
+                                        price: resolvedPrice,
+                                        description: extraData.description || '',
+                                        image: extraData.image || ''
+                                    })
                                 }
                             }
                         }

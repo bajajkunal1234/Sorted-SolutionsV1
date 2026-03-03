@@ -6,7 +6,8 @@ import './BookingWizard.css';
 const steps = [
     { id: 'service', name: 'Service Detail' },
     { id: 'contact', name: 'Contact' },
-    { id: 'slot', name: 'Date-Time' },
+    { id: 'slot', name: 'Date & Time' },
+    { id: 'fees', name: 'Fee Preview' },
     { id: 'review', name: 'Review' },
 ];
 

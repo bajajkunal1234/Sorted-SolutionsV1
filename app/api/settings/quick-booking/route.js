@@ -145,6 +145,9 @@ export async function PATCH(request) {
         if (data.name !== undefined) updateData.name = data.name;
         if (data.showOnBookingForm !== undefined) updateData.show_on_booking_form = data.showOnBookingForm;
         if (data.displayOrder !== undefined) updateData.display_order = data.displayOrder;
+        // Pricing fields (issues only, ignored harmlessly for categories/subcategories)
+        if (data.price !== undefined) updateData.price = data.price === '' ? null : Number(data.price);
+        if (data.price_label !== undefined) updateData.price_label = data.price_label || null;
 
         switch (type) {
             case 'category':

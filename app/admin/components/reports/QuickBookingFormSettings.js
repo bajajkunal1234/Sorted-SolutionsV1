@@ -28,6 +28,60 @@ function QuickBookingFormSettings() {
     const [expandedCategory, setExpandedCategory] = useState(null);
     const [expandedSubcategory, setExpandedSubcategory] = useState(null);
 
+    // ── Issue pricing inline editor ────────────────────────────────────────────
+    // editingPrice: { issueId, price, price_label } | null
+    const [editingPrice, setEditingPrice] = useState(null);
+    const [savingPrice, setSavingPrice] = useState(false);
+
+    const openPriceEditor = (issue) => {
+        setEditingPrice({
+            issueId: issue.id,
+            price: issue.price !== null && issue.price !== undefined ? String(issue.price) : '',
+            price_label: issue.price_label || 'Starting from',
+        });
+    };
+
+    const savePriceForIssue = async () => {
+        if (!editingPrice) return;
+        setSavingPrice(true);
+        try {
+            const res = await fetch('/api/settings/quick-booking', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'issue',
+                    id: editingPrice.issueId,
+                    data: {
+                        price: editingPrice.price === '' ? null : editingPrice.price,
+                        price_label: editingPrice.price_label
+                    }
+                })
+            });
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            // Update local state so the badge reflects immediately
+            setSettings(prev => ({
+                ...prev,
+                categories: prev.categories.map(cat => ({
+                    ...cat,
+                    subcategories: (cat.subcategories || []).map(sub => ({
+                        ...sub,
+                        issues: (sub.issues || []).map(issue =>
+                            issue.id === editingPrice.issueId
+                                ? { ...issue, price: editingPrice.price === '' ? null : Number(editingPrice.price), price_label: editingPrice.price_label }
+                                : issue
+                        )
+                    }))
+                }))
+            }));
+            setEditingPrice(null);
+        } catch (e) {
+            alert('Failed to save price: ' + e.message);
+        } finally {
+            setSavingPrice(false);
+        }
+    };
+
     // ── Brands ────────────────────────────────────────────────────────────────
     const [brands, setBrands] = useState([]);
     const [brandsLoading, setBrandsLoading] = useState(false);
@@ -536,21 +590,162 @@ function QuickBookingFormSettings() {
                             <button onClick={handleAddIssue} className="btn btn-primary" style={{ padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
                                 <Plus size={18} /> Add New Issue
                             </button>
+
+                            {/* Pricing info banner */}
+                            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: '#10b98110', borderRadius: 'var(--radius-md)', border: '1px solid #10b98130', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                💰 Click the <strong>₹ Add Price</strong> button on any issue to set a repair estimate. This price is shown to customers in the new <strong>Step 4 — Fee Preview</strong> of the booking form. Prices are optional — issues without a price show "Price shared after diagnosis".
+                            </div>
+
                             {settings.categories.map(category => (
                                 <div key={category.id} className="card" style={{ padding: 'var(--spacing-lg)' }}>
                                     <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--color-primary)' }}>{category.name}</h4>
                                     {(category.subcategories || []).map(sub => (
                                         <div key={sub.id} style={{ marginBottom: 'var(--spacing-md)' }}>
-                                            <h5 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>{sub.name}</h5>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--spacing-sm)' }}>
+                                            <h5 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)', paddingBottom: '4px', borderBottom: '1px solid var(--border-primary)' }}>{sub.name}</h5>
+                                            <div style={{ display: 'grid', gap: 'var(--spacing-xs)' }}>
                                                 {(sub.issues || []).map(issue => (
-                                                    <div key={issue.id} style={{ padding: 'var(--spacing-sm)', border: issue.showOnBookingForm ? '1px solid #10b981' : '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-elevated)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span style={{ fontSize: 'var(--font-size-sm)', flex: 1 }}>{issue.name}</span>
-                                                        <button onClick={() => toggleIssueVisibility(issue.id)} style={{ padding: '4px 8px', border: 'none', borderRadius: 'var(--radius-sm)', backgroundColor: issue.showOnBookingForm ? '#10b98115' : '#ef444415', color: issue.showOnBookingForm ? '#10b981' : '#ef4444', cursor: 'pointer', fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
-                                                            {issue.showOnBookingForm ? <Eye size={12} /> : <EyeOff size={12} />}
-                                                        </button>
+                                                    <div key={issue.id}>
+                                                        {/* Issue row */}
+                                                        <div style={{
+                                                            padding: 'var(--spacing-sm) var(--spacing-md)',
+                                                            border: issue.showOnBookingForm ? '1px solid #10b981' : '1px solid var(--border-primary)',
+                                                            borderRadius: editingPrice?.issueId === issue.id ? 'var(--radius-md) var(--radius-md) 0 0' : 'var(--radius-md)',
+                                                            backgroundColor: 'var(--bg-elevated)',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            gap: 'var(--spacing-sm)'
+                                                        }}>
+                                                            {/* Name + price badge */}
+                                                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                                                                <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, flex: 1 }}>{issue.name}</span>
+                                                                {issue.price != null ? (
+                                                                    <span style={{
+                                                                        fontSize: '11px', fontWeight: 700,
+                                                                        padding: '2px 8px', borderRadius: '20px',
+                                                                        backgroundColor: '#10b98115', color: '#059669',
+                                                                        whiteSpace: 'nowrap', flexShrink: 0
+                                                                    }}>
+                                                                        {issue.price_label} ₹{Number(issue.price).toLocaleString('en-IN')}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{
+                                                                        fontSize: '11px', padding: '2px 8px', borderRadius: '20px',
+                                                                        backgroundColor: 'var(--bg-secondary)', color: 'var(--text-tertiary)',
+                                                                        whiteSpace: 'nowrap', flexShrink: 0
+                                                                    }}>No price</span>
+                                                                )}
+                                                            </div>
+                                                            {/* Actions */}
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                                                <button
+                                                                    onClick={() => editingPrice?.issueId === issue.id ? setEditingPrice(null) : openPriceEditor(issue)}
+                                                                    title="Set price"
+                                                                    style={{
+                                                                        padding: '4px 10px', border: 'none', borderRadius: 'var(--radius-sm)',
+                                                                        backgroundColor: editingPrice?.issueId === issue.id ? '#f97316' : (issue.price != null ? '#10b98115' : '#3b82f615'),
+                                                                        color: editingPrice?.issueId === issue.id ? 'white' : (issue.price != null ? '#059669' : '#3b82f6'),
+                                                                        cursor: 'pointer', fontSize: '12px', fontWeight: 600
+                                                                    }}
+                                                                >
+                                                                    {editingPrice?.issueId === issue.id ? '✕ Cancel' : (issue.price != null ? '₹ Edit' : '₹ Add Price')}
+                                                                </button>
+                                                                <button onClick={() => handleRename('issue', issue.id, issue.name)} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', padding: '4px' }} title="Rename">
+                                                                    <Edit2 size={13} />
+                                                                </button>
+                                                                <button onClick={() => handleDelete('issue', issue.id, issue.name)} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px' }} title="Delete">
+                                                                    <Trash2 size={13} />
+                                                                </button>
+                                                                <button onClick={() => toggleIssueVisibility(issue.id)} style={{ padding: '4px 8px', border: 'none', borderRadius: 'var(--radius-sm)', backgroundColor: issue.showOnBookingForm ? '#10b98115' : '#ef444415', color: issue.showOnBookingForm ? '#10b981' : '#ef4444', cursor: 'pointer', fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
+                                                                    {issue.showOnBookingForm ? <Eye size={12} /> : <EyeOff size={12} />}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Inline price editor — shown only for the issue being edited */}
+                                                        {editingPrice?.issueId === issue.id && (
+                                                            <div style={{
+                                                                padding: 'var(--spacing-md)',
+                                                                backgroundColor: '#f97316' + '08',
+                                                                border: '1px solid #f9731630',
+                                                                borderTop: 'none',
+                                                                borderRadius: '0 0 var(--radius-md) var(--radius-md)',
+                                                                display: 'grid',
+                                                                gridTemplateColumns: '1fr 1fr auto',
+                                                                gap: 'var(--spacing-sm)',
+                                                                alignItems: 'end'
+                                                            }}>
+                                                                {/* Amount input */}
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>PRICE (₹)</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        step="50"
+                                                                        placeholder="e.g. 500"
+                                                                        value={editingPrice.price}
+                                                                        onChange={e => setEditingPrice(prev => ({ ...prev, price: e.target.value }))}
+                                                                        autoFocus
+                                                                        style={{
+                                                                            width: '100%', padding: '8px 10px',
+                                                                            border: '1px solid #f97316',
+                                                                            borderRadius: 'var(--radius-md)',
+                                                                            fontSize: 'var(--font-size-sm)',
+                                                                            backgroundColor: 'var(--bg-elevated)'
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                {/* Label selector */}
+                                                                <div>
+                                                                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>PRICE LABEL</label>
+                                                                    <select
+                                                                        value={editingPrice.price_label}
+                                                                        onChange={e => setEditingPrice(prev => ({ ...prev, price_label: e.target.value }))}
+                                                                        style={{
+                                                                            width: '100%', padding: '8px 10px',
+                                                                            border: '1px solid #f97316',
+                                                                            borderRadius: 'var(--radius-md)',
+                                                                            fontSize: 'var(--font-size-sm)',
+                                                                            backgroundColor: 'var(--bg-elevated)',
+                                                                            cursor: 'pointer'
+                                                                        }}
+                                                                    >
+                                                                        {['Starting from', 'Fixed', 'Up to', 'Approx.'].map(opt => (
+                                                                            <option key={opt} value={opt}>{opt}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                {/* Save / Clear */}
+                                                                <div style={{ display: 'flex', gap: '6px' }}>
+                                                                    <button
+                                                                        onClick={savePriceForIssue}
+                                                                        disabled={savingPrice}
+                                                                        className="btn btn-primary"
+                                                                        style={{ padding: '8px 14px', backgroundColor: '#f97316', borderColor: '#f97316', fontSize: 'var(--font-size-sm)' }}
+                                                                    >
+                                                                        {savingPrice ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
+                                                                        Save
+                                                                    </button>
+                                                                    {issue.price != null && (
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setEditingPrice(prev => ({ ...prev, price: '' }));
+                                                                                setTimeout(savePriceForIssue, 0);
+                                                                            }}
+                                                                            className="btn"
+                                                                            style={{ padding: '8px 10px', fontSize: 'var(--font-size-xs)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}
+                                                                        >
+                                                                            Clear
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
+                                                {(sub.issues || []).length === 0 && (
+                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic', padding: 'var(--spacing-xs)' }}>No issues</div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

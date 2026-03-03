@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Clock, Loader2, Info, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Clock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import BookingSteps from './BookingSteps';
 import './BookingWizard.css';
 
@@ -268,17 +268,19 @@ export default function BookingWizard() {
         return allSlots.filter(s => s.day === dayName && s.active);
     };
 
-    // Navigation
+    // Navigation — now 5 steps
     const handleNext = () => {
         if (currentStep === 'service') setCurrentStep('contact');
         else if (currentStep === 'contact') setCurrentStep('slot');
-        else if (currentStep === 'slot') setCurrentStep('review');
+        else if (currentStep === 'slot') setCurrentStep('fees');
+        else if (currentStep === 'fees') setCurrentStep('review');
     };
 
     const handleBack = () => {
         if (currentStep === 'contact') setCurrentStep('service');
         else if (currentStep === 'slot') setCurrentStep('contact');
-        else if (currentStep === 'review') setCurrentStep('slot');
+        else if (currentStep === 'fees') setCurrentStep('slot');
+        else if (currentStep === 'review') setCurrentStep('fees');
     };
 
     const canProceedFromSlot = formData.selectedDate && formData.selectedSlotId;
@@ -621,49 +623,139 @@ export default function BookingWizard() {
                         </div>
                     )}
 
-                    {/* ── Step 4: Review & Estimated Expense ── */}
+                    {/* ── Step 4: Fee Preview ── */}
+                    {currentStep === 'fees' && (() => {
+                        // Find the currently selected issue's price data
+                        const selectedIssue = metadata.issues.find(i => i.id?.toString() === formData.issue?.toString());
+                        const issuePrice = selectedIssue?.price ?? null;
+                        const issuePriceLabel = selectedIssue?.price_label || 'Starting from';
+
+                        return (
+                            <div className="step-content">
+                                <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Fee Preview</h2>
+                                <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
+                                    Here's a transparent breakdown of what you can expect to pay.
+                                </p>
+
+                                {/* Fee cards */}
+                                <div style={{ display: 'grid', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
+
+                                    {/* Visiting / Diagnosing Fee */}
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: 'var(--spacing-md) var(--spacing-lg)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '2px solid #f59e0b',
+                                    }}>
+                                        <div>
+                                            <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>Visiting / Diagnosing Fee</div>
+                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>Payable at the time of visit</div>
+                                        </div>
+                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: '#d97706' }}>
+                                            {visitingFee ? `₹${visitingFee}` : 'TBD'}
+                                        </div>
+                                    </div>
+
+                                    {/* Issue-specific price (from admin settings) */}
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        padding: 'var(--spacing-md) var(--spacing-lg)',
+                                        backgroundColor: issuePrice != null ? '#10b98108' : 'var(--bg-secondary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: `2px solid ${issuePrice != null ? '#10b981' : 'var(--border-primary)'}`,
+                                    }}>
+                                        <div>
+                                            <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>Service Estimate</div>
+                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                {getName('issue', formData.issue)} repair
+                                            </div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            {issuePrice != null ? (
+                                                <>
+                                                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: 500 }}>{issuePriceLabel}</div>
+                                                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 800, color: '#059669' }}>₹{Number(issuePrice).toLocaleString('en-IN')}</div>
+                                                </>
+                                            ) : (
+                                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Shared after diagnosis</div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Spare parts */}
+                                    <div style={{
+                                        padding: 'var(--spacing-md) var(--spacing-lg)',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        border: '1px dashed var(--border-primary)',
+                                        display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)'
+                                    }}>
+                                        <span style={{ fontSize: '1.4em', flexShrink: 0 }}>🔩</span>
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>Spare Parts — Extra</div>
+                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
+                                                If spare parts are needed, the technician will quote the cost <strong>before starting any repair</strong>. You are free to decline.
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Info bullets */}
+                                <div style={{ borderRadius: 'var(--radius-md)', border: '1px solid #fcd34d', overflow: 'hidden' }}>
+                                    <div style={{ padding: '10px var(--spacing-md)', backgroundColor: '#fef3c7', fontSize: 'var(--font-size-xs)', fontWeight: 700, color: '#92400e', letterSpacing: '0.04em' }}>HOW IT WORKS</div>
+                                    {[
+                                        { icon: '🔍', text: 'Technician visits and diagnoses the problem. Visiting fee is charged at this stage.' },
+                                        { icon: '💬', text: 'Technician shares repair cost + parts estimate. You approve before work begins.' },
+                                        { icon: '🛠️', text: 'Repair is carried out. You pay for parts + labour only after your approval.' },
+                                        { icon: '✅', text: 'Job is complete. Digital receipt emailed immediately.' },
+                                    ].map((item, i, arr) => (
+                                        <div key={i} style={{ display: 'flex', gap: '12px', padding: '10px var(--spacing-md)', borderTop: i === 0 ? 'none' : '1px solid #fde68a', backgroundColor: '#fefce8' }}>
+                                            <span style={{ fontSize: '1.1em', flexShrink: 0 }}>{item.icon}</span>
+                                            <span style={{ fontSize: 'var(--font-size-xs)', color: '#44403c', lineHeight: 1.5 }}>{item.text}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* ── Step 5: Review (compact confirmation) ── */}
                     {currentStep === 'review' && (
                         <div className="step-content">
-                            <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Review Your Booking</h2>
+                            <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Confirm Your Booking</h2>
+                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
+                                Everything looks good? Hit <strong>Complete Booking</strong> to lock it in.
+                            </p>
 
-                            {/* Service & Contact Summary */}
                             <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 'var(--spacing-md)' }}>
+                                {/* Service */}
                                 <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 'var(--spacing-sm)' }}>Service</div>
-                                    <div className="form-grid">
-                                        <div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Appliance</div>
-                                            <div style={{ fontWeight: 600 }}>{getName('appliance', formData.category)}</div>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: '6px' }}>Service</div>
+                                    <div style={{ fontWeight: 600 }}>{getName('appliance', formData.category)} · {getName('issue', formData.issue)}</div>
+                                    {formData.brand && (
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                            🏷️ {formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name}
                                         </div>
-                                        <div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Issue</div>
-                                            <div style={{ fontWeight: 600 }}>{getName('issue', formData.issue)}</div>
-                                        </div>
-                                        {formData.brand && (
-                                            <div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Brand</div>
-                                                <div style={{ fontWeight: 600 }}>
-                                                    🏷️ {formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name || 'Selected'}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
+                                    )}
                                 </div>
 
+                                {/* Contact */}
                                 <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 'var(--spacing-sm)' }}>Contact &amp; Address</div>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: '6px' }}>Contact & Address</div>
                                     <div style={{ fontWeight: 600 }}>{formData.name}</div>
-                                    <div style={{ fontSize: 'var(--font-size-sm)' }}>
+                                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                                         {formData.phone}{formData.email && ` · ${formData.email}`}
-                                        {formData.whatsappAlerts && <span style={{ marginLeft: '8px', color: '#25D366', fontSize: '0.85em' }}>📲 WhatsApp on</span>}
+                                        {formData.whatsappAlerts && <span style={{ marginLeft: '8px', color: '#25D366', fontSize: '0.85em' }}>📲</span>}
                                     </div>
-                                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                        {[formData.apartment, formData.address, formData.locality, `${formData.city}, ${formData.state} – ${formData.zip}`].filter(Boolean).join(', ')}
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                        {[formData.apartment, formData.address, formData.locality, `${formData.city} – ${formData.zip}`].filter(Boolean).join(', ')}
                                     </div>
                                 </div>
 
-                                <div style={{ padding: 'var(--spacing-md)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: 'var(--spacing-sm)' }}>Appointment</div>
+                                {/* Appointment */}
+                                <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: '6px' }}>Appointment</div>
                                     <div style={{ fontWeight: 600 }}>
                                         {formData.selectedDate ? (() => {
                                             const d = new Date(formData.selectedDate + 'T00:00:00');
@@ -672,66 +764,17 @@ export default function BookingWizard() {
                                         {' · '}{formData.selectedSlotLabel || '—'}
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* ── Estimated Expense Section ── */}
-                            <div style={{
-                                borderRadius: 'var(--radius-lg)',
-                                border: '2px solid #f59e0b',
-                                overflow: 'hidden',
-                            }}>
-                                <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', backgroundColor: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Info size={18} color="#fff" />
-                                    <span style={{ fontWeight: 700, color: '#fff', fontSize: 'var(--font-size-sm)' }}>Estimated Expense</span>
-                                </div>
-                                <div style={{ padding: 'var(--spacing-lg)', backgroundColor: '#fefce8' }}>
-                                    {/* Fee highlight */}
-                                    {visitingFee ? (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--spacing-md)', backgroundColor: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid #fcd34d', marginBottom: 'var(--spacing-lg)' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', color: '#1c1917' }}>Visiting / Diagnosing Fee</div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: '#78716c' }}>Payable at the time of visit</div>
-                                            </div>
-                                            <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: '#d97706' }}>
-                                                ₹{visitingFee}
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div style={{ marginBottom: 'var(--spacing-lg)', padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: '#fff', borderRadius: 'var(--radius-md)', border: '1px solid #fcd34d', fontSize: 'var(--font-size-sm)', color: '#78716c' }}>
-                                            Visiting / diagnosing fee applies — amount will be confirmed on booking.
-                                        </div>
-                                    )}
-
-                                    {/* Info bullets */}
-                                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                        {[
-                                            {
-                                                icon: '🔍',
-                                                bold: 'Visiting / diagnosing fee covers:',
-                                                text: 'Diagnosing and identifying the problem. In many cases it also covers solving minor issues like a burnt DC fuse or a loose connection.'
-                                            },
-                                            {
-                                                icon: '🔩',
-                                                bold: 'Spare parts — informed before repair:',
-                                                text: 'If any spare parts are required, our technician will inform you of the cost before beginning any repair work. No surprise charges.'
-                                            },
-                                            {
-                                                icon: '⏱️',
-                                                bold: 'Repair time — shared after diagnosis:',
-                                                text: 'The estimated time to complete the repair will be shared with you after our technician has diagnosed the issue.'
-                                            },
-                                        ].map((item, i) => (
-                                            <div key={i} style={{ display: 'flex', gap: 'var(--spacing-md)', padding: 'var(--spacing-sm) 0', borderBottom: i < 2 ? '1px solid #fde68a' : 'none' }}>
-                                                <span style={{ fontSize: '1.3em', flexShrink: 0 }}>{item.icon}</span>
-                                                <div style={{ fontSize: 'var(--font-size-sm)', lineHeight: 1.5, color: '#44403c' }}>
-                                                    <strong style={{ color: '#1c1917' }}>{item.bold}</strong>{' '}
-                                                    {item.text}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                {/* Fee reminder */}
+                                <div style={{ padding: 'var(--spacing-md)', backgroundColor: '#fefce8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: '#92400e', fontWeight: 500 }}>Visiting / Diagnosing Fee</div>
+                                    <div style={{ fontWeight: 700, color: '#d97706' }}>{visitingFee ? `₹${visitingFee}` : 'TBD on booking'}</div>
                                 </div>
                             </div>
+
+                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'center' }}>
+                                By booking you agree to our terms. A confirmation SMS will be sent to {formData.phone || 'your number'}.
+                            </p>
                         </div>
                     )}
                 </div>
