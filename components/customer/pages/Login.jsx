@@ -31,13 +31,22 @@ function saveSession(customer) {
 function demoLogin(account) {
     const session = { id: account.id, name: account.name, phone: account.phone, username: account.username || '', role: account.role, token: 'demo-token' }
     localStorage.setItem('user_session', JSON.stringify(session))
-    localStorage.setItem('customerData', JSON.stringify(session))
-    localStorage.setItem('customerId', account.id)
+
+    // Set appropriate domain sessions
+    if (account.role === 'customer') {
+        localStorage.setItem('customerData', JSON.stringify(session))
+        localStorage.setItem('customerId', account.id)
+    } else if (account.role === 'technician') {
+        localStorage.setItem('technicianSession', JSON.stringify(session))
+    }
+
     if (account.role === 'admin') localStorage.setItem('isAdmin', 'true')
     else localStorage.removeItem('isAdmin')
+
     if (account.role === 'customer') registerPushToken(account.id, 'customer')
     if (account.role === 'technician') registerPushToken(account.id, 'technician')
     if (account.role === 'admin') registerPushToken(account.name || 'Admin', 'admin')
+
     window.location.href = account.route
 }
 
