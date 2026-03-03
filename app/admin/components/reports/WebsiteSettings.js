@@ -145,8 +145,15 @@ function WebsiteSettings({ subSection, setSubSection }) {
                 staticSettingsByCategory
             );
 
-            // Also merge any manually-created pages that aren't yet in appliance data
+            // First filter auto-generated pages so we only keep ones that ACTUALLY exist in DB
             if (activePagesData.success && activePagesData.data?.length > 0) {
+                const activeIds = new Set(activePagesData.data.map(p => p.page_id));
+                ['category-pages', 'subcategory-pages', 'location-pages', 'sublocation-pages'].forEach(key => {
+                    if (dynamicSettings[key]) {
+                        dynamicSettings[key] = dynamicSettings[key].filter(p => activeIds.has(p.id));
+                    }
+                });
+
                 const KNOWN_LOCS = ['andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
                     'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim', 'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla'];
 
