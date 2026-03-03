@@ -31,6 +31,7 @@ export async function GET(request) {
             const { data, error } = await supabase
                 .from('customers')
                 .select('id, name, mobile, email, created_at')
+                .eq('source', 'website_booking')
                 .gte('created_at', lookback)
                 .order('created_at', { ascending: false })
                 .limit(200)
@@ -48,6 +49,7 @@ export async function GET(request) {
             const { data, error } = await supabase
                 .from('customers')
                 .select('id, name, mobile, email, created_at')
+                .eq('source', 'website_booking')
                 .order('created_at', { ascending: false })
                 .limit(200)
             if (error) throw error
@@ -65,6 +67,7 @@ export async function GET(request) {
             let query = supabase
                 .from('jobs')
                 .select('id, job_number, customer_name, category, subcategory, status, stage, scheduled_date, created_at')
+                .eq('source', 'website')
                 .gte('created_at', lookback)
                 .order('created_at', { ascending: false })
                 .limit(200)
@@ -86,6 +89,7 @@ export async function GET(request) {
             const { data, error } = await supabase
                 .from('jobs')
                 .select('id, job_number, customer_name, category, subcategory, status, scheduled_date, created_at')
+                .eq('source', 'website')
                 .gte('created_at', lookback)
                 .order('created_at', { ascending: false })
                 .limit(200)
@@ -105,6 +109,7 @@ export async function GET(request) {
             const { data, error } = await supabase
                 .from('jobs')
                 .select('id, job_number, customer_name, category, subcategory, status, scheduled_date, created_at')
+                .eq('source', 'website')
                 .order('created_at', { ascending: false })
                 .limit(200)
             if (error) throw error
@@ -124,10 +129,83 @@ export async function GET(request) {
             let query = supabase
                 .from('jobs')
                 .select('id, job_number, customer_name, category, subcategory, status, scheduled_date, created_at')
+                .eq('source', 'website')
                 .gte('created_at', lookback)
                 .order('created_at', { ascending: false })
                 .limit(200)
             if (filter) query = query.eq('category', filter)
+            const { data, error } = await query
+            if (error) throw error
+            rows = (data || []).map(j => ({
+                id: j.id,
+                jobNo: j.job_number || j.id?.slice(0, 8),
+                customer: j.customer_name || '—',
+                service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
+                status: j.status || '—',
+                date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+            }))
+        }
+
+        else if (type === 'top_subcategory') {
+            let query = supabase
+                .from('jobs')
+                .select('id, job_number, customer_name, category, subcategory, status, scheduled_date, created_at')
+                .eq('source', 'website')
+                .gte('created_at', lookback)
+                .order('created_at', { ascending: false })
+                .limit(200)
+            if (filter) query = query.eq('subcategory', filter)
+            const { data, error } = await query
+            if (error) throw error
+            rows = (data || []).map(j => ({
+                id: j.id,
+                jobNo: j.job_number || j.id?.slice(0, 8),
+                customer: j.customer_name || '—',
+                service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
+                status: j.status || '—',
+                date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+            }))
+        }
+
+        else if (type === 'top_issue') {
+            let query = supabase
+                .from('jobs')
+                .select('id, job_number, customer_name, category, subcategory, status, scheduled_date, created_at')
+                .eq('source', 'website')
+                .gte('created_at', lookback)
+                .order('created_at', { ascending: false })
+                .limit(200)
+            if (filter) query = query.eq('issue', filter)
+            const { data, error } = await query
+            if (error) throw error
+            rows = (data || []).map(j => ({
+                id: j.id,
+                jobNo: j.job_number || j.id?.slice(0, 8),
+                customer: j.customer_name || '—',
+                service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
+                status: j.status || '—',
+                date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+            }))
+        }
+
+        else if (type === 'top_pincode') {
+            // Pincode filtering requires parsing the JSON notes field in Supabase PostgreSQL
+            // The cleanest way is to use PostgreSQL JSONB operators, e.g., notes->>'pincode'
+            let query = supabase
+                .from('jobs')
+                .select('id, job_number, customer_name, category, subcategory, status, scheduled_date, created_at')
+                .eq('source', 'website')
+                .gte('created_at', lookback)
+                .order('created_at', { ascending: false })
+                .limit(200)
+
+            // In postgREST we can query JSONB fields. By converting JSON notes object value
+            // filter = '400053' -> "notes->>pincode=eq.400053"
+            if (filter) query = query.contains('notes', JSON.stringify({ pincode: filter }))
+
             const { data, error } = await query
             if (error) throw error
             rows = (data || []).map(j => ({

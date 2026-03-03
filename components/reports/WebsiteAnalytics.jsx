@@ -424,6 +424,102 @@ export default function WebsiteAnalytics() {
                         </>
                     )}
 
+                    {/* ── Top Subcategories ─────────────────────────────────── */}
+                    {sb?.topSubcategories?.length > 0 && (
+                        <>
+                            <SectionTitle>⭐ Top Sub-Categories (Booked)</SectionTitle>
+                            <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+                                    <BarMini items={sb.topSubcategories} color="#8b5cf6" width={Math.min(560, sb.topSubcategories.length * 60)} height={90} />
+                                    <div style={{ flex: 1, display: 'grid', gap: '8px', minWidth: '200px' }}>
+                                        {sb.topSubcategories.map((s, i) => {
+                                            const max = sb.topSubcategories[0].count
+                                            return (
+                                                <div key={i}
+                                                    onClick={() => openDrawer('top_subcategory', s.name, `${s.name.replace(/-/g, ' ')} Bookings`, `${s.count} bookings for ${s.name.replace(/-/g, ' ')}`)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '3px 4px', borderRadius: '4px', transition: 'background 0.1s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#8b5cf615'}
+                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', flexShrink: 0, textTransform: 'capitalize' }}>{s.name?.replace(/-/g, ' ')}</span>
+                                                    <div style={{ flex: 1, height: '6px', backgroundColor: 'var(--border-primary)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${(s.count / max) * 100}%`, height: '100%', backgroundColor: '#8b5cf6', borderRadius: '3px' }} />
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', width: '28px', textAlign: 'right' }}>{s.count}</span>
+                                                    <ChevronRight size={12} style={{ color: '#8b5cf6' }} />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* ── Top Issues ─────────────────────────────────── */}
+                    {sb?.topIssues?.length > 0 && (
+                        <>
+                            <SectionTitle>🚨 Top Issues (Booked)</SectionTitle>
+                            <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+                                    <BarMini items={sb.topIssues} color="#ef4444" width={Math.min(560, sb.topIssues.length * 60)} height={90} />
+                                    <div style={{ flex: 1, display: 'grid', gap: '8px', minWidth: '200px' }}>
+                                        {sb.topIssues.map((s, i) => {
+                                            const max = sb.topIssues[0].count
+                                            return (
+                                                <div key={i}
+                                                    onClick={() => openDrawer('top_issue', s.name, `${s.name.replace(/-/g, ' ')} Bookings`, `${s.count} bookings for ${s.name.replace(/-/g, ' ')}`)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '3px 4px', borderRadius: '4px', transition: 'background 0.1s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#ef444415'}
+                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', flexShrink: 0, textTransform: 'capitalize' }}>{s.name?.replace(/-/g, ' ')}</span>
+                                                    <div style={{ flex: 1, height: '6px', backgroundColor: 'var(--border-primary)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${(s.count / max) * 100}%`, height: '100%', backgroundColor: '#ef4444', borderRadius: '3px' }} />
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', width: '28px', textAlign: 'right' }}>{s.count}</span>
+                                                    <ChevronRight size={12} style={{ color: '#ef4444' }} />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    {/* ── Top Pincodes ─────────────────────────────────── */}
+                    {sb?.topPincodes?.length > 0 && (
+                        <>
+                            <SectionTitle>📍 Top Pincodes (Booked)</SectionTitle>
+                            <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
+                                    <BarMini items={sb.topPincodes} color="#10b981" width={Math.min(560, sb.topPincodes.length * 60)} height={90} />
+                                    <div style={{ flex: 1, display: 'grid', gap: '8px', minWidth: '200px' }}>
+                                        {sb.topPincodes.map((s, i) => {
+                                            const max = sb.topPincodes[0].count
+                                            return (
+                                                <div key={i}
+                                                    onClick={() => openDrawer('top_pincode', s.name, `Pincode ${s.name} Bookings`, `${s.count} bookings for ${s.name}`)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '3px 4px', borderRadius: '4px', transition: 'background 0.1s' }}
+                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#10b98115'}
+                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                >
+                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', flexShrink: 0, fontFamily: 'monospace' }}>{s.name}</span>
+                                                    <div style={{ flex: 1, height: '6px', backgroundColor: 'var(--border-primary)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                        <div style={{ width: `${(s.count / max) * 100}%`, height: '100%', backgroundColor: '#10b981', borderRadius: '3px' }} />
+                                                    </div>
+                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', width: '28px', textAlign: 'right' }}>{s.count}</span>
+                                                    <ChevronRight size={12} style={{ color: '#10b981' }} />
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        </>
+                    )}
+
                     {/* ── Traffic Sources ───────────────────────────────── */}
                     {ga4Connected && channelSlices.length > 0 && (
                         <>

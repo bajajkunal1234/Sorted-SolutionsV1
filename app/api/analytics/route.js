@@ -176,67 +176,97 @@ export async function GET(request) {
         // ── Supabase queries (parallel) ───────────────────────────────────────
         const [
             { count: totalBookings },
-            { count: periodBookings },
+            { data: periodBookingsData },
             { count: prevPeriodBookings },
-            { data: statusBreakdown },
-            { data: dailyBookings },
-            { data: topServices },
             { count: totalCustomers },
             { count: newCustomers },
             { count: prevNewCustomers },
             { data: googleConfig }
         ] = await Promise.all([
-            supabase.from('jobs').select('*', { count: 'exact', head: true }),
-
             supabase.from('jobs').select('*', { count: 'exact', head: true })
+                .eq('source', 'website'),
+
+            supabase.from('jobs').select('status, category, subcategory, issue, notes, created_at')
+                .eq('source', 'website')
                 .gte('created_at', lookback),
 
             supabase.from('jobs').select('*', { count: 'exact', head: true })
+                .eq('source', 'website')
                 .gte('created_at', prevLookback).lt('created_at', lookback),
 
-            supabase.from('jobs').select('status')
-                .gte('created_at', lookback),
-
-            // daily booking trend (raw rows, we group in JS)
-            supabase.from('jobs').select('created_at')
-                .gte('created_at', lookback)
-                .order('created_at', { ascending: true }),
-
-            // top service categories
-            supabase.from('jobs').select('category')
-                .gte('created_at', lookback),
-
-            supabase.from('customers').select('*', { count: 'exact', head: true }),
+            supabase.from('customers').select('*', { count: 'exact', head: true })
+                .eq('source', 'website_booking'),
 
             supabase.from('customers').select('*', { count: 'exact', head: true })
+                .eq('source', 'website_booking')
                 .gte('created_at', lookback),
 
             supabase.from('customers').select('*', { count: 'exact', head: true })
+                .eq('source', 'website_booking')
                 .gte('created_at', prevLookback).lt('created_at', lookback),
 
             supabase.from('website_config').select('value').eq('key', 'google_apis').single()
         ])
 
-        // Process status breakdown
+        // ── Single pass aggregation over current period jobs
         const statusCounts = {}
-        for (const row of (statusBreakdown || [])) {
-            statusCounts[row.status] = (statusCounts[row.status] || 0) + 1
-        }
-
-        // Process daily booking trend
         const bookingsByDate = {}
-        for (const row of (dailyBookings || [])) {
+        const serviceCounts = {}
+        const subcategoryCounts = {}
+        const issueCounts = {}
+        const pincodeCounts = {}
+
+        for (const row of (periodBookingsData || [])) {
+            // 1. Status
+            statusCounts[row.status] = (statusCounts[row.status] || 0) + 1
+
+            // 2. Trend (by date)
             const d = row.created_at?.split('T')[0]
             if (d) bookingsByDate[d] = (bookingsByDate[d] || 0) + 1
-        }
-        const bookingTrend = Object.entries(bookingsByDate).map(([date, count]) => ({ date, count }))
 
-        // Process top services
-        const serviceCounts = {}
-        for (const row of (topServices || [])) {
+            // 3. Category
             if (row.category) serviceCounts[row.category] = (serviceCounts[row.category] || 0) + 1
+
+            // 4. Subcategory
+            if (row.subcategory) subcategoryCounts[row.subcategory] = (subcategoryCounts[row.subcategory] || 0) + 1
+
+            // 5. Issue
+            if (row.issue) issueCounts[row.issue] = (issueCounts[row.issue] || 0) + 1
+
+            // 6. Pincode (extracted from notes JSON)
+            if (row.notes) {
+                try {
+                    const notesObj = typeof row.notes === 'string' ? JSON.parse(row.notes) : row.notes
+                    if (notesObj?.pincode) {
+                        pincodeCounts[notesObj.pincode] = (pincodeCounts[notesObj.pincode] || 0) + 1
+                    }
+                } catch {
+                    // Ignore JSON parsing errors for legacy bad data
+                }
+            }
         }
+
+        // Format to arrays & sort
+        const bookingTrend = Object.entries(bookingsByDate)
+            .map(([date, count]) => ({ date, count }))
+            .sort((a, b) => a.date.localeCompare(b.date))
+
         const topServicesArr = Object.entries(serviceCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 6)
+
+        const topSubcategoriesArr = Object.entries(subcategoryCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 6)
+
+        const topIssuesArr = Object.entries(issueCounts)
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 6)
+
+        const topPincodesArr = Object.entries(pincodeCounts)
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 6)
@@ -250,8 +280,8 @@ export async function GET(request) {
         const supabaseData = {
             bookings: {
                 total: totalBookings || 0,
-                period: periodBookings || 0,
-                change: pct(periodBookings || 0, prevPeriodBookings || 0),
+                period: (periodBookingsData || []).length, // exact length of period jobs
+                change: pct((periodBookingsData || []).length, prevPeriodBookings || 0),
                 byStatus: statusCounts,
                 trend: bookingTrend,
             },
@@ -261,6 +291,9 @@ export async function GET(request) {
                 change: pct(newCustomers || 0, prevNewCustomers || 0),
             },
             topServices: topServicesArr,
+            topSubcategories: topSubcategoriesArr,
+            topIssues: topIssuesArr,
+            topPincodes: topPincodesArr,
         }
 
         // ── GA4 (optional) ────────────────────────────────────────────────────
