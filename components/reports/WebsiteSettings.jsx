@@ -291,14 +291,14 @@ function CategoryPageList({ appliances, color, onSelectPage }) {
                         <PageCard
                             key={pageId}
                             label={`${appliance.name} Repair`}
-                            subLabel={`/${appliance.slug}`}
+                            subLabel={`/services/${appliance.slug}`}
                             color={appliance.color || color}
-                            pageUrl={`/${appliance.slug}`}
+                            pageUrl={`/services/${appliance.slug}`}
                             isBuilt={appliance.pageIds?.built > 0}
                             onClick={() => onSelectPage({
                                 pageId,
                                 pageLabel: `${appliance.name} Repair — Category Page`,
-                                pageUrl: `/${appliance.slug}`
+                                pageUrl: `/services/${appliance.slug}`
                             })}
                         />
                     );
@@ -367,14 +367,14 @@ function SubCategoryPageList({ appliances, color, onSelectPage }) {
                     <PageCard
                         key={sub.pageId}
                         label={`${sub.name}`}
-                        subLabel={`Under ${sub.parentName} → /${sub.parentSlug}/${sub.slug}`}
+                        subLabel={`Under ${sub.parentName} → /services/${sub.parentSlug}/${sub.slug}`}
                         color={sub.parentColor}
-                        pageUrl={`/${sub.parentSlug}/${sub.slug}`}
+                        pageUrl={`/services/${sub.parentSlug}/${sub.slug}`}
                         isBuilt={false} // Would need specific build check for each sub
                         onClick={() => onSelectPage({
                             pageId: sub.pageId,
                             pageLabel: `${sub.name} — ${sub.parentName} Sub-Category Page`,
-                            pageUrl: `/${sub.parentSlug}/${sub.slug}`
+                            pageUrl: `/services/${sub.parentSlug}/${sub.slug}`
                         })}
                     />
                 ))}

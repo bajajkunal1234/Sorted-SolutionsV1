@@ -45,7 +45,7 @@ const CORE_APPLIANCES = [
     },
     {
         id: 'bulk-4',
-        name: 'Microwave Oven',
+        name: 'Oven',
         slug: 'oven-repair',
         icon_name: 'Flame',
         color: '#f59e0b',
