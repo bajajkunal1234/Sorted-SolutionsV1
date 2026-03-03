@@ -90,13 +90,14 @@ export default function IssuesSection({
 
                                 {/* Body */}
                                 <div className="issue-card__body">
-                                    <h3 className="issue-card__name">{issue.name}</h3>
-                                    {hasPrice && (
-                                        <div className="issue-card__price">
-                                            <span className="issue-card__price-icon">🏷️</span>
-                                            Starts at <strong>{issue.price}</strong>
-                                        </div>
-                                    )}
+                                    <div className="issue-card__title-row">
+                                        <h3 className="issue-card__name">{issue.name}</h3>
+                                        {hasPrice && (
+                                            <div className="issue-card__price">
+                                                Starts at <strong>{issue.price}</strong>
+                                            </div>
+                                        )}
+                                    </div>
                                     {hasDescription && (
                                         <p className="issue-card__description">{issue.description}</p>
                                     )}

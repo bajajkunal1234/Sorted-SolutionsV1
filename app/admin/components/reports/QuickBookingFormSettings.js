@@ -691,7 +691,8 @@ function QuickBookingFormSettings() {
                                                                             border: '1px solid #f97316',
                                                                             borderRadius: 'var(--radius-md)',
                                                                             fontSize: 'var(--font-size-sm)',
-                                                                            backgroundColor: 'var(--bg-elevated)'
+                                                                            backgroundColor: 'var(--bg-elevated)',
+                                                                            color: 'var(--text-primary)'
                                                                         }}
                                                                     />
                                                                 </div>
@@ -707,11 +708,12 @@ function QuickBookingFormSettings() {
                                                                             borderRadius: 'var(--radius-md)',
                                                                             fontSize: 'var(--font-size-sm)',
                                                                             backgroundColor: 'var(--bg-elevated)',
+                                                                            color: 'var(--text-primary)',
                                                                             cursor: 'pointer'
                                                                         }}
                                                                     >
                                                                         {['Starting from', 'Fixed', 'Up to', 'Approx.'].map(opt => (
-                                                                            <option key={opt} value={opt}>{opt}</option>
+                                                                            <option key={opt} value={opt} style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>{opt}</option>
                                                                         ))}
                                                                     </select>
                                                                 </div>

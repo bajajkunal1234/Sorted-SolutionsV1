@@ -226,12 +226,21 @@
     flex: 1;
 }
 
+.issue-card__title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
 .issue-card__name {
     font-size: 0.98rem;
     font-weight: 700;
     color: var(--text-primary, #0f172a);
-    margin: 0 0 8px 0;
+    margin: 0;
     line-height: 1.35;
+    flex: 1;
 }
 
 .issue-card__description {
@@ -250,14 +259,16 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    margin: 6px 0 8px;
-    font-size: 0.85rem;
+    margin: 0;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--color-primary, #6366f1);
     background: rgba(99, 102, 241, 0.08);
-    padding: 3px 10px;
+    padding: 2px 8px;
     border-radius: 999px;
     border: 1px solid rgba(99, 102, 241, 0.18);
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .issue-card__price-icon {
