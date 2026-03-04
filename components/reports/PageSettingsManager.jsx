@@ -2144,7 +2144,12 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', backgroundColor: '#eef2ff', borderRadius: 'var(--radius-md)', color: 'var(--color-primary)', flex: 1 }}>
                                     <MapPin size={20} />
-                                    <p style={{ margin: 0, fontSize: '14px' }}>Selected {settings.other_locations_settings.items.length} locations for this page</p>
+                                    <p style={{ margin: 0, fontSize: '14px' }}>
+                                        Selected {settings.other_locations_settings.items.filter(item => {
+                                            const idStr = typeof item === 'object' ? item.id : item;
+                                            return globalActivePages.some(p => p.page_id === idStr);
+                                        }).length} locations for this page
+                                    </p>
                                 </div>
                                 <div style={{ position: 'relative', width: '300px' }}>
                                     <input
