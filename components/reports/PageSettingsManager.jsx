@@ -586,6 +586,38 @@ const getPageUrl = (pageId, storedUrl = null) => {
     return `/${pageId}`;
 };
 
+const formatLocationTitle = (id) => {
+    const formatWord = (str) => str.split('-').map(w => {
+        if (!w) return '';
+        if (w.toLowerCase() === 'ac') return 'AC';
+        if (w.toLowerCase() === 'tv') return 'TV';
+        if (w.toLowerCase() === 'ro') return 'RO';
+        return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+
+    let service = '';
+    let location = '';
+    if (id.startsWith('loc-')) {
+        const parts = id.replace('loc-', '').match(/([^-]+)-(.+)/);
+        if (parts) {
+            location = parts[1];
+            service = parts[2];
+            return `${formatWord(service)} in ${formatWord(location)}`;
+        }
+    } else if (id.startsWith('subloc-')) {
+        const parts = id.replace('subloc-', '').match(/([^-]+)-(.+)/);
+        if (parts) {
+            location = parts[1];
+            service = parts[2];
+            return `${formatWord(service)} in ${formatWord(location)}`;
+        }
+    }
+
+    // Fallbacks for cat, subcat, or general IDs
+    const cleanId = id.replace(/^(cat-|subcat-|loc-|subloc-)/, '');
+    return formatWord(cleanId);
+};
+
 // â”€â”€ Main PageSettingsManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
     const [activeTab, setActiveTab] = useState('hero');
@@ -761,7 +793,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
             const page = globalActivePagesRef.current.find(p => p.page_id === item);
             return {
                 id: item,
-                title: page?.hero_settings?.title || 'Unknown Location',
+                title: page?.hero_settings?.title || formatLocationTitle(item),
                 url: getPageUrl(item)
             };
         });
@@ -2165,7 +2197,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                                                     {isSelected && <Save size={14} color="white" strokeWidth={3} />}
                                                 </div>
                                                 <div style={{ flex: 1 }}>
-                                                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{loc.hero_settings?.title || 'Untitled Location Page'} ({loc.page_id})</div>
+                                                    <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '6px', color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{loc.hero_settings?.title || formatLocationTitle(loc.page_id)} ({loc.page_id})</div>
                                                     <div style={{ fontSize: '13px', opacity: 0.7, color: 'var(--text-tertiary)' }}>{getPageUrl(loc.page_id)}</div>
                                                 </div>
                                             </div>
