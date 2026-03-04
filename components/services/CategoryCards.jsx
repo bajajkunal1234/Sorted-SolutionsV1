@@ -21,7 +21,7 @@ export default function CategoryCards({
             </div>
 
             <div className="subcategory-pills-grid">
-                {cards.map((card, index) => (
+                {cards.filter(c => c.title && c.slug).map((card, index) => (
                     <Link
                         key={card.slug || index}
                         href={`${baseUrl}/${card.slug}`}
