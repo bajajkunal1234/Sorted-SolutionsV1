@@ -604,8 +604,8 @@ const formatLocationTitle = (id) => {
             service = parts[2];
             return `${formatWord(service)} in ${formatWord(location)}`;
         }
-    } else if (id.startsWith('subloc-')) {
-        const parts = id.replace('subloc-', '').match(/([^-]+)-(.+)/);
+    } else if (id.startsWith('sloc-')) {
+        const parts = id.replace('sloc-', '').match(/([^-]+)-(.+)/);
         if (parts) {
             location = parts[1];
             service = parts[2];
@@ -614,7 +614,7 @@ const formatLocationTitle = (id) => {
     }
 
     // Fallbacks for cat, subcat, or general IDs
-    const cleanId = id.replace(/^(cat-|subcat-|loc-|subloc-)/, '');
+    const cleanId = id.replace(/^(cat-|subcat-|loc-|sloc-)/, '');
     return formatWord(cleanId);
 };
 
