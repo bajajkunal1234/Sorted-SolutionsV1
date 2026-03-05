@@ -2240,7 +2240,7 @@ function PageSettingsManager({ pageId, pageLabel, pageUrl, onRename }) {
                         hero: { label: 'Hero Section', icon: Layout },
                         booking: { label: 'Booking Form', icon: Check },
                         issues: { label: 'Issues Picker', icon: AlertCircle },
-                        subcategories: { label: 'Category / Brands Cards', icon: Layout },
+                        subcategories: { label: pageId.startsWith('cat-') ? 'Sub-Services' : 'Category Cards', icon: Layout },
                         problems: { label: 'Problems We Fix', icon: AlertCircle },
                         how_it_works: { label: 'How It Works', icon: HelpCircle },
                         why_us: { label: 'Why Choose Us', icon: Layout },
