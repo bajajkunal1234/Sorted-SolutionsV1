@@ -213,8 +213,8 @@ export default async function SubCategoryPage({ params }) {
                 return sv.subcategories !== false && subcategories.length > 0 && (
                     <div id="services" key="subcategories">
                         <CategoryCards
-                            title={dynamicSettings?.subcategories_title || `Other ${categoryName} Services`}
-                            subtitle={dynamicSettings?.subcategories_subtitle || "Explore our complete range of services"}
+                            title={dynamicSettings?.subcategoriesTitle || `Other ${categoryName} Services`}
+                            subtitle={dynamicSettings?.subcategoriesSubtitle || "Explore our complete range of services"}
                             cards={subcategories}
                             baseUrl={`/services/${category}`}
                         />
