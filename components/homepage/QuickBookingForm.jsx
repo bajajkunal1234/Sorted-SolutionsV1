@@ -237,7 +237,7 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
                     </div>
                 )}
 
-                {/* Fields 3 & 4: Brand + Issue in one row (or Issue-only if no brands) */}
+                {/* Fields 3 & 4: Issue + Brand in one row */}
                 {formData.subcategory && (
                     <div style={{
                         display: 'flex',
@@ -245,27 +245,7 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
                         animation: 'fadeIn 0.3s ease-in',
                         alignItems: 'flex-end'
                     }}>
-                        {/* Brand — narrower, optional */}
-                        {brands.length > 0 && (
-                            <div className="form-group" style={{ flex: '0 0 38%', margin: 0 }}>
-                                <label htmlFor="brand">Brand</label>
-                                <select
-                                    id="brand"
-                                    value={formData.brand}
-                                    onChange={(e) => setFormData({ ...formData, brand: e.target.value, issue: '' })}
-                                    aria-label="Select appliance brand"
-                                >
-                                    <option value="">Any brand</option>
-                                    {brands.map((brand) => (
-                                        <option key={brand.id} value={brand.id}>
-                                            {brand.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-
-                        {/* Issue — takes remaining space */}
+                        {/* Issue — takes most of the space, shown first */}
                         <div className="form-group" style={{ flex: 1, margin: 0 }}>
                             <label htmlFor="issue">What's the Problem?</label>
                             <select
@@ -283,6 +263,26 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
                                 ))}
                             </select>
                         </div>
+
+                        {/* Brand — narrower, optional, no longer resets issue */}
+                        {brands.length > 0 && (
+                            <div className="form-group" style={{ flex: '0 0 38%', margin: 0 }}>
+                                <label htmlFor="brand">Brand</label>
+                                <select
+                                    id="brand"
+                                    value={formData.brand}
+                                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                                    aria-label="Select appliance brand"
+                                >
+                                    <option value="">Any brand</option>
+                                    {brands.map((brand) => (
+                                        <option key={brand.id} value={brand.id}>
+                                            {brand.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
                 )}
 
