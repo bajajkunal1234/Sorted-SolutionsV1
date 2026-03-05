@@ -99,7 +99,7 @@ export default async function CategoryPage({ params }) {
                         for (const issue of (sub.issues || [])) {
                             const saved = servicesSettings.items.find(s => Number(s.id) === Number(issue.id))
                             if (saved) {
-                                resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', categoryId: cat.id, subcategoryId: sub.id })
+                                resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', categoryId: cat.id, subcategoryId: sub.id, categorySlug: cat.slug, categoryName: cat.name })
                             }
                         }
                     }
@@ -208,6 +208,7 @@ export default async function CategoryPage({ params }) {
                             title={servicesSettings?.title || "Popular Services"}
                             subtitle={servicesSettings?.subtitle || "Click any service to book instantly"}
                             services={resolvedServices}
+                            currentCategory={category}
                         />
                     </div>
                 );
