@@ -3,23 +3,26 @@
 import Link from 'next/link'
 import './ServicesGrid.css'
 
+const TAG_STYLES = {
+    seasonal: { label: '❄️ Seasonal', bg: '#1d4ed8', color: '#fff' },
+    popular: { label: '🔥 Popular', bg: '#16a34a', color: '#fff' },
+    emergency: { label: '🚨 Emergency', bg: '#dc2626', color: '#fff' },
+};
+
 /**
  * ServicesGrid — shown on all service pages.
- * Each card has an issue name (prefixed with category), price badge, and a "Book Now" link.
- * If the service belongs to a different category (cross-sell), "Book Now" navigates to that
- * category's page. If same category, it scrolls to the #booking section.
+ * Shows cross-category services with category prefix in name, tag badge, price, and Book Now link.
  */
 export default function ServicesGrid({
     title = "Popular Services",
     subtitle = "Click any service to book instantly",
-    services = [],   // [{ id, name, price, categoryId, subcategoryId, categorySlug, categoryName }]
-    currentCategory = null,  // slug of the current page's category
+    services = [],   // [{ id, name, price, tag, categoryId, subcategoryId, categorySlug, categoryName }]
+    currentCategory = null,
 }) {
     if (!services || services.length === 0) return null
 
     const handleSameCategoryBook = (e, service) => {
         e.preventDefault()
-        // Fire custom event so QuickBookingForm can pre-fill itself
         window.dispatchEvent(new CustomEvent('bookingPreselect', {
             detail: {
                 categoryId: service.categoryId,
@@ -28,11 +31,8 @@ export default function ServicesGrid({
                 issueName: service.name
             }
         }))
-        // Scroll to the #booking section
         const bookingEl = document.getElementById('booking')
-        if (bookingEl) {
-            bookingEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
+        if (bookingEl) bookingEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
 
     return (
@@ -45,22 +45,35 @@ export default function ServicesGrid({
 
                 <div className="services-grid">
                     {services.map((service, index) => {
-                        // Build a display name that includes category context
                         const catName = service.categoryName
                             ? service.categoryName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
                             : null;
                         const displayName = catName ? `${catName} – ${service.name}` : service.name;
 
-                        // Determine if this service belongs to a different category
                         const isCrossSell = service.categorySlug && service.categorySlug !== currentCategory;
                         const bookHref = isCrossSell ? `/services/${service.categorySlug}` : null;
+
+                        const tagInfo = service.tag ? TAG_STYLES[service.tag] : null;
 
                         return (
                             <div
                                 key={service.id || index}
                                 className="service-card"
-                                style={{ animationDelay: `${index * 0.04}s` }}
+                                style={{ animationDelay: `${index * 0.04}s`, position: 'relative' }}
                             >
+                                {/* Tag badge */}
+                                {tagInfo && (
+                                    <div style={{
+                                        position: 'absolute', top: '10px', right: '10px',
+                                        backgroundColor: tagInfo.bg, color: tagInfo.color,
+                                        fontSize: '10px', fontWeight: 700, padding: '3px 8px',
+                                        borderRadius: '999px', letterSpacing: '0.04em',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        {tagInfo.label}
+                                    </div>
+                                )}
+
                                 <div className="service-card-icon">🔧</div>
                                 <div className="service-card-name">{displayName}</div>
                                 {service.price && (
@@ -70,10 +83,7 @@ export default function ServicesGrid({
                                     </div>
                                 )}
                                 {isCrossSell ? (
-                                    <Link
-                                        href={bookHref}
-                                        className="service-book-btn"
-                                    >
+                                    <Link href={bookHref} className="service-book-btn">
                                         Book Now →
                                     </Link>
                                 ) : (
