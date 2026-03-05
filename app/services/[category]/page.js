@@ -88,6 +88,16 @@ export default async function CategoryPage({ params }) {
     const faqs = dynamicSettings?.faqs || [];
     const servicesSettings = dynamicSettings?.servicesSettings;
 
+    // ── Map category names to their URL slugs (cat.slug is not populated in DB) ──
+    const CAT_SLUG_MAP = {
+        'Air Conditioner': 'ac-repair',
+        'Washing Machine': 'washing-machine-repair',
+        'Refrigerator': 'refrigerator-repair',
+        'Oven': 'oven-repair',
+        'HOB Top Stoves': 'hob-repair',
+        'Water Purifier': 'water-purifier-repair',
+    };
+
     // ── Resolve service issue IDs to full objects ──
     let resolvedServices = []
     if (servicesSettings?.items?.length > 0) {
@@ -99,7 +109,8 @@ export default async function CategoryPage({ params }) {
                         for (const issue of (sub.issues || [])) {
                             const saved = servicesSettings.items.find(s => Number(s.id) === Number(issue.id))
                             if (saved) {
-                                resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', categoryId: cat.id, subcategoryId: sub.id, categorySlug: cat.slug, categoryName: cat.name })
+                                const derivedSlug = cat.slug || CAT_SLUG_MAP[cat.name] || null;
+                                resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', tag: saved.tag || '', categoryId: cat.id, subcategoryId: sub.id, categorySlug: derivedSlug, categoryName: cat.name })
                             }
                         }
                     }

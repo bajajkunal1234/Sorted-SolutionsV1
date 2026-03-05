@@ -154,12 +154,21 @@ export default async function SubCategoryPage({ params }) {
                 }
                 // Resolve Services (same issues but with price)
                 if (servicesSettings?.items?.length > 0) {
+                    const CAT_SLUG_MAP = {
+                        'Air Conditioner': 'ac-repair',
+                        'Washing Machine': 'washing-machine-repair',
+                        'Refrigerator': 'refrigerator-repair',
+                        'Oven': 'oven-repair',
+                        'HOB Top Stoves': 'hob-repair',
+                        'Water Purifier': 'water-purifier-repair',
+                    };
                     for (const cat of qbData.categories) {
                         for (const sub of (cat.subcategories || [])) {
                             for (const issue of (sub.issues || [])) {
                                 const saved = servicesSettings.items.find(s => Number(s.id) === Number(issue.id))
                                 if (saved) {
-                                    resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', categoryId: cat.id, subcategoryId: sub.id, categorySlug: cat.slug, categoryName: cat.name })
+                                    const derivedSlug = cat.slug || CAT_SLUG_MAP[cat.name] || null;
+                                    resolvedServices.push({ id: issue.id, name: issue.name, price: saved.price || '', tag: saved.tag || '', categoryId: cat.id, subcategoryId: sub.id, categorySlug: derivedSlug, categoryName: cat.name })
                                 }
                             }
                         }
