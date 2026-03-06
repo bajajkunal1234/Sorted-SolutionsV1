@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { LayoutDashboard, Briefcase, DollarSign, Package, FileText } from 'lucide-react'
 import JobsTab from './components/JobsTab'
 import AccountsTab from './components/AccountsTab'
@@ -11,8 +12,41 @@ import './modal-improvements.css'
 
 
 export default function AdminApp() {
+    const router = useRouter()
     const [activeTab, setActiveTab] = useState('dashboard')
     const [customerToOpen, setCustomerToOpen] = useState(null)
+    const [authChecked, setAuthChecked] = useState(false)
+
+    // ── Auth Guard ─────────────────────────────────────────────────────────
+    useEffect(() => {
+        const raw =
+            localStorage.getItem('user_session') ||
+            sessionStorage.getItem('user_session')
+        if (!raw) {
+            router.replace('/login')
+            return
+        }
+        try {
+            const session = JSON.parse(raw)
+            if (session?.role !== 'admin') {
+                router.replace('/login')
+                return
+            }
+        } catch {
+            router.replace('/login')
+            return
+        }
+        setAuthChecked(true)
+    }, [])
+
+    if (!authChecked) {
+        return (
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary, #0f172a)', color: 'white', fontSize: 14 }}>
+                Checking access...
+            </div>
+        )
+    }
+    // ───────────────────────────────────────────────────────────────────────
 
     // Set up global function to open customer account from Jobs tab
     useEffect(() => {
