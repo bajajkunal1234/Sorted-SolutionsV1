@@ -1,154 +1,252 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
+import bcrypt from 'bcryptjs'
 
+// ─── GET: check if a phone number already has an account ────────────────────
+export async function GET(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const phone = searchParams.get('phone')
+        if (!phone) return NextResponse.json({ error: 'phone required' }, { status: 400 })
+
+        const last10 = phone.replace(/\D/g, '').slice(-10)
+        const { data } = await supabase
+            .from('customers')
+            .select('id, name, phone')
+            .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+            .limit(1)
+            .single()
+
+        return NextResponse.json({ exists: !!data, hasPassword: !!(data && data.password_hash !== undefined) })
+    } catch {
+        return NextResponse.json({ exists: false })
+    }
+}
+
+// ─── POST: signup | login | reset-password | otp-sync (legacy) ──────────────
 export async function POST(request) {
     try {
-        const { firebaseUid, phoneNumber } = await request.json()
+        const body = await request.json()
+        const { action } = body
 
-        if (!firebaseUid || !phoneNumber) {
-            return NextResponse.json(
-                { error: 'Firebase UID and phone number are required' },
-                { status: 400 }
-            )
-        }
+        // ── 1. SIGNUP ─────────────────────────────────────────────────────────
+        if (action === 'signup') {
+            const { phone, password, name } = body
+            if (!phone || !password) return NextResponse.json({ error: 'Phone and password required' }, { status: 400 })
 
-        let user = null;
-        let role = '';
+            const last10 = phone.replace(/\D/g, '').slice(-10)
 
-        // 1. Try to find user by Firebase UID in both tables
-        // Check Customers
-        const { data: customerByUid } = await supabase
-            .from('customers')
-            .select('*')
-            .eq('firebase_uid', firebaseUid)
-            .single();
+            // Check not already registered
+            const { data: existing } = await supabase
+                .from('customers')
+                .select('id')
+                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .limit(1)
+                .single()
 
-        if (customerByUid) {
-            user = customerByUid;
-            role = 'customer';
-            // Log login immediately - fire and forget
-            logInteractionServer({
-                type: 'customer-login',
-                category: 'account',
-                customerId: String(customerByUid.id),
-                customerName: customerByUid.name || customerByUid.phone,
-                performedBy: firebaseUid,
-                performedByName: customerByUid.name || customerByUid.phone,
-                description: `Customer logged in via OTP`,
-                source: 'Customer App',
-            });
-        } else {
-            // Check Technicians
-            const { data: techByUid } = await supabase
-                .from('technicians')
-                .select('*')
-                .eq('firebase_uid', firebaseUid)
-                .single();
-
-            if (techByUid) {
-                user = techByUid;
-                role = 'technician';
-                logInteractionServer({
-                    type: 'technician-login',
-                    category: 'account',
-                    performedBy: firebaseUid,
-                    performedByName: techByUid.name || techByUid.phone,
-                    description: `Technician logged in via OTP`,
-                    source: 'Technician App',
-                });
+            if (existing) {
+                return NextResponse.json({ error: 'An account with this number already exists. Please log in.' }, { status: 409 })
             }
-        }
 
-        // 2. If not found by UID, try to find by phone number
-        if (!user) {
-            // Normalize phone number for searching (remove spaces, etc from the search target if possible)
-            // But since we can't easily normalize the whole DB column in a query without RPC, 
-            // we'll try a few common formats or a like query.
-            const cleanPhone = phoneNumber.replace(/\s/g, ''); // +919876543210
-            const last10 = cleanPhone.slice(-10); // 9876543210
+            // Hash password
+            const passwordHash = await bcrypt.hash(password, 12)
+            const customerName = name || `Customer ${last10.slice(-4)}`
 
-            // Helper to find user by normalized phone
-            const findByPhone = async (table) => {
-                // Try exact match
-                const { data } = await supabase.from(table).select('*').or(`phone.eq.${phoneNumber},phone.eq.${cleanPhone},phone.ilike.%${last10}`).limit(1).single();
-                return data;
-            };
-
-            const customerByPhone = await findByPhone('customers');
-            if (customerByPhone) {
-                const { data: updatedCustomer } = await supabase
-                    .from('customers')
-                    .update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() })
-                    .eq('id', customerByPhone.id)
-                    .select()
-                    .single();
-                user = updatedCustomer;
-                role = 'customer';
-            } else {
-                const techByPhone = await findByPhone('technicians');
-                if (techByPhone) {
-                    const { data: updatedTech } = await supabase
-                        .from('technicians')
-                        .update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() })
-                        .eq('id', techByPhone.id)
-                        .select()
-                        .single();
-                    user = updatedTech;
-                    role = 'technician';
-                }
-            }
-        }
-
-        // 3. If still not found, create a new Customer by default
-        if (!user) {
+            // Create customer
             const { data: newCustomer, error: createError } = await supabase
                 .from('customers')
                 .insert({
-                    firebase_uid: firebaseUid,
-                    phone: phoneNumber,
-                    name: `Customer ${phoneNumber.slice(-4)}`,
-                    created_at: new Date().toISOString()
+                    phone: last10,
+                    name: customerName,
+                    password_hash: passwordHash,
+                    created_at: new Date().toISOString(),
                 })
                 .select()
-                .single();
+                .single()
 
             if (createError) {
-                console.error('Error creating customer:', createError);
-                return NextResponse.json({ error: 'Failed to create user record' }, { status: 500 });
+                console.error('Signup create error:', createError)
+                return NextResponse.json({ error: 'Failed to create account. Please try again.' }, { status: 500 })
             }
 
-            user = newCustomer;
-            role = 'customer';
+            // Create Sundry Debtor entry in accounts table
+            const { data: accountEntry } = await supabase
+                .from('accounts')
+                .insert({
+                    name: customerName,
+                    mobile: last10,
+                    type: 'customer',
+                    under_name: 'Sundry Debtors',
+                    opening_balance: 0,
+                    balance_type: 'debit',
+                    created_at: new Date().toISOString(),
+                })
+                .select('id')
+                .single()
+
+            // Link ledger_id back to customer
+            if (accountEntry?.id) {
+                await supabase
+                    .from('customers')
+                    .update({ ledger_id: accountEntry.id })
+                    .eq('id', newCustomer.id)
+            }
+
             logInteractionServer({
                 type: 'account-created-website',
                 category: 'account',
                 customerId: String(newCustomer.id),
-                customerName: newCustomer.name || newCustomer.phone,
-                performedBy: firebaseUid,
-                performedByName: newCustomer.name || newCustomer.phone,
-                description: `New customer account created via OTP login (${phoneNumber})`,
+                customerName,
+                description: `New customer signed up via mobile+password (${last10})`,
                 source: 'Customer App',
-            });
+            })
+
+            const { password_hash, ...safeUser } = newCustomer
+            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer' }, message: 'Account created' })
         }
 
-        // Remove sensitive fields
-        const { password_hash, ...userData } = user;
+        // ── 2. LOGIN ──────────────────────────────────────────────────────────
+        if (action === 'login') {
+            const { phone, password } = body
+            if (!phone || !password) return NextResponse.json({ error: 'Phone and password required' }, { status: 400 })
 
-        return NextResponse.json({
-            success: true,
-            user: {
-                ...userData,
-                role: role
-            },
-            message: 'Authentication successful'
-        });
+            const last10 = phone.replace(/\D/g, '').slice(-10)
+
+            const { data: customer } = await supabase
+                .from('customers')
+                .select('*')
+                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .limit(1)
+                .single()
+
+            if (!customer) {
+                return NextResponse.json({ error: 'No account found with this number. Please sign up.' }, { status: 404 })
+            }
+
+            if (!customer.password_hash) {
+                return NextResponse.json({ error: 'This account was created via OTP. Use OTP to login or reset your password first.' }, { status: 400 })
+            }
+
+            const isValid = await bcrypt.compare(password, customer.password_hash)
+            if (!isValid) {
+                return NextResponse.json({ error: 'Incorrect password. Try again or use Forgot Password.' }, { status: 401 })
+            }
+
+            logInteractionServer({
+                type: 'customer-login',
+                category: 'account',
+                customerId: String(customer.id),
+                customerName: customer.name || customer.phone,
+                description: `Customer logged in via mobile+password`,
+                source: 'Customer App',
+            })
+
+            const { password_hash, ...safeUser } = customer
+            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer' }, message: 'Login successful' })
+        }
+
+        // ── 3. RESET PASSWORD (OTP already verified on client) ────────────────
+        if (action === 'reset-password') {
+            const { phone, password } = body
+            if (!phone || !password) return NextResponse.json({ error: 'Phone and password required' }, { status: 400 })
+
+            const last10 = phone.replace(/\D/g, '').slice(-10)
+
+            const { data: customer } = await supabase
+                .from('customers')
+                .select('id, name')
+                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .limit(1)
+                .single()
+
+            if (!customer) {
+                return NextResponse.json({ error: 'No account found with this number.' }, { status: 404 })
+            }
+
+            const passwordHash = await bcrypt.hash(password, 12)
+            await supabase
+                .from('customers')
+                .update({ password_hash: passwordHash, updated_at: new Date().toISOString() })
+                .eq('id', customer.id)
+
+            logInteractionServer({
+                type: 'password-reset',
+                category: 'account',
+                customerId: String(customer.id),
+                customerName: customer.name || last10,
+                description: `Customer reset password via OTP (${last10})`,
+                source: 'Customer App',
+            })
+
+            return NextResponse.json({ success: true, message: 'Password updated successfully' })
+        }
+
+        // ── 4. LEGACY OTP SYNC (Technician / Admin OTP login) ─────────────────
+        const { firebaseUid, phoneNumber } = body
+
+        if (!firebaseUid || !phoneNumber) {
+            return NextResponse.json({ error: 'Invalid action or missing fields' }, { status: 400 })
+        }
+
+        let user = null
+        let role = ''
+
+        const { data: customerByUid } = await supabase
+            .from('customers')
+            .select('*')
+            .eq('firebase_uid', firebaseUid)
+            .single()
+
+        if (customerByUid) {
+            user = customerByUid; role = 'customer'
+        } else {
+            const { data: techByUid } = await supabase
+                .from('technicians')
+                .select('*')
+                .eq('firebase_uid', firebaseUid)
+                .single()
+            if (techByUid) { user = techByUid; role = 'technician' }
+        }
+
+        if (!user) {
+            const cleanPhone = phoneNumber.replace(/\s/g, '')
+            const last10 = cleanPhone.slice(-10)
+            const findByPhone = async (table) => {
+                const { data } = await supabase.from(table).select('*').or(`phone.eq.${phoneNumber},phone.eq.${cleanPhone},phone.ilike.%${last10}`).limit(1).single()
+                return data
+            }
+            const cByPhone = await findByPhone('customers')
+            if (cByPhone) {
+                const { data: u } = await supabase.from('customers').update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() }).eq('id', cByPhone.id).select().single()
+                user = u; role = 'customer'
+            } else {
+                const tByPhone = await findByPhone('technicians')
+                if (tByPhone) {
+                    const { data: u } = await supabase.from('technicians').update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() }).eq('id', tByPhone.id).select().single()
+                    user = u; role = 'technician'
+                }
+            }
+        }
+
+        if (!user) {
+            // Check if this is an admin phone
+            const ADMIN_PHONES = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim())
+            const incomingLast10 = phoneNumber.replace(/\D/g, '').slice(-10)
+            if (ADMIN_PHONES.includes(incomingLast10)) {
+                return NextResponse.json({ success: true, user: { id: 'admin-' + incomingLast10, name: 'Admin', phone: incomingLast10, role: 'admin' } })
+            }
+            // New customer via OTP (fallback)
+            const { data: newC, error: ce } = await supabase.from('customers').insert({ firebase_uid: firebaseUid, phone: phoneNumber, name: `Customer ${phoneNumber.slice(-4)}`, created_at: new Date().toISOString() }).select().single()
+            if (ce) return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+            user = newC; role = 'customer'
+        }
+
+        const { password_hash, ...userData } = user
+        return NextResponse.json({ success: true, user: { ...userData, role }, message: 'Authentication successful' })
 
     } catch (error) {
-        console.error('Error in auth sync API:', error)
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        )
+        console.error('Auth API error:', error)
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
