@@ -650,14 +650,21 @@ export default function BookingWizard() {
                                     }}>
                                         <div>
                                             <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>Visiting / Diagnosing Fee</div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>Payable at the time of visit</div>
+                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                Payable at the time of visit
+                                                {formData.issue && (
+                                                    <span style={{ display: 'block', marginTop: '2px', color: 'var(--text-secondary)' }}>
+                                                        {getName('category', formData.category)} &gt; {getName('issue', formData.issue)}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: '#d97706' }}>
-                                            {visitingFee ? `₹${visitingFee}` : 'TBD'}
+                                            {visitingFee ? `₹${visitingFee}` : '₹199'}
                                         </div>
                                     </div>
 
-                                    {/* Issue-specific price (from admin settings) */}
+                                    {/* Issue-specific price */}
                                     <div style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                         padding: 'var(--spacing-md) var(--spacing-lg)',
@@ -666,9 +673,11 @@ export default function BookingWizard() {
                                         border: `2px solid ${issuePrice != null ? '#10b981' : 'var(--border-primary)'}`,
                                     }}>
                                         <div>
-                                            <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>Service Estimate</div>
+                                            <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>
+                                                {getName('issue', formData.issue)}
+                                            </div>
                                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                                {getName('issue', formData.issue)} repair
+                                                Repair service charge
                                             </div>
                                         </div>
                                         <div style={{ textAlign: 'right' }}>
