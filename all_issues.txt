@@ -1,0 +1,182 @@
+﻿
+CatName         CatSlug SubName                            IssueId IssueName                          Price
+-------         ------- -------                            ------- ---------                          -----
+Refrigerator            Single Door                             99 Not Sure / Others                    199
+Refrigerator            Single Door                            103 Not Cooling                          199
+Refrigerator            Single Door                            107 Not Working / Power Issues           199
+Refrigerator            Single Door                            111 Making Noise                         199
+Refrigerator            Single Door                            115 Main Light / MCB Tripping            199
+Refrigerator            Single Door                            119 Water Leaking                        199
+Refrigerator            Single Door                            123 Door Gasket Worn Out                 199
+Refrigerator            Single Door                            129 Displaying Error Code                199
+Refrigerator            Single Door                            133 Dispenser Not Working                199
+Refrigerator            Single Door                            137 Ice Maker Not Working                199
+Refrigerator            Single Door                            141 Temperature Issues (Less / More)     199
+Refrigerator            Double Door                            100 Not Sure / Others                    199
+Refrigerator            Double Door                            104 Not Cooling                          199
+Refrigerator            Double Door                            108 Not Working / Power Issues           199
+Refrigerator            Double Door                            112 Making Noise                         199
+Refrigerator            Double Door                            116 Main Light / MCB Tripping            199
+Refrigerator            Double Door                            120 Water Leaking                        199
+Refrigerator            Double Door                            124 Door Gasket Worn Out                 199
+Refrigerator            Double Door                            127 Partial (One Side) Cooling           199
+Refrigerator            Double Door                            130 Displaying Error Code                199
+Refrigerator            Double Door                            134 Dispenser Not Working                199
+Refrigerator            Double Door                            138 Ice Maker Not Working                199
+Refrigerator            Double Door                            142 Temperature Issues (Less / More)     199
+Refrigerator            Side by Side                           101 Not Sure / Others                    199
+Refrigerator            Side by Side                           105 Not Cooling                          199
+Refrigerator            Side by Side                           109 Not Working / Power Issues           199
+Refrigerator            Side by Side                           113 Making Noise                         199
+Refrigerator            Side by Side                           117 Main Light / MCB Tripping            199
+Refrigerator            Side by Side                           121 Water Leaking                        199
+Refrigerator            Side by Side                           125 Door Gasket Worn Out                 199
+Refrigerator            Side by Side                           128 Partial (One Side) Cooling           199
+Refrigerator            Side by Side                           131 Displaying Error Code                199
+Refrigerator            Side by Side                           135 Dispenser Not Working                199
+Refrigerator            Side by Side                           139 Ice Maker Not Working                199
+Refrigerator            Side by Side                           143 Temperature Issues (Less / More)     199
+Refrigerator            Freezer                                102 Not Sure / Others                    199
+Refrigerator            Freezer                                106 Not Cooling                          199
+Refrigerator            Freezer                                110 Not Working / Power Issues           199
+Refrigerator            Freezer                                114 Making Noise                         199
+Refrigerator            Freezer                                118 Main Light / MCB Tripping            199
+Refrigerator            Freezer                                122 Water Leaking                        199
+Refrigerator            Freezer                                126 Door Gasket Worn Out                 199
+Refrigerator            Freezer                                132 Displaying Error Code                199
+Refrigerator            Freezer                                136 Dispenser Not Working                199
+Refrigerator            Freezer                                140 Ice Maker Not Working                199
+Refrigerator            Freezer                                144 Temperature Issues (Less / More)     199
+Air Conditioner         Split AC                                 8 Not Cooling                          299
+Air Conditioner         Split AC                                 9 Water Leakage                        299
+Air Conditioner         Split AC                                10 Gas Refill & Leak Repair            2800
+Air Conditioner         Split AC                                39 Not Sure / Others                    299
+Air Conditioner         Split AC                                11 Remote Not Working                   299
+Air Conditioner         Split AC                                40 Making Noise / Sound Issue           299
+Air Conditioner         Split AC                                41 Less Cooling                         299
+Air Conditioner         Split AC                                42 Not Working / Power Issues           299
+Air Conditioner         Split AC                                43 Installation                        1499
+Air Conditioner         Split AC                                44 Un-Installation                      699
+Air Conditioner         Split AC                                45 Smell Issues                         299
+Air Conditioner         Split AC                                46 AC Dry Service                       499
+Air Conditioner         Split AC                                47 AC Wet / Foam Jet Service            599
+Air Conditioner         Split AC                                48 Swing Not Working                    299
+Air Conditioner         Window AC                               49 Installation                        1499
+Air Conditioner         Window AC                               12 Not Cooling                          299
+Air Conditioner         Window AC                               50 Un-Installation                      699
+Air Conditioner         Window AC                               51 AC Dry Service                       499
+Air Conditioner         Window AC                               52 AC Wet / Foam Jet Service            599
+Air Conditioner         Window AC                               53 Gas Refill & Leak Repair            2800
+Air Conditioner         Window AC                               54 Not Sure / Others                    299
+Air Conditioner         Window AC                               55 Water Leakage                        299
+Air Conditioner         Window AC                               56 Making Noise                         299
+Air Conditioner         Window AC                               57 Less Cooling                         299
+Air Conditioner         Window AC                               58 Not Working / Power Issues           299
+Air Conditioner         Window AC                               59 Remote Not Working                   299
+Air Conditioner         Window AC                               60 Smell Issues                         299
+Air Conditioner         Window AC                               61 Swing Not Working                    299
+Washing Machine         Front Load                              62 Not Sure / Others                    199
+Washing Machine         Front Load                              65 Not Working / Power Issues           199
+Washing Machine         Front Load                              68 Main Light / MCB Tripping            199
+Washing Machine         Front Load                              71 Dryer Not Working                    199
+Washing Machine         Front Load                              74 Making Noise                         199
+Washing Machine         Front Load                              77 Water Leaking                        199
+Washing Machine         Front Load                              80 Water Drainage Issue                 199
+Washing Machine         Front Load                              83 Displaying Error Code                199
+Washing Machine         Front Load                              85 Water Inlet Issue                    199
+Washing Machine         Front Load                              88 Door Not Opening                     199
+Washing Machine         Front Load                              89 Excessive Vibration                  199
+Washing Machine         Front Load                              92 Button / Touch Panel Issue           199
+Washing Machine         Front Load                              95 Installation                         399
+Washing Machine         Front Load                              97 Un-Installation                      399
+Washing Machine         Top Load                                63 Not Sure / Others                    199
+Washing Machine         Top Load                                66 Not Working / Power Issues           199
+Washing Machine         Top Load                                69 Main Light / MCB Tripping            199
+Washing Machine         Top Load                                72 Dryer Not Working                    199
+Washing Machine         Top Load                                75 Making Noise                         199
+Washing Machine         Top Load                                78 Water Leaking                        199
+Washing Machine         Top Load                                81 Water Drainage Issue                 199
+Washing Machine         Top Load                                84 Displaying Error Code                199
+Washing Machine         Top Load                                86 Water Inlet Issue                    199
+Washing Machine         Top Load                                90 Excessive Vibration                  199
+Washing Machine         Top Load                                93 Button / Touch Panel Issue           199
+Washing Machine         Top Load                                96 Installation                         399
+Washing Machine         Top Load                                98 Un-Installation                      399
+Washing Machine         Semi-Automatic                          64 Not Sure / Others                    199
+Washing Machine         Semi-Automatic                          67 Not Working / Power Issues           199
+Washing Machine         Semi-Automatic                          70 Main Light / MCB Tripping            199
+Washing Machine         Semi-Automatic                          73 Dryer Not Working                    199
+Washing Machine         Semi-Automatic                          76 Making Noise                         199
+Washing Machine         Semi-Automatic                          79 Water Leaking                        199
+Washing Machine         Semi-Automatic                          82 Water Drainage Issue                 199
+Washing Machine         Semi-Automatic                          87 Water Inlet Issue                    199
+Washing Machine         Semi-Automatic                          91 Excessive Vibration                  199
+Washing Machine         Semi-Automatic                          94 Button / Touch Panel Issue           199
+Oven                    Microwave Oven                         145 Not Sure / Others                    299
+Oven                    Microwave Oven                         148 Door Not Opening/Closing             299
+Oven                    Microwave Oven                         151 Not Heating                          299
+Oven                    Microwave Oven                         154 Noise Issue                          299
+Oven                    Microwave Oven                         156 Temperature Issues (Less / More)     299
+Oven                    Microwave Oven                         159 Spin Issue / Not Rotating            299
+Oven                    Microwave Oven                         161 Button / Touch Panel Issue           299
+Oven                    Microwave Oven                         164 Sparking Issues                      299
+Oven                    Microwave Oven                         167 Displaying Error Code                299
+Oven                    Microwave Oven                         169 Main Light / MCB Tripping            299
+Oven                    Microwave Oven                         172 Heating Element/Coil Issue           299
+Oven                    Microwave Oven                         175 Burning Smell/Smoke                  299
+Oven                    OTG Oven                               146 Not Sure / Others                    299
+Oven                    OTG Oven                               149 Door Not Opening/Closing             299
+Oven                    OTG Oven                               152 Not Heating                          299
+Oven                    OTG Oven                               157 Temperature Issues (Less / More)     299
+Oven                    OTG Oven                               162 Button / Touch Panel Issue           299
+Oven                    OTG Oven                               165 Sparking Issues                      299
+Oven                    OTG Oven                               170 Main Light / MCB Tripping            299
+Oven                    OTG Oven                               173 Heating Element/Coil Issue           299
+Oven                    OTG Oven                               176 Burning Smell/Smoke                  299
+Oven                    Built-in Oven                          147 Not Sure / Others                    299
+Oven                    Built-in Oven                          150 Door Not Opening/Closing             299
+Oven                    Built-in Oven                          153 Not Heating                          299
+Oven                    Built-in Oven                          155 Noise Issue                          299
+Oven                    Built-in Oven                          158 Temperature Issues (Less / More)     299
+Oven                    Built-in Oven                          160 Spin Issue / Not Rotating            299
+Oven                    Built-in Oven                          163 Button / Touch Panel Issue           299
+Oven                    Built-in Oven                          166 Sparking Issues                      299
+Oven                    Built-in Oven                          168 Displaying Error Code                299
+Oven                    Built-in Oven                          171 Main Light / MCB Tripping            299
+Oven                    Built-in Oven                          174 Heating Element/Coil Issue           299
+Oven                    Built-in Oven                          177 Burning Smell/Smoke                  299
+Water Purifier          Commercial / Plant Water Purifiers     179 Not Sure / Others                    199
+Water Purifier          Commercial / Plant Water Purifiers     181 RO Filters Change                    199
+Water Purifier          Commercial / Plant Water Purifiers     183 Water Not Draining                   199
+Water Purifier          Commercial / Plant Water Purifiers     185 Not Working / Power Issues           199
+Water Purifier          Commercial / Plant Water Purifiers     187 Installation                         199
+Water Purifier          Commercial / Plant Water Purifiers     189 Un-Installation                      199
+Water Purifier          Commercial / Plant Water Purifiers     191 Water Leaking                        199
+Water Purifier          Commercial / Plant Water Purifiers     193 Bad / Foul Taste in Water            199
+Water Purifier          Commercial / Plant Water Purifiers     195 Smelling Water                       199
+Water Purifier          Commercial / Plant Water Purifiers     197 Displaying Error Code                199
+Water Purifier          Commercial / Plant Water Purifiers     199 No Water / Not Filtering             199
+Water Purifier          Commercial / Plant Water Purifiers     201 Less Water / Long Filteration Time   199
+Water Purifier          Domestic / RO Water Purifier           178 Not Sure / Others                    199
+Water Purifier          Domestic / RO Water Purifier           180 Filters Change                       199
+Water Purifier          Domestic / RO Water Purifier           182 Water Not Draining                   199
+Water Purifier          Domestic / RO Water Purifier           184 Not Working / Power Issues           199
+Water Purifier          Domestic / RO Water Purifier           186 Installation                         199
+Water Purifier          Domestic / RO Water Purifier           188 Un-Installation                      199
+Water Purifier          Domestic / RO Water Purifier           190 Water Leaking                        199
+Water Purifier          Domestic / RO Water Purifier           192 Bad / Foul Taste in Water            199
+Water Purifier          Domestic / RO Water Purifier           194 Smelling Water                       199
+Water Purifier          Domestic / RO Water Purifier           196 Displaying Error Code                199
+Water Purifier          Domestic / RO Water Purifier           198 No Water / Not Filtering             199
+Water Purifier          Domestic / RO Water Purifier           200 Less Water / Long Filteration Time   199
+HOB Top Stoves          In-Built Hobs                          202 Not Sure / Others                    199
+HOB Top Stoves          In-Built Hobs                          203 Not Working                          199
+HOB Top Stoves          In-Built Hobs                          204 Flame Issues Less / More             199
+HOB Top Stoves          In-Built Hobs                          205 Auto Ignition Not Working            199
+HOB Top Stoves          In-Built Hobs                          206 Gas Leaking Smell/Sound              199
+HOB Top Stoves          In-Built Hobs                          207 Burner Issues                        199
+HOB Top Stoves          In-Built Hobs                          208 Button/Knob Not Issues               199
+HOB Top Stoves          In-Built Hobs                          209 Broken Inlet Valve                   199
+
+
+
