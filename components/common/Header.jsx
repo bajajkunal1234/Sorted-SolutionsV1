@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Phone, User, Menu, X, ChevronDown, Shield } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -25,11 +25,23 @@ const Header = () => {
     const [scrolled, setScrolled] = useState(false)
     const [mobileOpen, setMobileOpen] = useState(false)
     const [dropdownOpen, setDropdownOpen] = useState(false)
+    const dropdownRef = useRef(null)
 
     useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 20)
         window.addEventListener('scroll', onScroll, { passive: true })
         return () => window.removeEventListener('scroll', onScroll)
+    }, [])
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setDropdownOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
 
     return (
@@ -69,17 +81,26 @@ const Header = () => {
                                 <div
                                     key={link.label}
                                     className="header-dropdown"
-                                    onMouseEnter={() => setDropdownOpen(true)}
-                                    onMouseLeave={() => setDropdownOpen(false)}
+                                    ref={dropdownRef}
                                 >
-                                    <button className="header-nav-btn" aria-haspopup="true" aria-expanded={dropdownOpen}>
+                                    <button
+                                        className="header-nav-btn"
+                                        aria-haspopup="true"
+                                        aria-expanded={dropdownOpen}
+                                        onClick={() => setDropdownOpen(v => !v)}
+                                    >
                                         {link.label}
                                         <ChevronDown size={14} className={`header-chevron ${dropdownOpen ? 'open' : ''}`} />
                                     </button>
                                     <div className={`header-dropdown__menu ${dropdownOpen ? 'visible' : ''}`}>
                                         <div className="header-dropdown__grid">
                                             {link.children.map(child => (
-                                                <Link key={child.href} href={child.href} className="header-dropdown__item">
+                                                <Link
+                                                    key={child.href}
+                                                    href={child.href}
+                                                    className="header-dropdown__item"
+                                                    onClick={() => setDropdownOpen(false)}
+                                                >
                                                     <span className="header-dropdown__dot" />
                                                     {child.label}
                                                 </Link>
