@@ -34,7 +34,7 @@ function WhyChooseUsSection({
                 features: ['Parts Coverage', 'Free Callbacks', 'Genuine Spares'],
                 icon: '🛡️',
                 color: '#ec4899',
-                size: 'medium'
+                size: 'large'
             },
             {
                 id: 'tech',
@@ -50,7 +50,7 @@ function WhyChooseUsSection({
                 features: ['Always Available', 'Quick Response', 'Expert Help'],
                 icon: '💬',
                 color: '#14b8a6',
-                size: 'small'
+                size: 'large'
             }
         ],
     });

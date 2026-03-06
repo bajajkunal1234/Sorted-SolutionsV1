@@ -133,13 +133,13 @@
 }
 
 .bento-medium {
-    grid-column: span 4;
-    min-height: 180px;
+    grid-column: span 6;
+    min-height: 200px;
 }
 
 .bento-small {
-    grid-column: span 3;
-    min-height: 160px;
+    grid-column: span 6;
+    min-height: 200px;
 }
 
 @media (max-width: 1024px) {
