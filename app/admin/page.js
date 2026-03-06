@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { LayoutDashboard, Briefcase, DollarSign, Package, FileText } from 'lucide-react'
 import JobsTab from './components/JobsTab'
@@ -39,15 +39,6 @@ export default function AdminApp() {
         setAuthChecked(true)
     }, [])
 
-    if (!authChecked) {
-        return (
-            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary, #0f172a)', color: 'white', fontSize: 14 }}>
-                Checking access...
-            </div>
-        )
-    }
-    // ───────────────────────────────────────────────────────────────────────
-
     // Set up global function to open customer account from Jobs tab
     useEffect(() => {
         window.openCustomerAccount = (customer) => {
@@ -58,6 +49,16 @@ export default function AdminApp() {
             delete window.openCustomerAccount
         }
     }, [])
+
+    // ── Auth guard loading screen (AFTER all hooks) ─────────────────────────
+    if (!authChecked) {
+        return (
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary, #0f172a)', color: 'white', fontSize: 14 }}>
+                Checking access...
+            </div>
+        )
+    }
+    // ───────────────────────────────────────────────────────────────────────
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
