@@ -24,9 +24,9 @@ export default function ServiceFooter() {
                         Contact Us
                     </h4>
                     <div className="footer-links">
-                        <a href="tel:+919876543210" className="footer-link">
+                        <a href="tel:+918928895590" className="footer-link">
                             <Phone size={16} />
-                            +91 98765 43210
+                            +91 89288 95590
                         </a>
                         <a href="mailto:info@sortedsolutions.com" className="footer-link">
                             <Mail size={16} />
