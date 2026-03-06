@@ -68,6 +68,18 @@ export default async function GoogleTagsProvider() {
                 />
             )}
 
+            {/* ── Google Tag Manager (body noscript fallback) ── */}
+            {gtmId && (
+                <noscript>
+                    <iframe
+                        src={`https://www.googletagmanager.com/ns.html?id=${gtmId}`}
+                        height="0" width="0"
+                        style={{ display: 'none', visibility: 'hidden' }}
+                    />
+                </noscript>
+            )}
+
+
             {/* ── Google Analytics 4 (only if no GTM) ── */}
             {ga4Id && !gtmId && (
                 <>
