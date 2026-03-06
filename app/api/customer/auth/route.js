@@ -142,8 +142,11 @@ export async function POST(request) {
                 source: 'Customer App',
             })
 
+            const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
+            const role = adminPhones.includes(last10) ? 'admin' : 'customer'
+
             const { password_hash, ...safeUser } = customer
-            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer' }, message: 'Login successful' })
+            return NextResponse.json({ success: true, user: { ...safeUser, role }, message: 'Login successful' })
         }
 
         // ── 3. RESET PASSWORD (OTP already verified on client) ────────────────
