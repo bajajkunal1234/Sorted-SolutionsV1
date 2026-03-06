@@ -1,113 +1,119 @@
-import { fetchAppContent } from '@/lib/fetchAppContent';
-import ContactForm from '@/components/contact/ContactForm';
-import { MapPin, Phone, Mail, Clock } from 'lucide-react';
+import { Phone, Mail, Clock, MapPin, MessageSquare } from 'lucide-react';
 
 export const metadata = {
     title: 'Contact Us | Sorted Solutions',
-    description: 'Get in touch with Sorted Solutions for appliance repair and maintenance services.',
+    description: 'Get in touch with Sorted Solutions for appliance repair services in Mumbai. Call, WhatsApp, or email us.',
 };
 
-export default async function ContactPage() {
-    const content = await fetchAppContent('static-pages-content');
-    const contact = content?.contact;
-
-    if (!contact || !contact.published) {
-        return (
-            <div className="container mx-auto px-4 py-12 text-center">
-                <h1 className="text-2xl font-bold mb-4">Contact Us</h1>
-                <p>This content is currently unavailable.</p>
-            </div>
-        );
-    }
-
+export default function ContactPage() {
     return (
-        <div className="container mx-auto px-4 py-12 max-w-6xl">
-            <h1 className="text-4xl font-bold text-center mb-4">Contact Us</h1>
-            <p className="text-center text-gray-600 dark:text-gray-400 mb-12 max-w-2xl mx-auto">
-                We're here to help! Reach out to us for any service inquiries, support requests, or partnership opportunities.
-            </p>
+        <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f0f11)', color: 'var(--text-primary, #fff)', padding: '60px 24px' }}>
+            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                {/* Contact Information */}
-                <div>
-                    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 mb-8">
-                        <div className="prose prose-lg dark:prose-invert mb-8" dangerouslySetInnerHTML={{ __html: contact.content }} />
+                {/* Header */}
+                <div style={{ textAlign: 'center', marginBottom: '56px' }}>
+                    <h1 style={{ fontSize: 'clamp(32px,5vw,52px)', fontWeight: 800, marginBottom: '16px', letterSpacing: '-1px' }}>
+                        Get In Touch
+                    </h1>
+                    <p style={{ fontSize: '18px', color: 'var(--text-secondary,#94a3b8)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.7 }}>
+                        Have a question or need to book a repair? We're available 7 days a week across Mumbai.
+                    </p>
+                </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-                            <div className="flex gap-4">
-                                <div className="mt-1">
-                                    <MapPin className="text-blue-600" size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold mb-1">Visit Us</h3>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">{contact.contactInfo.headOffice}</p>
-                                </div>
-                            </div>
+                {/* Contact Cards Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: '20px', marginBottom: '48px' }}>
 
-                            <div className="flex gap-4">
-                                <div className="mt-1">
-                                    <Phone className="text-blue-600" size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold mb-1">Call Us</h3>
-                                    {contact.contactInfo.phones.map((phone, idx) => (
-                                        <p key={idx} className="text-sm text-gray-600 dark:text-gray-400">{phone}</p>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <div className="mt-1">
-                                    <Mail className="text-blue-600" size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold mb-1">Email Us</h3>
-                                    {contact.contactInfo.emails.map((email, idx) => (
-                                        <p key={idx} className="text-sm text-gray-600 dark:text-gray-400">{email}</p>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex gap-4">
-                                <div className="mt-1">
-                                    <Clock className="text-blue-600" size={24} />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold mb-1">Business Hours</h3>
-                                    <p className="text-sm text-gray-600 dark:text-gray-400">{contact.contactInfo.businessHours}</p>
-                                </div>
-                            </div>
+                    {/* Phone */}
+                    <a href="tel:+918928895590" style={{ textDecoration: 'none' }}>
+                        <div style={cardStyle}>
+                            <div style={iconWrap('#6366f1')}><Phone size={22} color="#fff" /></div>
+                            <h3 style={cardTitle}>Call / WhatsApp</h3>
+                            <p style={cardValue}>+91 89288 95590</p>
+                            <p style={cardMeta}>Mon – Sun, 8 AM – 8 PM</p>
                         </div>
+                    </a>
+
+                    {/* Email */}
+                    <a href="mailto:support@sortedsolutions.in" style={{ textDecoration: 'none' }}>
+                        <div style={cardStyle}>
+                            <div style={iconWrap('#10b981')}><Mail size={22} color="#fff" /></div>
+                            <h3 style={cardTitle}>Email Us</h3>
+                            <p style={cardValue}>support@sortedsolutions.in</p>
+                            <p style={cardMeta}>We reply within 4 hours</p>
+                        </div>
+                    </a>
+
+                    {/* WhatsApp */}
+                    <a href="https://wa.me/918928895590" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
+                        <div style={cardStyle}>
+                            <div style={iconWrap('#22c55e')}><MessageSquare size={22} color="#fff" /></div>
+                            <h3 style={cardTitle}>WhatsApp</h3>
+                            <p style={cardValue}>Chat with us directly</p>
+                            <p style={cardMeta}>Quick responses guaranteed</p>
+                        </div>
+                    </a>
+
+                    {/* Hours */}
+                    <div style={cardStyle}>
+                        <div style={iconWrap('#f59e0b')}><Clock size={22} color="#fff" /></div>
+                        <h3 style={cardTitle}>Business Hours</h3>
+                        <p style={cardValue}>Mon – Sun</p>
+                        <p style={cardMeta}>8:00 AM – 8:00 PM</p>
                     </div>
 
-                    {/* Map */}
-                    {contact.mapSettings?.embedUrl && (
-                        <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700 h-[300px]">
-                            <iframe
-                                src={contact.mapSettings.embedUrl}
-                                width="100%"
-                                height="100%"
-                                style={{ border: 0 }}
-                                allowFullScreen=""
-                                loading="lazy"
-                                referrerPolicy="no-referrer-when-downgrade"
-                            ></iframe>
-                        </div>
-                    )}
                 </div>
 
-                {/* Contact Form */}
-                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-8 border border-gray-100 dark:border-gray-700">
-                    <h2 className="text-2xl font-bold mb-6">Send us a Message</h2>
-                    {contact.formSettings.enabled ? (
-                        <ContactForm settings={contact.formSettings} />
-                    ) : (
-                        <div className="text-center py-12 text-gray-500">
-                            <p>Contact form is currently disabled. Please use email or phone to reach us.</p>
+                {/* Service Area */}
+                <div style={{ background: 'var(--bg-secondary,#1a1a2e)', border: '1.5px solid var(--border-primary,#2d2d3a)', borderRadius: '16px', padding: '32px', marginBottom: '32px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                        <MapPin size={24} color="#6366f1" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <div>
+                            <h3 style={{ fontWeight: 700, fontSize: '18px', marginBottom: '8px' }}>Service Area</h3>
+                            <p style={{ color: 'var(--text-secondary,#94a3b8)', lineHeight: 1.7, marginBottom: '12px' }}>
+                                We provide appliance repair services across <strong style={{ color: '#fff' }}>Mumbai, Maharashtra</strong> including Andheri, Borivali, Kandivali, Malad, Goregaon, Bandra, Powai, Thane, Navi Mumbai and more.
+                            </p>
+                            <p style={{ color: 'var(--text-secondary,#94a3b8)', fontSize: '14px' }}>
+                                Not sure if we serve your area? Enter your pincode in the booking form and we'll let you know instantly.
+                            </p>
                         </div>
-                    )}
+                    </div>
                 </div>
+
+                {/* Services Note */}
+                <div style={{ background: 'linear-gradient(135deg,#6366f120,#8b5cf620)', border: '1.5px solid #6366f140', borderRadius: '16px', padding: '24px 32px', textAlign: 'center' }}>
+                    <p style={{ color: 'var(--text-secondary,#94a3b8)', fontSize: '15px', lineHeight: 1.7 }}>
+                        We repair <strong style={{ color: '#fff' }}>Air Conditioners, Refrigerators, Washing Machines, Microwaves, Ovens, Water Purifiers</strong> and more.
+                        <br />Book a technician in under 2 minutes — same-day appointments available.
+                    </p>
+                    <a href="/booking" style={{
+                        display: 'inline-block', marginTop: '16px', padding: '12px 28px',
+                        background: '#6366f1', color: '#fff', borderRadius: '10px',
+                        fontWeight: 700, textDecoration: 'none', fontSize: '15px'
+                    }}>
+                        Book a Technician →
+                    </a>
+                </div>
+
             </div>
         </div>
     );
 }
+
+const cardStyle = {
+    background: 'var(--bg-secondary,#1a1a2e)',
+    border: '1.5px solid var(--border-primary,#2d2d3a)',
+    borderRadius: '16px',
+    padding: '24px',
+    transition: 'border-color 0.2s',
+    height: '100%',
+};
+
+const iconWrap = (bg) => ({
+    width: '44px', height: '44px', borderRadius: '12px',
+    background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+    marginBottom: '16px',
+});
+
+const cardTitle = { fontSize: '13px', fontWeight: 600, color: 'var(--text-tertiary,#6b7280)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' };
+const cardValue = { fontSize: '16px', fontWeight: 700, color: 'var(--text-primary,#fff)', marginBottom: '4px' };
+const cardMeta = { fontSize: '13px', color: 'var(--text-secondary,#94a3b8)' };
