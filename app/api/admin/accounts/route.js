@@ -221,14 +221,14 @@ export async function DELETE(request) {
         }
 
         if (blocking.length > 0) {
-            const summary = blocking.map(b =>
-                `• ${b.type} (${b.records.length}): ${b.records.slice(0, 3).join(', ')}${b.records.length > 3 ? ` +${b.records.length - 3} more` : ''}\n  → ${b.action}`
-            ).join('\n')
+            const summary = blocking
+                .map(b => `${b.records.length} ${b.type}`)
+                .join(', ')
 
             return NextResponse.json({
                 success: false,
-                error: `Cannot delete — this account has active dependencies:\n\n${summary}`,
-                blocking,  // structured data for the UI
+                error: `Cannot delete — this account has active dependencies: ${summary}`,
+                blocking,
             }, { status: 400 })
         }
 

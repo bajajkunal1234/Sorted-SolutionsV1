@@ -177,7 +177,20 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 alert(`✅ ${count} item(s) deleted successfully.`);
             } else {
                 const successCount = count - failed.length;
-                const failLines = failed.map(f => `\n• ${f.name}:\n  ${f.error}`).join('\n');
+            const failLines = failed.map(f => {
+                    // Try to parse structured dependency data from the error message
+                    // API sends e.g. "Cannot delete — this account has active dependencies:\n\n• Customer Profile (1)..."
+                    const depMatch = f.error.match(/dependencies[^:]*:([\s\S]*)/i);
+                    if (depMatch) {
+                        // Extract "Type (N)" pairs and reformat as clean summary
+                        const pairs = [...depMatch[1].matchAll(/•\s*([^(]+)\((\d+)\)/g)];
+                        const summary = pairs.length > 0
+                            ? pairs.map(m => `${m[2]} ${m[1].trim()}`).join(', ')
+                            : 'has active dependencies';
+                        return `\n• ${f.name}: ${summary}`;
+                    }
+                    return `\n• ${f.name}: ${f.error}`;
+                }).join('');
                 alert(
                     `${successCount > 0 ? `✅ ${successCount} deleted.\n` : ''}` +
                     `❌ ${failed.length} could not be deleted:\n${failLines}`
