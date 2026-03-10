@@ -12,6 +12,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     // Initialize with passed job, but allowed to be updated by fetch
     const [editedJob, setEditedJob] = useState({ ...job });
     const [loading, setLoading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [newNote, setNewNote] = useState({ description: '', files: [] });
     const [newReminder, setNewReminder] = useState({ type: '', datetime: '', message: '' });
 
@@ -79,6 +80,20 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             priority: editedJob.priority,
         };
         onUpdate(updatePayload);
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Delete job "${editedJob.description || editedJob.job_number}"? This cannot be undone.`)) return;
+        try {
+            setDeleting(true);
+            await jobsAPI.delete(editedJob.id);
+            onUpdate('deleted');
+            onClose();
+        } catch (err) {
+            alert('Failed to delete job: ' + err.message);
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleAddNote = async (note) => {
@@ -500,6 +515,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                 {/* Footer */}
                 <div className="modal-footer">
+                    <button
+                        className="btn"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        style={{ marginRight: 'auto', backgroundColor: '#ef444415', color: '#ef4444', border: '1px solid #ef444440', borderRadius: 'var(--radius-sm)', padding: '6px 14px', cursor: deleting ? 'not-allowed' : 'pointer', fontSize: 'var(--font-size-sm)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                        {deleting ? '🗑 Deleting...' : '🗑 Delete Job'}
+                    </button>
                     <button className="btn btn-secondary" onClick={onClose}>
                         Cancel
                     </button>

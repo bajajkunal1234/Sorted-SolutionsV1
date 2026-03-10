@@ -97,6 +97,12 @@ function JobsTab() {
     };
 
     const handleUpdateJob = async (updatedJob) => {
+        // 'deleted' signal comes from JobDetailModal after a successful delete
+        if (updatedJob === 'deleted') {
+            await refreshJobs();
+            setSelectedJob(null);
+            return;
+        }
         try {
             await jobsAPI.update(updatedJob.id, updatedJob);
             await refreshJobs();
