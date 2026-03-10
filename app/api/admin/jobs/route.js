@@ -29,7 +29,7 @@ export async function GET(request) {
             .from('jobs')
             .select(`
                 *,
-                customer:customers(*),
+                customer:accounts(*),
                 technician:technicians(*)
             `)
             .order('created_at', { ascending: false })
@@ -157,15 +157,12 @@ export async function PUT(request) {
         // Side effect: If job is marked as completed, generate a draft invoice
         if (updates.status === 'completed') {
             try {
-                // 1. Fetch customer to get ledger_id
-                const { data: customerData } = await supabase
-                    .from('customers')
-                    .select('ledger_id, name')
-                    .eq('id', data.customer_id)
-                    .single()
+                // customer_id IS the account id directly (no more customers table lookup)
+                const accountId = data.customer_id;
+                const accountName = data.customer_name;
 
-                if (customerData?.ledger_id) {
-                    // 2. Check for existing invoice for this job
+                if (accountId) {
+                    // Check for existing invoice for this job
                     const { data: existing } = await supabase
                         .from('sales_invoices')
                         .select('id')
@@ -173,7 +170,6 @@ export async function PUT(request) {
                         .single()
 
                     if (!existing) {
-                        // 3. Create Draft Invoice
                         const year = new Date().getFullYear();
                         const invoiceNumber = `INV-${year}-${Math.floor(Math.random() * 9000) + 1000}`;
                         const baseAmount = data.amount || 800;
@@ -183,8 +179,8 @@ export async function PUT(request) {
                         await supabase.from('sales_invoices').insert({
                             invoice_number: invoiceNumber,
                             reference: invoiceNumber,
-                            account_id: customerData.ledger_id,
-                            account_name: customerData.name,
+                            account_id: accountId,
+                            account_name: accountName,
                             job_id: id,
                             date: new Date().toISOString().split('T')[0],
                             status: 'draft',
@@ -200,7 +196,6 @@ export async function PUT(request) {
                             }]
                         })
 
-                        // 4. Log Interaction
                         await supabase.from('job_interactions').insert([{
                             job_id: id,
                             type: 'sales-invoice-created-draft',

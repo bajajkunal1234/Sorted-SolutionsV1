@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Phone, MapPin, User, Briefcase, Calendar, Clock, X, CheckCircle2, ChevronDown, ChevronUp, Loader2, ExternalLink } from 'lucide-react';
 import { useMemo } from 'react';
-import { jobsAPI, customersAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
+import { jobsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
 import NewAccountForm from '../accounts/NewAccountForm';
 import CreateJobForm from '../CreateJobForm';
 
@@ -63,13 +63,8 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
             } else {
                 result = await accountsAPI.create(accountData);
             }
-            // The backend automatically syncs accounts to customers. 
-            // We need to fetch the actual record from the 'customers' table using the ledger_id.
-            const customers = await customersAPI.getAll({ ledger_id: result.id });
-            const linked = customers?.[0] || result;
-
-            console.log('Account linked to customer:', linked.id, 'for ledger:', result.id);
-            setCreatedCustomer(linked);
+            // account IS the customer now — use directly
+            setCreatedCustomer(result);
             setShowAccountForm(false);
 
             setTimeout(() => {

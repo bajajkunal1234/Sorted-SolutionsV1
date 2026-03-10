@@ -148,10 +148,10 @@ export async function DELETE(request) {
             return NextResponse.json({ success: false, error: 'Account ID is required' }, { status: 400 })
         }
 
-        // Check ALL dependencies in parallel — fetch actual names not just counts
+        // Check ALL dependencies in parallel
         const [
             technicianRows,
-            customerRows,
+            jobRows,
             salesRows,
             purchaseRows,
             quotationRows,
@@ -159,7 +159,7 @@ export async function DELETE(request) {
             paymentRows,
         ] = await Promise.all([
             supabase.from('technicians').select('id, name').eq('ledger_id', id),
-            supabase.from('customers').select('id, name').eq('ledger_id', id),
+            supabase.from('jobs').select('id, job_number').eq('customer_id', id).limit(5),
             supabase.from('sales_invoices').select('id, invoice_number').eq('account_id', id).limit(5),
             supabase.from('purchase_invoices').select('id, invoice_number').eq('account_id', id).limit(5),
             supabase.from('quotations').select('id, quote_number').eq('account_id', id).limit(5),
@@ -174,14 +174,12 @@ export async function DELETE(request) {
             blocking.push({
                 type: 'Technician Profile',
                 records: technicianRows.data.map(r => r.name),
-                action: 'Go to Jobs tab → find this technician and delete or unlink their profile first.'
             })
         }
-        if (customerRows.data?.length > 0) {
+        if (jobRows.data?.length > 0) {
             blocking.push({
-                type: 'Customer Profile',
-                records: customerRows.data.map(r => r.name),
-                action: 'This account is linked to a customer in the system. Delete the customer profile first.'
+                type: 'Jobs',
+                records: jobRows.data.map(r => r.job_number || r.id),
             })
         }
         if (salesRows.data?.length > 0) {

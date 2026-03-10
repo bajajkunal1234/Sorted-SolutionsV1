@@ -1,30 +1,36 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
-import { logInteractionServer } from '@/lib/log-interaction-server'
 
-// GET - Fetch all customers
+/**
+ * MIGRATION NOTE: The `customers` table has been merged into `accounts`.
+ * This route now proxies to the `accounts` table, filtering for customer-type
+ * accounts (under Sundry Debtors / Customers group).
+ * The `ledger_id` resolver is no longer needed — jobs.customer_id = accounts.id directly.
+ */
+
+// GET - Fetch accounts that are customers (under Sundry Debtors / Customers group)
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
         const search = searchParams.get('search')
+        // ledger_id param kept for backward compat — treated as account id lookup
         const ledgerId = searchParams.get('ledger_id')
+        const accountId = searchParams.get('account_id') || ledgerId
 
         let query = supabase
-            .from('customers')
+            .from('accounts')
             .select('*')
-            .order('created_at', { ascending: false })
-            .limit(100)
+            .or('under.ilike.%customer%,under_name.ilike.%customer%,under.ilike.%debtor%,under_name.ilike.%debtor%')
+            .order('name', { ascending: true })
 
         if (search) {
             query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`)
         }
-
-        if (ledgerId) {
-            query = query.eq('ledger_id', ledgerId)
+        if (accountId) {
+            query = query.eq('id', accountId)
         }
 
         const { data, error } = await query
-
         if (error) throw error
 
         return NextResponse.json({ success: true, data })
@@ -33,88 +39,35 @@ export async function GET(request) {
     }
 }
 
-// POST - Create new customer
+// POST - No longer needed (customers are created via accounts route)
+// Kept as stub to avoid 404s from any legacy callers
 export async function POST(request) {
-    try {
-        const body = await request.json()
-
-        const { data, error } = await supabase
-            .from('customers')
-            .insert([body])
-            .select()
-            .single()
-
-        if (error) throw error
-
-        logInteractionServer({
-            type: 'account-created-admin',
-            category: 'account',
-            customerId: String(data.id),
-            customerName: data.name || data.phone,
-            performedByName: body.created_by || 'Admin',
-            description: `Customer account created by admin — ${data.name || data.phone}`,
-            source: 'Admin',
-        });
-
-        return NextResponse.json({ success: true, data })
-    } catch (error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
-    }
+    return NextResponse.json({
+        success: false,
+        error: 'Customers are now managed via /api/admin/accounts. Create an account under the Customers group instead.'
+    }, { status: 410 })
 }
 
-// PUT - Update customer
 export async function PUT(request) {
+    // Proxy to accounts route
     try {
         const body = await request.json()
         const { id, ...updates } = body
-
-        const { data, error } = await supabase
-            .from('customers')
-            .update(updates)
-            .eq('id', id)
-            .select()
-            .single()
-
+        const { data, error } = await supabase.from('accounts').update(updates).eq('id', id).select().single()
         if (error) throw error
-
-        logInteractionServer({
-            type: 'account-updated',
-            category: 'account',
-            customerId: String(id),
-            customerName: data.name || data.phone,
-            performedByName: body.updated_by || 'Admin',
-            description: `Customer account updated — ${data.name || data.phone}`,
-            source: 'Admin',
-        });
-
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
 
-// DELETE - Delete customer
 export async function DELETE(request) {
+    // Proxy to accounts route
     try {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
-
-        const { error } = await supabase
-            .from('customers')
-            .delete()
-            .eq('id', id)
-
+        const { error } = await supabase.from('accounts').delete().eq('id', id)
         if (error) throw error
-
-        logInteractionServer({
-            type: 'account-deleted',
-            category: 'account',
-            customerId: String(id),
-            performedByName: 'Admin',
-            description: `Customer account deleted (ID: ${id})`,
-            source: 'Admin',
-        });
-
         return NextResponse.json({ success: true })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })

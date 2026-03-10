@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Phone, MapPin, User, Briefcase, Calendar, Clock, X, CheckCircle2, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { jobsAPI, customersAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
+import { jobsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
 import NewAccountForm from '../accounts/NewAccountForm';
 import CreateJobForm from '../CreateJobForm';
 
@@ -63,10 +63,8 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
             } else {
                 result = await accountsAPI.create(accountData);
             }
-            // Fetch fresh customer record linked to this ledger
-            const allCustomers = await customersAPI.getAll();
-            const linkedCustomer = allCustomers.find(c => c.ledger_id === result.id) || result;
-            setCreatedCustomer(linkedCustomer);
+            // account IS the customer now — use directly
+            setCreatedCustomer(result);
             setShowAccountForm(false);
 
             // Auto-open job form after account is created

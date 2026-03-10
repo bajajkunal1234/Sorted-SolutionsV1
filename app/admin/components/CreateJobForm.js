@@ -621,36 +621,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         setSubmitting(true);
 
         try {
-            // RESOLVE CUSTOMER UUID: The jobs table requires a UUID from the customers table.
-            // Since we are using Accounts as the UI source, we find the corresponding customer record.
-            let resolvedCustomerId = formData.customer.id; // Fallback to current ID
-
-            try {
-                const customerRecords = await customersAPI.getAll({ ledger_id: formData.customer.id });
-                if (customerRecords && customerRecords.length > 0) {
-                    resolvedCustomerId = customerRecords[0].id;
-                    console.log('Resolved Ledger ID', formData.customer.id, 'to Customer UUID', resolvedCustomerId);
-                } else {
-                    // MISSING CUSTOMER RECORD: If we have the ledger but no customer record, create it now.
-                    // This is the safety net for accounts that weren't synced (e.g., Sundry Debtors).
-                    console.log('No customer record found for ledger ID', formData.customer.id, '. Creating on-the-fly...');
-                    const newCustomer = await customersAPI.create({
-                        name: formData.customer.name,
-                        phone: formData.customer.phone || formData.customer.mobile || '',
-                        email: formData.customer.email || '',
-                        address: formData.customer.billing_address || formData.customer.mailing_address || {},
-                        ledger_id: formData.customer.id
-                    });
-                    if (newCustomer && newCustomer.id) {
-                        resolvedCustomerId = newCustomer.id;
-                        console.log('Successfully created on-the-fly customer record:', resolvedCustomerId);
-                    }
-                }
-            } catch (err) {
-                console.error('Failed to resolve or create customer UUID:', err.message);
-                // If it's already a UUID, it might just work, but if it's an integer and we failed to create a customer,
-                // the subsequent job create will likely fail with the FKEY error.
-            }
+            // customer_id is now the account id directly — no UUID resolution needed
+            const resolvedCustomerId = formData.customer.id;
 
             // Map to Supabase Schema (snake_case)
             const jobData = {
