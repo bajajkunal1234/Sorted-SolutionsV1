@@ -148,34 +148,91 @@ export async function DELETE(request) {
             return NextResponse.json({ success: false, error: 'Account ID is required' }, { status: 400 })
         }
 
-        // 1. Check for dependencies
-        const dependencyChecks = [
-            { table: 'sales_invoices', column: 'account_id', label: 'Sales Invoices' },
-            { table: 'purchase_invoices', column: 'account_id', label: 'Purchase Invoices' },
-            { table: 'quotations', column: 'account_id', label: 'Quotations' },
-            { table: 'receipt_vouchers', column: 'account_id', label: 'Receipt Vouchers' },
-            { table: 'payment_vouchers', column: 'account_id', label: 'Payment Vouchers' },
-            { table: 'customers', column: 'ledger_id', label: 'Customers' },
-            { table: 'technicians', column: 'ledger_id', label: 'Technicians' }
-        ];
+        // Check ALL dependencies in parallel — fetch actual names not just counts
+        const [
+            technicianRows,
+            customerRows,
+            salesRows,
+            purchaseRows,
+            quotationRows,
+            receiptRows,
+            paymentRows,
+        ] = await Promise.all([
+            supabase.from('technicians').select('id, name').eq('ledger_id', id),
+            supabase.from('customers').select('id, name').eq('ledger_id', id),
+            supabase.from('sales_invoices').select('id, invoice_number').eq('account_id', id).limit(5),
+            supabase.from('purchase_invoices').select('id, invoice_number').eq('account_id', id).limit(5),
+            supabase.from('quotations').select('id, quote_number').eq('account_id', id).limit(5),
+            supabase.from('receipt_vouchers').select('id, receipt_number').eq('account_id', id).limit(5),
+            supabase.from('payment_vouchers').select('id, payment_number').eq('account_id', id).limit(5),
+        ])
 
-        for (const check of dependencyChecks) {
-            const { count, error: checkError } = await supabase
-                .from(check.table)
-                .select('*', { count: 'exact', head: true })
-                .eq(check.column, id);
+        // Build a clear dependency list
+        const blocking = []
 
-            if (checkError) throw checkError;
-
-            if (count > 0) {
-                return NextResponse.json({
-                    success: false,
-                    error: `Cannot delete account because it is linked to ${count} ${check.label}. Please delete those records first.`
-                }, { status: 400 });
-            }
+        if (technicianRows.data?.length > 0) {
+            blocking.push({
+                type: 'Technician Profile',
+                records: technicianRows.data.map(r => r.name),
+                action: 'Go to Jobs tab → find this technician and delete or unlink their profile first.'
+            })
+        }
+        if (customerRows.data?.length > 0) {
+            blocking.push({
+                type: 'Customer Profile',
+                records: customerRows.data.map(r => r.name),
+                action: 'This account is linked to a customer in the system. Delete the customer profile first.'
+            })
+        }
+        if (salesRows.data?.length > 0) {
+            blocking.push({
+                type: 'Sales Invoices',
+                records: salesRows.data.map(r => r.invoice_number || r.id),
+                action: 'Delete or reassign these sales invoices under Accounts → Sales tab first.'
+            })
+        }
+        if (purchaseRows.data?.length > 0) {
+            blocking.push({
+                type: 'Purchase Invoices',
+                records: purchaseRows.data.map(r => r.invoice_number || r.id),
+                action: 'Delete or reassign these purchase invoices under Accounts → Purchases tab first.'
+            })
+        }
+        if (quotationRows.data?.length > 0) {
+            blocking.push({
+                type: 'Quotations',
+                records: quotationRows.data.map(r => r.quote_number || r.id),
+                action: 'Delete or reassign these quotations under Accounts → Quotations tab first.'
+            })
+        }
+        if (receiptRows.data?.length > 0) {
+            blocking.push({
+                type: 'Receipt Vouchers',
+                records: receiptRows.data.map(r => r.receipt_number || r.id),
+                action: 'Delete these receipts under Accounts → Receipts tab first.'
+            })
+        }
+        if (paymentRows.data?.length > 0) {
+            blocking.push({
+                type: 'Payment Vouchers',
+                records: paymentRows.data.map(r => r.payment_number || r.id),
+                action: 'Delete these payments under Accounts → Payments tab first.'
+            })
         }
 
-        // 2. Perform deletion if no dependencies found
+        if (blocking.length > 0) {
+            const summary = blocking.map(b =>
+                `• ${b.type} (${b.records.length}): ${b.records.slice(0, 3).join(', ')}${b.records.length > 3 ? ` +${b.records.length - 3} more` : ''}\n  → ${b.action}`
+            ).join('\n')
+
+            return NextResponse.json({
+                success: false,
+                error: `Cannot delete — this account has active dependencies:\n\n${summary}`,
+                blocking,  // structured data for the UI
+            }, { status: 400 })
+        }
+
+        // No dependencies — safe to delete
         const { error } = await supabase
             .from('accounts')
             .delete()
@@ -188,3 +245,4 @@ export async function DELETE(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
+

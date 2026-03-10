@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare } from 'lucide-react';
@@ -141,10 +141,22 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         try {
             setBulkDeleting(true);
             const ids = Array.from(selectedItems);
-            await Promise.all(ids.map(id => {
+
+            // Run all deletes and collect results (don't throw on individual failures)
+            const results = await Promise.allSettled(ids.map(id => {
                 if (activeTab === 'accounts') return accountsAPI.delete(id);
                 return transactionsAPI.delete(id, tabToTypeMap[activeTab]);
             }));
+
+            const failed = [];
+            results.forEach((result, i) => {
+                if (result.status === 'rejected') {
+                    const ledger = activeTab === 'accounts' ? ledgers.find(l => l.id === ids[i]) : null;
+                    const name = ledger?.name || ids[i];
+                    failed.push({ name, error: result.reason?.message || 'Unknown error' });
+                }
+            });
+
             // Refresh
             if (activeTab === 'accounts') {
                 const data = await accountsAPI.getAll();
@@ -160,7 +172,17 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 }
             }
             setSelectedItems(new Set());
-            alert(`${count} item(s) deleted successfully.`);
+
+            if (failed.length === 0) {
+                alert(`✅ ${count} item(s) deleted successfully.`);
+            } else {
+                const successCount = count - failed.length;
+                const failLines = failed.map(f => `\n• ${f.name}:\n  ${f.error}`).join('\n');
+                alert(
+                    `${successCount > 0 ? `✅ ${successCount} deleted.\n` : ''}` +
+                    `❌ ${failed.length} could not be deleted:\n${failLines}`
+                );
+            }
         } catch (err) {
             alert(`Bulk delete failed: ${err.message}`);
         } finally {
