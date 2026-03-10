@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react';
-import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, RefreshCcw } from 'lucide-react';
+import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, RefreshCcw, FileText } from 'lucide-react';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
