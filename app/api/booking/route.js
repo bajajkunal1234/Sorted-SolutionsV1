@@ -59,43 +59,44 @@ export async function POST(request) {
             }
         }
 
-        // ── Fix 2: Auto-upsert customer record ────────────────────────────────
+        // ── Fix 2: Auto-upsert customer account ───────────────────────────────
         // Normalise phone: strip spaces/dashes, strip leading +91 / 0
         const rawPhone = (customer.phone || '').replace(/[\s\-]/g, '')
         const normalizedPhone = rawPhone.replace(/^(\+91|91|0)/, '')
 
         let customerId = null
         {
-            // Look up existing customer by phone (try common normalised formats)
-            const { data: existingCustomers } = await supabase
-                .from('customers')
+            // Look up existing account by phone
+            const { data: existingAccounts } = await supabase
+                .from('accounts')
                 .select('id')
                 .or(`phone.eq.${normalizedPhone},phone.eq.+91${normalizedPhone},phone.eq.91${normalizedPhone}`)
                 .limit(1)
 
-            if (existingCustomers && existingCustomers.length > 0) {
-                // Reuse existing customer
-                customerId = existingCustomers[0].id
+            if (existingAccounts && existingAccounts.length > 0) {
+                // Reuse existing account
+                customerId = existingAccounts[0].id
             } else {
-                // Create a new lightweight customer record
-                const { data: newCustomer, error: custError } = await supabase
-                    .from('customers')
+                // Create a lightweight account under Customers group
+                const { data: newAccount, error: accError } = await supabase
+                    .from('accounts')
                     .insert({
+                        name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || normalizedPhone,
                         phone: normalizedPhone,
-                        full_name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || null,
                         email: customer.email || null,
-                        source: 'website_booking',
-                        customer_type: 'one_time',
+                        type: 'asset',
+                        under: 'customer-accounts',
+                        opening_balance: 0,
                         created_at: new Date().toISOString()
                     })
                     .select('id')
                     .single()
 
-                if (custError) {
-                    // Non-fatal: log but continue — the booking still goes through
-                    console.warn('Could not create customer record:', custError.message)
+                if (accError) {
+                    // Non-fatal: log but continue — booking still goes through
+                    console.warn('Could not create account record:', accError.message)
                 } else {
-                    customerId = newCustomer.id
+                    customerId = newAccount.id
                 }
             }
         }
