@@ -381,6 +381,27 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         }
     }, [showCreateModal]);
 
+    // Auto-build job name: "{Brand} {SubCategory} {Locality}"
+    // e.g. "LG Double Door Bandra West"
+    const buildAutoJobName = (brand, subcategory, property) => {
+        const parts = [
+            brand?.name || '',
+            subcategory?.name || '',
+            property?.address?.locality || property?.address?.line1?.split(',')[0] || ''
+        ].map(s => s.trim()).filter(Boolean);
+        return parts.join(' ');
+    };
+
+    const [jobNameManuallyEdited, setJobNameManuallyEdited] = useState(false);
+
+    useEffect(() => {
+        if (jobNameManuallyEdited) return; // Don't override if user has typed something
+        const auto = buildAutoJobName(formData.brand, formData.subcategory, formData.property);
+        if (auto) {
+            setFormData(prev => ({ ...prev, jobName: auto }));
+        }
+    }, [formData.brand?.id, formData.subcategory?.id, formData.property?.id, jobNameManuallyEdited]);
+
     const handleThumbnailChange = (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -452,10 +473,6 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             const newErrors = { ...errors };
             delete newErrors.issue;
             setErrors(newErrors);
-        }
-        // Auto-populate job name if empty
-        if (!formData.jobName && selected) {
-            setFormData(prev => ({ ...prev, jobName: selected.title || selected.name }));
         }
     };
 
@@ -1101,16 +1118,38 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         )}
                     </div>
 
-                    {/* 7. Job Description */}
+                    {/* 7. Job Name */}
                     <div className="form-group">
-                        <label className="form-label">Job Description *</label>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <label className="form-label" style={{ marginBottom: 0 }}>Job Name *</label>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setJobNameManuallyEdited(false);
+                                    const auto = buildAutoJobName(formData.brand, formData.subcategory, formData.property);
+                                    if (auto) setFormData(prev => ({ ...prev, jobName: auto }));
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(99,102,241,0.1)' }}
+                                title="Auto-fill from Brand + Sub-Category + Locality"
+                            >
+                                ✨ Auto-fill
+                            </button>
+                        </div>
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="e.g., Washing Machine not spinning"
+                            placeholder="e.g., LG Double Door Bandra West"
                             value={formData.jobName}
-                            onChange={(e) => setFormData({ ...formData, jobName: e.target.value })}
+                            onChange={(e) => {
+                                setJobNameManuallyEdited(true);
+                                setFormData(prev => ({ ...prev, jobName: e.target.value }));
+                            }}
                         />
+                        {!jobNameManuallyEdited && (formData.brand || formData.subcategory || formData.property) && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
+                                🔄 Auto-filled from Brand · Sub-Type · Locality — edit to customise
+                            </div>
+                        )}
                         {errors.jobName && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.jobName}</span>}
                     </div>
 

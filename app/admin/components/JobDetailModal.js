@@ -72,14 +72,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     ];
 
     const handleSave = () => {
-        // Create an update object with only changed fields if possible, 
-        // but for now passing the edited job structure. 
-        // Ensure we don't accidentally send back relations if the API doesn't handle them.
         const updatePayload = {
             id: editedJob.id,
+            description: editedJob.description,   // job name
             status: editedJob.status,
             priority: editedJob.priority,
-            // Add other editable fields here if needed
         };
         onUpdate(updatePayload);
     };
@@ -264,6 +261,19 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             <div className="card mb-md">
                                 <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Job Details</h3>
                                 <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Job Name</label>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={editedJob.description || ''}
+                                            onChange={(e) => setEditedJob({ ...editedJob, description: e.target.value })}
+                                            placeholder="e.g., LG Double Door Bandra West"
+                                        />
+                                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
+                                            Brand · Sub-Type · Locality
+                                        </div>
+                                    </div>
                                     <div className="form-group">
                                         <label className="form-label">Product</label>
                                         <input
