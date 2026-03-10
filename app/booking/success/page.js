@@ -98,7 +98,7 @@ function SuccessContent() {
                                 </p>
                                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                     <button
-                                        onClick={() => router.push(`/signup?booking=${jobId}`)}
+                                        onClick={() => router.push(`/login?flow=signup&booking=${jobId}`)}
                                         className="btn btn-primary"
                                         style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 18px', fontSize: '13px' }}
                                     >

@@ -129,6 +129,8 @@ function LoginContent() {
     useEffect(() => {
         const p = searchParams.get('phone');
         if (p) setPhone(p.replace(/\D/g, '').slice(-10));
+        const f = searchParams.get('flow');
+        if (f === 'signup') setFlow('signup');
     }, [searchParams]);
 
     // Reset state when switching flows
