@@ -6,7 +6,7 @@ export const metadata = {
     title: 'Sorted Solutions - Expert Appliance Repair Services',
     description: 'Professional repair services for AC, Refrigerator, Washing Machine, RO, Oven, and more. On-time service with 90-day warranty.',
     icons: {
-        icon: '/logo-dark.jpg',
+        icon: '/favicon.ico',
         apple: '/logo-light.jpg',
     },
 }

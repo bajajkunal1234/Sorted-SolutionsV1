@@ -279,6 +279,11 @@ export default function WebsiteAnalytics() {
     const deviceSlices = (ga4?.deviceCategories || []).map((s, i) => ({ label: s.device, value: s.sessions, color: ['#8b5cf6', '#06b6d4', '#f59e0b'][i % 3] }))
     const userTypeSlices = (ga4?.userTypes || []).map((s, i) => ({ label: s.type, value: s.users, color: ['#10b981', '#6366f1'][i % 2] }))
 
+    // Booking status donut slices — derived from sb.bookings.byStatus
+    const statusSlices = Object.entries(sb?.bookings?.byStatus || {})
+        .filter(([, v]) => v > 0)
+        .map(([k, v]) => ({ label: k, value: v, color: STATUS_COLORS[k] || '#94a3b8' }))
+
     // Is this drawer for customers or bookings?
     const isCustomerDrawer = drawer?.type?.startsWith('customers')
 
