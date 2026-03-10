@@ -27,11 +27,7 @@ export async function GET(request) {
 
         let query = supabase
             .from('jobs')
-            .select(`
-                *,
-                customer:accounts(*),
-                technician:technicians(*)
-            `)
+            .select('*')   // customer_name is stored directly on jobs — no FK join needed
             .order('created_at', { ascending: false })
 
         if (status && status !== 'all') {
