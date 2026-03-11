@@ -159,6 +159,7 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
     const [customers, setCustomers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [groups, setGroups] = useState([]);
+    const [customerReceipts, setCustomerReceipts] = useState([]);
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
 
     // Receipt picker state
@@ -196,11 +197,42 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
         accountGroupsAPI.getAll().then(data => setGroups(data || [])).catch(() => {});
     }, [fetchCustomers]);
 
-    // Reset receipts when customer changes
-    const handleCustomerChange = (id) => {
-        setFormData(prev => ({ ...prev, customerId: id }));
+    // Load customer receipts when customer changes
+    const handleCustomerChange = async (id) => {
+        setFormData(prev => ({ ...prev, customerId: id, property: null }));
         setDepositReceipt(null);
         setAdvanceReceipt(null);
+        setCustomerReceipts([]);
+        if (!id) return;
+        try {
+            const data = await transactionsAPI.getAll({ type: 'receipt', account_id: id });
+            setCustomerReceipts(data || []);
+        } catch (err) {
+            console.error('Failed to load customer receipts:', err);
+        }
+    };
+
+    // Auto-link: find first unlinked receipt matching the amount for this customer
+    const autoLink = useCallback((amount, excludeId) => {
+        if (!amount || amount <= 0 || !customerReceipts.length) return null;
+        return customerReceipts.find(r =>
+            Number(r.amount) === Number(amount) &&
+            String(r.id) !== String(excludeId)
+        ) || null;
+    }, [customerReceipts]);
+
+    const handleDepositChange = (val) => {
+        const amount = parseInt(val) || 0;
+        setFormData(prev => ({ ...prev, depositAmount: amount }));
+        const match = autoLink(amount, advanceReceipt?.id);
+        setDepositReceipt(match);
+    };
+
+    const handleAdvanceChange = (val) => {
+        const amount = parseInt(val) || 0;
+        setFormData(prev => ({ ...prev, rentAdvance: amount }));
+        const match = autoLink(amount, depositReceipt?.id);
+        setAdvanceReceipt(match);
     };
 
     const customersGroupId = groups.find(g =>
@@ -210,10 +242,10 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
 
     const selectedPlan = plans.find(p => p.id === formData.planId);
 
-    // Amount matching checks
-    const depositOk = formData.depositAmount <= 0 || (depositReceipt && Number(depositReceipt.amount) === Number(formData.depositAmount));
-    const advanceOk = formData.rentAdvance <= 0 || (advanceReceipt && Number(advanceReceipt.amount) === Number(formData.rentAdvance));
-    const canSubmit = depositOk && advanceOk;
+    // Amount matching checks (informational only — not blocking)
+    const depositOk = formData.depositAmount <= 0 || !depositReceipt || Number(depositReceipt.amount) === Number(formData.depositAmount);
+    const advanceOk = formData.rentAdvance <= 0 || !advanceReceipt || Number(advanceReceipt.amount) === Number(formData.rentAdvance);
+    const canSubmit = true; // Receipt linking is optional
 
     const handleNewAccountSave = async (accountData) => {
         try {
@@ -302,10 +334,14 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                                 return (
                                     <div className="form-group">
                                         <label className="form-label">Delivery Property/Location</label>
-                                        <select className="form-select" value={formData.property?.id || ''}
-                                            onChange={e => update('property', props.find(p => p.id === e.target.value) || null)}>
+                                        <select className="form-select"
+                                            value={formData.property ? String(formData.property.id) : ''}
+                                            onChange={e => {
+                                                const found = props.find(p => String(p.id) === String(e.target.value));
+                                                setFormData(prev => ({ ...prev, property: found || null }));
+                                            }}>
                                             <option value="">Select property...</option>
-                                            {props.map(p => <option key={p.id} value={p.id}>{p.label || p.name || `Property ${p.id}`}</option>)}
+                                            {props.map(p => <option key={p.id} value={String(p.id)}>{p.label || p.name || p.address || `Property ${p.id}`}</option>)}
                                         </select>
                                     </div>
                                 );
@@ -363,7 +399,7 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                                 <label className="form-label">Security Deposit Collected (₹)</label>
                                 <div style={{ display: 'flex', gap: 8 }}>
                                     <input type="number" className="form-input" value={formData.depositAmount} min="0"
-                                        onChange={e => { update('depositAmount', parseInt(e.target.value) || 0); setDepositReceipt(null); }}
+                                        onChange={e => handleDepositChange(e.target.value)}
                                         placeholder="0" style={{ flex: 1 }} />
                                     {formData.depositAmount > 0 && formData.customerId && (
                                         <button type="button" className="btn btn-secondary"
@@ -384,8 +420,8 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                                         onUnlink={() => setDepositReceipt(null)} />
                                 )}
                                 {formData.depositAmount > 0 && !depositReceipt && (
-                                    <div style={{ fontSize: 12, color: '#6366f1', marginTop: 4 }}>
-                                        ⓘ Link a receipt voucher to enable the Create Rental button.
+                                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                                        ⓘ No matching receipt auto-linked. You can link one manually or skip.
                                     </div>
                                 )}
                             </div>
@@ -395,7 +431,7 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                                 <label className="form-label">Rent Advance Taken (₹)</label>
                                 <div style={{ display: 'flex', gap: 8 }}>
                                     <input type="number" className="form-input" value={formData.rentAdvance} min="0"
-                                        onChange={e => { update('rentAdvance', parseInt(e.target.value) || 0); setAdvanceReceipt(null); }}
+                                        onChange={e => handleAdvanceChange(e.target.value)}
                                         placeholder="0" style={{ flex: 1 }} />
                                     {formData.rentAdvance > 0 && formData.customerId && (
                                         <button type="button" className="btn btn-secondary"
@@ -416,8 +452,8 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                                         onUnlink={() => setAdvanceReceipt(null)} />
                                 )}
                                 {formData.rentAdvance > 0 && !advanceReceipt && (
-                                    <div style={{ fontSize: 12, color: '#6366f1', marginTop: 4 }}>
-                                        ⓘ Link a receipt voucher to enable the Create Rental button.
+                                    <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                                        ⓘ No matching receipt auto-linked. You can link one manually or skip.
                                     </div>
                                 )}
                             </div>
@@ -458,19 +494,7 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                         {/* Footer — always visible */}
                         <div className="modal-footer" style={{ flexShrink: 0 }}>
                             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                            {canSubmit ? (
-                                <button type="submit" className="btn btn-primary">Create Rental</button>
-                            ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text-secondary)' }}>
-                                    <AlertCircle size={15} color="#6366f1" />
-                                    {!formData.customerId ? 'Select a customer' :
-                                     !formData.selectedTenure ? 'Select a tenure' :
-                                     formData.depositAmount > 0 && !depositReceipt ? 'Link deposit receipt' :
-                                     formData.rentAdvance > 0 && !advanceReceipt ? 'Link advance receipt' :
-                                     !depositOk ? 'Deposit receipt amount mismatch' :
-                                     'Advance receipt amount mismatch'}
-                                </div>
-                            )}
+                            <button type="submit" className="btn btn-primary">Create Rental</button>
                         </div>
                     </form>
                 </div>
