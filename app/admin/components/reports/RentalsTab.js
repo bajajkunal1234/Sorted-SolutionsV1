@@ -361,7 +361,7 @@ function RentalsTab() {
                                         <button
                                             className="btn btn-secondary"
                                             style={{ flex: 1, padding: '6px', fontSize: 'var(--font-size-sm)' }}
-                                            onClick={() => setEditingPlan(plan)}
+                                            onClick={() => { setEditingPlan(plan); setShowPlanForm(true); }}
                                         >
                                             <Edit2 size={14} style={{ marginRight: '4px' }} />
                                             Edit
