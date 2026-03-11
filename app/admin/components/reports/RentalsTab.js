@@ -465,7 +465,9 @@ function RentalsTab() {
                             setLoading(true);
                             const payload = {
                                 customer_id: rentalData.customerId,
+                                customer_name: rentalData.customerName || '',
                                 plan_id: rentalData.planId,
+                                product_name: rentalData.productName || '',
                                 start_date: rentalData.startDate,
                                 end_date: rentalData.tenure?.endDate,
                                 monthly_rent: rentalData.monthlyRent,
@@ -474,6 +476,11 @@ function RentalsTab() {
                                 status: 'active',
                                 serial_number: rentalData.serialNumber,
                                 notes: rentalData.notes,
+                                deposit_paid: rentalData.depositPaid || false,
+                                deposit_amount: rentalData.depositAmount || 0,
+                                rent_advance: rentalData.rentAdvance || 0,
+                                deposit_receipt_id: rentalData.depositReceiptId || null,
+                                advance_receipt_id: rentalData.advanceReceiptId || null,
                                 tenure: {
                                     duration: rentalData.tenure?.duration,
                                     unit: rentalData.tenure?.unit
