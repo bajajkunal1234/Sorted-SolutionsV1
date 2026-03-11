@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare } from 'lucide-react';
+import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal } from 'lucide-react';
 import { accountsAPI, transactionsAPI, accountGroupsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
@@ -46,6 +46,26 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [txSortBy, setTxSortBy] = useState('date');
     const [txSortDir, setTxSortDir] = useState('desc');
     const [txGroupBy, setTxGroupBy] = useState('none');
+
+    // Column picker
+    const ACCOUNT_COLUMNS = [
+        { id: 'sku',             label: 'SKU',           align: 'left',   defaultOn: true  },
+        { id: 'type',            label: 'Type',          align: 'left',   defaultOn: true  },
+        { id: 'group',           label: 'Group',         align: 'left',   defaultOn: true  },
+        { id: 'opening_balance', label: 'Opening Bal',   align: 'right',  defaultOn: true  },
+        { id: 'closing_balance', label: 'Closing Bal',   align: 'right',  defaultOn: true  },
+        { id: 'jobs',            label: 'Jobs',          align: 'center', defaultOn: true  },
+        { id: 'mobile',          label: 'Mobile',        align: 'left',   defaultOn: false },
+        { id: 'email',           label: 'Email',         align: 'left',   defaultOn: false },
+        { id: 'gstin',           label: 'GSTIN',         align: 'left',   defaultOn: false },
+        { id: 'credit_limit',    label: 'Credit Limit',  align: 'right',  defaultOn: false },
+        { id: 'credit_period',   label: 'Credit Period', align: 'center', defaultOn: false },
+        { id: 'status',          label: 'Status',        align: 'center', defaultOn: false },
+        { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false },
+    ];
+    const [visibleColumns, setVisibleColumns] = useState(() => new Set(ACCOUNT_COLUMNS.filter(c => c.defaultOn).map(c => c.id)));
+    const [showColumnPicker, setShowColumnPicker] = useState(false);
+    const toggleColumn = (id) => setVisibleColumns(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
     // Multi-select state
     const [selectedItems, setSelectedItems] = useState(new Set());
@@ -326,20 +346,37 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     {viewType === 'card' && <AccountsCardView accounts={filteredLedgers} onAccountClick={setSelectedAccount} />}
                     {viewType === 'kanban' && <AccountsKanbanView accounts={filteredLedgers} onAccountClick={setSelectedAccount} onAccountUpdate={handleUpdateAccount} />}
                     {viewType === 'details' && <AccountsDetailsView accounts={filteredLedgers} onAccountClick={setSelectedAccount} />}
-                    {viewType === 'table' && (
+                    {viewType === 'table' && (() => {
+                        const activeCols = ACCOUNT_COLUMNS.filter(c => visibleColumns.has(c.id));
+                        const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || '—';
+                        const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
+                        const renderCell = (col, ledger) => {
+                            switch (col.id) {
+                                case 'sku':             return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || '—'}</td>;
+                                case 'type':            return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={tdBase}><span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)' }}>{ledger.type}</span></td>;
+                                case 'group':           return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{getGroupName(ledger.under)}</td>;
+                                case 'opening_balance': return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(ledger.opening_balance || ledger.openingBalance || 0)}</td>;
+                                case 'closing_balance': return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ledger.closing_balance || ledger.closingBalance || 0)}</td>;
+                                case 'jobs':            return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, textAlign: 'center' }}>{ledger.jobs_done || ledger.jobsDone || 0}</td>;
+                                case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || '—'}</td>;
+                                case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || '—'}</td>;
+                                case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || '—'}</td>;
+                                case 'credit_limit':    return <td key={col.id} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{ledger.credit_limit > 0 ? formatCurrency(ledger.credit_limit) : '—'}</td>;
+                                case 'credit_period':   return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.credit_period > 0 ? `${ledger.credit_period}d` : '—'}</td>;
+                                case 'status':          return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}><span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: ledger.status === 'active' ? '#10b98115' : '#ef444415', color: ledger.status === 'active' ? '#10b981' : '#ef4444', fontWeight: 600 }}>{ledger.status || 'active'}</span></td>;
+                                case 'balance_type':    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.balance_type?.toUpperCase() || '—'}</td>;
+                                default: return null;
+                            }
+                        };
+                        return (
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                     <th style={{ padding: 'var(--spacing-sm)', width: '40px' }}>
                                         <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(filteredLedgers)} />
                                     </th>
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>SKU</th>
                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Ledger Name</th>
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Type</th>
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Group</th>
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Opening Balance</th>
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Closing Balance</th>
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Jobs</th>
+                                    {activeCols.map(col => <th key={col.id} style={{ padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{col.label}</th>)}
                                     <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                                 </tr>
                             </thead>
@@ -353,15 +390,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                         <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                             <input type="checkbox" style={chkStyle} checked={selectedItems.has(ledger.id)} onChange={e => toggleItem(ledger.id, e)} onClick={e => e.stopPropagation()} />
                                         </td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', cursor: 'pointer' }}>{ledger.sku || '-'}</td>
                                         <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: 'pointer' }}>{ledger.name}</td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' }}>
-                                            <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', fontSize: 'var(--font-size-xs)' }}>{ledger.type}</span>
-                                        </td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', cursor: 'pointer' }}>{getGroupPath(ledger.under, groups)}</td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', cursor: 'pointer' }}>{formatCurrency(ledger.openingBalance || 0)}</td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, cursor: 'pointer' }}>{formatCurrency(ledger.closingBalance || 0)}</td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'center', cursor: 'pointer' }}>{ledger.jobsDone || 0}</td>
+                                        {activeCols.map(col => renderCell(col, ledger))}
                                         <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                 <button title="New Receipt" onClick={e => { e.stopPropagation(); setActiveTab('receipts'); setActiveForm('receipt-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }} style={{ background: '#10b98115', border: 'none', borderRadius: '4px', color: '#10b981', padding: '4px', cursor: 'pointer' }}>Rec</button>
@@ -370,10 +400,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredLedgers.length === 0 && <tr><td colSpan={9} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No accounts found.</td></tr>}
+                                {filteredLedgers.length === 0 && <tr><td colSpan={activeCols.length + 3} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No accounts found.</td></tr>}
                             </tbody>
                         </table>
-                    )}
+                        );
+                    })()}
                 </div>
             );
         }
@@ -514,6 +545,29 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                             <option value="jobs">Sort: Jobs</option>
                         </select>
                         <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
+                    </div>
+                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
+                    {/* Column Picker */}
+                    <div style={{ position: 'relative' }}>
+                        <button onClick={() => setShowColumnPicker(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showColumnPicker ? '#6366f1' : '#334155', color: showColumnPicker ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                            <SlidersHorizontal size={13} /> Columns
+                        </button>
+                        {showColumnPicker && (
+                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '180px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Toggle Columns</div>
+                                {ACCOUNT_COLUMNS.map(col => (
+                                    <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 14px', cursor: 'pointer', fontSize: 13 }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <input type="checkbox" checked={visibleColumns.has(col.id)} onChange={() => toggleColumn(col.id)}
+                                            style={{ accentColor: '#6366f1', width: 14, height: 14 }} />
+                                        {col.label}
+                                    </label>
+                                ))}
+                                <div style={{ borderTop: '1px solid var(--border-primary)', margin: '8px 0 4px' }} />
+                                <button onClick={() => setVisibleColumns(new Set(ACCOUNT_COLUMNS.filter(c => c.defaultOn).map(c => c.id)))} style={{ width: '100%', textAlign: 'left', padding: '5px 14px', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer' }}>Reset to defaults</button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
