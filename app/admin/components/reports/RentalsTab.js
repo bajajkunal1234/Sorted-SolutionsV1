@@ -448,7 +448,7 @@ function RentalsTab() {
                             setEditingPlan(null);
                         } catch (err) {
                             console.error('Failed to save rental plan:', err);
-                            alert('Failed to save rental plan. Please try again.');
+                            alert('Failed to save rental plan: ' + (err.message || 'Unknown error'));
                         } finally {
                             setLoading(false);
                         }
