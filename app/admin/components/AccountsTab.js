@@ -110,12 +110,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     }, [customerToOpen, ledgers, onCustomerOpened]);
 
     const tabConfig = {
-        accounts: { label: 'Accounts', searchPlaceholder: 'Search Ledgers...', createButtonText: '+ Create Account', formType: 'new-account' },
-        sales: { label: 'Sales', searchPlaceholder: 'Search Sales Invoices...', createButtonText: '+ Create Sales Invoice', formType: 'sales-invoice' },
-        purchases: { label: 'Purchases', searchPlaceholder: 'Search Purchase Invoices...', createButtonText: '+ Create Purchase Invoice', formType: 'purchase-invoice' },
-        quotations: { label: 'Quotations', searchPlaceholder: 'Search Quotations...', createButtonText: '+ Create Quotation', formType: 'quotation' },
-        receipts: { label: 'Receipts', searchPlaceholder: 'Search Receipts...', createButtonText: '+ Create Receipt Voucher', formType: 'receipt-voucher' },
-        payments: { label: 'Payments', searchPlaceholder: 'Search Payments...', createButtonText: '+ Create Payment Voucher', formType: 'payment-voucher' },
+        accounts: { label: 'Accounts', searchPlaceholder: 'Search Ledgers...', createButtonText: 'Create Account', formType: 'new-account' },
+        sales: { label: 'Sales', searchPlaceholder: 'Search Sales Invoices...', createButtonText: 'Create Sales Invoice', formType: 'sales-invoice' },
+        purchases: { label: 'Purchases', searchPlaceholder: 'Search Purchase Invoices...', createButtonText: 'Create Purchase Invoice', formType: 'purchase-invoice' },
+        quotations: { label: 'Quotations', searchPlaceholder: 'Search Quotations...', createButtonText: 'Create Quotation', formType: 'quotation' },
+        receipts: { label: 'Receipts', searchPlaceholder: 'Search Receipts...', createButtonText: 'Create Receipt Voucher', formType: 'receipt-voucher' },
+        payments: { label: 'Payments', searchPlaceholder: 'Search Payments...', createButtonText: 'Create Payment Voucher', formType: 'payment-voucher' },
     };
 
     const handleTabChange = (newTab) => {
