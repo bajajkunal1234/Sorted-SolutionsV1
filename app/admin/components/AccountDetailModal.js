@@ -89,7 +89,6 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     ] : [];
 
     const contactOnlyTabs = isContactAccount ? [
-        { id: 'reminders', label: 'Reminders', icon: Bell },
         { id: 'interactions', label: 'Interactions', icon: History },
     ] : [];
 
