@@ -20,7 +20,7 @@ export async function GET(request) {
         } else if (type === 'active') {
             let query = supabase
                 .from('active_rentals')
-                .select('*, rental_plans(product_name), accounts(name)')
+                .select('*, rental_plans(product_name)')  // only join rental_plans (has FK)
                 .order('created_at', { ascending: false })
 
             if (customerId) query = query.eq('customer_id', customerId)
@@ -28,6 +28,22 @@ export async function GET(request) {
 
             const { data, error } = await query
             if (error) throw error
+
+            // Enrich with account name if customer_id exists
+            if (data && data.length > 0) {
+                const customerIds = [...new Set(data.map(r => r.customer_id).filter(Boolean))]
+                if (customerIds.length > 0) {
+                    const { data: accounts } = await supabase
+                        .from('accounts')
+                        .select('id, name')
+                        .in('id', customerIds)
+                    const accountMap = Object.fromEntries((accounts || []).map(a => [a.id, a]))
+                    data.forEach(r => {
+                        r.accounts = accountMap[r.customer_id] || null
+                    })
+                }
+            }
+
             return NextResponse.json({ success: true, data })
         } else {
             return NextResponse.json({ success: false, error: 'Invalid type' }, { status: 400 })
