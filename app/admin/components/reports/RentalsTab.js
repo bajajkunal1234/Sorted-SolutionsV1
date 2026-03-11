@@ -485,7 +485,7 @@ function RentalsTab() {
                             setShowNewRentalForm(false);
                         } catch (err) {
                             console.error('Failed to save new rental:', err);
-                            alert('Failed to create rental agreement. Please try again.');
+                            alert('Failed to create rental agreement: ' + (err.message || JSON.stringify(err)));
                         } finally {
                             setLoading(false);
                         }
