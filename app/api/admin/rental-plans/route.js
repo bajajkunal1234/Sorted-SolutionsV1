@@ -10,11 +10,7 @@ export async function GET(request) {
 
         let query = supabase
             .from('rental_plans')
-            .select(`
-                *,
-                customer:customers(*),
-                product:products(*)
-            `)
+            .select('*')
             .order('created_at', { ascending: false })
 
         if (status) {
