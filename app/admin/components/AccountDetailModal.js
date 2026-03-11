@@ -75,6 +75,11 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     // Determine which tabs to show based on account type (with inheritance)
     const isCustomer = showField('properties');
 
+    // Contact accounts (customers, suppliers, technicians) get Reminders + Interactions
+    // Ledger accounts (cash, income, expense, duties-taxes) only get Details + Transactions
+    const CONTACT_GROUPS = ['customers', 'sundry-debtors', 'sundry-creditors', 'technicians', 'loans-advances-asset'];
+    const isContactAccount = isCustomer || CONTACT_GROUPS.includes(account.under);
+
     const baseTabs = [
         { id: 'details', label: 'Master Details', icon: User }
     ];
@@ -83,9 +88,12 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         { id: 'properties', label: 'Properties', icon: MapPin }
     ] : [];
 
-    const commonTabs = [
+    const contactOnlyTabs = isContactAccount ? [
         { id: 'reminders', label: 'Reminders', icon: Bell },
         { id: 'interactions', label: 'Interactions', icon: History },
+    ] : [];
+
+    const commonTabs = [
         { id: 'transactions', label: 'Transactions', icon: Receipt }
     ];
 
@@ -93,7 +101,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         { id: 'rentamc', label: 'Rent/AMC', icon: Package }
     ] : [];
 
-    const tabs = [...baseTabs, ...customerOnlyTabs, ...commonTabs, ...rentAmcTabs];
+    const tabs = [...baseTabs, ...customerOnlyTabs, ...contactOnlyTabs, ...commonTabs, ...rentAmcTabs];
 
     const groupPath = getGroupPath(account.under, groups);
     const isPositive = (account.closingBalance || 0) >= 0;
