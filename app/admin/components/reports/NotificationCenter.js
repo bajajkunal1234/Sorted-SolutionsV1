@@ -34,6 +34,10 @@ const JOB_EVENTS = [
     { id: 'appliance_created', label: 'Appliance Added', icon: '🔌' },
     { id: 'sales_invoice_created', label: 'Sales Invoice Created', icon: '🧾' },
     { id: 'quotation_sent', label: 'Quotation Sent', icon: '📄' },
+    // Rental events
+    { id: 'rental_contract_created', label: 'Rental Contract Created', icon: '📋' },
+    { id: 'rent_due_reminder', label: 'Rent Due Reminder', icon: '💰' },
+    { id: 'rental_contract_expiring', label: 'Rental Contract Expiring (30 days)', icon: '⏰' },
 ];
 
 const TEMPLATE_TYPES = [

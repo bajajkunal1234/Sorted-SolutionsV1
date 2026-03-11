@@ -1,51 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
-// Helper: compute reminder dates from a rental contract
-function buildReminders(rental) {
-    const reminders = []
-    const start = new Date(rental.start_date)
-    const end = rental.end_date ? new Date(rental.end_date) : null
-
-    // Rent due reminder — every month starting from start date
-    const firstRentDue = new Date(start)
-    firstRentDue.setMonth(firstRentDue.getMonth() + 1)
-    reminders.push({
-        rental_id: rental.id,
-        type: 'rent_due',
-        due_date: firstRentDue.toISOString().split('T')[0],
-        message: `Monthly rent due for rental #${rental.id}`,
-        status: 'pending',
-    })
-
-    // Contract expiry reminder — 30 days before end
-    if (end) {
-        const expiryReminder = new Date(end)
-        expiryReminder.setDate(expiryReminder.getDate() - 30)
-        if (expiryReminder > new Date()) {
-            reminders.push({
-                rental_id: rental.id,
-                type: 'contract_expiry',
-                due_date: expiryReminder.toISOString().split('T')[0],
-                message: `Rental contract ending in 30 days for rental #${rental.id}`,
-                status: 'pending',
-            })
-        }
-
-        // Contract end reminder — on end date
-        reminders.push({
-            rental_id: rental.id,
-            type: 'contract_end',
-            due_date: end.toISOString().split('T')[0],
-            message: `Rental contract ends today for rental #${rental.id}`,
-            status: 'pending',
-        })
-    }
-
-    return reminders
-}
-
-// GET - Fetch rentals or plans
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
@@ -98,17 +54,54 @@ export async function POST(request) {
 
         if (error) throw error
 
-        // Auto-create reminders when a new rental contract is created
+        // Fire notification trigger events so the Notification Center handles delivery
         if (type === 'rental' && data) {
-            const reminders = buildReminders(data)
-            if (reminders.length > 0) {
-                const { error: reminderError } = await supabase
-                    .from('rental_reminders')
-                    .insert(reminders)
+            const customerName = data.customer_name || `Customer #${data.customer_id}`
+            const productName = data.product_name || `Rental #${data.id}`
 
-                if (reminderError) {
-                    // Non-fatal — rental was created successfully, just log the reminder failure
-                    console.warn('Could not create rental reminders:', reminderError.message)
+            // 1. Immediately: rental contract created
+            logInteractionServer({
+                type: 'rental_contract_created',
+                category: 'rental',
+                jobId: String(data.id),
+                customerName,
+                description: `New rental contract created for ${productName} — ${customerName}`,
+                metadata: {
+                    rentalId: data.id,
+                    startDate: data.start_date,
+                    endDate: data.end_date,
+                    monthlyRent: data.monthly_rent,
+                },
+                source: 'Admin',
+            })
+
+            // 2. Schedule: rent due reminder (1 month from now)
+            const rentDueDate = new Date(data.start_date || new Date())
+            rentDueDate.setMonth(rentDueDate.getMonth() + 1)
+            logInteractionServer({
+                type: 'rent_due_reminder',
+                category: 'rental',
+                jobId: String(data.id),
+                customerName,
+                description: `Rent due on ${rentDueDate.toLocaleDateString('en-IN')} for ${productName}`,
+                metadata: { rentalId: data.id, dueDate: rentDueDate.toISOString().split('T')[0] },
+                source: 'System',
+            })
+
+            // 3. Schedule: contract expiry warning (30 days before end)
+            if (data.end_date) {
+                const expiryWarn = new Date(data.end_date)
+                expiryWarn.setDate(expiryWarn.getDate() - 30)
+                if (expiryWarn > new Date()) {
+                    logInteractionServer({
+                        type: 'rental_contract_expiring',
+                        category: 'rental',
+                        jobId: String(data.id),
+                        customerName,
+                        description: `Rental contract for ${productName} expires on ${data.end_date}`,
+                        metadata: { rentalId: data.id, endDate: data.end_date },
+                        source: 'System',
+                    })
                 }
             }
         }
