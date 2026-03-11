@@ -49,10 +49,18 @@ const PRIMARY_GROUPS = [
 
 async function seedGroupsIfEmpty() {
     try {
-        // Use upsert so existing databases always get new groups on next call
-        await supabase
+        // Only seed if sub-groups (e.g. cash-in-hand) don't exist yet
+        const { data: existing } = await supabase
             .from('account_groups')
-            .upsert(PRIMARY_GROUPS, { onConflict: 'id', ignoreDuplicates: true });
+            .select('id')
+            .eq('id', 'cash-in-hand')
+            .maybeSingle();
+
+        if (!existing) {
+            await supabase
+                .from('account_groups')
+                .upsert(PRIMARY_GROUPS, { onConflict: 'id', ignoreDuplicates: true });
+        }
     } catch (err) {
         console.error('Error seeding groups:', err);
     }
