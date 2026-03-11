@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw } from 'lucide-react';
-import { rentalsAPI } from '@/lib/adminAPI';
+import { rentalsAPI, transactionsAPI } from '@/lib/adminAPI';
 import RentalPlanForm from './RentalPlanForm';
 import NewRentalForm from './NewRentalForm';
 import CollectRentForm from './CollectRentForm';
@@ -515,45 +515,47 @@ function RentalsTab() {
                     onSave={async (paymentData) => {
                         try {
                             setLoading(true);
+                            const rental = selectedRentalForPayment;
 
-                            // 1. Calculate new next due date
-                            const currentDueDate = new Date(selectedRentalForPayment.next_rent_due_date || new Date());
+                            // 1. Calculate next due date
+                            const currentDueDate = new Date(rental.next_rent_due_date || rental.start_date || new Date());
                             const nextDueDate = new Date(currentDueDate);
                             nextDueDate.setMonth(nextDueDate.getMonth() + 1);
 
-                            // 2. Prepare transaction payload
-                            const transactionPayload = {
-                                type: 'receipt',
-                                date: paymentData.paymentDate,
-                                account_id: selectedRentalForPayment.customer_id,
-                                amount: paymentData.amount,
-                                description: `Rent payment for ${selectedRentalForPayment.productName} (SN: ${selectedRentalForPayment.serial_number})`,
-                                reference: paymentData.transactionRef,
-                                payment_method: paymentData.paymentMethod,
-                                notes: paymentData.notes
-                            };
+                            // 2. Create receipt voucher OR link existing one
+                            let receiptId = paymentData.linkedReceiptId || null;
+
+                            if (!paymentData.useExistingReceipt || !receiptId) {
+                                // Create a new receipt voucher in accounts
+                                const productName = rental.product_name || rental.productName || 'Rental';
+                                const receipt = await transactionsAPI.create({
+                                    type: 'receipt',
+                                    date: paymentData.paymentDate || new Date().toISOString().split('T')[0],
+                                    account_id: rental.customer_id,
+                                    account_name: rental.customer_name,
+                                    amount: paymentData.amount,
+                                    description: `Rent payment for ${productName}${rental.serial_number ? ` (SN: ${rental.serial_number})` : ''}`,
+                                    reference: paymentData.transactionRef || null,
+                                    payment_method: paymentData.paymentMethod || 'cash',
+                                    notes: paymentData.notes || null,
+                                });
+                                receiptId = receipt?.id || null;
+                            }
 
                             // 3. Update active_rental record
-                            const rentalUpdates = {
-                                rents_paid: (selectedRentalForPayment.rents_paid || 0) + 1,
-                                rents_remaining: Math.max(0, (selectedRentalForPayment.rents_remaining || 0) - 1),
-                                next_rent_due_date: nextDueDate.toISOString().split('T')[0]
-                            };
-
-                            // 4. Perform updates
-                            await Promise.all([
-                                rentalsAPI.updateActive(selectedRentalForPayment.id, rentalUpdates),
-                                // We don't have a direct "add transaction" in rentalsAPI, but we can use transactionsAPI if available
-                                // Actually, let's just update the rental for now as the transactions API might need more specific account mapping
-                                // rentalsAPI.createTransaction(transactionPayload) 
-                            ]);
+                            await rentalsAPI.updateActive(rental.id, {
+                                rents_paid: (rental.rents_paid || 0) + 1,
+                                rents_remaining: Math.max(0, (rental.rents_remaining || 0) - 1),
+                                next_rent_due_date: nextDueDate.toISOString().split('T')[0],
+                                ...(receiptId ? { last_receipt_id: String(receiptId) } : {}),
+                            });
 
                             await fetchData();
                             setShowCollectRentForm(false);
                             setSelectedRentalForPayment(null);
                         } catch (err) {
                             console.error('Failed to collect rent:', err);
-                            alert('Failed to process payment. Please try again.');
+                            alert('Failed to process payment: ' + (err.message || err));
                         } finally {
                             setLoading(false);
                         }
