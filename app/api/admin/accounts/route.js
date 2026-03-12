@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +82,17 @@ export async function POST(request) {
                 status: 'available'
             }, { onConflict: 'ledger_id' });
         }
+
+        // Global logging
+        logInteractionServer({
+            type: 'account-created',
+            category: 'account',
+            customerId: data.id,
+            customerName: data.name,
+            performedByName: 'Admin', // Would come from auth context in a real app
+            description: `Admin created a new ${body.type} account named ${body.name}`,
+            source: 'Admin App'
+        });
 
         return NextResponse.json({ success: true, data })
     } catch (error) {

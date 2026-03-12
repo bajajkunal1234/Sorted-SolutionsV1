@@ -125,6 +125,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         }
     };
 
+    const handleMapClick = () => {
+        // Log the interaction when the technician clicks the navigation link
+        handleAddNote({
+            description: `Technician started navigation to customer location`,
+            category: 'update',
+            attachments: []
+        });
+    };
+
     return (
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -218,6 +227,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                             {editedJob.locality && <span>, {editedJob.locality}</span>}
                                             <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(editedJob.address)}`} 
                                                target="_blank" rel="noreferrer"
+                                               onClick={handleMapClick}
                                                style={{ display: 'block', marginTop: '4px', color: '#3b82f6', fontSize: '12px', textDecoration: 'none' }}>
                                                 Open in Maps
                                             </a>

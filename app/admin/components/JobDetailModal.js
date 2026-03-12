@@ -23,12 +23,16 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             if (!job?.id) return;
             try {
                 setLoading(true);
-                const [freshJob, techRes] = await Promise.all([
+                const [freshJob, techRes, intRes] = await Promise.all([
                     jobsAPI.getById(job.id),
-                    fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] }))
+                    fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] })),
+                    fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] }))
                 ]);
                 if (freshJob) {
-                    setEditedJob(freshJob);
+                    setEditedJob({
+                        ...freshJob,
+                        interactions: intRes?.data || []
+                    });
                 }
                 if (techRes?.success && Array.isArray(techRes.data)) {
                     setTechnicians(techRes.data);
@@ -130,8 +134,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 type: 'note-added',
                 category: note.category || 'communication',
                 description: note.description,
-                user_name: 'Admin', // In real app, get from auth context
-                attachments: note.attachments
+                performed_by_name: 'Admin', // In real app, get from auth context
+                attachments: note.attachments,
+                timestamp: new Date().toISOString()
             };
 
             const createdInteraction = await interactionsAPI.create(payload);

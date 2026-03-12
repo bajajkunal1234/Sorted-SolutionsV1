@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
             .from('interactions')
             .select('*')
             .eq('job_id', jobId)
-            .order('created_at', { ascending: false });
+            .order('timestamp', { ascending: false });
 
         if (error) throw error;
 
@@ -44,9 +44,10 @@ export async function POST(request, { params }) {
             type: body.type || 'note-added',
             category: body.category || 'communication',
             description: body.description,
-            user_name: body.user_name || 'Technician',
+            performed_by_name: body.user_name || 'Technician',
             source: 'Technician App',
-            metadata: body.metadata || {}
+            metadata: body.metadata || {},
+            timestamp: new Date().toISOString()
         };
 
         const { data, error } = await supabase
