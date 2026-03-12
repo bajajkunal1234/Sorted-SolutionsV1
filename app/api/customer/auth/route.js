@@ -134,12 +134,13 @@ export async function POST(request) {
 
         // ── 2. LOGIN ──────────────────────────────────────────────────────────
         if (action === 'login') {
-            const { phone, password } = body
-            if (!phone || !password) return NextResponse.json({ error: 'Phone and password required' }, { status: 400 })
+            const { phone, identifier, password } = body
+            const raw = (identifier || phone || '').trim()
+            if (!raw || !password) return NextResponse.json({ error: 'Phone and password are required' }, { status: 400 })
 
-            const last10 = phone.replace(/\D/g, '').slice(-10)
+            const last10 = raw.replace(/\D/g, '').slice(-10)
 
-            // ── Check technicians FIRST (technicians take priority over customers) ──
+            // ── Check technicians FIRST by phone ──
             const { data: technician } = await supabase
                 .from('technicians')
                 .select('*')
@@ -155,13 +156,8 @@ export async function POST(request) {
 
                 if (techValid) {
                     const { password_hash, ...safeTech } = technician
-                    return NextResponse.json({
-                        success: true,
-                        user: { ...safeTech, role: 'technician' },
-                        message: 'Login successful'
-                    })
+                    return NextResponse.json({ success: true, user: { ...safeTech, role: 'technician' }, message: 'Login successful' })
                 }
-                // Wrong password for technician — return specific error
                 return NextResponse.json({ error: 'Incorrect password. Try again.' }, { status: 401 })
             }
 
@@ -173,31 +169,16 @@ export async function POST(request) {
                 .limit(1)
                 .maybeSingle()
 
-            if (!customer) {
-                return NextResponse.json({ error: 'No account found with this number. Please sign up.' }, { status: 404 })
-            }
-
-            if (!customer.password_hash) {
-                return NextResponse.json({ error: 'This account was created via OTP. Use OTP to login or reset your password first.' }, { status: 400 })
-            }
+            if (!customer) return NextResponse.json({ error: 'No account found with this number. Please sign up.' }, { status: 404 })
+            if (!customer.password_hash) return NextResponse.json({ error: 'This account was created via OTP. Use OTP to login or reset your password first.' }, { status: 400 })
 
             const isValid = await bcrypt.compare(password, customer.password_hash)
-            if (!isValid) {
-                return NextResponse.json({ error: 'Incorrect password. Try again or use Forgot Password.' }, { status: 401 })
-            }
+            if (!isValid) return NextResponse.json({ error: 'Incorrect password. Try again or use Forgot Password.' }, { status: 401 })
 
-            logInteractionServer({
-                type: 'customer-login',
-                category: 'account',
-                customerId: String(customer.id),
-                customerName: customer.name || customer.phone,
-                description: `Customer logged in via mobile+password`,
-                source: 'Customer App',
-            })
+            logInteractionServer({ type: 'customer-login', category: 'account', customerId: String(customer.id), customerName: customer.name || customer.phone, description: 'Customer logged in via mobile+password', source: 'Customer App' })
 
             const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
             const role = adminPhones.includes(last10) ? 'admin' : 'customer'
-
             const { password_hash, ...safeUser } = customer
             return NextResponse.json({ success: true, user: { ...safeUser, role }, message: 'Login successful' })
         }

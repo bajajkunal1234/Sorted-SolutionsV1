@@ -19,7 +19,6 @@ function TechnicianManagement() {
 
     const [formData, setFormData] = useState({
         technician_id: '',
-        username: '',
         password: '',
         confirmPassword: '',
         is_active: true,
@@ -76,37 +75,11 @@ function TechnicianManagement() {
 
     const validateForm = () => {
         const newErrors = {};
-
-        if (!formData.technician_id) {
-            newErrors.technician_id = 'Please select a technician account';
-        }
-
-        if (!formData.username || formData.username.length < 3) {
-            newErrors.username = 'Username must be at least 3 characters';
-        } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
-            newErrors.username = 'Username can only contain letters, numbers, and underscores';
-        } else {
-            // Check if username is already taken by another technician
-            const isTaken = technicians.some(t =>
-                t.username?.toLowerCase() === formData.username.toLowerCase() &&
-                (!editingTechnician || t.id !== editingTechnician.id)
-            );
-            if (isTaken) {
-                newErrors.username = 'This username is already taken';
-            }
-        }
-
-        // Password validation (only required for new technicians or if changing password)
+        if (!formData.technician_id) newErrors.technician_id = 'Please select a technician account';
         if (!editingTechnician || formData.password) {
-            if (!formData.password || formData.password.length < 8) {
-                newErrors.password = 'Password must be at least 8 characters';
-            }
-
-            if (formData.password !== formData.confirmPassword) {
-                newErrors.confirmPassword = 'Passwords do not match';
-            }
+            if (!formData.password || formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+            if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
         }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -116,39 +89,26 @@ function TechnicianManagement() {
 
         try {
             setSaving(true);
-            const updateData = {
-                username: formData.username,
-                is_active: formData.is_active
-            };
-
-            // Only include password if it's provided
-            if (formData.password) {
-                updateData.password = formData.password;
-            }
+            const updateData = { is_active: formData.is_active };
+            if (formData.password) updateData.password = formData.password;
 
             let techId = formData.technician_id;
-
-            // Check if this is a new setup from a ledger account
             const isNewSetup = !technicians.some(t => t.id === techId);
 
             if (isNewSetup) {
                 const selectedAccount = technicianAccounts.find(a => a.id === techId);
-
-                if (!selectedAccount) {
-                    throw new Error('Selected technician account not found');
-                }
-
+                if (!selectedAccount) throw new Error('Selected technician account not found');
+                const phone = selectedAccount.mobile || selectedAccount.phone || '';
                 const createData = {
                     ...updateData,
                     name: selectedAccount.name,
-                    phone: selectedAccount.mobile || selectedAccount.phone || '',
+                    phone,
+                    username: phone, // use phone as username for DB compatibility
                     ledger_id: selectedAccount.id
                 };
                 const result = await techniciansAPI.create(createData);
-                // techniciansAPI.create returns the created object directly via apiFetch
                 techId = result.id;
             } else {
-                // Save Credentials for existing technician
                 await techniciansAPI.update(techId, updateData);
             }
 
@@ -183,7 +143,6 @@ function TechnicianManagement() {
         setEditingTechnician(tech);
         setFormData({
             technician_id: tech.id,
-            username: tech.username || '',
             password: '',
             confirmPassword: '',
             is_active: tech.is_active !== false,
@@ -217,7 +176,6 @@ function TechnicianManagement() {
         setEditingTechnician(null);
         setFormData({
             technician_id: '',
-            username: '',
             password: '',
             confirmPassword: '',
             is_active: true,
@@ -283,8 +241,7 @@ function TechnicianManagement() {
                     <thead>
                         <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', fontWeight: 600 }}>Name</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', fontWeight: 600 }}>Phone</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', fontWeight: 600 }}>Username</th>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', fontWeight: 600 }}>Phone (Login)</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', fontWeight: 600 }}>Status</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontWeight: 600 }}>Actions</th>
                         </tr>
@@ -300,23 +257,7 @@ function TechnicianManagement() {
                             technicians.map(tech => (
                                 <tr key={tech.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                     <td style={{ padding: 'var(--spacing-md)' }}>{tech.name}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>{tech.phone}</td>
-                                    <td style={{ padding: 'var(--spacing-md)' }}>
-                                        {tech.username ? (
-                                            <span style={{
-                                                fontFamily: 'monospace',
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                padding: '2px 8px',
-                                                borderRadius: 'var(--radius-sm)'
-                                            }}>
-                                                {tech.username}
-                                            </span>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
-                                                Not set
-                                            </span>
-                                        )}
-                                    </td>
+                                    <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{tech.phone || '—'}</td>
                                     <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
                                         <span style={{
                                             display: 'inline-flex',
@@ -446,9 +387,9 @@ function TechnicianManagement() {
                                                             ))}
                                                     </optgroup>
                                                     <optgroup label="Existing Technician Profiles">
-                                                        {technicians.map(tech => (
+                                                         {technicians.map(tech => (
                                                             <option key={tech.id} value={tech.id}>
-                                                                {tech.name} - {tech.username}
+                                                                {tech.name} - {tech.phone}
                                                             </option>
                                                         ))}
                                                     </optgroup>
@@ -462,21 +403,9 @@ function TechnicianManagement() {
                                         )}
                                     </div>
 
-                                    {/* Username */}
-                                    <div className="form-group">
-                                        <label className="form-label">Username *</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="e.g., john_tech"
-                                            value={formData.username}
-                                            onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
-                                        />
-                                        {errors.username && (
-                                            <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
-                                                {errors.username}
-                                            </span>
-                                        )}
+                                    {/* Login info note */}
+                                    <div style={{ padding: '10px 14px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
+                                        📱 Technician logs in using their <strong>mobile number</strong> + password
                                     </div>
 
                                     {/* Password */}
