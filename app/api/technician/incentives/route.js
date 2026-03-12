@@ -22,11 +22,11 @@ export async function GET(request) {
         // Fetch completed jobs for the technician in the given month
         const { data: jobs, error } = await supabase
             .from('jobs')
-            .select('id, amount, status, completed_at')
-            .eq('assigned_to', technicianId)
+            .select('id, amount, status, updated_at')
+            .eq('technician_id', technicianId)
             .eq('status', 'completed')
-            .gte('completed_at', startDate)
-            .lte('completed_at', endDate)
+            .gte('updated_at', startDate)
+            .lte('updated_at', endDate)
 
         if (error) {
             console.error('Error fetching incentives data:', error)

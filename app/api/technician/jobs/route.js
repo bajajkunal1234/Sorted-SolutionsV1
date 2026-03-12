@@ -19,13 +19,10 @@ export async function GET(request) {
             .from('jobs')
             .select(`
                 *,
-                customer:customers(id, name, mobile, email),
-                product:products(id, name, category),
-                brand:brands(id, name),
-                issue:issues(id, title, category),
+                customer:accounts(*),
                 assigned_technician:technicians(id, name, phone)
             `)
-            .eq('assigned_to', technicianId)
+            .eq('technician_id', technicianId)
             .order('created_at', { ascending: false })
 
         // Filter by status if provided
@@ -69,34 +66,37 @@ export async function GET(request) {
 
         const transformedJobs = jobs.map(job => {
             const propData = resolveProperty(job.property);
+            const customerObj = job.customer || {};
+            
             return {
                 id: job.id,
-                customerId: job.customer?.id,
-                customerName: job.customer?.name,
-                mobile: job.customer?.mobile,
-                email: job.customer?.email,
-                address: propData.address,
-                locality: propData.locality,
-                city: propData.city,
+                customerId: job.customer_id,
+                customerName: job.customer_name || customerObj.name,
+                mobile: customerObj.phone || customerObj.mobile,
+                email: customerObj.email,
+                address: propData.address || job.description,
+                locality: propData.locality || '',
+                city: propData.city || '',
                 location: {
                     lat: propData.latitude,
                     lng: propData.longitude
                 },
                 product: {
-                    type: job.product?.category,
-                    name: job.product?.name,
-                    brand: job.brand?.name,
-                    warranty: job.warranty_status
+                    type: job.category || '',
+                    name: job.appliance || job.subcategory || '',
+                    brand: job.brand || '',
+                    model: job.model || '',
+                    warranty: job.warranty_status || 'Out of Warranty'
                 },
-                defect: job.issue?.title,
-                issueCategory: job.issue?.category,
-                priority: job.priority,
-                status: job.status,
-                stage: job.stage,
-                assignedTo: job.assigned_to,
-                assignedAt: job.assigned_at,
-                dueDate: job.due_date,
-                confirmedVisitTime: job.confirmed_visit_time,
+                defect: job.issue || '',
+                issueCategory: job.category || '',
+                priority: job.priority || 'normal',
+                status: job.status || 'open',
+                stage: job.stage || job.status || 'pending',
+                assignedTo: job.technician_id,
+                assignedAt: job.created_at, // Map to createdAt if missing
+                dueDate: job.scheduled_date || job.due_date,
+                confirmedVisitTime: job.scheduled_time || job.confirmed_visit_time,
                 startedAt: job.started_at,
                 completedAt: job.completed_at,
                 createdAt: job.created_at,
