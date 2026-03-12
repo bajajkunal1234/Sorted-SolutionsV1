@@ -26,8 +26,11 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
             try {
                 setLoadingCustomers(true);
                 const data = await accountsAPI.getAll();
-                // Filter customers (assuming type or group indicates customer)
-                const customerList = data.filter(acc => acc.group_name === 'Sundry Debtors' || acc.type === 'customer');
+                // Filter by known customer group IDs (acc.under is the group ID string)
+                const CUSTOMER_GROUPS = ['customers', 'sundry-debtors', 'technicians'];
+                let customerList = data.filter(acc => CUSTOMER_GROUPS.includes(acc.under));
+                // Fallback: if no accounts match the exact group IDs, show all accounts
+                if (customerList.length === 0) customerList = data;
                 setCustomers(customerList);
             } catch (err) {
                 console.error('Failed to fetch customers:', err);
