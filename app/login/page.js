@@ -253,7 +253,14 @@ function LoginContent() {
         if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
         // Check if already registered
         const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
-        if (check.exists) { setError('An account already exists with this number. Please log in.'); return; }
+        if (check.exists) {
+            if (check.isTechnician) {
+                setError('This number is registered as a technician account. Please log in using your technician credentials.');
+            } else {
+                setError('An account already exists with this number. Please log in.');
+            }
+            return;
+        }
         await sendOtp();
     };
 

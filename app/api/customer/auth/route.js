@@ -11,12 +11,26 @@ export async function GET(request) {
         if (!phone) return NextResponse.json({ error: 'phone required' }, { status: 400 })
 
         const last10 = phone.replace(/\D/g, '').slice(-10)
+
+        // Check technicians first — technician phones should never be allowed to sign up as customers
+        const { data: techData } = await supabase
+            .from('technicians')
+            .select('id')
+            .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+            .limit(1)
+            .maybeSingle()
+
+        if (techData) {
+            // Treat as "exists" so signup flow blocks this number
+            return NextResponse.json({ exists: true, isTechnician: true })
+        }
+
         const { data } = await supabase
             .from('customers')
             .select('id, name, phone')
             .or(`phone.eq.${last10},phone.eq.+91${last10}`)
             .limit(1)
-            .single()
+            .maybeSingle()
 
         return NextResponse.json({ exists: !!data, hasPassword: !!(data && data.password_hash !== undefined) })
     } catch {
@@ -37,13 +51,25 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
-            // Check not already registered
+            // Block technician phones from creating customer accounts
+            const { data: existingTech } = await supabase
+                .from('technicians')
+                .select('id')
+                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .limit(1)
+                .maybeSingle()
+
+            if (existingTech) {
+                return NextResponse.json({ error: 'This number is already registered as a technician account. Please use the technician login portal.' }, { status: 409 })
+            }
+
+            // Check not already registered as customer
             const { data: existing } = await supabase
                 .from('customers')
                 .select('id')
                 .or(`phone.eq.${last10},phone.eq.+91${last10}`)
                 .limit(1)
-                .single()
+                .maybeSingle()
 
             if (existing) {
                 return NextResponse.json({ error: 'An account with this number already exists. Please log in.' }, { status: 409 })
@@ -113,12 +139,39 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
+            // ── Check technicians FIRST (technicians take priority over customers) ──
+            const { data: technician } = await supabase
+                .from('technicians')
+                .select('*')
+                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .eq('is_active', true)
+                .limit(1)
+                .maybeSingle()
+
+            if (technician && technician.password_hash) {
+                const techValid = technician.password_hash.startsWith('$2')
+                    ? await bcrypt.compare(password, technician.password_hash)
+                    : technician.password_hash === password
+
+                if (techValid) {
+                    const { password_hash, ...safeTech } = technician
+                    return NextResponse.json({
+                        success: true,
+                        user: { ...safeTech, role: 'technician' },
+                        message: 'Login successful'
+                    })
+                }
+                // Wrong password for technician — return specific error
+                return NextResponse.json({ error: 'Incorrect password. Try again.' }, { status: 401 })
+            }
+
+            // ── Fall through to customer lookup ──
             const { data: customer } = await supabase
                 .from('customers')
                 .select('*')
                 .or(`phone.eq.${last10},phone.eq.+91${last10}`)
                 .limit(1)
-                .single()
+                .maybeSingle()
 
             if (!customer) {
                 return NextResponse.json({ error: 'No account found with this number. Please sign up.' }, { status: 404 })
