@@ -1,518 +1,293 @@
-'use client'
+'use client';
 
-import { useState } from 'react';
-import { X, Phone, MapPin, Clock, AlertCircle, CheckCircle, Wrench, Package, DollarSign, Camera, MessageSquare } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle } from 'lucide-react';
+import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 
 export default function JobDetailView({ job, onClose, onJobUpdate }) {
-    const [activeWorkflowStep, setActiveWorkflowStep] = useState(null);
+    const [activeTab, setActiveTab] = useState('details');
+    const [editedJob, setEditedJob] = useState(job);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [confirmedTime, setConfirmedTime] = useState('');
-    const [completionNotes, setCompletionNotes] = useState('');
-    const [resolution, setResolution] = useState('');
-    const [finalAmount, setFinalAmount] = useState('');
+
+    // Fetch fresh job and interactions on mount
+    useEffect(() => {
+        const fetchFreshData = async () => {
+            if (!job?.id) return;
+            try {
+                // Fetch fresh job
+                const jobRes = await fetch(`/api/technician/jobs/${job.id}`);
+                const jobData = await jobRes.json();
+                
+                // Fetch interactions
+                const intRes = await fetch(`/api/technician/jobs/${job.id}/interactions`);
+                const intData = await intRes.json();
+                
+                if (jobData.success) {
+                    setEditedJob({
+                        ...jobData.job,
+                        interactions: intData.data || []
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to load fresh job details', err);
+            }
+        };
+        fetchFreshData();
+    }, [job?.id]);
 
     if (!job) return null;
 
-    // Workflow action handlers
-    const handleConfirmVisit = async () => {
-        if (!confirmedTime) {
-            setError('Please select a visit time');
-            return;
-        }
+    const tabs = [
+        { id: 'details', label: 'Details', icon: FileText },
+        { id: 'interactions', label: 'Timeline', icon: Clock },
+        { id: 'actions', label: 'Actions', icon: CheckSquare }
+    ];
 
+    const handleSaveStatus = async (newStatus) => {
+        if (!newStatus || newStatus === editedJob.status) return;
         setLoading(true);
         setError(null);
-
         try {
-            const response = await fetch(`/api/technician/jobs/${job.id}/confirm-visit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ confirmedVisitTime: confirmedTime })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to confirm visit');
-            }
-
-            // Update parent component
-            if (onJobUpdate) {
-                onJobUpdate(data.job);
-            }
-
-            setActiveWorkflowStep(null);
-            alert('Visit confirmed successfully!');
-        } catch (err) {
-            console.error('Error confirming visit:', err);
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleStartJob = async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            const response = await fetch(`/api/technician/jobs/${job.id}/start-job`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to start job');
-            }
-
-            // Update parent component
-            if (onJobUpdate) {
-                onJobUpdate(data.job);
-            }
-
-            setActiveWorkflowStep(null);
-            alert('Job started successfully!');
-        } catch (err) {
-            console.error('Error starting job:', err);
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleCompleteJob = async () => {
-        setLoading(true);
-        setError(null);
-
-        try {
-            const response = await fetch(`/api/technician/jobs/${job.id}/complete-job`, {
-                method: 'POST',
+            const response = await fetch(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    notes: completionNotes,
-                    resolution: resolution,
-                    amount: parseFloat(finalAmount) || 0
+                    status: newStatus,
+                    updated_by_name: editedJob.assigned_technician?.name || 'Technician',
+                    _changeLog: [`Status changed: ${editedJob.status} → ${newStatus}`]
                 })
             });
 
             const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to update status');
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to complete job');
-            }
-
-            // Update parent component
-            if (onJobUpdate) {
-                onJobUpdate(data.job);
-            }
-
-            setActiveWorkflowStep(null);
-            alert('Job completed successfully!');
+            setEditedJob(prev => ({ ...prev, status: newStatus }));
+            if (onJobUpdate) onJobUpdate(data.job);
+            alert('Status updated successfully!');
         } catch (err) {
-            console.error('Error completing job:', err);
             setError(err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const getStatusColor = (status) => {
-        const colors = {
-            'open': '#f59e0b',
-            'confirmed': '#3b82f6',
-            'in-progress': '#8b5cf6',
-            'completed': '#10b981',
-            'cancelled': '#ef4444'
-        };
-        return colors[status] || '#6b7280';
-    };
+    const handleAddNote = async (note) => {
+        try {
+            const payload = {
+                type: 'note-added',
+                category: note.category || 'communication',
+                description: note.description,
+                user_name: editedJob.assigned_technician?.name || 'Technician',
+                customer_id: editedJob.customerId,
+                attachments: note.attachments
+            };
 
-    const getPriorityColor = (priority) => {
-        const colors = {
-            'urgent': '#ef4444',
-            'high': '#f59e0b',
-            'normal': '#3b82f6',
-            'low': '#6b7280'
-        };
-        return colors[priority] || '#6b7280';
+            const res = await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                setEditedJob(prev => ({
+                    ...prev,
+                    interactions: [data.data, ...(prev.interactions || [])]
+                }));
+            }
+        } catch (err) {
+            alert('Failed to save note');
+        }
     };
 
     return (
         <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'flex-end',
-            animation: 'fadeIn 0.2s ease-out'
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000,
+            display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.2s ease-out'
         }}>
             <div style={{
-                backgroundColor: 'var(--bg-primary)',
-                width: '100%',
-                maxHeight: '90vh',
-                borderTopLeftRadius: 'var(--radius-xl)',
-                borderTopRightRadius: 'var(--radius-xl)',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                animation: 'slideUp 0.3s ease-out'
+                backgroundColor: 'var(--bg-primary)', width: '100%', height: '90vh',
+                borderTopLeftRadius: 'var(--radius-xl)', borderTopRightRadius: 'var(--radius-xl)',
+                display: 'flex', flexDirection: 'column', animation: 'slideUp 0.3s ease-out',
+                overflow: 'hidden'
             }}>
                 {/* Header */}
                 <div style={{
-                    padding: 'var(--spacing-md)',
-                    borderBottom: '1px solid var(--border-primary)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    backgroundColor: 'var(--bg-elevated)'
+                    padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    backgroundColor: 'var(--bg-elevated)', flexShrink: 0
                 }}>
                     <div>
                         <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, marginBottom: '4px' }}>
-                            {job.customerName}
+                            {editedJob.customerName || 'Customer'}
                         </h2>
                         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                            {job.id}
+                            Job #: {editedJob.job_number || editedJob.id.split('-')[0]} 
+                            <span style={{ margin: '0 8px' }}>•</span>
+                            <span style={{
+                                color: editedJob.status === 'completed' ? '#10b981' : 
+                                       editedJob.status === 'cancelled' ? '#ef4444' : '#f59e0b',
+                                fontWeight: 600, textTransform: 'uppercase'
+                            }}>{editedJob.status}</span>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        style={{
-                            padding: 'var(--spacing-xs)',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--text-secondary)',
-                            borderRadius: 'var(--radius-md)'
-                        }}
-                    >
+                    <button onClick={onClose} style={{
+                        padding: 'var(--spacing-xs)', backgroundColor: 'transparent',
+                        border: 'none', cursor: 'pointer', color: 'var(--text-secondary)'
+                    }}>
                         <X size={24} />
                     </button>
                 </div>
 
-                {/* Error Message */}
-                {error && (
-                    <div style={{
-                        padding: 'var(--spacing-sm)',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        margin: 'var(--spacing-md)',
-                        borderRadius: 'var(--radius-md)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 'var(--spacing-xs)',
-                        color: '#ef4444'
-                    }}>
-                        <AlertCircle size={18} />
-                        <span style={{ fontSize: 'var(--font-size-sm)' }}>{error}</span>
-                    </div>
-                )}
+                {/* Tabs */}
+                <div style={{
+                    display: 'flex', gap: 'var(--spacing-sm)', padding: 'var(--spacing-md)',
+                    borderBottom: '1px solid var(--border-primary)', overflowX: 'auto', flexShrink: 0
+                }}>
+                    {tabs.map(tab => {
+                        const Icon = tab.icon;
+                        const isActive = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '8px 16px', fontSize: '14px', fontWeight: 500,
+                                    border: 'none', borderRadius: '20px', cursor: 'pointer',
+                                    transition: 'all 0.2s ease', flexShrink: 0,
+                                    backgroundColor: isActive ? '#3b82f6' : 'var(--bg-secondary)',
+                                    color: isActive ? '#fff' : 'var(--text-primary)',
+                                }}
+                            >
+                                <Icon size={16} />
+                                {tab.label}
+                            </button>
+                        );
+                    })}
+                </div>
 
-                {/* Content */}
-                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                    {/* Status & Priority Badges */}
-                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-md)' }}>
-                        <span style={{
-                            padding: '4px 12px',
-                            backgroundColor: getStatusColor(job.status) + '20',
-                            color: getStatusColor(job.status),
-                            borderRadius: 'var(--radius-full)',
-                            fontSize: 'var(--font-size-xs)',
-                            fontWeight: 600,
-                            textTransform: 'uppercase'
-                        }}>
-                            {job.status}
-                        </span>
-                        <span style={{
-                            padding: '4px 12px',
-                            backgroundColor: getPriorityColor(job.priority) + '20',
-                            color: getPriorityColor(job.priority),
-                            borderRadius: 'var(--radius-full)',
-                            fontSize: 'var(--font-size-xs)',
-                            fontWeight: 600,
-                            textTransform: 'uppercase'
-                        }}>
-                            {job.priority}
-                        </span>
-                    </div>
-
-                    {/* Customer Info */}
-                    <div style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        padding: 'var(--spacing-md)',
-                        borderRadius: 'var(--radius-lg)',
-                        marginBottom: 'var(--spacing-md)'
-                    }}>
-                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                            Customer Details
-                        </h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                <Phone size={16} style={{ color: 'var(--text-secondary)' }} />
-                                <a href={`tel:${job.mobile}`} style={{ color: '#3b82f6', textDecoration: 'none' }}>
-                                    {job.mobile}
-                                </a>
-                            </div>
-                            <div style={{ display: 'flex', alignItems: 'start', gap: 'var(--spacing-xs)' }}>
-                                <MapPin size={16} style={{ color: 'var(--text-secondary)', marginTop: '2px' }} />
-                                <div style={{ flex: 1, fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                    {job.address}
-                                    {job.locality && <div>{job.locality}, {job.city}</div>}
-                                </div>
-                            </div>
+                {/* Content Area */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)' }}>
+                    {error && (
+                        <div style={{ padding: '12px', backgroundColor: '#fee2e2', color: '#ef4444', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertCircle size={18} /> {error}
                         </div>
-                    </div>
+                    )}
 
-                    {/* Product Info */}
-                    <div style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        padding: 'var(--spacing-md)',
-                        borderRadius: 'var(--radius-lg)',
-                        marginBottom: 'var(--spacing-md)'
-                    }}>
-                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                            Product Details
-                        </h3>
-                        <div style={{ fontSize: 'var(--font-size-sm)' }}>
-                            <div style={{ marginBottom: 'var(--spacing-xs)' }}>
-                                <strong>{job.product?.type}</strong> - {job.product?.brand}
-                            </div>
-                            {job.product?.name && (
-                                <div style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xs)' }}>
-                                    {job.product.name}
-                                </div>
-                            )}
-                            {job.product?.warranty && (
-                                <div style={{
-                                    display: 'inline-block',
-                                    padding: '2px 8px',
-                                    backgroundColor: job.product.warranty === 'in-warranty' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                    color: job.product.warranty === 'in-warranty' ? '#10b981' : '#ef4444',
-                                    borderRadius: 'var(--radius-md)',
-                                    fontSize: 'var(--font-size-xs)',
-                                    fontWeight: 600
-                                }}>
-                                    {job.product.warranty === 'in-warranty' ? 'In Warranty' : 'Out of Warranty'}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Issue Details */}
-                    <div style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        padding: 'var(--spacing-md)',
-                        borderRadius: 'var(--radius-lg)',
-                        marginBottom: 'var(--spacing-md)'
-                    }}>
-                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                            Issue
-                        </h3>
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                            {job.defect}
-                        </div>
-                        {job.issueDescription && (
-                            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', marginTop: 'var(--spacing-xs)' }}>
-                                {job.issueDescription}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Workflow Actions */}
-                    <div style={{
-                        backgroundColor: 'var(--bg-elevated)',
-                        padding: 'var(--spacing-md)',
-                        borderRadius: 'var(--radius-lg)',
-                        marginBottom: 'var(--spacing-md)'
-                    }}>
-                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                            Actions
-                        </h3>
-
-                        {/* Confirm Visit */}
-                        {job.status === 'open' && (
-                            <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                {activeWorkflowStep === 'confirm-visit' ? (
-                                    <div style={{
-                                        padding: 'var(--spacing-sm)',
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        borderRadius: 'var(--radius-md)'
-                                    }}>
-                                        <label style={{
-                                            display: 'block',
-                                            fontSize: 'var(--font-size-sm)',
-                                            fontWeight: 600,
-                                            marginBottom: 'var(--spacing-xs)'
-                                        }}>
-                                            Confirm Visit Time
-                                        </label>
-                                        <input
-                                            type="datetime-local"
-                                            value={confirmedTime}
-                                            onChange={(e) => setConfirmedTime(e.target.value)}
-                                            className="form-input"
-                                            style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
-                                        />
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                            <button
-                                                onClick={handleConfirmVisit}
-                                                disabled={loading}
-                                                className="btn btn-primary"
-                                                style={{ flex: 1 }}
-                                            >
-                                                {loading ? 'Confirming...' : 'Confirm'}
-                                            </button>
-                                            <button
-                                                onClick={() => setActiveWorkflowStep(null)}
-                                                className="btn btn-secondary"
-                                            >
-                                                Cancel
-                                            </button>
+                    {activeTab === 'details' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            {/* Customer Card */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Customer Info</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Phone size={16} color="var(--text-secondary)" />
+                                        <a href={`tel:${editedJob.mobile}`} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                        <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px' }} />
+                                        <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.4 }}>
+                                            {editedJob.address}
+                                            {editedJob.locality && <span>, {editedJob.locality}</span>}
+                                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(editedJob.address)}`} 
+                                               target="_blank" rel="noreferrer"
+                                               style={{ display: 'block', marginTop: '4px', color: '#3b82f6', fontSize: '12px', textDecoration: 'none' }}>
+                                                Open in Maps
+                                            </a>
                                         </div>
                                     </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setActiveWorkflowStep('confirm-visit')}
-                                        className="btn btn-primary"
-                                        style={{ width: '100%' }}
-                                    >
-                                        <Clock size={18} style={{ marginRight: 'var(--spacing-xs)' }} />
-                                        Confirm Visit
-                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Appliance Card */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Appliance Details</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                    <div>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Category</div>
+                                        <div style={{ fontWeight: 500 }}>{editedJob.product?.type || editedJob.issueCategory || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Brand</div>
+                                        <div style={{ fontWeight: 500 }}>{editedJob.product?.brand || 'N/A'}</div>
+                                    </div>
+                                    {editedJob.product?.name && (
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Model / Item</div>
+                                            <div style={{ fontWeight: 500 }}>{editedJob.product.name}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Issue Card */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Issue Reported</h3>
+                                <div style={{ fontWeight: 500, fontSize: '15px' }}>{editedJob.defect || 'General Service'}</div>
+                                {editedJob.notes && (
+                                    <div style={{ marginTop: '8px', padding: '10px', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                        {editedJob.notes}
+                                    </div>
                                 )}
                             </div>
-                        )}
+                        </div>
+                    )}
 
-                        {/* Start Job */}
-                        {(job.status === 'confirmed' || job.status === 'open') && (
-                            <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                <button
-                                    onClick={handleStartJob}
+                    {activeTab === 'interactions' && (
+                        <div className="card" style={{ minHeight: '100%', boxSizing: 'border-box' }}>
+                             {/* Re-use the Admin interactions tab component, it's perfect for this */}
+                             <JobInteractionsTab 
+                                jobId={editedJob.id}
+                                jobReference={editedJob.job_number}
+                                interactions={editedJob.interactions || []}
+                                onAddNote={handleAddNote}
+                                onUpdate={() => {}} // Not strictly needed, local state updates handle it
+                             />
+                        </div>
+                    )}
+
+                    {activeTab === 'actions' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Activity size={18} color="#3b82f6" /> Job Status
+                                </h3>
+                                
+                                <select 
+                                    className="form-select" 
+                                    value={editedJob.status}
+                                    onChange={(e) => handleSaveStatus(e.target.value)}
                                     disabled={loading}
-                                    className="btn btn-primary"
-                                    style={{ width: '100%' }}
+                                    style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
                                 >
-                                    <Wrench size={18} style={{ marginRight: 'var(--spacing-xs)' }} />
-                                    {loading ? 'Starting...' : 'Start Job'}
-                                </button>
+                                    <option value="assigned">Assigned / Open</option>
+                                    <option value="in-progress">In Progress</option>
+                                    <option value="spare-part-needed">Spare Part Needed</option>
+                                    <option value="quotation-sent">Quotation Sent</option>
+                                    <option value="completed">Completed</option>
+                                    <option value="cancelled">Cancelled</option>
+                                </select>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
                             </div>
-                        )}
 
-                        {/* Complete Job */}
-                        {job.status === 'in-progress' && (
-                            <div style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                {activeWorkflowStep === 'complete-job' ? (
-                                    <div style={{
-                                        padding: 'var(--spacing-sm)',
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        borderRadius: 'var(--radius-md)'
-                                    }}>
-                                        <label style={{
-                                            display: 'block',
-                                            fontSize: 'var(--font-size-sm)',
-                                            fontWeight: 600,
-                                            marginBottom: 'var(--spacing-xs)'
-                                        }}>
-                                            Resolution
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={resolution}
-                                            onChange={(e) => setResolution(e.target.value)}
-                                            placeholder="e.g., Replaced compressor"
-                                            className="form-input"
-                                            style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
-                                        />
-                                        <label style={{
-                                            display: 'block',
-                                            fontSize: 'var(--font-size-sm)',
-                                            fontWeight: 600,
-                                            marginBottom: 'var(--spacing-xs)'
-                                        }}>
-                                            Notes (Optional)
-                                        </label>
-                                        <label style={{
-                                            display: 'block',
-                                            fontSize: 'var(--font-size-sm)',
-                                            fontWeight: 600,
-                                            marginBottom: 'var(--spacing-xs)'
-                                        }}>
-                                            Final Job Amount (₹)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={finalAmount}
-                                            onChange={(e) => setFinalAmount(e.target.value)}
-                                            placeholder="0.00"
-                                            className="form-input"
-                                            style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
-                                        />
-                                        <textarea
-                                            value={completionNotes}
-                                            onChange={(e) => setCompletionNotes(e.target.value)}
-                                            placeholder="Additional notes..."
-                                            className="form-input"
-                                            rows={3}
-                                            style={{ width: '100%', marginBottom: 'var(--spacing-sm)' }}
-                                        />
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                            <button
-                                                onClick={handleCompleteJob}
-                                                disabled={loading}
-                                                className="btn btn-primary"
-                                                style={{ flex: 1 }}
-                                            >
-                                                {loading ? 'Completing...' : 'Complete Job'}
-                                            </button>
-                                            <button
-                                                onClick={() => setActiveWorkflowStep(null)}
-                                                className="btn btn-secondary"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <button
-                                        onClick={() => setActiveWorkflowStep('complete-job')}
-                                        className="btn btn-primary"
-                                        style={{ width: '100%', backgroundColor: '#10b981' }}
-                                    >
-                                        <CheckCircle size={18} style={{ marginRight: 'var(--spacing-xs)' }} />
-                                        Complete Job
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <FilePlus size={18} color="#10b981" /> Documents & Billing
+                                </h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => alert('Quotation module coming soon!')}>
+                                        <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation
                                     </button>
-                                )}
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => alert('Sales Voucher module coming soon!')}>
+                                        <CheckCircle size={18} style={{ marginRight: '8px' }} /> Create Sales Voucher
+                                    </button>
+                                </div>
                             </div>
-                        )}
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--spacing-sm)' }}>
-                        <a
-                            href={`tel:${job.mobile}`}
-                            className="btn btn-secondary"
-                            style={{ textAlign: 'center', textDecoration: 'none' }}
-                        >
-                            <Phone size={18} style={{ marginRight: 'var(--spacing-xs)' }} />
-                            Call
-                        </a>
-                        <a
-                            href={`https://www.google.com/maps/search/?api=1&query=${job.location?.lat},${job.location?.lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn btn-secondary"
-                            style={{ textAlign: 'center', textDecoration: 'none' }}
-                        >
-                            <MapPin size={18} style={{ marginRight: 'var(--spacing-xs)' }} />
-                            Navigate
-                        </a>
-                    </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
