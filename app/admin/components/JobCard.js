@@ -52,7 +52,7 @@ function JobCard({ job, onClick }) {
                 <div className="job-card-info">
                     <div className="job-card-info-item">
                         <MapPin size={14} />
-                        <span>{locality || 'No location'}</span>
+                        <span>{bd.customer?.address?.locality || locality || 'No location'}</span>
                     </div>
                     {(day || slot) && (
                         <div className="job-card-info-item">
