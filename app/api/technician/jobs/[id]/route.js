@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export async function GET(request, { params }) {
     try {
@@ -8,11 +9,8 @@ export async function GET(request, { params }) {
             .from('jobs')
             .select(`
                 *,
-                customer:customers(id, name, mobile, email),
-                product:products(id, name, category),
-                brand:brands(id, name),
-                issue:issues(id, title, category, description),
-                assigned_technician:technicians(id, name, mobile)
+                customer:accounts(*),
+                assigned_technician:technicians(id, name, phone)
             `)
             .eq('id', id)
             .single()
@@ -26,46 +24,80 @@ export async function GET(request, { params }) {
         }
 
         // job.property is a JSONB blob stored on the job row
-        const prop = job.property || {};
-        const propAddress = prop.address && typeof prop.address === 'object'
-            ? { address: prop.address.line1 || '', locality: prop.address.locality || '', city: prop.address.city || '' }
-            : { address: typeof prop.address === 'string' ? prop.address : '', locality: prop.locality || '', city: prop.city || '' };
+        const resolveProperty = (prop) => {
+            if (!prop) return {};
+            if (prop.address && typeof prop.address === 'object') {
+                return {
+                    address: prop.address.line1 || '',
+                    locality: prop.address.locality || '',
+                    city: prop.address.city || '',
+                    latitude: prop.latitude || null,
+                    longitude: prop.longitude || null,
+                };
+            }
+            return {
+                address: typeof prop.address === 'string' ? prop.address : '',
+                locality: prop.locality || '',
+                city: prop.city || '',
+                latitude: prop.latitude || null,
+                longitude: prop.longitude || null,
+            };
+        };
+
+        const propData = resolveProperty(job.property);
+        const customerObj = job.customer || {};
+
+        // Also resolve notes if it originated as a booking request
+        let bookingData = {};
+        if (typeof job.notes === 'string' && job.notes.startsWith('{')) {
+            try { bookingData = JSON.parse(job.notes); } catch (e) { }
+        }
+        
+        const displayPhone = customerObj.phone || customerObj.mobile || bookingData.customer?.phone || job.customer_phone || 'N/A';
+        const rawAddr = bookingData.customer?.address || {};
+        const bookingAddr = rawAddr.locality ? `${rawAddr.apartment || ''}, ${rawAddr.street || ''}, ${rawAddr.locality}, ${rawAddr.city}`.replace(/^, /, '') : null;
+        
+        const jobAddress = propData.address ? 
+            `${propData.address}, ${propData.locality || ''}` : 
+            (bookingAddr || 'No address');
 
         // Transform data
         const transformedJob = {
             id: job.id,
-            customerId: job.customer?.id,
-            customerName: job.customer?.name,
-            mobile: job.customer?.mobile,
-            email: job.customer?.email,
-            address: propAddress.address,
-            locality: propAddress.locality,
-            city: propAddress.city,
+            job_number: job.job_number,
+            customerId: job.customer_id,
+            customerName: job.customer_name || customerObj.name,
+            mobile: displayPhone,
+            email: customerObj.email,
+            address: jobAddress,
+            locality: propData.locality || '',
+            city: propData.city || '',
             location: {
-                lat: prop.latitude || null,
-                lng: prop.longitude || null
+                lat: propData.latitude,
+                lng: propData.longitude
             },
             product: {
-                type: job.product?.category,
-                name: job.product?.name,
-                brand: job.brand?.name,
-                warranty: job.warranty_status
+                type: job.category || '',
+                name: job.appliance || job.subcategory || '',
+                brand: job.brand || '',
+                model: job.model || '',
+                warranty: job.warranty_status || 'Out of Warranty'
             },
-            defect: job.issue?.title,
-            issueDescription: job.issue?.description,
-            issueCategory: job.issue?.category,
-            priority: job.priority,
-            status: job.status,
-            stage: job.stage,
-            assignedTo: job.assigned_to,
-            assignedAt: job.assigned_at,
-            dueDate: job.due_date,
-            confirmedVisitTime: job.confirmed_visit_time,
+            defect: job.issue || '',
+            issueCategory: job.category || '',
+            priority: job.priority || 'normal',
+            status: job.status || 'open',
+            stage: job.stage || job.status || 'pending',
+            assignedTo: job.technician_id,
+            assignedAt: job.created_at, // mapped
+            dueDate: job.scheduled_date || job.due_date,
+            confirmedVisitTime: job.scheduled_time || job.confirmed_visit_time,
             startedAt: job.started_at,
             completedAt: job.completed_at,
             createdAt: job.created_at,
-            notes: job.notes,
-            internalNotes: job.internal_notes
+            notes: typeof job.notes === 'string' && !job.notes.startsWith('{') ? job.notes : job.description_notes,
+            internalNotes: job.internal_notes,
+             _raw_property: job.property
         }
 
         return NextResponse.json({
@@ -82,17 +114,27 @@ export async function GET(request, { params }) {
     }
 }
 
-export async function PATCH(request, { params }) {
+export async function PUT(request, { params }) {
     try {
-        const { id } = params
-        const updates = await request.json()
-        // Update job
+        const { id } = params;
+        const body = await request.json();
+        
+        // Extract _changeLog metadata for logging, and exclude it from DB updates
+        const { _changeLog, updated_by_name, ...updates } = body;
+
+        // Ensure we capture pre-update state for logging status lifecycle
+        const { data: existing } = await supabase
+            .from('jobs')
+            .select('status, customer_id, customer_name, job_number, technician_id, technician_name')
+            .eq('id', id)
+            .single();
+
         const { data: job, error } = await supabase
             .from('jobs')
             .update(updates)
             .eq('id', id)
             .select()
-            .single()
+            .single();
 
         if (error) {
             console.error('Error updating job:', error)
@@ -102,17 +144,64 @@ export async function PATCH(request, { params }) {
             )
         }
 
+        // --- INTERACTION LOGGING ---
+        const customerId = existing?.customer_id ? String(existing.customer_id) : null;
+        const customerName = existing?.customer_name || null;
+        const jobRef = existing?.job_number || id;
+        const techName = updated_by_name || existing?.technician_name || 'Technician';
+
+        // 1. Log explicit UI changes
+        if (Array.isArray(_changeLog) && _changeLog.length > 0) {
+            const changesWithoutStatus = _changeLog.filter(c => !c.toLowerCase().includes('status changed'));
+            
+            if (changesWithoutStatus.length > 0) {
+                logInteractionServer({
+                    type: 'job-edited',
+                    category: 'job',
+                    jobId: String(id),
+                    customerId,
+                    customerName,
+                    performedByName: techName,
+                    description: `Job updated: ${changesWithoutStatus.join('; ')}`,
+                    source: 'Technician App'
+                });
+            }
+        }
+
+        // 2. Log major status milestones (like Admin routing)
+        if (updates.status && existing && updates.status !== existing.status) {
+            const statusMap = {
+                'in-progress': { type: 'job-started', desc: `Job marked in-progress` },
+                'completed': { type: 'job-completed', desc: `Job marked completed` },
+                'cancelled': { type: 'job-cancelled', desc: `Job cancelled` }
+            };
+
+            const logMsg = statusMap[updates.status];
+            if (logMsg) {
+                logInteractionServer({
+                    type: logMsg.type,
+                    category: 'job',
+                    jobId: String(id),
+                    customerId,
+                    customerName,
+                    performedByName: techName,
+                    description: logMsg.desc,
+                    source: 'Technician App'
+                });
+            }
+        }
+
         return NextResponse.json({
             success: true,
             job,
             message: 'Job updated successfully'
-        })
+        });
 
     } catch (error) {
         console.error('Error in job update API:', error)
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
-        )
+        );
     }
 }
