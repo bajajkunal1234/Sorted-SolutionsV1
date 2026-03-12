@@ -56,8 +56,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const jobTitle = editedJob.description || editedJob.job_number || 'Job Details';
 
     // Parse notes if it's a booking request to get temp address/phone
+    // Note: Even if status is no longer 'booking_request', we still need to parse 
+    // original booking details from notes if they exist.
     let bookingData = {};
-    if (editedJob.status === 'booking_request' && editedJob.notes) {
+    if (typeof editedJob.notes === 'string' && editedJob.notes.startsWith('{')) {
         try {
             bookingData = JSON.parse(editedJob.notes);
         } catch (e) { }
@@ -216,7 +218,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     transition: 'all 0.2s ease',
                                     backgroundColor: isActive ? '#10b981' : 'var(--bg-secondary)',
                                     color: isActive ? '#ffffff' : 'var(--text-primary)',
-                                    whiteSpace: 'nowrap'
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0
                                 }}
                             >
                                 <Icon size={16} />
