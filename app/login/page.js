@@ -10,15 +10,21 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function saveSession(user, persist) {
     const session = JSON.stringify({ ...user, token: 'sorted-auth-v2' });
-    if (persist) {
-        localStorage.setItem('user_session', session);
-        localStorage.setItem('customerData', session);
-        localStorage.setItem('customerId', user.id);
-        if (user.role === 'admin') localStorage.setItem('isAdmin', 'true');
+    const storage = persist ? localStorage : sessionStorage;
+
+    storage.setItem('user_session', session);
+
+    if (user.role === 'admin') {
+        storage.setItem('isAdmin', 'true');
+    }
+
+    if (user.role === 'technician') {
+        const techSession = JSON.stringify({ technicianId: user.id });
+        storage.setItem('technicianSession', techSession);
+        storage.setItem('technicianData', JSON.stringify(user));
     } else {
-        sessionStorage.setItem('user_session', session);
-        sessionStorage.setItem('customerData', session);
-        sessionStorage.setItem('customerId', user.id);
+        storage.setItem('customerData', session);
+        storage.setItem('customerId', user.id);
     }
 }
 
