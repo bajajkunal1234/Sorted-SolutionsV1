@@ -18,6 +18,137 @@ import {
 } from '@/lib/utils/accountHelpers';
 import { validateMobileNumber, validateEmail, validateGSTIN, validatePAN, validateIFSC } from '@/lib/utils/validation';
 
+// ─── Mumbai locality → pincode mapping ─────────────────────────────────────
+const MUMBAI_LOCALITIES = [
+    { name: 'Aarey Colony', pincode: '400065' },
+    { name: 'Airoli', pincode: '400708' },
+    { name: 'Andheri East', pincode: '400069' },
+    { name: 'Andheri West', pincode: '400058' },
+    { name: 'Antop Hill', pincode: '400037' },
+    { name: 'Bandra East', pincode: '400051' },
+    { name: 'Bandra West', pincode: '400050' },
+    { name: 'BKC / Bandra Kurla Complex', pincode: '400051' },
+    { name: 'Borivali East', pincode: '400066' },
+    { name: 'Borivali West', pincode: '400092' },
+    { name: 'Breach Candy', pincode: '400026' },
+    { name: 'Bhandup East', pincode: '400042' },
+    { name: 'Bhandup West', pincode: '400078' },
+    { name: 'Bhendi Bazar', pincode: '400003' },
+    { name: 'Byculla', pincode: '400027' },
+    { name: 'Chakala', pincode: '400059' },
+    { name: 'Chandivali', pincode: '400072' },
+    { name: 'Charni Road', pincode: '400004' },
+    { name: 'Chembur', pincode: '400071' },
+    { name: 'Chembur Colony', pincode: '400074' },
+    { name: 'Chinchpokli', pincode: '400012' },
+    { name: 'Churchgate', pincode: '400020' },
+    { name: 'Chunabhatti', pincode: '400022' },
+    { name: 'Colaba', pincode: '400005' },
+    { name: 'Cotton Green', pincode: '400033' },
+    { name: 'Crawford Market', pincode: '400001' },
+    { name: 'CST / Fort', pincode: '400001' },
+    { name: 'Cuffe Parade', pincode: '400005' },
+    { name: 'Cumballa Hill', pincode: '400026' },
+    { name: 'Currey Road', pincode: '400012' },
+    { name: 'Dahisar East', pincode: '400068' },
+    { name: 'Dahisar West', pincode: '400068' },
+    { name: 'Dadar East', pincode: '400014' },
+    { name: 'Dadar West', pincode: '400028' },
+    { name: 'Dharavi', pincode: '400017' },
+    { name: 'Diva', pincode: '400612' },
+    { name: 'Dockyard Road', pincode: '400010' },
+    { name: 'Dongri', pincode: '400009' },
+    { name: 'Film City', pincode: '400065' },
+    { name: 'Ghansoli', pincode: '400701' },
+    { name: 'Ghatkopar East', pincode: '400077' },
+    { name: 'Ghatkopar West', pincode: '400086' },
+    { name: 'Goregaon East', pincode: '400063' },
+    { name: 'Goregaon West', pincode: '400062' },
+    { name: 'Govandi', pincode: '400043' },
+    { name: 'Grant Road', pincode: '400007' },
+    { name: 'GTB Nagar', pincode: '400037' },
+    { name: 'Hiranandani Gardens', pincode: '400076' },
+    { name: 'Infinity Mall Malad', pincode: '400064' },
+    { name: 'Jogeshwari East', pincode: '400060' },
+    { name: 'Jogeshwari West', pincode: '400102' },
+    { name: 'Juhu', pincode: '400049' },
+    { name: 'Kalina', pincode: '400098' },
+    { name: 'Kalwa', pincode: '400605' },
+    { name: 'Kandivali East', pincode: '400101' },
+    { name: 'Kandivali West', pincode: '400067' },
+    { name: 'Kanjurmarg East', pincode: '400042' },
+    { name: 'Kanjurmarg West', pincode: '400078' },
+    { name: 'Kemps Corner', pincode: '400036' },
+    { name: 'Khar East', pincode: '400052' },
+    { name: 'Khar West', pincode: '400052' },
+    { name: 'King Circle / Matunga', pincode: '400019' },
+    { name: 'Koparkhairane', pincode: '400709' },
+    { name: 'Kopri', pincode: '400603' },
+    { name: 'Kurla East', pincode: '400024' },
+    { name: 'Kurla West', pincode: '400070' },
+    { name: 'Lalbaug', pincode: '400012' },
+    { name: 'Lokhandwala', pincode: '400053' },
+    { name: 'Lower Parel', pincode: '400013' },
+    { name: 'Mahim', pincode: '400016' },
+    { name: 'Mahalaxmi', pincode: '400011' },
+    { name: 'Malabar Hill', pincode: '400006' },
+    { name: 'Malad East', pincode: '400097' },
+    { name: 'Malad West', pincode: '400064' },
+    { name: 'Mankhurd', pincode: '400088' },
+    { name: 'Marine Lines', pincode: '400002' },
+    { name: 'Marol', pincode: '400059' },
+    { name: 'Masjid', pincode: '400009' },
+    { name: 'Matunga', pincode: '400019' },
+    { name: 'Matunga Road', pincode: '400016' },
+    { name: 'Mazgaon', pincode: '400010' },
+    { name: 'MIDC Andheri', pincode: '400093' },
+    { name: 'Mira Road', pincode: '401107' },
+    { name: 'Mulund East', pincode: '400081' },
+    { name: 'Mulund West', pincode: '400080' },
+    { name: 'Mumbai Central', pincode: '400008' },
+    { name: 'Mumbra', pincode: '400612' },
+    { name: 'Nagpada', pincode: '400008' },
+    { name: 'Nana Chowk', pincode: '400007' },
+    { name: 'Nariman Point', pincode: '400021' },
+    { name: 'Nahur', pincode: '400078' },
+    { name: 'Naupada', pincode: '400602' },
+    { name: 'Oshiwara', pincode: '400102' },
+    { name: 'Parel', pincode: '400012' },
+    { name: 'Powai', pincode: '400076' },
+    { name: 'Prabhadevi', pincode: '400025' },
+    { name: 'Prabhadevi East', pincode: '400025' },
+    { name: 'Rabale', pincode: '400701' },
+    { name: 'Reay Road', pincode: '400010' },
+    { name: 'Sakinaka', pincode: '400072' },
+    { name: 'Sandhurst Road', pincode: '400009' },
+    { name: 'Sanpada', pincode: '400705' },
+    { name: 'Santacruz East', pincode: '400055' },
+    { name: 'Santacruz West', pincode: '400054' },
+    { name: 'SEEPZ', pincode: '400096' },
+    { name: 'Sewri', pincode: '400015' },
+    { name: 'Sion', pincode: '400022' },
+    { name: 'Sion Koliwada', pincode: '400037' },
+    { name: 'Tardeo', pincode: '400034' },
+    { name: 'Thane East', pincode: '400603' },
+    { name: 'Thane West', pincode: '400601' },
+    { name: 'Tilak Nagar', pincode: '400089' },
+    { name: 'Turbhe', pincode: '400705' },
+    { name: 'Vakola', pincode: '400055' },
+    { name: 'Vashi', pincode: '400703' },
+    { name: 'Versova', pincode: '400061' },
+    { name: 'Vidyavihar', pincode: '400077' },
+    { name: 'Vikhroli East', pincode: '400079' },
+    { name: 'Vikhroli West', pincode: '400083' },
+    { name: 'Vile Parle East', pincode: '400057' },
+    { name: 'Vile Parle West', pincode: '400056' },
+    { name: 'Wadala', pincode: '400037' },
+    { name: 'Wadi Bunder', pincode: '400009' },
+    { name: 'Wagle Estate', pincode: '400604' },
+    { name: 'Walkeshwar', pincode: '400006' },
+    { name: 'Worli', pincode: '400018' },
+    { name: 'Worli Sea Face', pincode: '400030' },
+];
+
 function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], onGroupCreated, initialData = null }) {
     // Common fields
     const [formData, setFormData] = useState({
@@ -97,7 +228,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     // Customer Properties (for Sundry Debtors/Creditors)
     const [properties, setProperties] = useState(initialData?.properties?.length > 0
         ? initialData.properties
-        : [{ id: Date.now(), name: '', address: '', contactPerson: '', contactPhone: '' }]);
+        : [{ id: Date.now(), name: '', address: '', locality: '', pincode: '', contactPerson: '', contactPhone: '' }]);
 
     // Form dirty state tracking
     const [isFormDirty, setIsFormDirty] = useState(false);
@@ -194,7 +325,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
     // Property management functions
     const addProperty = () => {
-        setProperties([...properties, { id: Date.now(), name: '', address: '', contactPerson: '', contactPhone: '' }]);
+        setProperties([...properties, { id: Date.now(), name: '', address: '', locality: '', pincode: '', contactPerson: '', contactPhone: '' }]);
     };
 
     const deleteProperty = (index) => {
@@ -206,6 +337,16 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     const updateProperty = (index, field, value) => {
         const updated = [...properties];
         updated[index][field] = value;
+        setProperties(updated);
+    };
+
+    const handlePropertyLocalityChange = (index, localityName) => {
+        const found = MUMBAI_LOCALITIES.find(l => l.name === localityName);
+        const updated = [...properties];
+        updated[index].locality = localityName;
+        if (found) {
+            updated[index].pincode = found.pincode;
+        }
         setProperties(updated);
     };
 
@@ -842,15 +983,43 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         </div>
                                                     </div>
 
-                                                    <div className="form-group" style={{ marginBottom: 0 }}>
-                                                        <label className="form-label">Property Address</label>
+                                                    <div className="form-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                                        <label className="form-label">Street Address / Building</label>
                                                         <textarea
                                                             className="form-input"
                                                             value={property.address}
                                                             onChange={(e) => updateProperty(index, 'address', e.target.value)}
                                                             rows="2"
-                                                            placeholder="Enter full property address"
+                                                            placeholder="e.g. Flat 4B, Tower C, Sunrise Residency"
                                                         />
+                                                    </div>
+
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Locality</label>
+                                                            <select
+                                                                className="form-input"
+                                                                value={property.locality || ''}
+                                                                onChange={(e) => handlePropertyLocalityChange(index, e.target.value)}
+                                                                style={{ cursor: 'pointer' }}
+                                                            >
+                                                                <option value="">— Select locality —</option>
+                                                                {MUMBAI_LOCALITIES.map(l => (
+                                                                    <option key={l.name} value={l.name}>{l.name}</option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Pincode</label>
+                                                            <input
+                                                                type="text"
+                                                                className="form-input"
+                                                                value={property.pincode || ''}
+                                                                onChange={(e) => updateProperty(index, 'pincode', e.target.value)}
+                                                                placeholder="400001"
+                                                                maxLength={6}
+                                                            />
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
