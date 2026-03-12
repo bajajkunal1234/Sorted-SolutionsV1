@@ -20,7 +20,7 @@ export async function GET(request) {
         } else if (type === 'active') {
             let query = supabase
                 .from('active_amcs')
-                .select('*, amc_plans(name), accounts(name)')
+                .select('*, amc_plans(name)')
                 .order('created_at', { ascending: false })
 
             if (customerId) query = query.eq('customer_id', customerId)
@@ -80,6 +80,30 @@ export async function PUT(request) {
         if (error) throw error
 
         return NextResponse.json({ success: true, data })
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+}
+
+// DELETE - Remove AMC plan or active AMC
+export async function DELETE(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const type = searchParams.get('type') // plan, amc
+        const id = searchParams.get('id')
+
+        if (!id) return NextResponse.json({ success: false, error: 'ID is required' }, { status: 400 })
+
+        const tableName = type === 'plan' ? 'amc_plans' : 'active_amcs'
+
+        const { error } = await supabase
+            .from(tableName)
+            .delete()
+            .eq('id', id)
+
+        if (error) throw error
+
+        return NextResponse.json({ success: true })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
