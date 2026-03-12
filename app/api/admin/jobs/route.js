@@ -104,7 +104,14 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json()
-        const { id, ...updates } = body
+        const { id, _changeLog, ...updates } = body  // _changeLog is meta from the UI, not stored in DB
+
+        // Fetch current state to detect changes (e.g. technician_id)
+        const { data: existing } = await supabase
+            .from('jobs')
+            .select('technician_id, technician_name, status, customer_id, customer_name, job_number')
+            .eq('id', id)
+            .single()
 
         const { data, error } = await supabase
             .from('jobs')
@@ -115,25 +122,68 @@ export async function PUT(request) {
 
         if (error) throw error
 
-        // Log job lifecycle status changes
+        const jobRef = data.job_number || id
+        const customerId = data.customer_id ? String(data.customer_id) : null
+        const customerName = data.customer_name || null
+        const performedByName = body.updated_by || 'Admin'
+
+        // 1 — Log status lifecycle changes
         const statusInteractionMap = {
-            assigned: { type: 'job-assigned', description: `Job ${data.job_number || id} assigned to technician` },
-            in_progress: { type: 'job-started', description: `Job ${data.job_number || id} work started` },
-            completed: { type: 'job-completed', description: `Job ${data.job_number || id} marked completed` },
-            cancelled: { type: 'job-cancelled', description: `Job ${data.job_number || id} cancelled` },
+            assigned: { type: 'job-assigned', description: `Job #${jobRef} assigned to technician` },
+            in_progress: { type: 'job-started', description: `Job #${jobRef} marked in-progress` },
+            completed: { type: 'job-completed', description: `Job #${jobRef} marked completed` },
+            cancelled: { type: 'job-cancelled', description: `Job #${jobRef} cancelled` },
         };
-        const statusLog = statusInteractionMap[updates.status];
+        const statusLog = updates.status ? statusInteractionMap[updates.status] : null;
         if (statusLog) {
             logInteractionServer({
                 type: statusLog.type,
                 category: 'job',
                 jobId: String(id),
-                customerId: data.customer_id ? String(data.customer_id) : null,
-                customerName: data.customer_name || null,
-                performedByName: body.updated_by || 'Admin',
+                customerId,
+                customerName,
+                performedByName,
                 description: statusLog.description,
                 source: 'Admin',
             });
+        }
+
+        // 2 — Log technician reassignment
+        if (updates.technician_id !== undefined && existing && updates.technician_id !== existing.technician_id) {
+            const newName = updates.technician_name || updates.technician_id || 'Unknown'
+            const oldName = existing.technician_name || (existing.technician_id ? existing.technician_id : 'Unassigned')
+            logInteractionServer({
+                type: 'job-reassigned',
+                category: 'job',
+                jobId: String(id),
+                customerId,
+                customerName,
+                performedByName,
+                description: `Job #${jobRef} reassigned: ${oldName} → ${newName}`,
+                metadata: { from_technician: oldName, to_technician: newName },
+                source: 'Admin',
+            });
+        }
+
+        // 3 — Log any other field changes that the UI detected (_changeLog)
+        if (Array.isArray(_changeLog) && _changeLog.length > 0) {
+            // Only log the non-status, non-reassignment changes (already logged above)
+            const extraChanges = _changeLog.filter(
+                c => !c.startsWith('Status changed') && !c.startsWith('Technician reassigned')
+            )
+            if (extraChanges.length > 0) {
+                logInteractionServer({
+                    type: 'job-edited',
+                    category: 'job',
+                    jobId: String(id),
+                    customerId,
+                    customerName,
+                    performedByName,
+                    description: `Job #${jobRef} updated by ${performedByName}: ${extraChanges.join('; ')}`,
+                    metadata: { changes: extraChanges },
+                    source: 'Admin',
+                });
+            }
         }
 
         // Fire notification trigger for relevant status changes (fire-and-forget)

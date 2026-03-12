@@ -142,7 +142,13 @@ function InteractionsTab({ accountId, accountName }) {
     const getTypeIcon = (type) => {
         switch (type) {
             case 'job_created':
-            case 'job_completed':
+            case 'job-created-admin':
+            case 'job-assigned':
+            case 'job-started':
+            case 'job-completed':
+            case 'job-cancelled':
+            case 'job-reassigned':
+            case 'job-edited':
                 return Briefcase;
             case 'invoice_created':
             case 'payment_received':
@@ -157,8 +163,11 @@ function InteractionsTab({ accountId, accountName }) {
         }
     };
 
-    const getCategoryColor = (category) => {
+    const getCategoryColor = (category, type) => {
+        // job-type interactions get a consistent blue regardless of category field
+        if (type && (type.startsWith('job') || type.startsWith('job-'))) return '#6366f1';
         switch (category) {
+            case 'job': return '#6366f1';
             case 'service': return '#3b82f6';
             case 'financial': return '#10b981';
             case 'rental': return '#f59e0b';
@@ -261,7 +270,13 @@ function InteractionsTab({ accountId, accountName }) {
                         }}
                     >
                         <option value="all">All Types</option>
-                        <option value="job_created">Job Created</option>
+                        <option value="job-created-admin">Job Created</option>
+                        <option value="job-assigned">Job Assigned</option>
+                        <option value="job-reassigned">Job Reassigned</option>
+                        <option value="job-started">Job Started</option>
+                        <option value="job-completed">Job Completed</option>
+                        <option value="job-cancelled">Job Cancelled</option>
+                        <option value="job-edited">Job Edited</option>
                         <option value="invoice_created">Invoice Created</option>
                         <option value="payment_received">Payment Received</option>
                         <option value="note_added">Note Added</option>
@@ -379,24 +394,20 @@ function InteractionsTab({ accountId, accountName }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                         {filteredInteractions.map((interaction, index) => {
                             const TypeIcon = getTypeIcon(interaction.type);
-                            const categoryColor = getCategoryColor(interaction.category);
+                            const categoryColor = getCategoryColor(interaction.category, interaction.type);
 
                             // Handle metadata for notes
                             const notesContent = interaction.metadata?.notes || '';
+                            const isJobInteraction = interaction.job_id || (interaction.type && (interaction.type.startsWith('job') || interaction.type.startsWith('job-')));
 
                             return (
                                 <div key={interaction.id} style={{ position: 'relative', paddingLeft: '48px' }}>
                                     {/* Timeline Dot */}
                                     <div style={{
-                                        position: 'absolute',
-                                        left: '12px',
-                                        top: '12px',
-                                        width: '16px',
-                                        height: '16px',
-                                        borderRadius: '50%',
+                                        position: 'absolute', left: '12px', top: '12px',
+                                        width: '16px', height: '16px', borderRadius: '50%',
                                         backgroundColor: categoryColor,
-                                        border: '3px solid var(--bg-primary)',
-                                        zIndex: 1
+                                        border: '3px solid var(--bg-primary)', zIndex: 1
                                     }} />
 
                                     {/* Interaction Card */}
@@ -404,16 +415,31 @@ function InteractionsTab({ accountId, accountName }) {
                                         padding: 'var(--spacing-md)',
                                         backgroundColor: 'var(--bg-elevated)',
                                         borderRadius: 'var(--radius-md)',
-                                        border: '1px solid var(--border-primary)'
+                                        border: `1px solid ${isJobInteraction ? categoryColor + '40' : 'var(--border-primary)'}`,
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-xs)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
                                                 <TypeIcon size={18} color={categoryColor} />
                                                 <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                                    {interaction.title}
+                                                    {interaction.title || interaction.type?.replace(/-/g, ' ').replace(/_/g, ' ')}
                                                 </h4>
+                                                {/* Job reference badge */}
+                                                {isJobInteraction && (
+                                                    <span style={{
+                                                        fontSize: '11px', padding: '2px 8px',
+                                                        backgroundColor: categoryColor + '20',
+                                                        color: categoryColor,
+                                                        borderRadius: '12px', fontWeight: 600, whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {interaction.metadata?.job_number
+                                                            ? `Job #${interaction.metadata.job_number}`
+                                                            : interaction.job_id
+                                                                ? `Job`
+                                                                : 'Job Related'}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
                                                 {formatTimestamp(interaction.timestamp)}
                                             </span>
                                         </div>
@@ -424,12 +450,9 @@ function InteractionsTab({ accountId, accountName }) {
 
                                         {notesContent && (
                                             <div style={{
-                                                padding: 'var(--spacing-sm)',
-                                                backgroundColor: 'var(--bg-secondary)',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: 'var(--font-size-sm)',
-                                                fontStyle: 'italic',
-                                                marginBottom: 'var(--spacing-sm)'
+                                                padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)',
+                                                borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-sm)',
+                                                fontStyle: 'italic', marginBottom: 'var(--spacing-sm)'
                                             }}>
                                                 "{notesContent}"
                                             </div>
@@ -437,9 +460,9 @@ function InteractionsTab({ accountId, accountName }) {
 
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                                             <div>
-                                                By: <span style={{ fontWeight: 500 }}>{interaction.performed_by_name || interaction.performedBy?.name || 'Unknown'}</span>
+                                                By: <span style={{ fontWeight: 500 }}>{interaction.performed_by_name || 'System'}</span>
+                                                {interaction.source && <span style={{ marginLeft: '6px' }}>· {interaction.source}</span>}
                                             </div>
-                                            {/* (Edit button login can be re-enabled when related entities are fully linked) */}
                                         </div>
                                     </div>
                                 </div>
