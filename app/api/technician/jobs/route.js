@@ -23,7 +23,7 @@ export async function GET(request) {
                 product:products(id, name, category),
                 brand:brands(id, name),
                 issue:issues(id, title, category),
-                assigned_technician:technicians(id, name, mobile)
+                assigned_technician:technicians(id, name, phone)
             `)
             .eq('assigned_to', technicianId)
             .order('created_at', { ascending: false })
