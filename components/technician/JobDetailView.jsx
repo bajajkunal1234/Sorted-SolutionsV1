@@ -3,12 +3,16 @@
 import { useState, useEffect } from 'react';
 import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
+import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
+import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
+import { transactionsAPI } from '@/lib/adminAPI';
 
 export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
     const [editedJob, setEditedJob] = useState(job);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice'
 
     // Fetch fresh job and interactions on mount
     useEffect(() => {
@@ -98,6 +102,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             }
         } catch (err) {
             alert('Failed to save note');
+        }
+    };
+
+    const handleFormSave = async (data) => {
+        try {
+            const type = activeForm === 'quotation' ? 'quotation' : 'sales';
+            await transactionsAPI.create(data, type);
+            
+            const docName = activeForm === 'quotation' ? 'Quotation' : 'Sales Voucher';
+            const logDesc = `Generated ${docName} for ₹${data.total_amount || 0}`;
+            await handleAddNote({
+                description: logDesc,
+                category: activeForm === 'quotation' ? 'communication' : 'sales',
+                attachments: []
+            });
+
+            alert(`${docName} created successfully!`);
+            setActiveForm(null);
+        } catch (err) {
+            alert(`Failed to create document: ${err.message}`);
         }
     };
 
@@ -278,10 +302,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     <FilePlus size={18} color="#10b981" /> Documents & Billing
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
-                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => alert('Quotation module coming soon!')}>
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => setActiveForm('quotation')}>
                                         <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation
                                     </button>
-                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => alert('Sales Voucher module coming soon!')}>
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => setActiveForm('sales-invoice')}>
                                         <CheckCircle size={18} style={{ marginRight: '8px' }} /> Create Sales Voucher
                                     </button>
                                 </div>
@@ -290,6 +314,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     )}
                 </div>
             </div>
+
+            {/* Document Generation Forms */}
+            {activeForm === 'quotation' && (
+                <QuotationForm 
+                    onClose={() => setActiveForm(null)}
+                    onSave={handleFormSave}
+                    defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
+                />
+            )}
+            {activeForm === 'sales-invoice' && (
+                <SalesInvoiceForm 
+                    onClose={() => setActiveForm(null)}
+                    onSave={handleFormSave}
+                    defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
+                />
+            )}
         </div>
     );
 }

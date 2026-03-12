@@ -7,12 +7,12 @@ import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import { accountsAPI } from '@/lib/adminAPI';
 
-function QuotationForm({ onClose, onSave, existingQuotation }) {
+function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
     const [formData, setFormData] = useState({
-        account_id: existingQuotation?.account_id || null,
-        account_name: existingQuotation?.account_name || '',
-        accountGSTIN: existingQuotation?.accountGSTIN || '',
-        accountState: existingQuotation?.accountState || 'Maharashtra',
+        account_id: existingQuotation?.account_id || defaultAccount?.id || null,
+        account_name: existingQuotation?.account_name || defaultAccount?.name || '',
+        accountGSTIN: existingQuotation?.accountGSTIN || defaultAccount?.gstin || '',
+        accountState: existingQuotation?.accountState || defaultAccount?.state || 'Maharashtra',
         property: existingQuotation?.property || null,
         billing_address: existingQuotation?.billing_address || '',
         shipping_address: existingQuotation?.shipping_address || '',

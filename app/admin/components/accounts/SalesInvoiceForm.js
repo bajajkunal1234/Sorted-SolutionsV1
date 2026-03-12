@@ -7,12 +7,12 @@ import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import { accountsAPI } from '@/lib/adminAPI';
 
-function SalesInvoiceForm({ onClose, onSave, existingInvoice }) {
+function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) {
     const [formData, setFormData] = useState({
-        account_id: existingInvoice?.account_id || null,
-        account_name: existingInvoice?.account_name || '',
-        accountGSTIN: existingInvoice?.accountGSTIN || '',
-        accountState: existingInvoice?.accountState || 'Maharashtra',
+        account_id: existingInvoice?.account_id || defaultAccount?.id || null,
+        account_name: existingInvoice?.account_name || defaultAccount?.name || '',
+        accountGSTIN: existingInvoice?.accountGSTIN || defaultAccount?.gstin || '',
+        accountState: existingInvoice?.accountState || defaultAccount?.state || 'Maharashtra',
         property: existingInvoice?.property || null,
         billing_address: existingInvoice?.billing_address || '',
         shipping_address: existingInvoice?.shipping_address || '',
