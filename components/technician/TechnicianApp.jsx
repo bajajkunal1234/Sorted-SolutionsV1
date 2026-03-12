@@ -195,10 +195,10 @@ function TechnicianApp() {
     // Filter and group jobs
     const filteredJobs = jobs.filter(job => {
         const matchesSearch = !searchTerm ||
-            job.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            job.product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            job.product.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            job.locality.toLowerCase().includes(searchTerm.toLowerCase());
+            (job.customerName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (job.product?.brand?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (job.product?.type?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (job.locality?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
         const matchesFilter = filterStatus === 'all' || job.status === filterStatus;
 
@@ -217,7 +217,7 @@ function TechnicianApp() {
             else if (new Date(job.dueDate).toDateString() === new Date().toDateString()) key = 'Today';
             else key = 'Later';
         } else if (groupBy === 'warranty') {
-            key = job.product.warranty.status === 'in-warranty' ? 'In Warranty' : 'Out of Warranty';
+            key = job.product?.warranty?.status === 'in-warranty' ? 'In Warranty' : 'Out of Warranty';
         } else if (groupBy === 'priority') {
             key = job.priority;
         }
@@ -409,7 +409,7 @@ function TechnicianApp() {
                                                         {job.customerName}
                                                     </div>
                                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                        {job.product.brand} {job.product.model}
+                                                        {job.product?.brand || 'Unknown'} {job.product?.model || ''}
                                                     </div>
                                                 </div>
                                                 <div style={{
@@ -435,7 +435,7 @@ function TechnicianApp() {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <MapPin size={12} color="var(--text-secondary)" />
                                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                        {job.locality} ({job.distance} km)
+                                                        {job.locality || 'No location'} {job.distance ? `(${job.distance} km)` : ''}
                                                     </span>
                                                 </div>
                                             </div>
@@ -451,7 +451,7 @@ function TechnicianApp() {
                                                 fontWeight: 600,
                                                 marginBottom: 'var(--spacing-xs)'
                                             }}>
-                                                {job.stage.replace('-', ' ').toUpperCase()}
+                                                {job.stage ? job.stage.replace('-', ' ').toUpperCase() : 'UNKNOWN'}
                                             </div>
 
                                             {/* Defect */}
@@ -464,7 +464,7 @@ function TechnicianApp() {
                                                 textOverflow: 'ellipsis',
                                                 whiteSpace: 'nowrap'
                                             }}>
-                                                "{job.defect}"
+                                                "{job.defect || 'No defect specified'}"
                                             </div>
 
                                             {/* Actions */}
@@ -673,7 +673,7 @@ function TechnicianApp() {
                         fontWeight: 700,
                         color: 'white'
                     }}>
-                        {technicianData.name.split(' ').map(n => n[0]).join('')}
+                        {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
                     </div>
                     <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}>
                         <User size={14} />
@@ -685,24 +685,24 @@ function TechnicianApp() {
                 <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
                     <div>
                         <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Name</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData.name}</div>
+                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.name || 'Loading...'}</div>
                     </div>
                     <div>
                         <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Employee ID</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData.id}</div>
+                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.id || '...'}</div>
                     </div>
                     <div>
                         <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Phone</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData.phone}</div>
+                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.phone || '...'}</div>
                     </div>
                     <div>
                         <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Email</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData.email}</div>
+                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.email || '...'}</div>
                     </div>
                     <div>
                         <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Joined</label>
                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                            {new Date(technicianData.joinDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            {technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '...'}
                         </div>
                     </div>
                 </div>
