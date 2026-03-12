@@ -812,3 +812,9 @@ p {
 .p-md {
   padding: var(--spacing-md);
 }
+
+/* White calendar icon for dark mode inputs */
+.date-input-white-icon::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}

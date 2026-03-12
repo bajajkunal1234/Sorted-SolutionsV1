@@ -118,6 +118,16 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         }
     }, [preselectedType, groups]);
 
+    // Default As on Date to start of financial year for customers
+    useEffect(() => {
+        if (!initialData && (formData.under === 'customer-accounts' || formData.under === 'sundry-debtors')) {
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const startYear = today.getMonth() >= 3 ? currentYear : currentYear - 1;
+            setFormData(prev => ({ ...prev, asOnDate: `${startYear}-04-01` }));
+        }
+    }, [formData.under, initialData]);
+
     // Auto-fill KU when name is entered if empty
     useEffect(() => {
         if (formData.name.trim() && !formData.sku) {
@@ -553,9 +563,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                         <label className="form-label">As on Date</label>
                                         <input
                                             type="date"
-                                            className="form-input"
+                                            className="form-input date-input-white-icon"
                                             value={formData.asOnDate}
                                             onChange={(e) => setFormData({ ...formData, asOnDate: e.target.value })}
+                                            style={{ colorScheme: 'dark' }}
                                         />
                                     </div>
                                 </div>
