@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, Bell, DollarSign, CheckSquare, Clock } from 'lucide-react';
+import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock } from 'lucide-react';
 import { formatDateTime, generatePreVisitChecklist, getLocalityFromAddress } from '@/lib/utils/helpers';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
 import LogNoteItem from './LogNoteItem';
@@ -14,7 +14,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [newNote, setNewNote] = useState({ description: '', files: [] });
-    const [newReminder, setNewReminder] = useState({ type: '', datetime: '', message: '' });
+
 
     // Fetch fresh job data on mount to get latest interactions/notes
     useEffect(() => {
@@ -67,7 +67,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
-        { id: 'reminders', label: 'Reminders', icon: Bell },
         { id: 'interactions', label: 'Interactions', icon: Clock },
         { id: 'checklist', label: 'Pre-Visit', icon: CheckSquare }
     ];
@@ -141,25 +140,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         console.log('Interactions updated');
     };
 
-    const handleAddReminder = () => {
-        if (!newReminder.type || !newReminder.datetime) return;
 
-        const reminder = {
-            id: Date.now().toString(),
-            type: newReminder.type,
-            datetime: newReminder.datetime,
-            message: newReminder.message,
-            createdBy: 'Admin',
-            createdAt: new Date().toISOString()
-        };
-
-        setEditedJob({
-            ...editedJob,
-            reminders: [...(editedJob.reminders || []), reminder]
-        });
-
-        setNewReminder({ type: '', datetime: '', message: '' });
-    };
 
     const preVisitChecklist = generatePreVisitChecklist(editedJob);
 
@@ -387,79 +368,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         </div>
                     )}
 
-                    {activeTab === 'reminders' && (
-                        <div>
-                            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Reminders</h3>
-
-                            {/* Add Reminder Form */}
-                            <div className="card mb-md">
-                                <div className="form-group">
-                                    <label className="form-label">Reminder Type</label>
-                                    <select
-                                        className="form-select"
-                                        value={newReminder.type}
-                                        onChange={(e) => setNewReminder({ ...newReminder, type: e.target.value })}
-                                    >
-                                        <option value="">Select type...</option>
-                                        <option value="visit">Visit Time Reminder</option>
-                                        <option value="invoice">Invoice Reminder</option>
-                                        <option value="sms">Send SMS (Promotional/Feedback)</option>
-                                        <option value="followup">Follow-up Reminder</option>
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Date & Time</label>
-                                    <input
-                                        type="datetime-local"
-                                        className="form-input"
-                                        value={newReminder.datetime}
-                                        onChange={(e) => setNewReminder({ ...newReminder, datetime: e.target.value })}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Message (Optional)</label>
-                                    <textarea
-                                        className="form-textarea"
-                                        placeholder="Additional notes for this reminder..."
-                                        value={newReminder.message}
-                                        onChange={(e) => setNewReminder({ ...newReminder, message: e.target.value })}
-                                    />
-                                </div>
-                                <button className="btn btn-primary" onClick={handleAddReminder}>
-                                    <Bell size={16} />
-                                    Add Reminder
-                                </button>
-                            </div>
-
-                            {/* Reminders List */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                {editedJob.reminders && editedJob.reminders.length > 0 ? (
-                                    editedJob.reminders.map(reminder => (
-                                        <div key={reminder.id} className="card">
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                                <div>
-                                                    <strong style={{ textTransform: 'capitalize' }}>{reminder.type} Reminder</strong>
-                                                    <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', marginTop: 'var(--spacing-xs)' }}>
-                                                        <Calendar size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                                                        {formatDateTime(reminder.datetime)}
-                                                    </div>
-                                                    {reminder.message && (
-                                                        <p style={{ marginTop: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
-                                                            {reminder.message}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                ) : (
-                                    <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 'var(--spacing-xl)' }}>
-                                        No reminders set. Add a reminder above.
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-                    )}
 
                     {activeTab === 'interactions' && (
                         <JobInteractionsTab
