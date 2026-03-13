@@ -130,7 +130,7 @@ export async function POST(request) {
             })
 
             const { password_hash, ...safeUser } = newCustomer
-            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: false }, message: 'Account created' })
+            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: false, ledger_id: accountEntry?.id || null }, message: 'Account created' })
         }
 
         // ── 2. LOGIN ──────────────────────────────────────────────────────────

@@ -119,7 +119,7 @@ function StepWelcome({ name, onNext }) {
 }
 
 // ─── Step 2: Add Property / Address ─────────────────────────────────────────
-function StepAddress({ onNext, onSkip }) {
+function StepAddress({ onNext, onSkip, customerId, customerName }) {
     const [form, setForm] = useState({
         name: 'My Home', type: 'apartment', address: '', locality: '', city: '', pincode: ''
     })
@@ -164,25 +164,66 @@ function StepAddress({ onNext, onSkip }) {
 
         setLoading(true)
         try {
-            const customerId = localStorage.getItem('customerId')
-            const res = await fetch('/api/customer/properties', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    customer_id: customerId,
-                    name: form.name,
-                    address: form.address,
-                    locality: form.locality,
-                    city: form.city,
-                    pincode: form.pincode,
-                    property_type: form.type,
-                }),
-            })
-            const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed to save address')
+            const sessionRaw = localStorage.getItem('customerData')
+            const session = sessionRaw ? JSON.parse(sessionRaw) : {}
+            const customerPhone = session.phone || ''
+            const ledgerId = session.ledger_id || ''
+
+            // Build the new property object matching admin schema
+            const newProperty = {
+                id: Date.now(),
+                name: form.name,
+                address: form.address,
+                locality: form.locality || '',
+                city: form.city,
+                pincode: form.pincode,
+                property_type: form.type,
+                contactPhone: customerPhone,
+            }
+
+            if (ledgerId) {
+                // Get the specific account by ledger_id (accounts table id)
+                const accountRes = await fetch(`/api/admin/accounts?id=${ledgerId}`)
+                const accountData = await accountRes.json()
+                const account = accountData.data
+
+                if (account) {
+                    const existingProps = Array.isArray(account.properties) ? account.properties : []
+                    existingProps.push(newProperty)
+
+                    const updateRes = await fetch('/api/admin/accounts', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: account.id, properties: existingProps }),
+                    })
+                    const updateData = await updateRes.json()
+                    if (!updateRes.ok || !updateData.success) throw new Error(updateData.error || 'Failed to save address')
+                }
+            } else {
+                // Try to find by mobile
+                const allRes = await fetch(`/api/admin/accounts?type=customer`)
+                const allData = await allRes.json()
+                const accounts = allData.data || []
+                const last10 = customerPhone.slice(-10)
+                const account = accounts.find(a => (a.mobile || '').slice(-10) === last10)
+
+                if (account) {
+                    const existingProps = Array.isArray(account.properties) ? account.properties : []
+                    existingProps.push(newProperty)
+                    const updateRes = await fetch('/api/admin/accounts', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: account.id, properties: existingProps }),
+                    })
+                    const updateData = await updateRes.json()
+                    if (!updateRes.ok || !updateData.success) throw new Error(updateData.error || 'Failed to save address')
+                }
+                // If still no account found, silently proceed — admin can add props later
+            }
+
             onNext()
         } catch (err) {
-            setError(err.message)
+            setError(err.message || 'Failed to save address. Please try again.')
         } finally {
             setLoading(false)
         }

@@ -21,7 +21,16 @@ async function registerPushToken(userId, userType) {
 }
 
 function saveSession(customer) {
-    const session = { id: customer.id, name: customer.name, username: customer.username, phone: customer.phone, role: 'customer', token: 'session-' + Date.now() }
+    const session = {
+        id: customer.id,
+        name: customer.name,
+        username: customer.username,
+        phone: customer.phone,
+        role: 'customer',
+        token: 'session-' + Date.now(),
+        ledger_id: customer.ledger_id || null,
+        profile_complete: customer.profile_complete ?? null,
+    }
     localStorage.setItem('user_session', JSON.stringify(session))
     localStorage.setItem('customerData', JSON.stringify(session))
     localStorage.setItem('customerId', customer.id)
