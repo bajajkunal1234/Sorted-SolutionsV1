@@ -82,6 +82,33 @@ export async function POST(request) {
 
         if (insertError) throw insertError;
 
+        // ── Create Sundry Debtors ledger entry in accounts table ──────────────
+        const last10 = phone.replace(/\D/g, '').slice(-10);
+        const { data: accountEntry, error: accountError } = await supabase
+            .from('accounts')
+            .insert([{
+                name: name.trim(),
+                mobile: last10,
+                type: 'customer',
+                under: 'Sundry Debtors',
+                opening_balance: 0,
+                balance_type: 'debit',
+                created_at: new Date().toISOString(),
+            }])
+            .select('id')
+            .single();
+
+        if (accountError) {
+            console.error('[signup] Failed to create accounts entry:', accountError.message);
+        }
+
+        // Link ledger_id back to customer row
+        let ledgerId = null;
+        if (accountEntry?.id) {
+            ledgerId = accountEntry.id;
+            await supabase.from('customers').update({ ledger_id: ledgerId }).eq('id', customer.id);
+        }
+
         return NextResponse.json({
             success: true,
             customer: {
@@ -91,6 +118,7 @@ export async function POST(request) {
                 phone: customer.phone,
                 role: 'customer',
                 profile_complete: false,
+                ledger_id: ledgerId,
             },
         });
     } catch (error) {

@@ -98,19 +98,23 @@ export async function POST(request) {
             }
 
             // Create Sundry Debtor entry in accounts table
-            const { data: accountEntry } = await supabase
+            const { data: accountEntry, error: accountError } = await supabase
                 .from('accounts')
                 .insert({
                     name: customerName,
                     mobile: last10,
                     type: 'customer',
-                    under_name: 'Sundry Debtors',
+                    under: 'Sundry Debtors',
                     opening_balance: 0,
                     balance_type: 'debit',
                     created_at: new Date().toISOString(),
                 })
                 .select('id')
                 .single()
+
+            if (accountError) {
+                console.error('[Signup] Failed to create accounts entry:', accountError.message)
+            }
 
             // Link ledger_id back to customer
             if (accountEntry?.id) {
