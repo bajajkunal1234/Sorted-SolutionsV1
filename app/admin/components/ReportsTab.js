@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import DailyExpenses from './reports/DailyExpenses';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
@@ -19,6 +19,7 @@ import InteractionsTab from './InteractionsTab';
 import CompanyDetailsModal from './CompanyDetailsModal';
 import TechnicianManagement from './reports/TechnicianManagement';
 import AdminPropertiesTab from './reports/AdminPropertiesTab';
+import CustomerAppSettings from './reports/CustomerAppSettings';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 import { settingsByCategory } from '@/lib/data/websiteSettingsData';
@@ -46,6 +47,7 @@ function ReportsTab() {
         { id: 'technicians', label: 'Technician Management', icon: Users, component: TechnicianManagement, color: '#3b82f6', description: 'Manage technician accounts, credentials and permissions' },
         { id: 'incentives', label: 'Incentives', icon: Award, component: IncentivesManagement, color: '#0ea5e9', description: 'Configure incentive programs' },
         { id: 'financial', label: 'Financial Reports', icon: TrendingUp, component: FinancialReports, color: '#a855f7', description: 'View financial analytics' },
+        { id: 'customer-app', label: 'Customer App', icon: Smartphone, component: CustomerAppSettings, color: '#ec4899', description: 'Manage customer app homepage banners' },
         { id: 'notifications', label: 'Notification Center', icon: Bell, component: NotificationCenter, color: '#f59e0b', description: 'Manage push, WhatsApp notifications, templates and triggers' },
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
         { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' },
