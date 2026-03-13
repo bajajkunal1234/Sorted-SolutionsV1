@@ -101,6 +101,64 @@ export async function POST(request) {
             }
         }
 
+        // ── Fix 4: Property Creation & Linking ─────────────────────────────────
+        let propertyId = null
+        if (pincode && customer.address?.street) {
+            const { data: existingProperties } = await supabase
+                .from('properties')
+                .select('id, address')
+                .eq('pincode', pincode)
+            
+            // Basic matching: Check if street address exactly matches (case-insensitive)
+            const streetLower = customer.address.street.toLowerCase().trim()
+            const match = existingProperties?.find(p => p.address.toLowerCase().trim() === streetLower)
+
+            if (match) {
+                propertyId = match.id
+            } else {
+                // Create new property
+                const { data: newProp, error: propErr } = await supabase
+                    .from('properties')
+                    .insert({
+                        address: customer.address.street,
+                        locality: customer.address.locality || '',
+                        city: customer.address.city || 'Mumbai',
+                        pincode: pincode,
+                        property_type: 'apartment', // Default
+                    })
+                    .select('id')
+                    .single()
+                
+                if (!propErr && newProp) {
+                    propertyId = newProp.id
+                }
+            }
+
+            // Link customer to property if both exist
+            if (customerId && propertyId) {
+                // Check if link already exists
+                const { data: linkExist } = await supabase
+                    .from('customer_properties')
+                    .select('id, is_active')
+                    .eq('customer_id', customerId)
+                    .eq('property_id', propertyId)
+                    .maybeSingle()
+                
+                if (!linkExist) {
+                    await supabase.from('customer_properties').insert({
+                        customer_id: customerId,
+                        property_id: propertyId,
+                        is_active: true
+                    })
+                } else if (!linkExist.is_active) {
+                    await supabase.from('customer_properties').update({
+                        is_active: true,
+                        unlinked_at: null
+                    }).eq('id', linkExist.id)
+                }
+            }
+        }
+
         // ── Generate booking reference number ──────────────────────────────────
         const timestamp = Date.now().toString().slice(-6)
         const bookingNumber = `BK-${timestamp}`
@@ -113,6 +171,7 @@ export async function POST(request) {
                 status: 'booking_request',
                 priority: 'normal',
                 customer_id: customerId,               // ← now linked (Fix 2)
+                property_id: propertyId,               // ← now linked (Fix 4)
                 customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
                 category: categoryName || categoryId,
                 subcategory: subcategoryName || subcategoryId,

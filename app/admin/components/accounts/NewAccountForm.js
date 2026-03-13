@@ -998,14 +998,15 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
                                                             <label className="form-label">Locality</label>
                                                             <select
-                                                                className="form-input"
-                                                                value={property.locality || ''}
+                                                                className="form-select"
+                                                                value={property.locality}
                                                                 onChange={(e) => handlePropertyLocalityChange(index, e.target.value)}
-                                                                style={{ cursor: 'pointer' }}
                                                             >
-                                                                <option value="">— Select locality —</option>
-                                                                {MUMBAI_LOCALITIES.map(l => (
-                                                                    <option key={l.name} value={l.name}>{l.name}</option>
+                                                                <option value="">Select Locality</option>
+                                                                {MUMBAI_LOCALITIES.map((loc) => (
+                                                                    <option key={loc.name} value={loc.name}>
+                                                                        {loc.name}
+                                                                    </option>
                                                                 ))}
                                                             </select>
                                                         </div>
@@ -1014,10 +1015,15 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                             <input
                                                                 type="text"
                                                                 className="form-input"
-                                                                value={property.pincode || ''}
+                                                                value={property.pincode}
                                                                 onChange={(e) => updateProperty(index, 'pincode', e.target.value)}
-                                                                placeholder="400001"
+                                                                placeholder="e.g. 400053"
                                                                 maxLength={6}
+                                                                disabled={!!property.locality} // Disable if auto-filled by locality
+                                                                style={{
+                                                                    backgroundColor: property.locality ? 'var(--bg-secondary)' : undefined,
+                                                                    opacity: property.locality ? 0.7 : 1
+                                                                }}
                                                             />
                                                         </div>
                                                     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
     User, MapPin, Edit2, ShieldCheck, ChevronRight,
     LogOut, Settings, CreditCard, LifeBuoy, Phone, Mail,
-    X, Bell, HelpCircle, Star
+    X, Bell, HelpCircle, Star, Plus, Trash2, Loader2
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -42,6 +42,435 @@ function Modal({ title, children, onClose }) {
                 {children}
             </div>
         </div>
+    )
+}
+
+// ─── Mumbai locality → pincode mapping ─────────────────────────────────────
+const MUMBAI_LOCALITIES = [
+    { name: 'Aarey Colony', pincode: '400065' },
+    { name: 'Airoli', pincode: '400708' },
+    { name: 'Andheri East', pincode: '400069' },
+    { name: 'Andheri West', pincode: '400058' },
+    { name: 'Antop Hill', pincode: '400037' },
+    { name: 'Bandra East', pincode: '400051' },
+    { name: 'Bandra West', pincode: '400050' },
+    { name: 'BKC / Bandra Kurla Complex', pincode: '400051' },
+    { name: 'Borivali East', pincode: '400066' },
+    { name: 'Borivali West', pincode: '400092' },
+    { name: 'Breach Candy', pincode: '400026' },
+    { name: 'Bhandup East', pincode: '400042' },
+    { name: 'Bhandup West', pincode: '400078' },
+    { name: 'Bhendi Bazar', pincode: '400003' },
+    { name: 'Byculla', pincode: '400027' },
+    { name: 'Chakala', pincode: '400059' },
+    { name: 'Chandivali', pincode: '400072' },
+    { name: 'Charni Road', pincode: '400004' },
+    { name: 'Chembur', pincode: '400071' },
+    { name: 'Chembur Colony', pincode: '400074' },
+    { name: 'Chinchpokli', pincode: '400012' },
+    { name: 'Churchgate', pincode: '400020' },
+    { name: 'Chunabhatti', pincode: '400022' },
+    { name: 'Colaba', pincode: '400005' },
+    { name: 'Cotton Green', pincode: '400033' },
+    { name: 'Crawford Market', pincode: '400001' },
+    { name: 'CST / Fort', pincode: '400001' },
+    { name: 'Cuffe Parade', pincode: '400005' },
+    { name: 'Cumballa Hill', pincode: '400026' },
+    { name: 'Currey Road', pincode: '400012' },
+    { name: 'Dahisar East', pincode: '400068' },
+    { name: 'Dahisar West', pincode: '400068' },
+    { name: 'Dadar East', pincode: '400014' },
+    { name: 'Dadar West', pincode: '400028' },
+    { name: 'Dharavi', pincode: '400017' },
+    { name: 'Diva', pincode: '400612' },
+    { name: 'Dockyard Road', pincode: '400010' },
+    { name: 'Dongri', pincode: '400009' },
+    { name: 'Film City', pincode: '400065' },
+    { name: 'Ghansoli', pincode: '400701' },
+    { name: 'Ghatkopar East', pincode: '400077' },
+    { name: 'Ghatkopar West', pincode: '400086' },
+    { name: 'Goregaon East', pincode: '400063' },
+    { name: 'Goregaon West', pincode: '400062' },
+    { name: 'Govandi', pincode: '400043' },
+    { name: 'Grant Road', pincode: '400007' },
+    { name: 'GTB Nagar', pincode: '400037' },
+    { name: 'Hiranandani Gardens', pincode: '400076' },
+    { name: 'Infinity Mall Malad', pincode: '400064' },
+    { name: 'Jogeshwari East', pincode: '400060' },
+    { name: 'Jogeshwari West', pincode: '400102' },
+    { name: 'Juhu', pincode: '400049' },
+    { name: 'Kalina', pincode: '400098' },
+    { name: 'Kalwa', pincode: '400605' },
+    { name: 'Kandivali East', pincode: '400101' },
+    { name: 'Kandivali West', pincode: '400067' },
+    { name: 'Kanjurmarg East', pincode: '400042' },
+    { name: 'Kanjurmarg West', pincode: '400078' },
+    { name: 'Kemps Corner', pincode: '400036' },
+    { name: 'Khar East', pincode: '400052' },
+    { name: 'Khar West', pincode: '400052' },
+    { name: 'King Circle / Matunga', pincode: '400019' },
+    { name: 'Koparkhairane', pincode: '400709' },
+    { name: 'Kopri', pincode: '400603' },
+    { name: 'Kurla East', pincode: '400024' },
+    { name: 'Kurla West', pincode: '400070' },
+    { name: 'Lalbaug', pincode: '400012' },
+    { name: 'Lokhandwala', pincode: '400053' },
+    { name: 'Lower Parel', pincode: '400013' },
+    { name: 'Mahim', pincode: '400016' },
+    { name: 'Mahalaxmi', pincode: '400011' },
+    { name: 'Malabar Hill', pincode: '400006' },
+    { name: 'Malad East', pincode: '400097' },
+    { name: 'Malad West', pincode: '400064' },
+    { name: 'Mankhurd', pincode: '400088' },
+    { name: 'Marine Lines', pincode: '400002' },
+    { name: 'Marol', pincode: '400059' },
+    { name: 'Masjid', pincode: '400009' },
+    { name: 'Matunga', pincode: '400019' },
+    { name: 'Matunga Road', pincode: '400016' },
+    { name: 'Mazgaon', pincode: '400010' },
+    { name: 'MIDC Andheri', pincode: '400093' },
+    { name: 'Mira Road', pincode: '401107' },
+    { name: 'Mulund East', pincode: '400081' },
+    { name: 'Mulund West', pincode: '400080' },
+    { name: 'Mumbai Central', pincode: '400008' },
+    { name: 'Mumbra', pincode: '400612' },
+    { name: 'Nagpada', pincode: '400008' },
+    { name: 'Nana Chowk', pincode: '400007' },
+    { name: 'Nariman Point', pincode: '400021' },
+    { name: 'Nahur', pincode: '400078' },
+    { name: 'Naupada', pincode: '400602' },
+    { name: 'Oshiwara', pincode: '400102' },
+    { name: 'Parel', pincode: '400012' },
+    { name: 'Powai', pincode: '400076' },
+    { name: 'Prabhadevi', pincode: '400025' },
+    { name: 'Prabhadevi East', pincode: '400025' },
+    { name: 'Rabale', pincode: '400701' },
+    { name: 'Reay Road', pincode: '400010' },
+    { name: 'Sakinaka', pincode: '400072' },
+    { name: 'Sandhurst Road', pincode: '400009' },
+    { name: 'Sanpada', pincode: '400705' },
+    { name: 'Santacruz East', pincode: '400055' },
+    { name: 'Santacruz West', pincode: '400054' },
+    { name: 'SEEPZ', pincode: '400096' },
+    { name: 'Sewri', pincode: '400015' },
+    { name: 'Sion', pincode: '400022' },
+    { name: 'Sion Koliwada', pincode: '400037' },
+    { name: 'Tardeo', pincode: '400034' },
+    { name: 'Thane East', pincode: '400603' },
+    { name: 'Thane West', pincode: '400601' },
+    { name: 'Tilak Nagar', pincode: '400089' },
+    { name: 'Turbhe', pincode: '400705' },
+    { name: 'Vakola', pincode: '400055' },
+    { name: 'Vashi', pincode: '400703' },
+    { name: 'Versova', pincode: '400061' },
+    { name: 'Vidyavihar', pincode: '400077' },
+    { name: 'Vikhroli East', pincode: '400079' },
+    { name: 'Vikhroli West', pincode: '400083' },
+    { name: 'Vile Parle East', pincode: '400057' },
+    { name: 'Vile Parle West', pincode: '400056' },
+    { name: 'Wadala', pincode: '400037' },
+    { name: 'Wadi Bunder', pincode: '400009' },
+    { name: 'Wagle Estate', pincode: '400604' },
+    { name: 'Walkeshwar', pincode: '400006' },
+    { name: 'Worli', pincode: '400018' },
+    { name: 'Worli Sea Face', pincode: '400030' },
+];
+
+function PropertyManagerModal({ onClose }) {
+    const [properties, setProperties] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [view, setView] = useState('list') // 'list' | 'add'
+    
+    // Add Property Form State
+    const [form, setForm] = useState({ type: 'apartment', address: '', locality: '', city: 'Mumbai', pincode: '' })
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
+
+    // Smart Match State
+    const [propertyMatches, setPropertyMatches] = useState([])
+    const [selectedExisting, setSelectedExisting] = useState(null)
+    const [matchChecked, setMatchChecked] = useState(false)
+
+    useEffect(() => {
+        fetchProperties()
+    }, [])
+
+    const fetchProperties = async () => {
+        setLoading(true)
+        try {
+            const customerId = localStorage.getItem('customerId')
+            if (!customerId) return
+            const res = await fetch(`/api/customer/properties?customer_id=${customerId}`)
+            const data = await res.json()
+            if (data.success) {
+                setProperties(data.properties)
+            }
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const validateAndSearch = async (pin) => {
+        setPropertyMatches([])
+        setSelectedExisting(null)
+        setMatchChecked(false)
+
+        if (!pin || pin.length < 6) return
+        
+        try {
+            const res = await fetch(`/api/customer/properties?search=${pin}`)
+            const data = await res.json()
+            if (data.success && data.properties?.length > 0) {
+                setPropertyMatches(data.properties)
+            }
+        } catch { /* silent */ }
+        setMatchChecked(true)
+    }
+
+    const handleLocalityChange = (e) => {
+        const selectedLocalityName = e.target.value;
+        const matched = MUMBAI_LOCALITIES.find(l => l.name === selectedLocalityName);
+        
+        setForm(p => ({ 
+            ...p, 
+            locality: selectedLocalityName,
+            pincode: matched ? matched.pincode : p.pincode
+        }));
+
+        if (matched) {
+            validateAndSearch(matched.pincode);
+        }
+    }
+
+    const handleSave = async () => {
+        setError('')
+        const customerId = localStorage.getItem('customerId')
+        if (!customerId) { setError('Session expired. Please log in again.'); return }
+
+        if (selectedExisting) {
+            // Link to existing property
+            setSaving(true)
+            try {
+                const res = await fetch('/api/customer/properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customer_id: customerId, property_id: selectedExisting.id }),
+                })
+                const data = await res.json()
+                if (!data.success) throw new Error(data.error || 'Failed to link property')
+                fetchProperties()
+                setView('list')
+            } catch (err) { setError(err.message) }
+            finally { setSaving(false) }
+            return
+        }
+
+        // Create new property
+        if (!form.address.trim()) { setError('Please enter your street address.'); return }
+        if (!form.city.trim()) { setError('Please enter your city.'); return }
+        if (!form.pincode.trim() || form.pincode.length !== 6) { setError('Please enter a valid pincode.'); return }
+
+        setSaving(true)
+        try {
+            const res = await fetch('/api/customer/properties', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_id: customerId,
+                    address: form.address,
+                    locality: form.locality,
+                    city: form.city,
+                    pincode: form.pincode,
+                    property_type: form.type,
+                }),
+            })
+            const data = await res.json()
+            if (!data.success) throw new Error(data.error || 'Failed to save address')
+            
+            // Reset and return to list
+            setForm({ type: 'apartment', address: '', locality: '', city: 'Mumbai', pincode: '' })
+            fetchProperties()
+            setView('list')
+        } catch (err) { setError(err.message || 'Failed to save address. Please try again.') }
+        finally { setSaving(false) }
+    }
+
+    const handleUnlink = async (propertyId) => {
+        if (!window.confirm('Remove this address from your profile?')) return;
+        
+        const customerId = localStorage.getItem('customerId')
+        setLoading(true)
+        try {
+            const res = await fetch(`/api/customer/properties?customer_id=${customerId}&property_id=${propertyId}`, {
+                method: 'DELETE'
+            })
+            const data = await res.json()
+            if (data.success) {
+                setProperties(p => p.filter(prop => prop.id !== propertyId))
+            } else {
+                alert(data.error || 'Failed to remove address')
+            }
+        } catch (err) {
+            console.error(err)
+            alert('Failed to remove address')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    if (view === 'add') {
+        return (
+            <Modal title="Add New Address" onClose={() => setView('list')}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {error && (
+                        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 12, padding: '10px 14px', color: '#f87171', fontSize: 13 }}>
+                            {error}
+                        </div>
+                    )}
+
+                    <div>
+                        <label style={S.label}>Locality *</label>
+                        <select 
+                            style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }} 
+                            value={form.locality} 
+                            onChange={handleLocalityChange}
+                        >
+                            <option value="">Select your area</option>
+                            {MUMBAI_LOCALITIES.map((loc) => (
+                                <option key={loc.name} value={loc.name}>{loc.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label style={S.label}>Pincode *</label>
+                        <input
+                            style={{ ...S.input, opacity: 0.7, background: 'rgba(0,0,0,0.2)' }}
+                            value={form.pincode}
+                            disabled
+                            placeholder="Auto-filled from locality"
+                        />
+                    </div>
+
+                    {/* Smart Match Banner */}
+                    {propertyMatches.length > 0 && !selectedExisting && (
+                        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 14, padding: '16px', marginTop: 8 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>
+                                📍 Properties found at this pincode
+                            </div>
+                            {propertyMatches.map(p => (
+                                <div key={p.id} style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '12px', marginBottom: 8 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>{p.address}</div>
+                                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>{[p.locality, p.city].filter(Boolean).join(', ')}</div>
+                                    <button onClick={() => setSelectedExisting(p)} style={{ width: '100%', padding: '8px', background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 8, color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                        ✓ Link this address
+                                    </button>
+                                </div>
+                            ))}
+                            <button onClick={() => { setPropertyMatches([]); setMatchChecked(false) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 8, color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
+                                None of these — enter manually
+                            </button>
+                        </div>
+                    )}
+
+                    {selectedExisting && (
+                        <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 12, padding: '12px 14px', color: '#10b981', fontSize: 13 }}>
+                            <div style={{ fontWeight: 700, marginBottom: 4 }}>✓ Linking to existing property:</div>
+                            <div style={{ color: '#a7f3d0' }}>{selectedExisting.address}, {selectedExisting.locality}</div>
+                            <button onClick={() => setSelectedExisting(null)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline', marginTop: 8 }}>
+                                Change
+                            </button>
+                        </div>
+                    )}
+
+                    {!selectedExisting && (propertyMatches.length === 0 || matchChecked) && (
+                        <>
+                            <div>
+                                <label style={S.label}>Street Address *</label>
+                                <input style={S.input} value={form.address} onChange={e => setForm(p => ({...p, address: e.target.value}))} placeholder="Flat/House No., Building, Street" />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={S.label}>Property Type</label>
+                                    <select style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }} value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value}))}>
+                                        <option value="apartment">Apartment</option>
+                                        <option value="house">House</option>
+                                        <option value="office">Office</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={S.label}>City *</label>
+                                    <input style={S.input} value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="Mumbai..." />
+                                </div>
+                            </div>
+                        </>
+                    )}
+
+                    <button onClick={handleSave} disabled={saving} style={{
+                        padding: '14px', background: 'linear-gradient(135deg, #38bdf8, #3b82f6)', border: 'none',
+                        borderRadius: 14, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.7 : 1,
+                        marginTop: 8
+                    }}>
+                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : (selectedExisting ? 'Link Property' : 'Save Address')}
+                    </button>
+                </div>
+            </Modal>
+        )
+    }
+
+    return (
+        <Modal title="Saved Addresses" onClose={onClose}>
+            {loading ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748b' }}>
+                    <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
+                    Loading addresses...
+                </div>
+            ) : properties.length === 0 ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: '#94a3b8' }}>
+                    <MapPin size={48} style={{ opacity: 0.2, margin: '0 auto 16px' }} />
+                    <p style={{ margin: 0, fontSize: 14 }}>You haven't added any addresses yet.</p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+                    {properties.map(p => (
+                        <div key={p.id} style={{ 
+                            background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: '16px',
+                            border: '1px solid rgba(255,255,255,0.08)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <div>
+                                    <div style={{ fontSize: 15, fontWeight: 600, color: '#f8fafc', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        {p.address}
+                                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.1)', color: '#cbd5e1', textTransform: 'capitalize' }}>
+                                            {p.property_type || 'Property'}
+                                        </span>
+                                    </div>
+                                    <div style={{ fontSize: 13, color: '#94a3b8' }}>
+                                        {[p.locality, p.city, p.pincode].filter(Boolean).join(', ')}
+                                    </div>
+                                </div>
+                                <button onClick={() => handleUnlink(p.id)} style={{ 
+                                    background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444', 
+                                    width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' 
+                                }}>
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <button onClick={() => setView('add')} style={{
+                width: '100%', padding: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: 14, color: '#f8fafc', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+            }}>
+                <Plus size={18} /> Add New Address
+            </button>
+        </Modal>
     )
 }
 
@@ -204,15 +633,7 @@ export default function ProfilePage() {
 
             {/* Address info */}
             {modal === 'address' && (
-                <Modal title="Saved Addresses" onClose={() => setModal(null)}>
-                    <p style={{ color: '#94a3b8', fontSize: 14, marginBottom: 16 }}>
-                        You can add and manage your service addresses from the Home tab → Add Address.
-                    </p>
-                    <button onClick={() => setModal(null)} style={{
-                        width: '100%', padding: '14px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                        borderRadius: 14, color: '#94a3b8', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-                    }}>Got it</button>
-                </Modal>
+                <PropertyManagerModal onClose={() => setModal(null)} />
             )}
 
             {/* Payment Methods info */}

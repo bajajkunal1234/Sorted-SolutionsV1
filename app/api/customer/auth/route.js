@@ -169,6 +169,25 @@ export async function POST(request) {
                 return NextResponse.json({ error: 'Incorrect password. Try again.' }, { status: 401 })
             }
 
+            // ── Check if Admin ──
+            const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
+            if (adminPhones.includes(last10)) {
+                // Verify admin password
+                const adminPass = process.env.ADMIN_PASSWORD || 'admin123'
+                if (password !== adminPass) {
+                    return NextResponse.json({ error: 'Incorrect admin password.' }, { status: 401 })
+                }
+                
+                logInteractionServer({ type: 'admin-login', category: 'account', customerId: 'admin', customerName: 'Admin', description: `Admin logged in (${last10})`, source: 'Admin Portal' })
+                
+                // Return fake user object for admin
+                return NextResponse.json({ 
+                    success: true, 
+                    user: { id: 'admin-id', name: 'Admin', phone: last10, role: 'admin', profile_complete: true }, 
+                    message: 'Login successful' 
+                })
+            }
+
             // ── Fall through to customer lookup ──
             const { data: customer } = await supabase
                 .from('customers')
@@ -185,10 +204,8 @@ export async function POST(request) {
 
             logInteractionServer({ type: 'customer-login', category: 'account', customerId: String(customer.id), customerName: customer.name || customer.phone, description: 'Customer logged in via mobile+password', source: 'Customer App' })
 
-            const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
-            const role = adminPhones.includes(last10) ? 'admin' : 'customer'
             const { password_hash, ...safeUser } = customer
-            return NextResponse.json({ success: true, user: { ...safeUser, role, profile_complete: customer.profile_complete ?? false }, message: 'Login successful' })
+            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: customer.profile_complete ?? false }, message: 'Login successful' })
         }
 
         // ── 3. RESET PASSWORD (OTP already verified on client) ────────────────

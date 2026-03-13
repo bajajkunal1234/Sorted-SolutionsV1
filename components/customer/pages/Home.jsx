@@ -195,31 +195,6 @@ export default function Home() {
                         <div style={{ color: '#f8fafc', fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Book Service</div>
                         <div style={{ color: '#64748b', fontSize: 11 }}>Request a repair</div>
                     </button>
-
-                    {/* Action 2 */}
-                    <button onClick={() => setShowApplianceModal(true)} style={{
-                        flex: '0 0 140px', padding: '20px 16px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s'
-                    }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                            <Package size={20} />
-                        </div>
-                        <div style={{ color: '#f8fafc', fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Add Device</div>
-                        <div style={{ color: '#64748b', fontSize: 11 }}>Register appliance</div>
-                    </button>
-
-                    {/* Action 3 */}
-                    <button onClick={() => setShowPropertyModal(true)} style={{
-                        flex: '0 0 140px', padding: '20px 16px', background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                        border: '1px solid rgba(255,255,255,0.08)', borderRadius: 20, textAlign: 'left', cursor: 'pointer', transition: 'all 0.2s'
-                    }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(245,158,11,0.15)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                            <MapPin size={20} />
-                        </div>
-                        <div style={{ color: '#f8fafc', fontWeight: 600, fontSize: 14, marginBottom: 4 }}>Add Address</div>
-                        <div style={{ color: '#64748b', fontSize: 11 }}>New property</div>
-                    </button>
-
                 </div>
             </div>
 
