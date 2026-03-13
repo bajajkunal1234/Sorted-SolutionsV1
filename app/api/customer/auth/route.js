@@ -113,7 +113,10 @@ export async function POST(request) {
                 .single()
 
             if (accountError) {
-                console.error('[Signup] Failed to create accounts entry:', accountError.message)
+                // Rollback: delete the orphan customers row before failing
+                await supabase.from('customers').delete().eq('id', newCustomer.id)
+                console.error('[Signup] Failed to create accounts entry, rolled back customer:', accountError.message)
+                return NextResponse.json({ success: false, error: 'Failed to set up account. Please try again.' }, { status: 500 })
             }
 
             // Link ledger_id back to customer

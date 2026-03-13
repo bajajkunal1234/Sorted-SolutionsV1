@@ -243,12 +243,28 @@ export async function DELETE(request) {
         }
 
         // No dependencies — safe to delete
+        const { data: accountToDelete } = await supabase
+            .from('accounts')
+            .select('mobile, type')
+            .eq('id', id)
+            .single()
+
         const { error } = await supabase
             .from('accounts')
             .delete()
             .eq('id', id)
 
         if (error) throw error
+
+        // If this was a customer account, also remove from the customers table
+        // so the phone number is freed up for future signups
+        if (accountToDelete?.type === 'customer' && accountToDelete?.mobile) {
+            const mobile = accountToDelete.mobile.replace(/\D/g, '').slice(-10)
+            await supabase
+                .from('customers')
+                .delete()
+                .or(`phone.eq.${mobile},phone.eq.+91${mobile}`)
+        }
 
         return NextResponse.json({ success: true })
     } catch (error) {
