@@ -1,79 +1,129 @@
 'use client'
 
-import { useState } from 'react';
-import { MapPin, Plus, Edit2, Trash2, Check, Home, Building2, Loader2 } from 'lucide-react';
-import { customerProperties } from '@/lib/data/rentalsAmcData';
+import { useState, useEffect } from 'react';
+import { MapPin, Plus, Home, Building2, Loader2, Unlink } from 'lucide-react';
 
-function CustomerPropertiesTab({ customerId, account, onUpdate }) {
-    const [properties, setProperties] = useState(
-        account?.properties || customerProperties.filter(p => p.customerId === customerId)
-    );
+const MUMBAI_LOCALITIES = [
+    { name: 'Andheri East', pincode: '400069' },
+    { name: 'Andheri West', pincode: '400058' },
+    { name: 'Bandra East', pincode: '400051' },
+    { name: 'Bandra West', pincode: '400050' },
+    { name: 'Borivali East', pincode: '400066' },
+    { name: 'Borivali West', pincode: '400092' },
+    { name: 'Goregaon East', pincode: '400063' },
+    { name: 'Goregaon West', pincode: '400104' },
+    { name: 'Juhu', pincode: '400049' },
+    { name: 'Kandivali East', pincode: '400101' },
+    { name: 'Kandivali West', pincode: '400067' },
+    { name: 'Khar West', pincode: '400052' },
+    { name: 'Malad East', pincode: '400097' },
+    { name: 'Malad West', pincode: '400064' },
+    { name: 'Santacruz East', pincode: '400055' },
+    { name: 'Santacruz West', pincode: '400054' },
+    { name: 'Vile Parle East', pincode: '400057' },
+    { name: 'Vile Parle West', pincode: '400056' },
+    { name: 'Powai', pincode: '400076' },
+    { name: 'Dadar West', pincode: '400028' },
+    { name: 'Lower Parel', pincode: '400013' },
+    { name: 'Worli', pincode: '400018' },
+];
+
+function CustomerPropertiesTab({ customerId }) {
+    const [properties, setProperties] = useState([]);
+    const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
-    const [editingId, setEditingId] = useState(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Form state for adding/editing
+    // Form state for adding
     const [newProperty, setNewProperty] = useState({
-        name: '',
         address: '',
-        contactPerson: '',
-        contactPhone: ''
+        locality: '',
+        city: 'Mumbai',
+        pincode: '',
+        property_type: 'residential'
     });
 
-    const syncWithAccount = async (updatedProperties) => {
-        if (!onUpdate || !account) {
-            setProperties(updatedProperties);
+    useEffect(() => {
+        if (customerId) fetchProperties();
+    }, [customerId]);
+
+    const fetchProperties = async () => {
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/admin/properties?customer_id=${customerId}`);
+            const data = await res.json();
+            if (data.success) {
+                setProperties(data.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch properties:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLocalityChange = (e) => {
+        const localityName = e.target.value;
+        const found = MUMBAI_LOCALITIES.find(l => l.name === localityName);
+        setNewProperty({
+            ...newProperty,
+            locality: localityName,
+            pincode: found ? found.pincode : ''
+        });
+    };
+
+    const handleAddProperty = async () => {
+        if (!newProperty.address.trim()) {
+            alert("Street address is required");
             return;
         }
-
+        setSubmitting(true);
         try {
-            setSubmitting(true);
-            const updatedAccount = {
-                ...account,
-                properties: updatedProperties
-            };
-            await onUpdate(updatedAccount);
-            setProperties(updatedProperties);
-        } catch (err) {
-            console.error('Error updating properties:', err);
-            alert('Failed to update: ' + err.message);
+            const res = await fetch('/api/admin/properties', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...newProperty, customer_id: customerId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                await fetchProperties();
+                setNewProperty({ address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' });
+                setIsAdding(false);
+            } else {
+                alert(data.error || 'Failed to add property');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Something went wrong adding the property.');
         } finally {
             setSubmitting(false);
         }
     };
 
-    const handleSetPrimary = (propertyId) => {
-        const updated = properties.map(p => ({
-            ...p,
-            isPrimary: p.id === propertyId
-        }));
-        syncWithAccount(updated);
-    };
-
-    const handleDelete = (propertyId) => {
-        if (window.confirm('Are you sure you want to delete this address?')) {
-            const updated = properties.filter(p => p.id !== propertyId);
-            syncWithAccount(updated);
+    const handleUnlink = async (linkId) => {
+        if (!window.confirm('Are you sure you want to unlink this property? Their history will remain intact.')) return;
+        try {
+            const res = await fetch('/api/admin/properties/unlink', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ link_id: linkId })
+            });
+            if (res.ok) {
+                fetchProperties();
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error unlinking property");
         }
     };
 
-    const handleAddProperty = () => {
-        if (!newProperty.name.trim() && !newProperty.address.trim()) {
-            setIsAdding(false);
-            return;
-        }
-        const updated = [...properties, { ...newProperty, id: Date.now() }];
-        syncWithAccount(updated);
-        setNewProperty({ name: '', address: '', contactPerson: '', contactPhone: '' });
-        setIsAdding(false);
-    };
+    if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 className="animate-spin" style={{ margin: '0 auto' }} /> Loading properties...</div>;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>
-                    Customer Addresses
+                    Properties
                 </h3>
                 <button
                     className="btn btn-primary"
@@ -81,11 +131,10 @@ function CustomerPropertiesTab({ customerId, account, onUpdate }) {
                     style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
                 >
                     <Plus size={16} />
-                    Add Address
+                    Add Property
                 </button>
             </div>
 
-            {/* Properties List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
                 {properties.map(property => (
                     <div
@@ -94,151 +143,38 @@ function CustomerPropertiesTab({ customerId, account, onUpdate }) {
                             padding: 'var(--spacing-md)',
                             backgroundColor: 'var(--bg-elevated)',
                             borderRadius: 'var(--radius-md)',
-                            border: `2px solid ${property.isPrimary ? 'var(--color-primary)' : 'var(--border-primary)'}`
+                            border: `1px solid var(--border-primary)`
                         }}
                     >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-sm)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                {property.propertyType === 'residential' ? (
-                                    <Home size={20} color="var(--color-primary)" />
-                                ) : (
+                                {property.property_type === 'commercial' ? (
                                     <Building2 size={20} color="var(--color-primary)" />
+                                ) : (
+                                    <Home size={20} color="var(--color-primary)" />
                                 )}
                                 <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                        <span style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                            {property.label || property.name}
-                                        </span>
-                                        {property.isPrimary && (
-                                            <span style={{
-                                                padding: '2px 6px',
-                                                backgroundColor: 'var(--color-primary)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontSize: 'var(--font-size-xs)',
-                                                fontWeight: 600
-                                            }}>
-                                                PRIMARY
-                                            </span>
-                                        )}
+                                    <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
+                                        {property.address}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textTransform: 'capitalize' }}>
-                                        {property.propertyType || 'Address'}
+                                        {[property.locality, property.city, property.pincode].filter(Boolean).join(', ')} ({property.property_type || 'residential'})
                                     </div>
                                 </div>
                             </div>
-
-                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                {!property.isPrimary && (
-                                    <button
-                                        onClick={() => handleSetPrimary(property.id)}
-                                        style={{
-                                            padding: '4px 8px',
-                                            fontSize: 'var(--font-size-xs)',
-                                            border: '1px solid var(--border-primary)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <Check size={14} style={{ marginRight: '4px' }} />
-                                        Set Primary
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => setEditingId(property.id)}
-                                    className="btn-icon"
-                                    style={{ padding: '4px' }}
-                                >
-                                    <Edit2 size={14} />
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(property.id)}
-                                    className="btn-icon"
-                                    style={{ padding: '4px' }}
-                                    disabled={properties.length === 1}
-                                >
-                                    <Trash2 size={14} color={properties.length > 1 ? '#ef4444' : 'var(--text-tertiary)'} />
-                                </button>
-                            </div>
+                            <button
+                                onClick={() => handleUnlink(property.link_id)}
+                                className="btn-icon"
+                                title="Unlink Property"
+                                style={{ padding: '6px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}
+                            >
+                                <Unlink size={14} />
+                            </button>
                         </div>
-
-                        {/* Address Details */}
-                        <div style={{
-                            padding: 'var(--spacing-sm)',
-                            backgroundColor: 'var(--bg-secondary)',
-                            borderRadius: 'var(--radius-sm)',
-                            fontSize: 'var(--font-size-sm)',
-                            lineHeight: 1.6,
-                            marginBottom: 'var(--spacing-sm)'
-                        }}>
-                            {typeof property.address === 'string' ? (
-                                <div style={{ whiteSpace: 'pre-wrap' }}>{property.address}</div>
-                            ) : (
-                                <>
-                                    <div>{property.address.line1}</div>
-                                    {property.address.line2 && <div>{property.address.line2}</div>}
-                                    <div>{property.address.area}, {property.address.city}</div>
-                                    <div>{property.address.state} - {property.address.pincode}</div>
-                                    {property.address.landmark && (
-                                        <div style={{ color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                            Landmark: {property.address.landmark}
-                                        </div>
-                                    )}
-                                </>
-                            )}
-                        </div>
-
-                        {/* Contact Info */}
-                        {(property.contactPerson || property.contactPhone) && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)' }}>
-                                <div>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Contact Person</div>
-                                    <div style={{ fontWeight: 500 }}>{property.contactPerson || '—'}</div>
-                                    <div style={{ color: 'var(--text-secondary)' }}>{property.contactPhone || ''}</div>
-                                </div>
-                                {property.accessInstructions && (
-                                    <div>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Access Instructions</div>
-                                        <div style={{ color: 'var(--text-secondary)' }}>{property.accessInstructions}</div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Installed Products */}
-                        {property.installedProducts && property.installedProducts.length > 0 && (
-                            <div style={{
-                                marginTop: 'var(--spacing-sm)',
-                                padding: 'var(--spacing-sm)',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                borderRadius: 'var(--radius-sm)',
-                                fontSize: 'var(--font-size-xs)'
-                            }}>
-                                <div style={{ color: 'var(--text-tertiary)', marginBottom: '4px' }}>Installed Products/Services</div>
-                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
-                                    {property.installedProducts.map(productId => (
-                                        <span
-                                            key={productId}
-                                            style={{
-                                                padding: '2px 6px',
-                                                backgroundColor: 'var(--color-primary)',
-                                                color: 'white',
-                                                borderRadius: 'var(--radius-sm)',
-                                                fontWeight: 500
-                                            }}
-                                        >
-                                            {productId}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
                     </div>
                 ))}
             </div>
 
-            {/* Simple Add Form */}
             {isAdding && (
                 <div style={{
                     padding: 'var(--spacing-md)',
@@ -252,34 +188,27 @@ function CustomerPropertiesTab({ customerId, account, onUpdate }) {
                     <input
                         type="text"
                         className="form-input"
-                        placeholder="Property Name (e.g., Head Office)"
-                        value={newProperty.name}
-                        onChange={(e) => setNewProperty({ ...newProperty, name: e.target.value })}
-                    />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="Contact Person"
-                            value={newProperty.contactPerson}
-                            onChange={(e) => setNewProperty({ ...newProperty, contactPerson: e.target.value })}
-                        />
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="Contact Phone"
-                            value={newProperty.contactPhone}
-                            onChange={(e) => setNewProperty({ ...newProperty, contactPhone: e.target.value })}
-                        />
-                    </div>
-                    <textarea
-                        className="form-input"
-                        placeholder="Full Address"
-                        rows="2"
+                        placeholder="Street Address / Building"
                         value={newProperty.address}
                         onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
                     />
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+                        <select className="form-input" value={newProperty.locality} onChange={handleLocalityChange}>
+                            <option value="">Select Locality...</option>
+                            {MUMBAI_LOCALITIES.map((loc) => (
+                                <option key={loc.name} value={loc.name}>{loc.name}</option>
+                            ))}
+                        </select>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Pincode"
+                            value={newProperty.pincode}
+                            readOnly
+                            style={{ opacity: 0.6 }}
+                        />
+                    </div>
+                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 10 }}>
                         <button className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
                         <button className="btn btn-primary" onClick={handleAddProperty} disabled={submitting}>
                             {submitting && <Loader2 size={14} className="animate-spin" style={{ marginRight: '6px' }} />}
@@ -300,10 +229,10 @@ function CustomerPropertiesTab({ customerId, account, onUpdate }) {
                 }}>
                     <MapPin size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
                     <p style={{ fontSize: 'var(--font-size-md)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                        No Addresses Added
+                        No Properties Linked
                     </p>
                     <p style={{ fontSize: 'var(--font-size-sm)' }}>
-                        Add customer addresses for service and delivery locations
+                        Click Add Property to link a physical address to this customer.
                     </p>
                 </div>
             )}
