@@ -75,6 +75,7 @@ export async function POST(request) {
                 username: cleanUsername,
                 password_hash,
                 customer_type: 'one_time',
+                profile_complete: false,
             }])
             .select('id, phone, full_name, username')
             .single();
@@ -89,6 +90,7 @@ export async function POST(request) {
                 username: customer.username,
                 phone: customer.phone,
                 role: 'customer',
+                profile_complete: false,
             },
         });
     } catch (error) {

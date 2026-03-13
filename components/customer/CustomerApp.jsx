@@ -8,6 +8,7 @@ import AppliancesPage from '@/components/customer/pages/Appliances'
 import ServicesPage from '@/components/customer/pages/Services'
 import ProfilePage from '@/components/customer/pages/Profile'
 import PlansPage from '@/components/customer/pages/Plans'
+import OnboardingWizard from '@/components/customer/OnboardingWizard'
 
 const TABS = [
     { id: 'home', label: 'Home', icon: Home, color: '#38bdf8' },
@@ -33,9 +34,39 @@ const NAV_HEIGHT = 64
 export default function CustomerApp() {
     const [activeTab, setActiveTab] = useState('home')
     const [mounted, setMounted] = useState(false)
+    const [showOnboarding, setShowOnboarding] = useState(false)
+    const [onboardingData, setOnboardingData] = useState({ name: '', customerId: '' })
 
-    useEffect(() => { setMounted(true) }, [])
+    useEffect(() => {
+        setMounted(true)
+        // Check if this is a first-time user who hasn't completed their profile
+        try {
+            const raw = localStorage.getItem('customerData')
+            if (raw) {
+                const session = JSON.parse(raw)
+                const customerId = session.id || localStorage.getItem('customerId') || ''
+                const name = session.name || ''
+                // Show onboarding wizard only if profile_complete is explicitly false
+                if (session.profile_complete === false) {
+                    setOnboardingData({ name, customerId })
+                    setShowOnboarding(true)
+                }
+            }
+        } catch { }
+    }, [])
+
     if (!mounted) return null
+
+    // Show the onboarding wizard fullscreen for new users
+    if (showOnboarding) {
+        return (
+            <OnboardingWizard
+                initialName={onboardingData.name}
+                customerId={onboardingData.customerId}
+                onComplete={() => setShowOnboarding(false)}
+            />
+        )
+    }
 
     return (
         <div style={{
@@ -48,7 +79,7 @@ export default function CustomerApp() {
             <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(56,189,248,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', bottom: '10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
 
-            {/* Scrollable content area — padded bottom so content isn't behind the nav */}
+            {/* Scrollable content area */}
             <div style={{
                 flex: 1, overflowY: 'auto', overflowX: 'hidden',
                 paddingBottom: NAV_HEIGHT, position: 'relative', zIndex: 10,
@@ -57,7 +88,7 @@ export default function CustomerApp() {
                 {renderTab(activeTab)}
             </div>
 
-            {/* ── FULL-WIDTH SOLID BOTTOM NAV (5 tabs) ── */}
+            {/* ── BOTTOM NAV ── */}
             <nav style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0,
                 height: NAV_HEIGHT,
@@ -81,7 +112,6 @@ export default function CustomerApp() {
                                 position: 'relative', WebkitTapHighlightColor: 'transparent',
                             }}
                         >
-                            {/* Active top bar */}
                             {isActive && (
                                 <div style={{
                                     position: 'absolute', top: 0, left: '22%', right: '22%',

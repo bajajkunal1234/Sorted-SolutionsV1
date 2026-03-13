@@ -27,7 +27,7 @@ export async function POST(request) {
 
         let query = supabase
             .from('customers')
-            .select('id, phone, full_name, username, password_hash, customer_type');
+            .select('id, phone, full_name, username, password_hash, customer_type, profile_complete');
 
         if (isPhone) {
             // Strip non-digits for flexible matching
@@ -66,6 +66,7 @@ export async function POST(request) {
                 username: customer.username,
                 phone: customer.phone,
                 role: 'customer',
+                profile_complete: customer.profile_complete ?? false,
             },
         });
     } catch (error) {

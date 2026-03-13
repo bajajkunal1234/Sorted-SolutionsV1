@@ -86,6 +86,7 @@ export async function POST(request) {
                     phone: last10,
                     name: customerName,
                     password_hash: passwordHash,
+                    profile_complete: false,
                     created_at: new Date().toISOString(),
                 })
                 .select()
@@ -129,7 +130,7 @@ export async function POST(request) {
             })
 
             const { password_hash, ...safeUser } = newCustomer
-            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer' }, message: 'Account created' })
+            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: false }, message: 'Account created' })
         }
 
         // ── 2. LOGIN ──────────────────────────────────────────────────────────
@@ -180,7 +181,7 @@ export async function POST(request) {
             const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
             const role = adminPhones.includes(last10) ? 'admin' : 'customer'
             const { password_hash, ...safeUser } = customer
-            return NextResponse.json({ success: true, user: { ...safeUser, role }, message: 'Login successful' })
+            return NextResponse.json({ success: true, user: { ...safeUser, role, profile_complete: customer.profile_complete ?? false }, message: 'Login successful' })
         }
 
         // ── 3. RESET PASSWORD (OTP already verified on client) ────────────────
