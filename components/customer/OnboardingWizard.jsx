@@ -119,15 +119,20 @@ function StepWelcome({ name, onNext }) {
 }
 
 // ─── Step 2: Add Property / Address ─────────────────────────────────────────
-function StepAddress({ onNext, onSkip, customerId, customerName }) {
+function StepAddress({ onNext, onSkip, customerId }) {
     const [form, setForm] = useState({
-        name: 'My Home', type: 'apartment', address: '', locality: '', city: '', pincode: ''
+        type: 'apartment', address: '', locality: '', city: '', pincode: ''
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [pincodeStatus, setPincodeStatus] = useState(null) // null | 'valid' | 'invalid'
     const [matchedLocality, setMatchedLocality] = useState(null)
     const [advancedPincodes, setAdvancedPincodes] = useState([])
+
+    // Smart match state
+    const [propertyMatches, setPropertyMatches] = useState([]) // existing properties at this pincode
+    const [selectedExisting, setSelectedExisting] = useState(null) // { id, address, ... }
+    const [matchChecked, setMatchChecked] = useState(false)
 
     useEffect(() => {
         fetch('/api/settings/quick-booking')
@@ -145,18 +150,59 @@ function StepAddress({ onNext, onSkip, customerId, customerName }) {
             }).catch(() => { })
     }, [])
 
-    const validatePincode = (pin) => {
+    const validateAndSearch = async (pin) => {
+        setPropertyMatches([])
+        setSelectedExisting(null)
+        setMatchChecked(false)
+
         if (!pin || pin.length < 6) { setPincodeStatus(null); setMatchedLocality(null); return }
-        if (advancedPincodes.length === 0) { setPincodeStatus(null); return }
-        const match = advancedPincodes.find(p => p.pincode === pin)
-        if (match) { setPincodeStatus('valid'); setMatchedLocality(match.locality) }
-        else { setPincodeStatus('invalid'); setMatchedLocality(null) }
+
+        // Check serviceability
+        if (advancedPincodes.length > 0) {
+            const match = advancedPincodes.find(p => p.pincode === pin)
+            if (match) { setPincodeStatus('valid'); setMatchedLocality(match.locality) }
+            else { setPincodeStatus('invalid'); setMatchedLocality(null); return }
+        }
+
+        // Smart search — are there existing properties at this pincode?
+        try {
+            const res = await fetch(`/api/customer/properties?search=${pin}`)
+            const data = await res.json()
+            if (data.success && data.properties?.length > 0) {
+                setPropertyMatches(data.properties)
+            }
+        } catch { /* silent */ }
+        setMatchChecked(true)
     }
 
-    const up = field => e => setForm(p => ({ ...p, [field]: e.target.value }))
+    const up = field => e => {
+        setForm(p => ({ ...p, [field]: e.target.value }))
+        if (field === 'pincode') validateAndSearch(e.target.value)
+    }
 
     const handleSubmit = async () => {
         setError('')
+        const cId = customerId || localStorage.getItem('customerId')
+        if (!cId) { setError('Session expired. Please log in again.'); return }
+
+        if (selectedExisting) {
+            // Link to existing property
+            setLoading(true)
+            try {
+                const res = await fetch('/api/customer/properties', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customer_id: cId, property_id: selectedExisting.id }),
+                })
+                const data = await res.json()
+                if (!data.success) throw new Error(data.error || 'Failed to link property')
+                onNext()
+            } catch (err) { setError(err.message) }
+            finally { setLoading(false) }
+            return
+        }
+
+        // Create new property
         if (!form.address.trim()) { setError('Please enter your street address.'); return }
         if (!form.city.trim()) { setError('Please enter your city.'); return }
         if (!form.pincode.trim()) { setError('Please enter your pincode.'); return }
@@ -164,69 +210,23 @@ function StepAddress({ onNext, onSkip, customerId, customerName }) {
 
         setLoading(true)
         try {
-            const sessionRaw = localStorage.getItem('customerData')
-            const session = sessionRaw ? JSON.parse(sessionRaw) : {}
-            const customerPhone = session.phone || ''
-            const ledgerId = session.ledger_id || ''
-
-            // Build the new property object matching admin schema
-            const newProperty = {
-                id: Date.now(),
-                name: form.name,
-                address: form.address,
-                locality: form.locality || '',
-                city: form.city,
-                pincode: form.pincode,
-                property_type: form.type,
-                contactPhone: customerPhone,
-            }
-
-            if (ledgerId) {
-                // Get the specific account by ledger_id (accounts table id)
-                const accountRes = await fetch(`/api/admin/accounts?id=${ledgerId}`)
-                const accountData = await accountRes.json()
-                const account = accountData.data
-
-                if (account) {
-                    const existingProps = Array.isArray(account.properties) ? account.properties : []
-                    existingProps.push(newProperty)
-
-                    const updateRes = await fetch('/api/admin/accounts', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: account.id, properties: existingProps }),
-                    })
-                    const updateData = await updateRes.json()
-                    if (!updateRes.ok || !updateData.success) throw new Error(updateData.error || 'Failed to save address')
-                }
-            } else {
-                // Try to find by mobile
-                const allRes = await fetch(`/api/admin/accounts?type=customer`)
-                const allData = await allRes.json()
-                const accounts = allData.data || []
-                const last10 = customerPhone.slice(-10)
-                const account = accounts.find(a => (a.mobile || '').slice(-10) === last10)
-
-                if (account) {
-                    const existingProps = Array.isArray(account.properties) ? account.properties : []
-                    existingProps.push(newProperty)
-                    const updateRes = await fetch('/api/admin/accounts', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: account.id, properties: existingProps }),
-                    })
-                    const updateData = await updateRes.json()
-                    if (!updateRes.ok || !updateData.success) throw new Error(updateData.error || 'Failed to save address')
-                }
-                // If still no account found, silently proceed — admin can add props later
-            }
-
+            const res = await fetch('/api/customer/properties', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    customer_id: cId,
+                    address: form.address,
+                    locality: form.locality || matchedLocality || '',
+                    city: form.city,
+                    pincode: form.pincode,
+                    property_type: form.type,
+                }),
+            })
+            const data = await res.json()
+            if (!data.success) throw new Error(data.error || 'Failed to save address')
             onNext()
-        } catch (err) {
-            setError(err.message || 'Failed to save address. Please try again.')
-        } finally {
-            setLoading(false)
-        }
+        } catch (err) { setError(err.message || 'Failed to save address. Please try again.') }
+        finally { setLoading(false) }
     }
 
     const pincodeColor = pincodeStatus === 'valid' ? 'rgba(16,185,129,0.5)'
@@ -255,55 +255,98 @@ function StepAddress({ onNext, onSkip, customerId, customerName }) {
                 </div>
             )}
 
+            {/* Pincode first */}
             <div style={S.group}>
-                <label style={S.label}>Property Name</label>
-                <input style={S.input} value={form.name} onChange={up('name')} placeholder="My Home, Office, etc." />
+                <label style={S.label}>Pincode *</label>
+                <input
+                    style={{ ...S.input, borderColor: pincodeColor }}
+                    value={form.pincode}
+                    onChange={e => up('pincode')(e)}
+                    placeholder="e.g. 400001"
+                    maxLength={6}
+                    inputMode="numeric"
+                    autoFocus
+                />
+                {pincodeStatus === 'valid' && <div style={{ fontSize: 10, color: '#10b981', marginTop: 4 }}>✓ {matchedLocality || 'Serviceable area'}</div>}
+                {pincodeStatus === 'invalid' && <div style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>✗ We don't service this pincode yet</div>}
             </div>
 
-            <div style={S.group}>
-                <label style={S.label}>Property Type</label>
-                <select style={S.select} value={form.type} onChange={up('type')}>
-                    <option value="apartment">Apartment</option>
-                    <option value="house">Independent House</option>
-                    <option value="villa">Villa</option>
-                    <option value="office">Office</option>
-                    <option value="shop">Shop</option>
-                </select>
-            </div>
-
-            <div style={S.group}>
-                <label style={S.label}>Street Address *</label>
-                <input style={S.input} value={form.address} onChange={up('address')} placeholder="Flat/House No., Building, Street" />
-            </div>
-
-            <div style={{ ...S.group, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
-                <div>
-                    <label style={S.label}>Locality / Area</label>
-                    <input style={S.input} value={form.locality} onChange={up('locality')} placeholder="Colony, Sect..." />
+            {/* Smart Match Banner — existing property found */}
+            {propertyMatches.length > 0 && !selectedExisting && (
+                <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                        📍 Properties found at this pincode
+                    </div>
+                    {propertyMatches.map(p => (
+                        <div key={p.id} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 14, padding: '12px 14px', marginBottom: 8 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>{p.address}</div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{[p.locality, p.city].filter(Boolean).join(', ')}</div>
+                            {p.lastJob && (
+                                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+                                    Last service: <span style={{ color: '#94a3b8' }}>{p.lastJob.category}</span> · {new Date(p.lastJob.date || p.lastJob.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => setSelectedExisting(p)} style={{ flex: 1, padding: '8px', background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                    ✓ Yes, that's mine
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                    <button onClick={() => { setPropertyMatches([]); setMatchChecked(false) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 10, color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
+                        None of these — add a new address
+                    </button>
                 </div>
-                <div>
-                    <label style={S.label}>Pincode *</label>
-                    <input
-                        style={{ ...S.input, borderColor: pincodeColor }}
-                        value={form.pincode}
-                        onChange={e => { up('pincode')(e); validatePincode(e.target.value) }}
-                        placeholder="400001"
-                        maxLength={6}
-                        inputMode="numeric"
-                    />
-                    {pincodeStatus === 'valid' && <div style={{ fontSize: 10, color: '#10b981', marginTop: 4 }}>✓ {matchedLocality || 'Serviceable'}</div>}
-                    {pincodeStatus === 'invalid' && <div style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>✗ Out of area</div>}
-                </div>
-            </div>
+            )}
 
-            <div style={S.group}>
-                <label style={S.label}>City *</label>
-                <input style={S.input} value={form.city} onChange={up('city')} placeholder="Mumbai, Pune..." />
-            </div>
+            {/* Linked confirmation */}
+            {selectedExisting && (
+                <div style={{ ...S.success, flexDirection: 'column', alignItems: 'flex-start', gap: 6, marginBottom: 14 }}>
+                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <CheckCircle size={14} /> Linking to existing property
+                    </div>
+                    <div style={{ fontSize: 12, color: '#a7f3d0' }}>{selectedExisting.address}, {selectedExisting.locality} {selectedExisting.pincode}</div>
+                    <button onClick={() => { setSelectedExisting(null) }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
+                        Change
+                    </button>
+                </div>
+            )}
+
+            {/* Full address form — only if no existing selected */}
+            {!selectedExisting && (propertyMatches.length === 0 || matchChecked) && (
+                <>
+                    <div style={S.group}>
+                        <label style={S.label}>Property Type</label>
+                        <select style={S.select} value={form.type} onChange={up('type')}>
+                            <option value="apartment">Apartment</option>
+                            <option value="house">Independent House</option>
+                            <option value="villa">Villa</option>
+                            <option value="office">Office</option>
+                            <option value="shop">Shop</option>
+                        </select>
+                    </div>
+
+                    <div style={S.group}>
+                        <label style={S.label}>Street Address *</label>
+                        <input style={S.input} value={form.address} onChange={up('address')} placeholder="Flat/House No., Building, Street" />
+                    </div>
+
+                    <div style={{ ...S.group, display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+                        <div>
+                            <label style={S.label}>Locality / Area</label>
+                            <input style={S.input} value={form.locality || matchedLocality || ''} onChange={up('locality')} placeholder="Colony, Sector..." />
+                        </div>
+                        <div>
+                            <label style={S.label}>City *</label>
+                            <input style={S.input} value={form.city} onChange={up('city')} placeholder="Mumbai..." />
+                        </div>
+                    </div>
+                </>
+            )}
 
             <button style={{ ...S.btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-                {loading ? 'Saving...' : 'Save Address'}
+                {loading ? 'Saving...' : selectedExisting ? 'Link This Property' : 'Save Address'}
                 {!loading && <ArrowRight size={18} />}
             </button>
             <button style={S.btnSecondary} onClick={onSkip}>Skip for now →</button>

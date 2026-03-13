@@ -1,95 +1,113 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
+// GET — fetch the customer's currently linked properties
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
         const customerId = searchParams.get('customerId')
+        const search = searchParams.get('search') // smart match: pincode
 
-        if (!customerId) {
-            return NextResponse.json(
-                { error: 'Customer ID is required' },
-                { status: 400 }
-            )
+        if (!customerId && !search) {
+            return NextResponse.json({ error: 'customerId or search required' }, { status: 400 })
         }
 
-        const { data: properties, error } = await supabase
-            .from('properties')
-            .select('*')
+        // Smart search — check if a property already exists by pincode
+        if (search) {
+            const term = search.trim()
+            const { data: matches } = await supabase
+                .from('properties')
+                .select('*')
+                .or(`pincode.eq.${term},address.ilike.%${term}%`)
+                .limit(5)
+
+            const enriched = await Promise.all((matches || []).map(async (prop) => {
+                const { data: lastJobs } = await supabase
+                    .from('jobs')
+                    .select('category, created_at')
+                    .eq('property_id', prop.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                return { ...prop, lastJob: lastJobs?.[0] || null }
+            }))
+
+            return NextResponse.json({ success: true, properties: enriched })
+        }
+
+        // Fetch customer's active linked properties
+        const { data, error } = await supabase
+            .from('customer_properties')
+            .select('*, property:properties(*)')
             .eq('customer_id', customerId)
-            .order('created_at', { ascending: false })
+            .eq('is_active', true)
+            .order('linked_at', { ascending: false })
 
-        if (error) {
-            console.error('Error fetching properties:', error)
-            return NextResponse.json(
-                { error: 'Failed to fetch properties' },
-                { status: 500 }
-            )
-        }
+        if (error) throw error
 
-        return NextResponse.json({
-            success: true,
-            properties,
-            count: properties.length
-        })
+        const properties = (data || []).map(r => ({
+            ...r.property,
+            link_id: r.id,
+            linked_at: r.linked_at,
+        }))
 
+        return NextResponse.json({ success: true, properties, count: properties.length })
     } catch (error) {
-        console.error('Error in properties API:', error)
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        )
+        return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }
 
+// POST — smart create or link: check if property exists, create if not, then link
 export async function POST(request) {
     try {
-        const propertyData = await request.json()
+        const body = await request.json()
+        const { customer_id, property_id, address, locality, city, pincode, property_type, name } = body
 
-        // Validate required fields
-        if (!propertyData.customer_id || !propertyData.address) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            )
+        if (!customer_id) {
+            return NextResponse.json({ error: 'customer_id is required' }, { status: 400 })
         }
 
-        // Insert property
-        const { data: property, error } = await supabase
-            .from('properties')
-            .insert({
-                customer_id: propertyData.customer_id,
-                address: propertyData.address,
-                locality: propertyData.locality,
-                city: propertyData.city,
-                pincode: propertyData.pincode,
-                latitude: propertyData.latitude,
-                longitude: propertyData.longitude,
-                property_type: propertyData.property_type || 'residential',
-                created_at: new Date().toISOString()
-            })
-            .select()
-            .single()
+        let finalPropertyId = property_id
 
-        if (error) {
-            console.error('Error creating property:', error)
-            return NextResponse.json(
-                { error: 'Failed to create property' },
-                { status: 500 }
-            )
+        // If property_id not provided, create the property first
+        if (!finalPropertyId) {
+            if (!address) return NextResponse.json({ error: 'address is required' }, { status: 400 })
+            const { data: prop, error: propError } = await supabase
+                .from('properties')
+                .insert({ address, locality, city, pincode, property_type: property_type || 'residential' })
+                .select()
+                .single()
+            if (propError) throw propError
+            finalPropertyId = prop.id
         }
 
-        return NextResponse.json({
-            success: true,
-            property,
-            message: 'Property added successfully'
+        // Link customer to property
+        // Upsert: if already linked (active), just return success
+        const { data: existing } = await supabase
+            .from('customer_properties')
+            .select('id')
+            .eq('customer_id', customer_id)
+            .eq('property_id', finalPropertyId)
+            .eq('is_active', true)
+            .maybeSingle()
+
+        if (existing) {
+            const { data: prop } = await supabase.from('properties').select('*').eq('id', finalPropertyId).single()
+            return NextResponse.json({ success: true, property: prop, message: 'Already linked' })
+        }
+
+        const { error: linkError } = await supabase.from('customer_properties').insert({
+            customer_id,
+            property_id: finalPropertyId,
+            linked_at: new Date().toISOString(),
+            is_active: true,
         })
+        if (linkError) throw linkError
 
+        const { data: property } = await supabase.from('properties').select('*').eq('id', finalPropertyId).single()
+        return NextResponse.json({ success: true, property, message: 'Property added and linked successfully' })
     } catch (error) {
-        console.error('Error in property creation API:', error)
-        return NextResponse.json(
-            { error: 'Internal server error' },
-            { status: 500 }
-        )
+        return NextResponse.json({ error: error.message }, { status: 500 })
     }
 }

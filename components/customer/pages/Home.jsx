@@ -82,6 +82,25 @@ export default function Home() {
         }
     }
 
+    const handleAddAppliance = async (applianceData) => {
+        const customerId = localStorage.getItem('customerId')
+        if (!customerId) return
+        const payload = {
+            customer_id: customerId,
+            type: applianceData.type || applianceData.category,
+            brand: applianceData.brand,
+            model: applianceData.model,
+            serial_number: applianceData.serialNumber,
+            purchase_date: applianceData.purchaseDate,
+            warranty_expiry: applianceData.warrantyExpiry,
+            room: applianceData.room,
+        }
+        const res = await fetch('/api/customer/appliances', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        const data = await res.json()
+        if (!data.success) throw new Error(data.error || 'Failed to add appliance')
+        fetchData()
+    }
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: 16 }}>

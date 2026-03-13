@@ -4,8 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { Plus, Package, Wrench, AlertCircle, CheckCircle, Activity, ChevronRight, Zap } from 'lucide-react'
 import AddApplianceModal from '../modals/AddApplianceModal'
 import BookServiceModal from '../modals/BookServiceModal'
-import { logInteraction } from '@/lib/interactions'
-
 // Emoji map based on HouseMap
 const APPLIANCE_META = {
   'ac': { emoji: '❄️', color: '#3b82f6', label: 'Air Conditioner' },

@@ -1,0 +1,280 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Link, Unlink, Calendar, Clock, Home } from 'lucide-react'
+
+const S = {
+    card: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 16, cursor: 'pointer', transition: 'all 0.15s' },
+    badge: (col) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: col + '20', color: col }),
+    btn: (col = '#38bdf8') => ({ padding: '10px 16px', background: col + '15', border: `1px solid ${col}30`, borderRadius: 10, color: col, fontSize: 13, fontWeight: 700, cursor: 'pointer' }),
+    label: { fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+    input: { width: '100%', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', color: '#f8fafc', fontSize: 14, outline: 'none', boxSizing: 'border-box' },
+}
+
+export default function AdminPropertiesTab() {
+    const [properties, setProperties] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [search, setSearch] = useState('')
+    const [selected, setSelected] = useState(null) // property detail panel
+    const [detailLoading, setDetailLoading] = useState(false)
+    const [showAddModal, setShowAddModal] = useState(false)
+
+    useEffect(() => { fetchProperties() }, [])
+
+    const fetchProperties = async () => {
+        setLoading(true)
+        try {
+            const res = await fetch('/api/admin/properties')
+            const data = await res.json()
+            setProperties(data.data || [])
+        } catch (e) { console.error(e) }
+        finally { setLoading(false) }
+    }
+
+    const openDetail = async (prop) => {
+        setSelected({ ...prop, tenants: [], jobs: [] })
+        setDetailLoading(true)
+        try {
+            const res = await fetch(`/api/admin/properties?id=${prop.id}`)
+            const data = await res.json()
+            setSelected(data.data)
+        } catch (e) { console.error(e) }
+        finally { setDetailLoading(false) }
+    }
+
+    const handleUnlink = async (linkId) => {
+        if (!window.confirm('Unlink this customer from the property? Their service history will be preserved.')) return
+        await fetch('/api/admin/properties/unlink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ link_id: linkId }) })
+        openDetail(selected)
+        fetchProperties()
+    }
+
+    const filtered = properties.filter(p => {
+        const q = search.toLowerCase()
+        return !q || (p.address || '').toLowerCase().includes(q) || (p.locality || '').toLowerCase().includes(q) || (p.city || '').toLowerCase().includes(q) || (p.pincode || '').includes(q)
+    })
+
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
+
+    return (
+        <div style={{ padding: '24px 20px', maxWidth: 900, margin: '0 auto' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                <div>
+                    <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Properties</h1>
+                    <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>{properties.length} properties managed</p>
+                </div>
+                <button onClick={() => setShowAddModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+                    <Plus size={16} /> Add Property
+                </button>
+            </div>
+
+            {/* Search */}
+            <div style={{ position: 'relative', marginBottom: 20 }}>
+                <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by address, locality, pincode..." style={{ ...S.input, paddingLeft: 36 }} />
+            </div>
+
+            {/* Stats row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
+                {[
+                    { label: 'Total Properties', value: properties.length, color: '#38bdf8' },
+                    { label: 'Occupied', value: properties.filter(p => p.currentTenants?.length > 0).length, color: '#10b981' },
+                    { label: 'Vacant', value: properties.filter(p => !p.currentTenants?.length).length, color: '#f59e0b' },
+                ].map(s => (
+                    <div key={s.label} style={{ background: s.color + '10', border: `1px solid ${s.color}25`, borderRadius: 14, padding: '14px 16px' }}>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
+                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{s.label}</div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Property List */}
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: 40, color: '#475569' }}>Loading...</div>
+            ) : filtered.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: 60, color: '#475569', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 16 }}>
+                    <Home size={40} style={{ marginBottom: 12, opacity: 0.3 }} />
+                    <p>No properties found.</p>
+                </div>
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {filtered.map(prop => (
+                        <div key={prop.id} onClick={() => openDetail(prop)} style={{ ...S.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flex: 1 }}>
+                                <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <MapPin size={18} color="#38bdf8" />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>{prop.address}</div>
+                                    <div style={{ fontSize: 12, color: '#64748b' }}>{[prop.locality, prop.city, prop.pincode].filter(Boolean).join(', ')}</div>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                                        {prop.currentTenants?.length > 0 ? (
+                                            <span style={S.badge('#10b981')}><Users size={10} /> {prop.currentTenants.length} Tenant{prop.currentTenants.length > 1 ? 's' : ''}</span>
+                                        ) : (
+                                            <span style={S.badge('#f59e0b')}>Vacant</span>
+                                        )}
+                                        {prop.lastJob && (
+                                            <span style={S.badge('#64748b')}><Wrench size={10} /> Last: {prop.lastJob.category} · {formatDate(prop.lastJob.created_at)}</span>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                            <ChevronRight size={16} color="#475569" style={{ flexShrink: 0 }} />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* ── Detail Panel (slide-in) ── */}
+            {selected && (
+                <>
+                    <div onClick={() => setSelected(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 200 }} />
+                    <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1e293b,#0f172a)', borderLeft: '1px solid rgba(255,255,255,0.1)', zIndex: 201, overflowY: 'auto', padding: '28px 24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
+                            <div>
+                                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', margin: 0 }}>{selected.address}</h2>
+                                <p style={{ color: '#64748b', fontSize: 13, margin: '4px 0 0' }}>{[selected.locality, selected.city, selected.pincode].filter(Boolean).join(', ')}</p>
+                            </div>
+                            <button onClick={() => setSelected(null)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}>
+                                <X size={16} />
+                            </button>
+                        </div>
+
+                        {detailLoading ? <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>Loading...</div> : (
+                            <>
+                                {/* Current Tenants */}
+                                <Section title="Current Tenants" icon={<Users size={14} color="#38bdf8" />}>
+                                    {(selected.tenants || []).filter(t => t.is_active).length === 0 ? (
+                                        <p style={{ color: '#475569', fontSize: 13 }}>No current tenants.</p>
+                                    ) : (
+                                        (selected.tenants || []).filter(t => t.is_active).map(t => (
+                                            <TenantRow key={t.id} tenant={t} onUnlink={() => handleUnlink(t.id)} />
+                                        ))
+                                    )}
+                                </Section>
+
+                                {/* Past Tenants */}
+                                {(selected.tenants || []).filter(t => !t.is_active).length > 0 && (
+                                    <Section title="Past Tenants" icon={<Clock size={14} color="#64748b" />}>
+                                        {(selected.tenants || []).filter(t => !t.is_active).map(t => (
+                                            <TenantRow key={t.id} tenant={t} past />
+                                        ))}
+                                    </Section>
+                                )}
+
+                                {/* Service History */}
+                                <Section title="Service History" icon={<Wrench size={14} color="#8b5cf6" />}>
+                                    {(selected.jobs || []).length === 0 ? (
+                                        <p style={{ color: '#475569', fontSize: 13 }}>No services yet.</p>
+                                    ) : (
+                                        (selected.jobs || []).map(job => (
+                                            <div key={job.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{job.category || 'Service'}</div>
+                                                    <span style={S.badge(job.status === 'completed' ? '#10b981' : '#f59e0b')}>{job.status}</span>
+                                                </div>
+                                                <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{job.customer_name} · {formatDate(job.created_at)}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </Section>
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* Add Property Modal */}
+            {showAddModal && <AddPropertyModal onClose={() => setShowAddModal(false)} onSaved={() => { fetchProperties(); setShowAddModal(false) }} />}
+        </div>
+    )
+}
+
+function Section({ title, icon, children }) {
+    return (
+        <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                {icon}
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>{title}</span>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '4px 14px' }}>
+                {children}
+            </div>
+        </div>
+    )
+}
+
+function TenantRow({ tenant, onUnlink, past }) {
+    const c = tenant.customer
+    const name = c?.name || c?.full_name || 'Unknown'
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: past ? '#64748b' : '#e2e8f0' }}>{name}</div>
+                <div style={{ fontSize: 11, color: '#475569' }}>
+                    {formatDate(tenant.linked_at)} {past && tenant.unlinked_at ? `→ ${formatDate(tenant.unlinked_at)}` : '→ Present'}
+                </div>
+            </div>
+            {!past && onUnlink && (
+                <button onClick={onUnlink} style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '5px 10px', color: '#f87171', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Unlink size={11} /> Unlink
+                </button>
+            )}
+        </div>
+    )
+}
+
+function AddPropertyModal({ onClose, onSaved }) {
+    const [form, setForm] = useState({ address: '', locality: '', city: '', pincode: '', property_type: 'residential' })
+    const [saving, setSaving] = useState(false)
+    const [error, setError] = useState('')
+
+    const handleSave = async () => {
+        if (!form.address) { setError('Address is required'); return }
+        setSaving(true)
+        try {
+            const res = await fetch('/api/admin/properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+            const data = await res.json()
+            if (!data.success) throw new Error(data.error)
+            onSaved()
+        } catch (e) { setError(e.message) }
+        finally { setSaving(false) }
+    }
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(6px)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ background: 'linear-gradient(180deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 440 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                    <h3 style={{ color: '#f8fafc', fontWeight: 800, margin: 0 }}>Add Property</h3>
+                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {[
+                        { key: 'address', label: 'Street Address *' },
+                        { key: 'locality', label: 'Locality / Area' },
+                        { key: 'city', label: 'City' },
+                        { key: 'pincode', label: 'Pincode' },
+                    ].map(f => (
+                        <div key={f.key}>
+                            <div style={S.label}>{f.label}</div>
+                            <input style={S.input} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
+                        </div>
+                    ))}
+                    <div>
+                        <div style={S.label}>Property Type</div>
+                        <select style={S.input} value={form.property_type} onChange={e => setForm(p => ({ ...p, property_type: e.target.value }))}>
+                            <option value="residential">Residential</option>
+                            <option value="commercial">Commercial</option>
+                        </select>
+                    </div>
+                    {error && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
+                    <button onClick={handleSave} disabled={saving} style={{ padding: '13px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                        {saving ? 'Saving...' : 'Save Property'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}

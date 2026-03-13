@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import DailyExpenses from './reports/DailyExpenses';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
@@ -18,6 +18,7 @@ import BankStatementReconciler from './reports/BankStatementReconciler';
 import InteractionsTab from './InteractionsTab';
 import CompanyDetailsModal from './CompanyDetailsModal';
 import TechnicianManagement from './reports/TechnicianManagement';
+import AdminPropertiesTab from './reports/AdminPropertiesTab';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 import { settingsByCategory } from '@/lib/data/websiteSettingsData';
@@ -33,6 +34,7 @@ function ReportsTab() {
 
     const sections = [
         { id: 'daybook', label: 'Daybook', icon: Calendar, component: DaybookView, color: '#3b82f6', description: 'View daily transaction records' },
+        { id: 'properties', label: 'Properties', icon: Home, component: AdminPropertiesTab, color: '#f59e0b', description: 'Manage properties, tenants and service history' },
         { id: 'expenses', label: 'Daily Expenses', icon: DollarSign, component: DailyExpenses, color: '#10b981', description: 'Track daily business expenses' },
         { id: 'rentals', label: 'Rentals', icon: Package, component: RentalsTab, color: '#8b5cf6', description: 'Manage rental agreements' },
         { id: 'amc', label: 'AMC', icon: Shield, component: AMCTab, color: '#06b6d4', description: 'Annual Maintenance Contracts' },
