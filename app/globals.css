@@ -265,6 +265,12 @@ p {
   min-height: 80px;
 }
 
+/* Fix Native Select Option Visibility */
+select option {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
 /* Cards */
 .card {
   background-color: var(--bg-elevated);
