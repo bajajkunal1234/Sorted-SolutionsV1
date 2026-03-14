@@ -167,26 +167,30 @@ export async function POST(request) {
         // Link to a customer — store as account_id (admin side) to avoid FK issues with customers table
         if (customer_id) {
             const { error: linkError } = await supabase.from('customer_properties').insert({
-                account_id: customer_id,   // admin account ID stored in account_id column
+                account_id: customer_id,   // admin account ID
+                customer_id: null,          // nullable — this is not a customer-app customer
                 property_id: property.id,
                 linked_at: new Date().toISOString(),
                 is_active: true,
                 notes: notes || null,
             })
             if (linkError) {
-                // account_id column may not exist yet — fall back to customer_id column
+                // If customer_id is still NOT NULL, fall back — store account ID in customer_id field directly
+                console.error('account_id insert failed:', linkError.message, '— trying fallback')
                 const { error: fallbackError } = await supabase.from('customer_properties').insert({
-                    customer_id,
+                    customer_id: customer_id,  // store account.id in customer_id as fallback
+                    account_id: customer_id,
                     property_id: property.id,
                     linked_at: new Date().toISOString(),
                     is_active: true,
                     notes: notes || null,
                 })
                 if (fallbackError) {
-                    console.warn('Could not link property to customer:', fallbackError.message)
+                    console.error('Fallback also failed:', fallbackError.message)
                 }
             }
         }
+
 
         logInteractionServer({
             type: 'property-created',
