@@ -291,14 +291,14 @@ function RentalsTab() {
                                                     className="btn"
                                                     style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)', backgroundColor: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', borderRadius: 'var(--radius-sm)' }}
                                                     onClick={async () => {
-                                                        if (!window.confirm(`Terminate rental for ${productName} — ${customerName}?\n\nThis will mark the agreement as terminated. History is preserved.`)) return;
+                                                        if (!window.confirm(`Delete rental agreement for ${productName} — ${customerName}?\n\nThis will physically delete the record (use for mistakes). A separate "Close Agreement" feature will be added for actual terminations.`)) return;
                                                         try {
                                                             const res = await fetch(`/api/admin/rentals?type=rental&id=${rental.id}`, { method: 'DELETE' });
                                                             const data = await res.json();
                                                             if (!data.success) throw new Error(data.error);
                                                             await fetchData();
                                                         } catch (err) {
-                                                            alert('Failed to terminate: ' + err.message);
+                                                            alert('Failed to delete: ' + err.message);
                                                         }
                                                     }}
                                                 >

@@ -180,10 +180,10 @@ export async function DELETE(request) {
             return NextResponse.json({ success: true })
         }
 
-        // Terminate rental agreement (soft-delete keeps history)
+        // Hard delete rental agreement (in case of mistakes)
         const { error } = await supabase
             .from('active_rentals')
-            .update({ status: 'terminated' })
+            .delete()
             .eq('id', id)
         if (error) throw error
         return NextResponse.json({ success: true })
