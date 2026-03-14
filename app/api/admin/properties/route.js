@@ -21,12 +21,24 @@ export async function GET(request) {
                 .single()
             if (error) throw error
 
-            // Fetch tenant history
+            // Fetch tenant history (customer-app and admin-linked)
             const { data: tenants } = await supabase
                 .from('customer_properties')
                 .select('*, customer:customers(id, name, phone, full_name)')
                 .eq('property_id', id)
                 .order('linked_at', { ascending: false })
+
+            // For admin-side links (account_id set, no customer join), look up account names
+            const adminIds = (tenants || []).filter(t => t.account_id && !t.customer).map(t => t.account_id)
+            let accountMap = {}
+            if (adminIds.length > 0) {
+                const { data: accs } = await supabase.from('accounts').select('id, name').in('id', adminIds)
+                for (const a of accs || []) accountMap[a.id] = a.name
+            }
+            const enrichedTenants = (tenants || []).map(t => ({
+                ...t,
+                customer: t.customer || (t.account_id ? { id: t.account_id, name: accountMap[t.account_id] || 'Account' } : null)
+            }))
 
             // Fetch job history for this property
             const { data: jobs } = await supabase
@@ -36,7 +48,7 @@ export async function GET(request) {
                 .order('created_at', { ascending: false })
                 .limit(20)
 
-            return NextResponse.json({ success: true, data: { ...property, tenants: tenants || [], jobs: jobs || [] } })
+            return NextResponse.json({ success: true, data: { ...property, tenants: enrichedTenants, jobs: jobs || [] } })
         }
 
         // Properties for a specific customer (admin view: query both customer_id and account_id)
