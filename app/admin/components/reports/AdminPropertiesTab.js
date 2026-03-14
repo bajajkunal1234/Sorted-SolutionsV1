@@ -3,6 +3,44 @@
 import { useState, useEffect, useCallback } from 'react'
 import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Link, Unlink, Calendar, Clock, Home, Trash2 } from 'lucide-react'
 
+const MUMBAI_LOCALITIES = [
+    { name: 'Aarey Colony', pincode: '400065' }, { name: 'Airoli', pincode: '400708' },
+    { name: 'Andheri East', pincode: '400069' }, { name: 'Andheri West', pincode: '400058' },
+    { name: 'Antop Hill', pincode: '400037' }, { name: 'Bandra East', pincode: '400051' },
+    { name: 'Bandra West', pincode: '400050' }, { name: 'BKC / Bandra Kurla Complex', pincode: '400051' },
+    { name: 'Borivali East', pincode: '400066' }, { name: 'Borivali West', pincode: '400092' },
+    { name: 'Breach Candy', pincode: '400026' }, { name: 'Bhandup East', pincode: '400042' },
+    { name: 'Bhandup West', pincode: '400078' }, { name: 'Byculla', pincode: '400027' },
+    { name: 'Chakala', pincode: '400059' }, { name: 'Chandivali', pincode: '400072' },
+    { name: 'Chembur', pincode: '400071' }, { name: 'Colaba', pincode: '400005' },
+    { name: 'CST / Fort', pincode: '400001' }, { name: 'Cuffe Parade', pincode: '400005' },
+    { name: 'Dahisar East', pincode: '400068' }, { name: 'Dahisar West', pincode: '400068' },
+    { name: 'Dadar East', pincode: '400014' }, { name: 'Dadar West', pincode: '400028' },
+    { name: 'Dharavi', pincode: '400017' }, { name: 'Ghatkopar East', pincode: '400077' },
+    { name: 'Ghatkopar West', pincode: '400086' }, { name: 'Goregaon East', pincode: '400063' },
+    { name: 'Goregaon West', pincode: '400062' }, { name: 'Grant Road', pincode: '400007' },
+    { name: 'Jogeshwari East', pincode: '400060' }, { name: 'Jogeshwari West', pincode: '400102' },
+    { name: 'Juhu', pincode: '400049' }, { name: 'Kandivali East', pincode: '400101' },
+    { name: 'Kandivali West', pincode: '400067' }, { name: 'Kanjurmarg East', pincode: '400042' },
+    { name: 'Khar East', pincode: '400052' }, { name: 'Khar West', pincode: '400052' },
+    { name: 'Kurla East', pincode: '400024' }, { name: 'Kurla West', pincode: '400070' },
+    { name: 'Lokhandwala', pincode: '400053' }, { name: 'Lower Parel', pincode: '400013' },
+    { name: 'Malad East', pincode: '400097' }, { name: 'Malad West', pincode: '400064' },
+    { name: 'Marine Lines', pincode: '400002' }, { name: 'Marol', pincode: '400059' },
+    { name: 'Matunga', pincode: '400019' }, { name: 'Mulund East', pincode: '400081' },
+    { name: 'Mulund West', pincode: '400080' }, { name: 'Mumbai Central', pincode: '400008' },
+    { name: 'Nariman Point', pincode: '400021' }, { name: 'Oshiwara', pincode: '400102' },
+    { name: 'Powai', pincode: '400076' }, { name: 'Sakinaka', pincode: '400072' },
+    { name: 'Santacruz East', pincode: '400055' }, { name: 'Santacruz West', pincode: '400054' },
+    { name: 'Sion', pincode: '400022' }, { name: 'Thane East', pincode: '400603' },
+    { name: 'Thane West', pincode: '400601' }, { name: 'Turbhe', pincode: '400705' },
+    { name: 'Vashi', pincode: '400703' }, { name: 'Versova', pincode: '400061' },
+    { name: 'Vikhroli East', pincode: '400079' }, { name: 'Vikhroli West', pincode: '400083' },
+    { name: 'Vile Parle East', pincode: '400057' }, { name: 'Vile Parle West', pincode: '400056' },
+    { name: 'Wadala', pincode: '400037' }, { name: 'Worli', pincode: '400018' },
+    { name: 'Mira Road', pincode: '401107' },
+]
+
 const S = {
     card: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 16, cursor: 'pointer', transition: 'all 0.15s' },
     badge: (col) => ({ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: col + '20', color: col }),
@@ -239,9 +277,15 @@ function TenantRow({ tenant, onUnlink, past }) {
 }
 
 function AddPropertyModal({ onClose, onSaved }) {
-    const [form, setForm] = useState({ flat_number: '', building_name: '', address: '', locality: '', city: '', pincode: '', property_type: 'residential' })
+    const [form, setForm] = useState({ flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
+
+    const handleLocalityChange = (e) => {
+        const name = e.target.value
+        const match = MUMBAI_LOCALITIES.find(l => l.name === name)
+        setForm(p => ({ ...p, locality: name, pincode: match ? match.pincode : p.pincode, city: 'Mumbai' }))
+    }
 
     const handleSave = async () => {
         if (!form.address) { setError('Street address is required'); return }
@@ -275,15 +319,33 @@ function AddPropertyModal({ onClose, onSaved }) {
                     </div>
                     {[
                         { key: 'address', label: 'Street Address / Area *' },
-                        { key: 'locality', label: 'Locality' },
-                        { key: 'city', label: 'City' },
-                        { key: 'pincode', label: 'Pincode' },
                     ].map(f => (
                         <div key={f.key}>
                             <div style={S.label}>{f.label}</div>
                             <input style={S.input} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
                         </div>
                     ))}
+                    <div>
+                        <div style={S.label}>Locality</div>
+                        <select
+                            style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }}
+                            value={form.locality}
+                            onChange={handleLocalityChange}
+                        >
+                            <option value="">Select locality...</option>
+                            {MUMBAI_LOCALITIES.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                            <div style={S.label}>City</div>
+                            <input style={{ ...S.input, opacity: 0.6 }} value={form.city} readOnly />
+                        </div>
+                        <div>
+                            <div style={S.label}>Pincode</div>
+                            <input style={{ ...S.input, opacity: 0.6 }} value={form.pincode} readOnly placeholder="Auto-filled" />
+                        </div>
+                    </div>
                     <div>
                         <div style={S.label}>Property Type</div>
                         <select style={S.input} value={form.property_type} onChange={e => setForm(p => ({ ...p, property_type: e.target.value }))}>
