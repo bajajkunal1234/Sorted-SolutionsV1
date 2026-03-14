@@ -1,30 +1,165 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Heart, Bookmark, ArrowRight, Pin, Zap, Tag, Megaphone, Newspaper, Sparkles } from 'lucide-react'
+import { Heart, ArrowRight, Pin, Zap, Tag, Newspaper, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 const TYPE_CONFIG = {
-    tip:       { label: 'Tip',       color: '#38bdf8', bg: 'rgba(56,189,248,0.12)',  icon: Zap },
-    offer:     { label: 'Offer',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  icon: Tag },
-    news:      { label: 'News',      color: '#10b981', bg: 'rgba(16,185,129,0.12)',  icon: Newspaper },
-    highlight: { label: 'Highlight', color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', icon: Sparkles },
+    tip:       { label: 'Tip',       color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+    offer:     { label: 'Offer',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+    news:      { label: 'News',      color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+    highlight: { label: 'Highlight', color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)' },
 }
 
+const TYPE_ICONS = { tip: '⚡', offer: '🏷️', news: '📰', highlight: '✨' }
+
+// ── URL conversion helpers ──────────────────────────────────────
+function getEmbedUrl(item) {
+    const url = item.url || ''
+    const type = item.type
+
+    if (type === 'instagram') {
+        // Extract shortcode from instagram.com/p/CODE/ or /reel/CODE/
+        const m = url.match(/instagram\.com\/(p|reel|stories\/[^/]+)\/([A-Za-z0-9_-]+)/)
+        if (m) return `https://www.instagram.com/p/${m[2]}/embed/captioned/`
+        return url
+    }
+    if (type === 'facebook') {
+        return `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(url)}&width=500&show_text=true&appId=`
+    }
+    if (type === 'youtube') {
+        const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{11})/)
+        if (m) return `https://www.youtube.com/embed/${m[1]}?rel=0`
+        return url
+    }
+    if (type === 'tiktok') {
+        const m = url.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/)
+        if (m) return `https://www.tiktok.com/embed/v2/${m[1]}`
+        return url
+    }
+    if (type === 'twitter') {
+        return `https://twitframe.com/show?url=${encodeURIComponent(url)}`
+    }
+    return url
+}
+
+const EMBED_ASPECT = {
+    instagram: '9/13',
+    facebook:  '16/10',
+    youtube:   '16/9',
+    tiktok:    '9/16',
+    twitter:   '9/7',
+    video:     '16/9',
+}
+
+// ── Single media renderer ───────────────────────────────────────
+function MediaRenderer({ item }) {
+    const type = item.type || 'image'
+    const embedUrl = getEmbedUrl(item)
+    const aspect = EMBED_ASPECT[type] || '16/9'
+
+    if (type === 'image' || type === 'gif') {
+        return (
+            <img
+                src={item.url}
+                alt=""
+                style={{ width: '100%', display: 'block', maxHeight: 420, objectFit: 'cover' }}
+            />
+        )
+    }
+
+    if (type === 'video') {
+        return (
+            <video
+                src={item.url}
+                controls
+                playsInline
+                style={{ width: '100%', display: 'block', aspectRatio: aspect, background: '#000' }}
+            />
+        )
+    }
+
+    // Social embeds — iframe
+    return (
+        <div style={{ width: '100%', aspectRatio: aspect, background: '#0f172a', position: 'relative', overflow: 'hidden' }}>
+            <iframe
+                src={embedUrl}
+                style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                allowFullScreen
+                scrolling={type === 'instagram' ? 'no' : 'yes'}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                loading="lazy"
+            />
+        </div>
+    )
+}
+
+// ── Media Carousel ──────────────────────────────────────────────
+function MediaCarousel({ media }) {
+    const [idx, setIdx] = useState(0)
+    if (!media || media.length === 0) return null
+
+    const valid = media.filter(m => m.url)
+    if (valid.length === 0) return null
+
+    return (
+        <div style={{ position: 'relative', borderRadius: '20px 20px 0 0', overflow: 'hidden', background: '#0a0f1e' }}>
+            <MediaRenderer item={valid[idx]} />
+
+            {valid.length > 1 && (
+                <>
+                    <button
+                        onClick={() => setIdx(i => Math.max(0, i - 1))}
+                        style={{
+                            position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+                            background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%',
+                            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', cursor: 'pointer', opacity: idx === 0 ? 0.3 : 1,
+                        }}
+                        disabled={idx === 0}
+                    ><ChevronLeft size={18} /></button>
+
+                    <button
+                        onClick={() => setIdx(i => Math.min(valid.length - 1, i + 1))}
+                        style={{
+                            position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                            background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%',
+                            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            color: '#fff', cursor: 'pointer', opacity: idx === valid.length - 1 ? 0.3 : 1,
+                        }}
+                        disabled={idx === valid.length - 1}
+                    ><ChevronRight size={18} /></button>
+
+                    {/* Dots */}
+                    <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 5 }}>
+                        {valid.map((_, i) => (
+                            <div key={i} onClick={() => setIdx(i)} style={{ width: i === idx ? 16 : 6, height: 6, borderRadius: 10, background: i === idx ? '#fff' : 'rgba(255,255,255,0.5)', cursor: 'pointer', transition: 'all 0.3s' }} />
+                        ))}
+                    </div>
+
+                    {/* Count badge */}
+                    <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 12 }}>
+                        {idx + 1} / {valid.length}
+                    </div>
+                </>
+            )}
+        </div>
+    )
+}
+
+// ── Feed Card ───────────────────────────────────────────────────
 function FeedCard({ post, onLike }) {
     const router = useRouter()
     const [liked, setLiked] = useState(false)
     const [likes, setLikes] = useState(post.likes_count || 0)
-    const [popping, setPopping] = useState(false)
+    const [pop, setPop] = useState(false)
     const type = TYPE_CONFIG[post.post_type] || TYPE_CONFIG.tip
-    const TypeIcon = type.icon
+    const hasMedia = (post.media || []).filter(m => m.url).length > 0
 
     const handleLike = () => {
         if (liked) return
-        setLiked(true)
-        setLikes(l => l + 1)
-        setPopping(true)
-        setTimeout(() => setPopping(false), 400)
+        setLiked(true); setLikes(l => l + 1); setPop(true)
+        setTimeout(() => setPop(false), 400)
         onLike(post.id)
     }
 
@@ -32,68 +167,36 @@ function FeedCard({ post, onLike }) {
         <div style={{
             background: 'linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015))',
             border: '1px solid rgba(255,255,255,0.07)',
-            borderRadius: 24,
+            borderRadius: 22,
             overflow: 'hidden',
             marginBottom: 16,
         }}>
-            {/* Image */}
-            {post.image_url && (
-                <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', overflow: 'hidden' }}>
-                    <img
-                        src={post.image_url}
-                        alt={post.title}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                    {/* Gradient overlay */}
-                    <div style={{
-                        position: 'absolute', inset: 0,
-                        background: 'linear-gradient(to top, rgba(15,23,42,0.7) 0%, transparent 60%)',
-                    }} />
-                    {/* Pin badge */}
-                    {post.is_pinned && (
-                        <div style={{
-                            position: 'absolute', top: 12, right: 12,
-                            background: 'rgba(245,158,11,0.9)', borderRadius: 20,
-                            padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 4,
-                            fontSize: 11, fontWeight: 700, color: '#fff',
-                        }}>
-                            <Pin size={10} /> Pinned
-                        </div>
-                    )}
-                </div>
-            )}
+            {/* Media carousel */}
+            {hasMedia && <MediaCarousel media={post.media} />}
 
-            {/* Content */}
-            <div style={{ padding: '14px 16px 16px' }}>
-                {/* Type tag + pin (no-image variant) */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <div style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        background: type.bg, color: type.color,
-                        borderRadius: 20, padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                    }}>
-                        <TypeIcon size={11} /> {type.label}
-                    </div>
-                    {!post.image_url && post.is_pinned && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#f59e0b', fontSize: 11, fontWeight: 600 }}>
+            {/* Content area */}
+            <div style={{ padding: '12px 16px 16px' }}>
+                {/* Tag row */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: type.color, background: type.bg, padding: '3px 10px', borderRadius: 20 }}>
+                        {TYPE_ICONS[post.post_type] || '✨'} {type.label}
+                    </span>
+                    {post.is_pinned && (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 3 }}>
                             <Pin size={11} /> Pinned
-                        </div>
+                        </span>
                     )}
                 </div>
 
                 {/* Title */}
-                <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: '0 0 6px 0', lineHeight: 1.3 }}>
-                    {post.title}
-                </h3>
+                <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: '0 0 6px 0', lineHeight: 1.3 }}>{post.title}</h3>
 
                 {/* Body */}
                 {post.body && (
-                    <p style={{ fontSize: 14, color: '#94a3b8', margin: '0 0 14px 0', lineHeight: 1.6 }}>
-                        {post.body}
-                    </p>
+                    <p style={{ fontSize: 14, color: '#94a3b8', margin: '0 0 12px 0', lineHeight: 1.6 }}>{post.body}</p>
                 )}
 
-                {/* Footer: Like + CTA */}
+                {/* Action row */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
                     <button
                         onClick={handleLike}
@@ -101,11 +204,10 @@ function FeedCard({ post, onLike }) {
                             display: 'flex', alignItems: 'center', gap: 6,
                             background: liked ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)',
                             border: '1px solid ' + (liked ? 'rgba(239,68,68,0.3)' : 'rgba(255,255,255,0.08)'),
-                            borderRadius: 20, padding: '7px 14px', cursor: liked ? 'default' : 'pointer',
+                            borderRadius: 20, padding: '7px 14px',
                             color: liked ? '#f87171' : '#64748b',
-                            fontSize: 13, fontWeight: 600,
-                            transform: popping ? 'scale(1.15)' : 'scale(1)',
-                            transition: 'all 0.2s',
+                            fontSize: 13, fontWeight: 600, cursor: liked ? 'default' : 'pointer',
+                            transform: pop ? 'scale(1.18)' : 'scale(1)', transition: 'all 0.2s',
                         }}
                     >
                         <Heart size={15} fill={liked ? '#f87171' : 'none'} /> {likes}
@@ -117,7 +219,7 @@ function FeedCard({ post, onLike }) {
                             style={{
                                 display: 'flex', alignItems: 'center', gap: 6,
                                 background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                                border: 'none', borderRadius: 20, padding: '8px 16px',
+                                border: 'none', borderRadius: 20, padding: '8px 18px',
                                 color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer',
                             }}
                         >
@@ -130,6 +232,7 @@ function FeedCard({ post, onLike }) {
     )
 }
 
+// ── Home Page ───────────────────────────────────────────────────
 export default function HomePage() {
     const router = useRouter()
     const [customerName, setCustomerName] = useState('there')
@@ -142,36 +245,28 @@ export default function HomePage() {
 
     useEffect(() => {
         const hour = new Date().getHours()
-        if (hour < 12) setGreeting('Good Morning')
-        else if (hour < 18) setGreeting('Good Afternoon')
-        else setGreeting('Good Evening')
+        setGreeting(hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening')
 
-        const cData = localStorage.getItem('customerData')
-        if (cData) {
-            try { setCustomerName(JSON.parse(cData).name?.split(' ')[0] || 'there') } catch {}
-        }
+        try {
+            const cData = localStorage.getItem('customerData')
+            if (cData) setCustomerName(JSON.parse(cData).name?.split(' ')[0] || 'there')
+        } catch {}
 
         const customerId = localStorage.getItem('customerId')
         if (!customerId) { router.push('/customer/login'); return }
 
-        // Fetch banners
         fetch('/api/settings/section-configs?id=customer-app-banners')
             .then(r => r.json())
-            .then(d => {
-                if (d.success && d.data?.extra_config?.banners) {
-                    setBanners(d.data.extra_config.banners.filter(b => b.active))
-                }
-            }).catch(() => {})
+            .then(d => { if (d.success && d.data?.extra_config?.banners) setBanners(d.data.extra_config.banners.filter(b => b.active)) })
+            .catch(() => {})
 
-        // Fetch feed
         fetch('/api/customer/feed')
             .then(r => r.json())
-            .then(d => { setPosts(d.posts || []) })
+            .then(d => setPosts(d.posts || []))
             .catch(() => {})
             .finally(() => setFeedLoading(false))
     }, [])
 
-    // Auto-advance banners
     useEffect(() => {
         if (banners.length <= 1) return
         bannerTimer.current = setInterval(() => setBannerIndex(i => (i + 1) % banners.length), 5000)
@@ -190,30 +285,20 @@ export default function HomePage() {
 
     return (
         <div style={{ minHeight: '100%', background: '#0a0f1e' }}>
-            {/* ── GREETING HEADER ── */}
+            {/* Greeting */}
             <div style={{ padding: '28px 20px 12px' }}>
                 <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500, marginBottom: 2 }}>{greeting}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px' }}>
-                    {customerName} 👋
-                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px' }}>{customerName} 👋</div>
             </div>
 
-            {/* ── BANNER CAROUSEL ── */}
+            {/* Banner Carousel */}
             {banners.length > 0 && (
                 <div style={{ padding: '0 20px 20px' }}>
                     <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', width: '100%', aspectRatio: '16/6' }}>
-                        <div style={{
-                            display: 'flex',
-                            width: `${banners.length * 100}%`,
-                            height: '100%',
-                            transition: 'transform 0.5s ease-in-out',
-                            transform: `translateX(-${bannerIndex * (100 / banners.length)}%)`
-                        }}>
-                            {banners.map((banner, i) => (
-                                <div key={banner.id}
-                                    onClick={() => banner.targetUrl && router.push(banner.targetUrl)}
-                                    style={{ width: `${100 / banners.length}%`, height: '100%', flexShrink: 0, cursor: banner.targetUrl ? 'pointer' : 'default', background: '#0f1629' }}
-                                >
+                        <div style={{ display: 'flex', width: `${banners.length * 100}%`, height: '100%', transition: 'transform 0.5s ease-in-out', transform: `translateX(-${bannerIndex * (100 / banners.length)}%)` }}>
+                            {banners.map(banner => (
+                                <div key={banner.id} onClick={() => banner.targetUrl && router.push(banner.targetUrl)}
+                                    style={{ width: `${100 / banners.length}%`, height: '100%', flexShrink: 0, cursor: banner.targetUrl ? 'pointer' : 'default', background: '#0f1629' }}>
                                     <img src={banner.imageUrl} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                                 </div>
                             ))}
@@ -231,34 +316,30 @@ export default function HomePage() {
                 </div>
             )}
 
-            {/* ── FEED ── */}
+            {/* Feed */}
             <div style={{ padding: '0 16px 100px' }}>
-                {/* Feed header */}
+                {/* Divider */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                     <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                        From Sorted
-                    </span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', letterSpacing: 1.5, textTransform: 'uppercase' }}>From Sorted</span>
                     <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
                 </div>
 
                 {feedLoading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {[1,2,3].map(i => (
-                            <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 24, height: 200, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        {[1, 2, 3].map(i => (
+                            <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 22, height: 280, animation: 'pulse 1.5s ease-in-out infinite' }} />
                         ))}
-                        <style>{`@keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }`}</style>
+                        <style>{`@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.8} }`}</style>
                     </div>
                 ) : posts.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '48px 20px' }}>
-                        <div style={{ fontSize: 48, marginBottom: 12 }}>📡</div>
+                        <div style={{ fontSize: 52, marginBottom: 14 }}>📡</div>
                         <div style={{ fontSize: 17, fontWeight: 700, color: '#f8fafc', marginBottom: 6 }}>Nothing here yet</div>
-                        <div style={{ fontSize: 14, color: '#475569' }}>Sorted will post tips, offers & highlights here.</div>
+                        <div style={{ fontSize: 14, color: '#475569' }}>Tips, offers & highlights will appear here.</div>
                     </div>
                 ) : (
-                    posts.map(post => (
-                        <FeedCard key={post.id} post={post} onLike={handleLike} />
-                    ))
+                    posts.map(post => <FeedCard key={post.id} post={post} onLike={handleLike} />)
                 )}
             </div>
         </div>

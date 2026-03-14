@@ -31,13 +31,12 @@ export async function POST(request) {
             .insert({
                 title: body.title,
                 body: body.body || null,
-                image_url: body.image_url || null,
+                media: body.media || [],
                 post_type: body.post_type || 'tip',
                 cta_text: body.cta_text || null,
                 cta_url: body.cta_url || null,
                 is_active: body.is_active ?? true,
                 is_pinned: body.is_pinned ?? false,
-                display_order: body.display_order || 0,
             })
             .select()
             .single()
