@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import { CheckCircle, MapPin, User, ArrowRight, Home, AlertCircle, Loader2 } from 'lucide-react'
+import React, { useState, useEffect, useRef } from 'react'
+import { CheckCircle, MapPin, User, ArrowRight, Home, AlertCircle, Loader2, Camera } from 'lucide-react'
 // Inline interaction logger (client-side)
 
 // ─── Mumbai locality → pincode mapping ─────────────────────────────────────
@@ -245,6 +245,102 @@ function StepWelcome({ name, onNext }) {
             >
                 Continue <ArrowRight size={18} />
             </button>
+        </div>
+    )
+}
+
+// ─── Step 1.5: Profile Photo (optional) ─────────────────────────────────────
+function StepPhoto({ name, customerId, onNext, onSkip }) {
+    const [photoUrl, setPhotoUrl] = useState(null)
+    const [uploading, setUploading] = useState(false)
+    const [error, setError] = useState('')
+    const inputRef = useRef(null)
+
+    const handleFile = async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        setError('')
+        setUploading(true)
+        try {
+            const cId = customerId || localStorage.getItem('customerId')
+            const fd = new FormData()
+            fd.append('file', file)
+            fd.append('bucket', 'media')
+            fd.append('folder', 'customer-photos')
+            const up = await fetch('/api/upload', { method: 'POST', body: fd })
+            const upData = await up.json()
+            if (!upData.url) throw new Error('Upload failed')
+            // Save immediately to DB
+            await fetch('/api/customer/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customerId: cId, image_url: upData.url }),
+            })
+            setPhotoUrl(upData.url)
+        } catch {
+            setError('Photo upload failed. You can add it later from your profile.')
+        } finally {
+            setUploading(false)
+        }
+    }
+
+    const initials = name?.charAt(0)?.toUpperCase() || 'U'
+
+    return (
+        <div style={{ textAlign: 'center' }}>
+            <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 6px 0' }}>Add a Profile Photo</h2>
+            <p style={{ margin: '0 0 24px 0', color: '#94a3b8', fontSize: 13, lineHeight: 1.5 }}>
+                Let our team know who they're meeting. You can skip and add this later.
+            </p>
+
+            {/* Avatar */}
+            <div style={{ position: 'relative', display: 'inline-block', marginBottom: 20 }}>
+                {photoUrl ? (
+                    <img src={photoUrl} alt="Profile"
+                        style={{ width: 104, height: 104, borderRadius: '36px', objectFit: 'cover', boxShadow: '0 8px 24px rgba(56,189,248,0.3)' }} />
+                ) : (
+                    <div style={{
+                        width: 104, height: 104, borderRadius: '36px',
+                        background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 44, fontWeight: 800, color: '#fff',
+                        boxShadow: '0 8px 24px rgba(139,92,246,0.4)',
+                    }}>{initials}</div>
+                )}
+                {/* Camera badge */}
+                <button
+                    onClick={() => inputRef.current?.click()}
+                    style={{
+                        position: 'absolute', bottom: -4, right: -4,
+                        width: 34, height: 34, borderRadius: '50%',
+                        background: '#38bdf8', border: '3px solid #0f172a',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                    }}
+                >
+                    {uploading
+                        ? <Loader2 size={16} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+                        : <Camera size={16} color="#fff" />}
+                </button>
+            </div>
+
+            <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+
+            {error && <div style={{ ...S.error, textAlign: 'left', marginBottom: 12 }}><AlertCircle size={14} /> {error}</div>}
+
+            {!photoUrl ? (
+                <button
+                    style={S.btnPrimary}
+                    onClick={() => inputRef.current?.click()}
+                    disabled={uploading}
+                >
+                    <Camera size={18} /> {uploading ? 'Uploading...' : 'Choose Photo'}
+                </button>
+            ) : (
+                <button style={S.btnPrimary} onClick={onNext}>
+                    Looks good! <ArrowRight size={18} />
+                </button>
+            )}
+            <button style={S.btnSecondary} onClick={onSkip}>Skip for now →</button>
         </div>
     )
 }
@@ -579,7 +675,7 @@ function StepDone({ name, onFinish }) {
 
 // ─── Main Wizard Component ───────────────────────────────────────────────────
 export default function OnboardingWizard({ initialName, customerId, onComplete }) {
-    const [step, setStep] = useState(1) // 1 | 2 | 3
+    const [step, setStep] = useState(1) // 1 | 2 | 3 | 4
     const [name, setName] = useState(initialName || '')
 
     const handleNameNext = async (confirmedName) => {
@@ -602,8 +698,9 @@ export default function OnboardingWizard({ initialName, customerId, onComplete }
         setStep(2)
     }
 
-    const handleAddressNext = () => setStep(3)
-    const handleSkipAddress = () => setStep(3)
+    const handlePhotoNext = () => setStep(3)
+    const handleAddressNext = () => setStep(4)
+    const handleSkipAddress = () => setStep(4)
 
     const handleFinish = async () => {
         // Mark profile as complete
@@ -654,18 +751,18 @@ export default function OnboardingWizard({ initialName, customerId, onComplete }
                 </div>
 
                 {/* Progress */}
-                <ProgressDots step={step} total={3} />
+                <ProgressDots step={step} total={4} />
 
                 {/* Card */}
                 <div style={S.card}>
                     {step === 1 && <StepWelcome name={name} onNext={handleNameNext} />}
-                    {step === 2 && <StepAddress onNext={handleAddressNext} onSkip={handleSkipAddress} />}
-                    {step === 3 && <StepDone name={name} onFinish={handleFinish} />}
+                    {step === 2 && <StepPhoto name={name} customerId={customerId} onNext={handlePhotoNext} onSkip={handlePhotoNext} />}
+                    {step === 3 && <StepAddress onNext={handleAddressNext} onSkip={handleSkipAddress} />}
+                    {step === 4 && <StepDone name={name} onFinish={handleFinish} />}
                 </div>
 
-                {/* Step indicator */}
                 <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#334155' }}>
-                    Step {step} of 3
+                    Step {step} of 4
                 </div>
             </div>
         </div>

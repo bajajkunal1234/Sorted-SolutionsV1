@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
     User, MapPin, Edit2, ShieldCheck, ChevronRight,
     LogOut, Settings, CreditCard, LifeBuoy, Phone, Mail,
-    X, Bell, HelpCircle, Star, Plus, Trash2, Loader2
+    X, Bell, HelpCircle, Star, Plus, Trash2, Loader2, Camera
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
@@ -496,6 +496,7 @@ export default function ProfilePage() {
     const [editForm, setEditForm] = useState({ name: '', email: '', mobile: '' })
     const [saving, setSaving] = useState(false)
     const [saveMsg, setSaveMsg] = useState('')
+    const [photoUploading, setPhotoUploading] = useState(false)
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -521,6 +522,43 @@ export default function ProfilePage() {
             localStorage.clear()
             router.push('/customer/login')
         }
+    }
+
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        setPhotoUploading(true)
+        try {
+            const customerId = localStorage.getItem('customerId')
+            const fd = new FormData()
+            fd.append('file', file)
+            fd.append('bucket', 'media')
+            fd.append('folder', 'customer-photos')
+            const up = await fetch('/api/upload', { method: 'POST', body: fd })
+            const upData = await up.json()
+            if (!upData.url) throw new Error('Upload failed')
+            await fetch('/api/customer/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customerId, image_url: upData.url }),
+            })
+            setCustomer(prev => ({ ...prev, image_url: upData.url }))
+        } catch (err) {
+            console.error('Photo upload error:', err)
+        } finally {
+            setPhotoUploading(false)
+        }
+    }
+
+    const handlePhotoRemove = async () => {
+        if (!window.confirm('Remove your profile photo?')) return
+        const customerId = localStorage.getItem('customerId')
+        await fetch('/api/customer/profile', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ customerId, image_url: null }),
+        })
+        setCustomer(prev => ({ ...prev, image_url: null }))
     }
 
     const handleSaveProfile = async () => {
@@ -569,15 +607,49 @@ export default function ProfilePage() {
                 background: 'linear-gradient(180deg, rgba(56,189,248,0.1), transparent)',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center'
             }}>
-                <div style={{
-                    width: 96, height: 96, borderRadius: '32px',
-                    background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 40, fontWeight: 800, color: '#fff',
-                    boxShadow: '0 10px 30px rgba(139,92,246,0.4)',
-                    marginBottom: 16,
-                }}>
-                    {customer?.name?.charAt(0).toUpperCase() || 'U'}
+                {/* Tappable avatar */}
+                <div style={{ position: 'relative', marginBottom: 16 }}>
+                    <label htmlFor="profile-photo-input" style={{ cursor: 'pointer', display: 'block' }}>
+                        {customer?.image_url ? (
+                            <img
+                                src={customer.image_url}
+                                alt="Profile"
+                                style={{ width: 96, height: 96, borderRadius: '32px', objectFit: 'cover', boxShadow: '0 10px 30px rgba(56,189,248,0.3)' }}
+                            />
+                        ) : (
+                            <div style={{
+                                width: 96, height: 96, borderRadius: '32px',
+                                background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: 40, fontWeight: 800, color: '#fff',
+                                boxShadow: '0 10px 30px rgba(139,92,246,0.4)',
+                            }}>
+                                {customer?.name?.charAt(0).toUpperCase() || 'U'}
+                            </div>
+                        )}
+                        {/* Camera overlay */}
+                        <div style={{
+                            position: 'absolute', bottom: -4, right: -4,
+                            width: 30, height: 30, borderRadius: '50%',
+                            background: '#38bdf8', border: '2px solid #0f172a',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            {photoUploading
+                                ? <Loader2 size={14} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
+                                : <Camera size={14} color="#fff" />}
+                        </div>
+                    </label>
+                    <input id="profile-photo-input" type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoUpload} />
+                    {customer?.image_url && (
+                        <button onClick={handlePhotoRemove} style={{
+                            position: 'absolute', top: -4, left: -4,
+                            width: 24, height: 24, borderRadius: '50%',
+                            background: 'rgba(239,68,68,0.9)', border: '2px solid #0f172a',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                        }}>
+                            <X size={12} color="#fff" />
+                        </button>
+                    )}
                 </div>
                 <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 4px 0', color: '#f8fafc' }}>
                     {customer?.name || 'Sorted Customer'}
