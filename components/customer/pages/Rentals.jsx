@@ -205,51 +205,127 @@ export default function RentalsPage() {
                             }}><Phone size={16} /> Call Us</a>
                         </div>
                     ) : (
-                        plans.map((plan, idx) => (
-                            <div key={plan.id} style={{
-                                background: `linear-gradient(135deg, ${PLAN_COLORS[idx % PLAN_COLORS.length]}10, rgba(255,255,255,0.02))`,
-                                border: `1px solid ${PLAN_COLORS[idx % PLAN_COLORS.length]}25`,
-                                borderRadius: 24, padding: 20,
-                            }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                                    <div>
-                                        <h3 style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', margin: '0 0 4px 0' }}>{plan.productName || plan.name}</h3>
-                                        <p style={{ margin: 0, color: '#94a3b8', fontSize: 13 }}>{plan.category}</p>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}>FROM</div>
-                                        <div style={{ fontSize: 20, fontWeight: 800, color: PLAN_COLORS[idx % PLAN_COLORS.length] }}>
-                                            ₹{Math.min(...(plan.tenureOptions || [{ monthlyRent: plan.monthly_rent || 0 }]).map(t => t.monthlyRent || t.monthly_rent || 0)).toLocaleString()}/mo
+                        plans.map((plan, idx) => {
+                            const color = PLAN_COLORS[idx % PLAN_COLORS.length]
+                            const minRent = plan.tenureOptions?.length
+                                ? Math.min(...plan.tenureOptions.map(t => t.monthlyRent || 0))
+                                : 0
+                            const services = (plan.includedServices || []).filter(s => s && s.trim())
+                            const APPLIANCE_ICON = {
+                                'AC': '❄️', 'Refrigerator': '🧊', 'Washing Machine': '🫧',
+                                'Microwave Oven': '📡', 'Water Purifier': '💧', 'Gas Stove': '🔥',
+                            }
+                            const icon = APPLIANCE_ICON[plan.category] || '📦'
+
+                            return (
+                                <div key={plan.id} style={{
+                                    background: `linear-gradient(145deg, ${color}12, rgba(255,255,255,0.02))`,
+                                    border: `1px solid ${color}30`,
+                                    borderRadius: 24, overflow: 'hidden',
+                                }}>
+                                    {/* Header strip */}
+                                    <div style={{ background: `${color}18`, padding: '18px 20px 14px', borderBottom: `1px solid ${color}20` }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                <div style={{ fontSize: 32, lineHeight: 1 }}>{icon}</div>
+                                                <div>
+                                                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc', margin: '0 0 2px 0', lineHeight: 1.2 }}>
+                                                        {plan.productName || plan.name || plan.category}
+                                                    </h3>
+                                                    <span style={{ fontSize: 11, fontWeight: 600, color, background: `${color}20`, padding: '2px 8px', borderRadius: 20 }}>
+                                                        {plan.category}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2, fontWeight: 600, letterSpacing: 0.5 }}>STARTING FROM</div>
+                                                <div style={{ fontSize: 22, fontWeight: 900, color, lineHeight: 1 }}>
+                                                    {minRent > 0 ? `₹${minRent.toLocaleString()}/mo` : 'Contact Us'}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Badges row */}
+                                        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                                            {plan.freeVisits > 0 && (
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#34d399', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 20, padding: '3px 10px' }}>
+                                                    ✓ {plan.freeVisits} free service visit{plan.freeVisits > 1 ? 's' : ''}
+                                                </span>
+                                            )}
+                                            {plan.tenureOptions?.length > 1 && (
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '3px 10px' }}>
+                                                    {plan.tenureOptions.length} tenure options
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
-                                </div>
 
-                                {/* Tenure tiers */}
-                                {(plan.tenureOptions || []).length > 0 && (
-                                    <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '12px 14px', marginBottom: 16 }}>
-                                        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' }}>Pricing Tiers</div>
-                                        {plan.tenureOptions.map((t, i) => (
-                                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: i < plan.tenureOptions.length - 1 ? 8 : 0 }}>
-                                                <span style={{ color: '#94a3b8' }}>{t.duration} {t.unit}</span>
-                                                <span style={{ fontWeight: 700, color: '#f8fafc' }}>₹{(t.monthlyRent || 0).toLocaleString()}/mo</span>
+                                    {/* Body */}
+                                    <div style={{ padding: '16px 20px 20px' }}>
+
+                                        {/* Tenure tiers */}
+                                        {plan.tenureOptions?.length > 0 && (
+                                            <div style={{ marginBottom: 14 }}>
+                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Pricing Tiers</div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                    {plan.tenureOptions.map((t, i) => (
+                                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 12px' }}>
+                                                            <div>
+                                                                <span style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{t.duration} {t.unit}</span>
+                                                                {t.securityDeposit > 0 && (
+                                                                    <span style={{ fontSize: 11, color: '#64748b', marginLeft: 8 }}>+ ₹{t.securityDeposit.toLocaleString()} deposit</span>
+                                                                )}
+                                                            </div>
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <span style={{ fontSize: 15, fontWeight: 800, color }}>
+                                                                    {t.monthlyRent > 0 ? `₹${t.monthlyRent.toLocaleString()}/mo` : 'On request'}
+                                                                </span>
+                                                                {t.setupFee > 0 && (
+                                                                    <div style={{ fontSize: 10, color: '#64748b' }}>₹{t.setupFee.toLocaleString()} setup</div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        ))}
-                                    </div>
-                                )}
+                                        )}
 
-                                <div style={{ display: 'flex', gap: 10 }}>
-                                    <a href="tel:+919999999999" style={{
-                                        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        background: `${PLAN_COLORS[idx % PLAN_COLORS.length]}15`,
-                                        border: `1px solid ${PLAN_COLORS[idx % PLAN_COLORS.length]}30`,
-                                        borderRadius: 12, padding: '12px', textDecoration: 'none',
-                                        color: PLAN_COLORS[idx % PLAN_COLORS.length], fontSize: 13, fontWeight: 700,
-                                    }}>
-                                        <Phone size={14} /> Enquire
-                                    </a>
+                                        {/* Included services */}
+                                        {services.length > 0 && (
+                                            <div style={{ marginBottom: 16 }}>
+                                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>What's Included</div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                    {services.map((s, i) => (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: '#cbd5e1' }}>
+                                                            <span style={{ color: '#34d399', fontSize: 15, flexShrink: 0 }}>✓</span> {s}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Terms snippet */}
+                                        {plan.terms && (
+                                            <p style={{ fontSize: 11, color: '#475569', margin: '0 0 14px 0', lineHeight: 1.5, fontStyle: 'italic' }}>
+                                                📋 {plan.terms.length > 100 ? plan.terms.slice(0, 100) + '…' : plan.terms}
+                                            </p>
+                                        )}
+
+                                        {/* CTA */}
+                                        <a href="tel:+919999999999" style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                            background: `linear-gradient(135deg, ${color}30, ${color}15)`,
+                                            border: `1px solid ${color}40`,
+                                            borderRadius: 14, padding: '13px', textDecoration: 'none',
+                                            color, fontSize: 14, fontWeight: 700,
+                                        }}>
+                                            <Phone size={15} /> Enquire Now
+                                        </a>
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            )
+                        })
+
                     )}
                 </div>
             )}
