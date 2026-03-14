@@ -1,6 +1,22 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
+// Transform DB snake_case row → camelCase for customer frontend
+function transformPlan(p) {
+    return {
+        id: p.id,
+        productName: p.product_name,
+        name: p.product_name,        // fallback alias
+        category: p.category,
+        tenureOptions: p.tenure_options || [],
+        includedServices: p.included_services || [],
+        freeVisits: p.free_visits || 0,
+        terms: p.terms || '',
+        isActive: p.is_active,
+        createdAt: p.created_at,
+    }
+}
+
 // Helper: fetch available rental plans (public)
 async function getRentalPlans() {
     const { data, error } = await supabase
@@ -8,8 +24,9 @@ async function getRentalPlans() {
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false })
-    return { data, error }
+    return { data: (data || []).map(transformPlan), error }
 }
+
 
 export async function GET(request) {
     try {
