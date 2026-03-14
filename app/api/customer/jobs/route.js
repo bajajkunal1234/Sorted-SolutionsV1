@@ -32,7 +32,7 @@ export async function GET(request) {
         if (error) {
             console.error('Error fetching customer jobs:', error)
             return NextResponse.json(
-                { error: 'Failed to fetch jobs' },
+                { error: 'Failed to fetch jobs', detail: error.message, code: error.code, hint: error.hint },
                 { status: 500 }
             )
         }

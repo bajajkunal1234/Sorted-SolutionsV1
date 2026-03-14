@@ -154,20 +154,21 @@ export default function Home() {
 
             {/* ── BANNERS CAROUSEL ── */}
             {banners.length > 0 && (
-                <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', width: '100%' }}>
+                <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', width: '100%', aspectRatio: '16/6' }}>
                     {/* Sliding track: full width = n slides × 100% */}
                     <div style={{
                         display: 'flex',
                         width: `${banners.length * 100}%`,
+                        height: '100%',
                         transition: 'transform 0.5s ease-in-out',
                         transform: `translateX(-${bannerIndex * (100 / banners.length)}%)`
                     }}>
                         {banners.map((banner, i) => (
                             <div key={banner.id}
                                 onClick={() => banner.targetUrl && router.push(banner.targetUrl)}
-                                style={{ width: `${100 / banners.length}%`, flexShrink: 0, cursor: banner.targetUrl ? 'pointer' : 'default' }}
+                                style={{ width: `${100 / banners.length}%`, height: '100%', flexShrink: 0, cursor: banner.targetUrl ? 'pointer' : 'default' }}
                             >
-                                <img src={banner.imageUrl} alt={banner.title} style={{ width: '100%', height: 'auto', display: 'block' }} />
+                                <img src={banner.imageUrl} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                             </div>
                         ))}
                     </div>
