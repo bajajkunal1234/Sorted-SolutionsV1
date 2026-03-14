@@ -183,7 +183,7 @@ export async function DELETE(request) {
         // Terminate rental agreement (soft-delete keeps history)
         const { error } = await supabase
             .from('active_rentals')
-            .update({ status: 'terminated', terminated_at: new Date().toISOString() })
+            .update({ status: 'terminated' })
             .eq('id', id)
         if (error) throw error
         return NextResponse.json({ success: true })
