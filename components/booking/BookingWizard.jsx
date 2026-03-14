@@ -178,7 +178,7 @@ export default function BookingWizard() {
         brand: '', brandName: '',
         pincode: '',
         name: '', phone: '', email: '', whatsappAlerts: false,
-        apartment: '', address: '', locality: '',
+        flat_number: '', building_name: '', address: '', locality: '',
         city: 'Mumbai', state: 'Maharashtra', zip: '',
         specialInstructions: '',
         selectedDate: '',   // ISO date string "YYYY-MM-DD"
@@ -318,7 +318,8 @@ export default function BookingWizard() {
                     email: formData.email,
                     phone: formData.phone,
                     address: {
-                        apartment: formData.apartment,
+                        flat_number: formData.flat_number,
+                        building_name: formData.building_name,
                         street: formData.address,
                         locality: formData.locality,
                         city: formData.city,
@@ -452,11 +453,19 @@ export default function BookingWizard() {
                                 </div>
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label">Suite, Apt, Building, Flat Number etc. *</label>
-                                <input type="text" className="form-input" placeholder="e.g. Flat 4B, Tower C, Sunrise Residency"
-                                    value={formData.apartment}
-                                    onChange={e => setFormData({ ...formData, apartment: e.target.value })} />
+                            <div className="form-grid">
+                                <div className="form-group">
+                                    <label className="form-label">Flat / Wing</label>
+                                    <input type="text" className="form-input" placeholder="e.g. A-42"
+                                        value={formData.flat_number}
+                                        onChange={e => setFormData({ ...formData, flat_number: e.target.value })} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Building / Bungalow Name</label>
+                                    <input type="text" className="form-input" placeholder="e.g. Sunrise Residency"
+                                        value={formData.building_name}
+                                        onChange={e => setFormData({ ...formData, building_name: e.target.value })} />
+                                </div>
                             </div>
 
                             <div className="form-group">
@@ -758,7 +767,7 @@ export default function BookingWizard() {
                                         {formData.whatsappAlerts && <span style={{ marginLeft: '8px', color: '#25D366', fontSize: '0.85em' }}>📲</span>}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                        {[formData.apartment, formData.address, formData.locality, `${formData.city} – ${formData.zip}`].filter(Boolean).join(', ')}
+                                        {[formData.flat_number, formData.building_name, formData.address, formData.locality, `${formData.city} – ${formData.zip}`].filter(Boolean).join(', ')}
                                     </div>
                                 </div>
 

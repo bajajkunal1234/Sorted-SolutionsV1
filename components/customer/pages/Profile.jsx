@@ -182,7 +182,7 @@ function PropertyManagerModal({ onClose }) {
     const [view, setView] = useState('list') // 'list' | 'add'
     
     // Add Property Form State
-    const [form, setForm] = useState({ type: 'apartment', address: '', locality: '', city: 'Mumbai', pincode: '' })
+    const [form, setForm] = useState({ type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '' })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
@@ -279,6 +279,8 @@ function PropertyManagerModal({ onClose }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     customer_id: customerId,
+                    flat_number: form.flat_number,
+                    building_name: form.building_name,
                     address: form.address,
                     locality: form.locality,
                     city: form.city,
@@ -290,7 +292,7 @@ function PropertyManagerModal({ onClose }) {
             if (!data.success) throw new Error(data.error || 'Failed to save address')
             
             // Reset and return to list
-            setForm({ type: 'apartment', address: '', locality: '', city: 'Mumbai', pincode: '' })
+            setForm({ type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '' })
             fetchProperties()
             setView('list')
         } catch (err) { setError(err.message || 'Failed to save address. Please try again.') }
@@ -362,7 +364,9 @@ function PropertyManagerModal({ onClose }) {
                             </div>
                             {propertyMatches.map(p => (
                                 <div key={p.id} style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '12px', marginBottom: 8 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>{p.address}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>
+                                        {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}
+                                    </div>
                                     <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>{[p.locality, p.city].filter(Boolean).join(', ')}</div>
                                     <button onClick={() => setSelectedExisting(p)} style={{ width: '100%', padding: '8px', background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 8, color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                                         ✓ Link this address
@@ -378,7 +382,7 @@ function PropertyManagerModal({ onClose }) {
                     {selectedExisting && (
                         <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 12, padding: '12px 14px', color: '#10b981', fontSize: 13 }}>
                             <div style={{ fontWeight: 700, marginBottom: 4 }}>✓ Linking to existing property:</div>
-                            <div style={{ color: '#a7f3d0' }}>{selectedExisting.address}, {selectedExisting.locality}</div>
+                            <div style={{ color: '#a7f3d0' }}>{[selectedExisting.flat_number, selectedExisting.building_name, selectedExisting.address].filter(Boolean).join(', ')}, {selectedExisting.locality}</div>
                             <button onClick={() => setSelectedExisting(null)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline', marginTop: 8 }}>
                                 Change
                             </button>
@@ -387,9 +391,19 @@ function PropertyManagerModal({ onClose }) {
 
                     {!selectedExisting && (propertyMatches.length === 0 || matchChecked) && (
                         <>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                <div>
+                                    <label style={S.label}>Flat / Wing</label>
+                                    <input style={S.input} value={form.flat_number} onChange={e => setForm(p => ({...p, flat_number: e.target.value}))} placeholder="e.g. A-402" />
+                                </div>
+                                <div>
+                                    <label style={S.label}>Building Name</label>
+                                    <input style={S.input} value={form.building_name} onChange={e => setForm(p => ({...p, building_name: e.target.value}))} placeholder="e.g. Sea View Apts" />
+                                </div>
+                            </div>
                             <div>
                                 <label style={S.label}>Street Address *</label>
-                                <input style={S.input} value={form.address} onChange={e => setForm(p => ({...p, address: e.target.value}))} placeholder="Flat/House No., Building, Street" />
+                                <input style={S.input} value={form.address} onChange={e => setForm(p => ({...p, address: e.target.value}))} placeholder="Opposite Bank of India, Main Road" />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div>
@@ -442,7 +456,7 @@ function PropertyManagerModal({ onClose }) {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                     <div style={{ fontSize: 15, fontWeight: 600, color: '#f8fafc', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        {p.address}
+                                        {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}
                                         <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.1)', color: '#cbd5e1', textTransform: 'capitalize' }}>
                                             {p.property_type || 'Property'}
                                         </span>
