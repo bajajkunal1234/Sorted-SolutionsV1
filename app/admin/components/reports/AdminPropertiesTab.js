@@ -181,9 +181,9 @@ export default function AdminPropertiesTab() {
                         {detailLoading ? <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>Loading...</div> : (
                             <>
                                 {/* Current Tenants */}
-                                <Section title="Current Tenants" icon={<Users size={14} color="#38bdf8" />}>
+                                <Section title="Linked Customers" icon={<Users size={14} color="#38bdf8" />}>
                                     {(selected.tenants || []).filter(t => t.is_active).length === 0 ? (
-                                        <p style={{ color: '#475569', fontSize: 13 }}>No current tenants.</p>
+                                        <p style={{ color: '#475569', fontSize: 13 }}>No linked customers.</p>
                                     ) : (
                                         (selected.tenants || []).filter(t => t.is_active).map(t => (
                                             <TenantRow key={t.id} tenant={t} onUnlink={() => handleUnlink(t.id)} />
@@ -193,7 +193,7 @@ export default function AdminPropertiesTab() {
 
                                 {/* Past Tenants */}
                                 {(selected.tenants || []).filter(t => !t.is_active).length > 0 && (
-                                    <Section title="Past Tenants" icon={<Clock size={14} color="#64748b" />}>
+                                    <Section title="Past Links" icon={<Clock size={14} color="#64748b" />}>
                                         {(selected.tenants || []).filter(t => !t.is_active).map(t => (
                                             <TenantRow key={t.id} tenant={t} past />
                                         ))}

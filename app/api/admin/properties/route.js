@@ -39,16 +39,30 @@ export async function GET(request) {
             return NextResponse.json({ success: true, data: { ...property, tenants: tenants || [], jobs: jobs || [] } })
         }
 
-        // Properties for a specific customer
+        // Properties for a specific customer (admin view: query both customer_id and account_id)
         if (customerId) {
-            const { data, error } = await supabase
+            // Fetch by customer_id OR account_id to cover both customer-app and admin-added links
+            const { data: byCustomer } = await supabase
                 .from('customer_properties')
                 .select('*, property:properties(*)')
                 .eq('customer_id', customerId)
                 .eq('is_active', true)
                 .order('linked_at', { ascending: false })
-            if (error) throw error
-            return NextResponse.json({ success: true, data: data?.map(r => ({ ...r.property, link_id: r.id, linked_at: r.linked_at })) || [] })
+            const { data: byAccount } = await supabase
+                .from('customer_properties')
+                .select('*, property:properties(*)')
+                .eq('account_id', customerId)
+                .eq('is_active', true)
+                .order('linked_at', { ascending: false })
+            // Merge, deduplicate by property id
+            const merged = [...(byCustomer || []), ...(byAccount || [])]
+            const seen = new Set()
+            const unique = merged.filter(r => {
+                if (!r.property || seen.has(r.property.id)) return false
+                seen.add(r.property.id)
+                return true
+            })
+            return NextResponse.json({ success: true, data: unique.map(r => ({ ...r.property, link_id: r.id, linked_at: r.linked_at })) })
         }
 
         // Smart search by pincode or address (for matching when adding a property)
@@ -150,15 +164,28 @@ export async function POST(request) {
             .single()
         if (error) throw error
 
-        // Optionally link to a customer right away
+        // Link to a customer — store as account_id (admin side) to avoid FK issues with customers table
         if (customer_id) {
-            await supabase.from('customer_properties').insert({
-                customer_id,
+            const { error: linkError } = await supabase.from('customer_properties').insert({
+                account_id: customer_id,   // admin account ID stored in account_id column
                 property_id: property.id,
                 linked_at: new Date().toISOString(),
                 is_active: true,
                 notes: notes || null,
             })
+            if (linkError) {
+                // account_id column may not exist yet — fall back to customer_id column
+                const { error: fallbackError } = await supabase.from('customer_properties').insert({
+                    customer_id,
+                    property_id: property.id,
+                    linked_at: new Date().toISOString(),
+                    is_active: true,
+                    notes: notes || null,
+                })
+                if (fallbackError) {
+                    console.warn('Could not link property to customer:', fallbackError.message)
+                }
+            }
         }
 
         logInteractionServer({
