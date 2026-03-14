@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Plus, CheckCircle, AlertCircle, Wrench, Package, ArrowRight, Activity, Zap, Compass, MapPin } from 'lucide-react'
 import AddPropertyModal from '../modals/AddPropertyModal'
 import AddApplianceModal from '../modals/AddApplianceModal'
@@ -21,19 +21,42 @@ export default function Home() {
     // Data
     const [stats, setStats] = useState({ properties: 0, appliances: 0, activeJobs: 0, completedJobs: 0 })
     const [activities, setActivities] = useState([])
-    const [activeJob, setActiveJob] = useState(null) // Mock feature for "Active Tracker"
-    const [properties, setProperties] = useState([])     // Needed for modals
-    const [appliances, setAppliances] = useState([])     // Needed for modals
+    const [activeJob, setActiveJob] = useState(null)
+    const [properties, setProperties] = useState([])
+    const [appliances, setAppliances] = useState([])
+
+    // Banners
+    const [banners, setBanners] = useState([])
+    const [bannerIndex, setBannerIndex] = useState(0)
+    const bannerTimer = useRef(null)
 
     useEffect(() => {
-        // Time based greeting
         const hour = new Date().getHours()
         if (hour < 12) setGreeting('Good Morning')
         else if (hour < 18) setGreeting('Good Afternoon')
         else setGreeting('Good Evening')
 
         fetchData()
+
+        // Fetch banners
+        fetch('/api/settings/section-configs?id=customer-app-banners')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.data?.extra_config?.banners) {
+                    setBanners(data.data.extra_config.banners.filter(b => b.active))
+                }
+            })
+            .catch(() => {})
     }, [])
+
+    // Auto-advance banners
+    useEffect(() => {
+        if (banners.length <= 1) return
+        bannerTimer.current = setInterval(() => {
+            setBannerIndex(i => (i + 1) % banners.length)
+        }, 5000)
+        return () => clearInterval(bannerTimer.current)
+    }, [banners.length])
 
     const fetchData = async () => {
         try {
@@ -128,6 +151,31 @@ export default function Home() {
                     {customerName.charAt(0).toUpperCase()}
                 </div>
             </header>
+
+            {/* ── BANNERS CAROUSEL ── */}
+            {banners.length > 0 && (
+                <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', aspectRatio: '16/7' }}>
+                    <div style={{ display: 'flex', transition: 'transform 0.5s ease-in-out', transform: `translateX(-${bannerIndex * 100}%)`, height: '100%' }}>
+                        {banners.map((banner, i) => (
+                            <div key={banner.id}
+                                onClick={() => banner.targetUrl && router.push(banner.targetUrl)}
+                                style={{ minWidth: '100%', height: '100%', flexShrink: 0, cursor: banner.targetUrl ? 'pointer' : 'default' }}
+                            >
+                                <img src={banner.imageUrl} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 20 }} />
+                            </div>
+                        ))}
+                    </div>
+                    {banners.length > 1 && (
+                        <div style={{ position: 'absolute', bottom: 8, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 6 }}>
+                            {banners.map((_, i) => (
+                                <div key={i} onClick={() => setBannerIndex(i)}
+                                    style={{ width: i === bannerIndex ? 16 : 6, height: 6, borderRadius: 10, background: i === bannerIndex ? '#fff' : 'rgba(255,255,255,0.4)', transition: 'all 0.3s', cursor: 'pointer' }}
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* ── ACTIVE TRACKER (Priority UI) ── */}
             {activeJob ? (
