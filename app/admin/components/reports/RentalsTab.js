@@ -287,6 +287,23 @@ function RentalsTab() {
                                                 >
                                                     View Details
                                                 </button>
+                                                <button
+                                                    className="btn"
+                                                    style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)', backgroundColor: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', borderRadius: 'var(--radius-sm)' }}
+                                                    onClick={async () => {
+                                                        if (!window.confirm(`Terminate rental for ${productName} — ${customerName}?\n\nThis will mark the agreement as terminated. History is preserved.`)) return;
+                                                        try {
+                                                            const res = await fetch(`/api/admin/rentals?type=rental&id=${rental.id}`, { method: 'DELETE' });
+                                                            const data = await res.json();
+                                                            if (!data.success) throw new Error(data.error);
+                                                            await fetchData();
+                                                        } catch (err) {
+                                                            alert('Failed to terminate: ' + err.message);
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
@@ -370,12 +387,14 @@ function RentalsTab() {
                                             className="btn"
                                             style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', backgroundColor: '#ef4444' }}
                                             onClick={async () => {
-                                                if (window.confirm(`Delete rental plan: ${plan.product_name}?\n\nThis action cannot be undone.`)) {
+                                                if (window.confirm(`Delete rental plan: ${plan.product_name}?\n\nThis will be blocked if any active rental agreements use it.`)) {
                                                     try {
-                                                        await rentalsAPI.updatePlan(plan.id, { is_active: false });
+                                                        const res = await fetch(`/api/admin/rentals?type=plan&id=${plan.id}`, { method: 'DELETE' });
+                                                        const data = await res.json();
+                                                        if (!data.success) throw new Error(data.error);
                                                         await fetchData();
                                                     } catch (err) {
-                                                        alert('Failed to delete plan');
+                                                        alert(err.message);
                                                     }
                                                 }
                                             }}

@@ -152,3 +152,42 @@ export async function PUT(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
+
+// DELETE - Terminate a rental agreement (type=rental) or deactivate a plan (type=plan)
+export async function DELETE(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const type = searchParams.get('type') // 'rental' or 'plan'
+        const id = searchParams.get('id')
+
+        if (!id) return NextResponse.json({ success: false, error: 'id is required' }, { status: 400 })
+
+        if (type === 'plan') {
+            // Dependency check: block if active agreements use this plan
+            const { data: activeLinked } = await supabase
+                .from('active_rentals')
+                .select('id')
+                .eq('plan_id', id)
+                .eq('status', 'active')
+            if (activeLinked?.length > 0) {
+                return NextResponse.json({
+                    success: false,
+                    error: `Cannot delete — ${activeLinked.length} active rental agreement(s) still use this plan. Terminate those agreements first.`
+                }, { status: 409 })
+            }
+            const { error } = await supabase.from('rental_plans').update({ is_active: false }).eq('id', id)
+            if (error) throw error
+            return NextResponse.json({ success: true })
+        }
+
+        // Terminate rental agreement (soft-delete keeps history)
+        const { error } = await supabase
+            .from('active_rentals')
+            .update({ status: 'terminated', terminated_at: new Date().toISOString() })
+            .eq('id', id)
+        if (error) throw error
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+}
