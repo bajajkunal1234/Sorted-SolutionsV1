@@ -110,150 +110,181 @@ export default function CustomerAppSettings() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div>
+            {/* ── Header ── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-lg)' }}>
                 <div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Customer App Banners</h3>
-                    <p className="text-sm text-gray-500">Manage the promotional banners displayed on the customer app homepage.</p>
+                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                        Customer App Banners
+                    </h3>
+                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                        Manage the promotional banners displayed on the customer app homepage.
+                    </p>
                 </div>
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    className="btn btn-primary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
                 >
-                    {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                    {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
                     Save Changes
                 </button>
             </div>
 
             {message.text && (
-                <div className={`p-4 rounded-md flex items-center gap-2 ${message.type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>
-                    <AlertCircle className="w-5 h-5" />
-                    <span>{message.text}</span>
+                <div style={{
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: 'var(--spacing-md)',
+                    fontSize: 'var(--font-size-sm)',
+                    background: message.type === 'error' ? '#ef444415' : '#10b98115',
+                    color: message.type === 'error' ? '#ef4444' : '#10b981',
+                    border: `1px solid ${message.type === 'error' ? '#ef444430' : '#10b98130'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--spacing-sm)'
+                }}>
+                    <AlertCircle size={16} />
+                    {message.text}
                 </div>
             )}
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-6">
-                
-                <div className="flex justify-between items-center border-b border-gray-200 dark:border-gray-700 pb-4">
-                    <h4 className="text-base font-medium text-gray-900 dark:text-gray-100">Active Banners ({config.banners.length})</h4>
+            <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>Active Banners ({config.banners.length})</h4>
                     <button
                         onClick={addBanner}
-                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                        className="btn btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
                     >
-                        <Plus className="w-4 h-4 mr-1.5" />
+                        <Plus size={16} />
                         Add Banner
                     </button>
                 </div>
 
                 {config.banners.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-dashed border-gray-300 dark:border-gray-600">
-                        <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                        <p className="text-sm font-medium">No banners added yet.</p>
-                        <p className="text-xs text-gray-400 mt-1">Click "Add Banner" to create your first app banner.</p>
+                    <div style={{ textAlign: 'center', padding: 'var(--spacing-2xl)', color: 'var(--text-secondary)' }}>
+                        <ImageIcon size={40} style={{ opacity: 0.3, marginBottom: 'var(--spacing-sm)', display: 'block', margin: '0 auto var(--spacing-sm)' }} />
+                        <p style={{ margin: 0 }}>No banners added yet. Click <strong>"Add Banner"</strong> to create your first app banner.</p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
+                    <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                         {config.banners.map((banner, index) => (
-                            <div key={banner.id} className="relative flex gap-4 p-4 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-lg group hover:border-blue-300 dark:hover:border-blue-700 transition-colors">
-                                
+                            <div key={banner.id} style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'auto 1fr',
+                                gap: 'var(--spacing-md)',
+                                padding: 'var(--spacing-md)',
+                                background: 'var(--bg-secondary)',
+                                borderRadius: 'var(--radius-md)',
+                                border: '1px solid var(--border-primary)'
+                            }}>
                                 {/* Ordering Controls */}
-                                <div className="flex flex-col gap-1 justify-center border-r border-gray-200 dark:border-gray-700 pr-3">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, justifyContent: 'center', paddingRight: 'var(--spacing-md)', borderRight: '1px solid var(--border-primary)' }}>
                                     <button 
                                         onClick={() => moveBanner(index, -1)}
                                         disabled={index === 0}
-                                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
-                                        title="Move Up"
+                                        style={{ padding: 4, background: 'transparent', border: 'none', cursor: index === 0 ? 'not-allowed' : 'pointer', color: index === 0 ? 'var(--text-tertiary)' : 'var(--text-secondary)' }}
                                     >
-                                        <ArrowUp className="w-4 h-4" />
+                                        <ArrowUp size={16} />
                                     </button>
                                     <button 
                                         onClick={() => moveBanner(index, 1)}
                                         disabled={index === config.banners.length - 1}
-                                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-gray-400"
-                                        title="Move Down"
+                                        style={{ padding: 4, background: 'transparent', border: 'none', cursor: index === config.banners.length - 1 ? 'not-allowed' : 'pointer', color: index === config.banners.length - 1 ? 'var(--text-tertiary)' : 'var(--text-secondary)' }}
                                     >
-                                        <ArrowDown className="w-4 h-4" />
+                                        <ArrowDown size={16} />
                                     </button>
                                 </div>
 
-                                {/* Banner Details */}
-                                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Details */}
+                                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 300px) 1fr', gap: 'var(--spacing-lg)' }}>
                                     
                                     {/* Image Preview Area */}
-                                    <div className="md:col-span-1 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden bg-gray-100 dark:bg-gray-900 relative aspect-[21/9]">
+                                    <div style={{ 
+                                        borderRadius: 'var(--radius-md)', 
+                                        overflow: 'hidden', 
+                                        background: 'var(--bg-primary)', 
+                                        border: '1px solid var(--border-primary)',
+                                        position: 'relative',
+                                        aspectRatio: '16/7',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        flexDirection: 'column'
+                                    }}>
                                         {banner.imageUrl ? (
-                                            <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover" />
+                                            <img src={banner.imageUrl} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                         ) : (
-                                            <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                                                <ImageIcon className="w-8 h-8 mb-2 opacity-50" />
-                                                <span className="text-xs">No Image Provided</span>
-                                            </div>
+                                            <>
+                                                <ImageIcon size={32} style={{ color: 'var(--text-tertiary)', marginBottom: 8 }} />
+                                                <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>No Image Provided</span>
+                                            </>
                                         )}
                                         
                                         {!banner.active && (
-                                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[2px]">
-                                                <span className="px-2 py-1 bg-red-600 text-white text-xs font-bold rounded">INACTIVE</span>
+                                            <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <span style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', fontSize: 11, fontWeight: 'bold', borderRadius: 4 }}>INACTIVE</span>
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Edit Fields */}
-                                    <div className="space-y-3">
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Banner Title (Internal)</label>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Banner Title (Internal)</label>
                                             <input
                                                 type="text"
                                                 value={banner.title}
                                                 onChange={(e) => updateBanner(banner.id, 'title', e.target.value)}
-                                                className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                                                 placeholder="e.g. 90-Minute Service Promo"
                                             />
                                         </div>
                                         
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Image URL</label>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Image URL</label>
                                             <input
                                                 type="text"
                                                 value={banner.imageUrl}
                                                 onChange={(e) => updateBanner(banner.id, 'imageUrl', e.target.value)}
-                                                className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                                                 placeholder="https://example.com/banner.png"
                                             />
                                         </div>
                                         
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Target Link (Optional)</label>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 500, marginBottom: 4, color: 'var(--text-secondary)' }}>Target Link (Optional)</label>
                                             <input
                                                 type="text"
                                                 value={banner.targetUrl}
                                                 onChange={(e) => updateBanner(banner.id, 'targetUrl', e.target.value)}
-                                                className="w-full px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                                                style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                                                 placeholder="e.g. /services/ac-repair"
                                             />
                                         </div>
                                         
-                                        <div className="flex items-center justify-between pt-1">
-                                            <label className="flex items-center text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>
                                                 <input
                                                     type="checkbox"
                                                     checked={banner.active}
                                                     onChange={(e) => updateBanner(banner.id, 'active', e.target.checked)}
-                                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2"
+                                                    style={{ width: 16, height: 16 }}
                                                 />
                                                 Show on App Homepage
                                             </label>
                                             
                                             <button
                                                 onClick={() => removeBanner(banner.id)}
-                                                className="text-gray-400 hover:text-red-600 p-1 rounded transition-colors"
+                                                style={{ padding: 6, background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                                 title="Delete Banner"
                                             >
-                                                <Trash2 className="w-4 h-4" />
+                                                <Trash2 size={16} />
                                             </button>
                                         </div>
                                     </div>
-
                                 </div>
                             </div>
                         ))}
