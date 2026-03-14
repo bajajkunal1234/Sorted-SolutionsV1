@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Link, Unlink, Calendar, Clock, Home } from 'lucide-react'
+import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Link, Unlink, Calendar, Clock, Home, Trash2 } from 'lucide-react'
 
 const S = {
     card: { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 16, padding: 16, cursor: 'pointer', transition: 'all 0.15s' },
@@ -46,6 +46,18 @@ export default function AdminPropertiesTab() {
         if (!window.confirm('Unlink this customer from the property? Their service history will be preserved.')) return
         await fetch('/api/admin/properties/unlink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ link_id: linkId }) })
         openDetail(selected)
+        fetchProperties()
+    }
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Delete property "${[selected.flat_number, selected.building_name, selected.address].filter(Boolean).join(', ')}"?\n\nThis is permanent and only allowed if no customers are linked and no job history exists.`)) return
+        const res = await fetch(`/api/admin/properties?id=${selected.id}`, { method: 'DELETE' })
+        const data = await res.json()
+        if (!data.success) {
+            alert(data.error || 'Delete failed')
+            return
+        }
+        setSelected(null)
         fetchProperties()
     }
 
@@ -183,6 +195,19 @@ export default function AdminPropertiesTab() {
                                         ))
                                     )}
                                 </Section>
+
+                                {/* Delete zone */}
+                                <div style={{ marginTop: 8, paddingTop: 20, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                    <p style={{ fontSize: 11, color: '#475569', margin: '0 0 10px 0', lineHeight: 1.5 }}>
+                                        ⚠️ Deletion is only allowed when no customers are linked (active or past) and no service history exists.
+                                    </p>
+                                    <button
+                                        onClick={handleDelete}
+                                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, color: '#f87171', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                                    >
+                                        <Trash2 size={14} /> Delete Property
+                                    </button>
+                                </div>
                             </>
                         )}
                     </div>

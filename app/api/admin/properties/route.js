@@ -195,24 +195,39 @@ export async function PUT(request) {
     }
 }
 
-// DELETE — remove a property (only if no active jobs)
+// DELETE — remove a property (only if no customer links AND no job history)
 export async function DELETE(request) {
     try {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
         if (!id) return NextResponse.json({ success: false, error: 'Property ID required' }, { status: 400 })
 
-        const { count } = await supabase
+        // Check for any linked customers (active or past)
+        const { count: customerCount } = await supabase
+            .from('customer_properties')
+            .select('id', { count: 'exact', head: true })
+            .eq('property_id', id)
+
+        if (customerCount > 0) {
+            return NextResponse.json({
+                success: false,
+                error: `Cannot delete — ${customerCount} customer${customerCount > 1 ? 's are' : ' is'} linked to this property (including past links). Unlink all customers first.`
+            }, { status: 400 })
+        }
+
+        // Check for any job history
+        const { count: jobCount } = await supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('property_id', id)
-            .not('status', 'in', '("cancelled")')
 
-        if (count > 0) {
-            return NextResponse.json({ success: false, error: `Cannot delete — this property has ${count} service records.` }, { status: 400 })
+        if (jobCount > 0) {
+            return NextResponse.json({
+                success: false,
+                error: `Cannot delete — this property has ${jobCount} service record${jobCount > 1 ? 's' : ''} in history.`
+            }, { status: 400 })
         }
 
-        await supabase.from('customer_properties').delete().eq('property_id', id)
         const { error } = await supabase.from('properties').delete().eq('id', id)
         if (error) throw error
 
@@ -221,3 +236,4 @@ export async function DELETE(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
+
