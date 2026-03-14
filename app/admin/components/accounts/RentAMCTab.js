@@ -2,12 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { Package, Shield, Calendar, DollarSign, Loader2, RefreshCcw, CheckCircle, AlertCircle } from 'lucide-react';
+import CollectRentForm from '../reports/CollectRentForm';
+import { transactionsAPI, rentalsAPI } from '@/lib/adminAPI';
 
 function RentAMCTab({ customerId }) {
     const [rentals, setRentals] = useState([]);
     const [amcs, setAmcs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showCollectRentForm, setShowCollectRentForm] = useState(false);
+    const [selectedRentalForPayment, setSelectedRentalForPayment] = useState(null);
 
     useEffect(() => {
         if (customerId) fetchAll();
@@ -129,7 +133,16 @@ function RentAMCTab({ customerId }) {
                                     <div>
                                         <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 2 }}>Next Rent Due</div>
                                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: isOverdue(rental.next_rent_due_date) ? '#ef4444' : '#f59e0b' }}>
-                                            {fmtDate(rental.next_rent_due_date)}
+                                            {rental.next_rent_due_date 
+                                                ? fmtDate(rental.next_rent_due_date) 
+                                                : (rental.start_date ? (() => { 
+                                                    // Fallback for missing next_rent_due_date
+                                                    let assumedMonths = rental.monthly_rent > 0 ? Math.floor((rental.rent_advance || 0)/rental.monthly_rent) : 0;
+                                                    let d = new Date(rental.start_date);
+                                                    d.setMonth(d.getMonth() + assumedMonths);
+                                                    return fmtDate(d.toISOString().split('T')[0]);
+                                                })() : '—')
+                                            }
                                         </div>
                                         {rental.rents_paid != null && (
                                             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{rental.rents_paid}/{(rental.rents_paid || 0) + (rental.rents_remaining || 0)} paid</div>
@@ -145,11 +158,14 @@ function RentAMCTab({ customerId }) {
 
                                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                                     <button className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: 12 }}
-                                        onClick={() => window.location.href = '/admin#rentals'}>
+                                        onClick={() => {
+                                            setSelectedRentalForPayment(rental);
+                                            setShowCollectRentForm(true);
+                                        }}>
                                         <DollarSign size={13} /> Collect Rent
                                     </button>
                                     <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}
-                                        onClick={() => window.location.href = '/admin#rentals'}>
+                                        onClick={() => alert('Detailed view for individual rentals coming soon!')}>
                                         View Details
                                     </button>
                                 </div>
@@ -254,6 +270,71 @@ function RentAMCTab({ customerId }) {
                     </div>
                 )}
             </div>
+
+            {showCollectRentForm && selectedRentalForPayment && (
+                <CollectRentForm
+                    rental={selectedRentalForPayment}
+                    onClose={() => {
+                        setShowCollectRentForm(false);
+                        setSelectedRentalForPayment(null);
+                    }}
+                    onSave={async (paymentData) => {
+                        try {
+                            setLoading(true);
+                            const rental = selectedRentalForPayment;
+                            
+                            // Initialize due date fallback if it was missing in the record
+                            let currentDueDateString = rental.next_rent_due_date;
+                            if (!currentDueDateString && rental.start_date) {
+                                let assumedMonths = rental.monthly_rent > 0 ? Math.floor((rental.rent_advance || 0)/rental.monthly_rent) : 0;
+                                let d = new Date(rental.start_date);
+                                d.setMonth(d.getMonth() + assumedMonths);
+                                currentDueDateString = d.toISOString().split('T')[0];
+                            }
+                            const currentDueDate = new Date(currentDueDateString || new Date());
+                            const nextDueDate = new Date(currentDueDate);
+                            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+
+                            // Create receipt voucher OR link existing one
+                            let receiptId = paymentData.linkedReceiptId || null;
+
+                            if (!paymentData.useExistingReceipt || !receiptId) {
+                                // Create a new receipt voucher in accounts
+                                const productName = rental.product_name || rental.productName || 'Rental';
+                                const receipt = await transactionsAPI.create({
+                                    type: 'receipt',
+                                    date: paymentData.paymentDate || new Date().toISOString().split('T')[0],
+                                    account_id: rental.customer_id,
+                                    account_name: rental.customer_name || 'Customer',
+                                    amount: paymentData.amount,
+                                    description: `Rent payment for ${productName}${rental.serial_number ? ` (SN: ${rental.serial_number})` : ''}`,
+                                    reference: paymentData.transactionRef || null,
+                                    payment_method: paymentData.paymentMethod || 'cash',
+                                    notes: paymentData.notes || null,
+                                });
+                                receiptId = receipt?.id || null;
+                            }
+
+                            // Update active_rental record
+                            await rentalsAPI.updateActive(rental.id, {
+                                rents_paid: (rental.rents_paid || 0) + 1,
+                                rents_remaining: Math.max(0, (rental.rents_remaining || 0) - 1),
+                                next_rent_due_date: nextDueDate.toISOString().split('T')[0],
+                                ...(receiptId ? { last_receipt_id: String(receiptId) } : {}),
+                            });
+
+                            await fetchAll();
+                            setShowCollectRentForm(false);
+                            setSelectedRentalForPayment(null);
+                        } catch (err) {
+                            console.error('Failed to collect rent:', err);
+                            alert('Failed to process rent payment.');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 }

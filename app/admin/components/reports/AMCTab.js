@@ -5,6 +5,7 @@ import { Shield, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCir
 import { amcAPI } from '@/lib/adminAPI';
 import AMCPlanForm from './AMCPlanForm';
 import NewAMCForm from './NewAMCForm';
+import AgreementTemplateEditor from './AgreementTemplateEditor';
 
 function AMCTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
@@ -151,7 +152,7 @@ function AMCTab() {
                 marginBottom: 'var(--spacing-lg)',
                 borderBottom: '1px solid var(--border-primary)'
             }}>
-                {['active', 'plans'].map(view => (
+                {['active', 'plans', 'template'].map(view => (
                     <button
                         key={view}
                         onClick={() => setActiveView(view)}
@@ -167,7 +168,7 @@ function AMCTab() {
                             textTransform: 'capitalize'
                         }}
                     >
-                        {view === 'active' ? 'Active AMCs' : view === 'plans' ? 'AMC Plans' : 'Analytics'}
+                        {view === 'active' ? 'Active AMCs' : view === 'plans' ? 'AMC Plans' : view === 'template' ? 'Agreement Template' : 'Analytics'}
                     </button>
                 ))}
             </div>
@@ -395,6 +396,31 @@ function AMCTab() {
                 </div>
             )}
 
+            {activeView === 'template' && (
+                <div style={{ height: 'calc(100vh - 250px)' }}>
+                    <AgreementTemplateEditor 
+                        type="amc"
+                        title="AMC Agreement Template"
+                        placeholders={[
+                            'CUSTOMER_NAME',
+                            'CUSTOMER_ADDRESS',
+                            'CUSTOMER_PHONE',
+                            'CUSTOMER_EMAIL',
+                            'PRODUCT_NAME',
+                            'SERIAL_NUMBER',
+                            'START_DATE',
+                            'END_DATE',
+                            'AMC_AMOUNT',
+                            'NEXT_SERVICE_DATE',
+                            'COMPANY_NAME',
+                            'COMPANY_PHONE',
+                            'COMPANY_EMAIL',
+                            'TODAYS_DATE'
+                        ]}
+                    />
+                </div>
+            )}
+
             {/* Forms */}
             {showPlanForm && (
                 <AMCPlanForm
@@ -473,7 +499,7 @@ function AMCTab() {
                     onSave={async (data) => {
                         try {
                             setLoading(true);
-                            await amcAPI.createActive({
+                            const payload = {
                                 customer_id: data.customerId,
                                 plan_id: data.planId,
                                 product_brand: data.productBrand,
@@ -486,9 +512,10 @@ function AMCTab() {
                                 auto_renew: data.autoRenew,
                                 notes: data.notes,
                                 status: 'active'
-                            });
+                            };
+                            const newAMC = await amcAPI.createActive(payload);
                             await fetchData();
-                            setShowNewAMCForm(false);
+                            return { ...payload, id: newAMC?.id, accounts: { name: data.customerName || 'Customer' } };
                         } catch (err) {
                             console.error('Failed to create AMC:', err);
                             alert('Failed to create AMC subscription.');

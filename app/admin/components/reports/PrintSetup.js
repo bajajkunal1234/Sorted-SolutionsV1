@@ -1,9 +1,13 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Printer, Save, Eye, Upload, X, Plus, Trash2 } from 'lucide-react';
+import { printSettingsAPI } from '@/lib/adminAPI';
 
 function PrintSetup() {
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [settingsId, setSettingsId] = useState(null);
     const [settings, setSettings] = useState({
         companyName: 'AC Repair Services',
         companyAddress: 'Shop No. 5, Malad West, Mumbai - 400064',
@@ -28,19 +32,51 @@ function PrintSetup() {
         }
     });
 
-    const [invoiceTerms, setInvoiceTerms] = useState([
-        'Payment is due within 30 days of invoice date',
-        'Goods once sold will not be taken back',
-        'Warranty as per manufacturer terms',
-        'Subject to Mumbai jurisdiction'
-    ]);
+    const [invoiceTerms, setInvoiceTerms] = useState([]);
+    const [quotationTerms, setQuotationTerms] = useState([]);
+    const [rentalTerms, setRentalTerms] = useState([]);
+    const [amcTerms, setAmcTerms] = useState([]);
 
-    const [quotationTerms, setQuotationTerms] = useState([
-        'Quotation valid for 15 days from date of issue',
-        'Prices are subject to change without notice',
-        'Advance payment required for custom orders',
-        'Installation charges extra if applicable'
-    ]);
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const fetchSettings = async () => {
+        try {
+            setIsLoading(true);
+            const data = await printSettingsAPI.get();
+            if (data) {
+                setSettingsId(data.id);
+                setSettings({
+                    companyName: data.company_name || '',
+                    companyAddress: data.company_address || '',
+                    companyPhone: data.company_phone || '',
+                    companyEmail: data.company_email || '',
+                    gstNumber: data.gst_number || '',
+                    logoUrl: data.logo_url || null,
+                    showLogo: data.show_logo ?? true,
+                    showGST: data.show_gst ?? true,
+                    showTerms: data.show_terms ?? true,
+                    paperSize: data.paper_size || 'A4',
+                    fontSize: data.font_size || 'medium',
+                    includeSignature: data.include_signature ?? true,
+                    templateStyle: data.template_style || 'modern-boxes',
+                    gstBreakdown: data.gst_breakdown || {
+                        showCGST: true, showSGST: true, showIGST: true, cgstRate: 9, sgstRate: 9, igstRate: 18
+                    }
+                });
+                setInvoiceTerms(data.invoice_terms || []);
+                setQuotationTerms(data.quotation_terms || []);
+                setRentalTerms(data.rental_terms || []);
+                setAmcTerms(data.amc_terms || []);
+            }
+        } catch (error) {
+            console.error('Failed to load print settings:', error);
+            alert('Failed to load print settings');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const [showPreview, setShowPreview] = useState(false);
     const [previewType, setPreviewType] = useState('invoice'); // invoice or quotation
@@ -83,8 +119,41 @@ function PrintSetup() {
         }
     };
 
-    const handleSave = () => {
-        alert('Print settings saved successfully!');
+    const handleSave = async () => {
+        try {
+            setIsSaving(true);
+            const payload = {
+                company_name: settings.companyName,
+                company_address: settings.companyAddress,
+                company_phone: settings.companyPhone,
+                company_email: settings.companyEmail,
+                gst_number: settings.gstNumber,
+                logo_url: settings.logoUrl,
+                show_logo: settings.showLogo,
+                show_gst: settings.showGST,
+                show_terms: settings.showTerms,
+                paper_size: settings.paperSize,
+                font_size: settings.fontSize,
+                include_signature: settings.includeSignature,
+                template_style: settings.templateStyle,
+                gst_breakdown: settings.gstBreakdown,
+                invoice_terms: invoiceTerms,
+                quotation_terms: quotationTerms,
+                rental_terms: rentalTerms,
+                amc_terms: amcTerms
+            };
+
+            if (settingsId) payload.id = settingsId;
+
+            const saved = await printSettingsAPI.update(payload);
+            setSettingsId(saved.id);
+            alert('Print settings saved successfully!');
+        } catch (error) {
+            console.error('Failed to save settings:', error);
+            alert('Failed to save settings: ' + error.message);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const addInvoiceTerm = () => {
@@ -114,6 +183,38 @@ function PrintSetup() {
     const deleteQuotationTerm = (index) => {
         setQuotationTerms(quotationTerms.filter((_, i) => i !== index));
     };
+
+    const addRentalTerm = () => {
+        setRentalTerms([...rentalTerms, 'New rental term']);
+    };
+
+    const updateRentalTerm = (index, value) => {
+        const updated = [...rentalTerms];
+        updated[index] = value;
+        setRentalTerms(updated);
+    };
+
+    const deleteRentalTerm = (index) => {
+        setRentalTerms(rentalTerms.filter((_, i) => i !== index));
+    };
+
+    const addAmcTerm = () => {
+        setAmcTerms([...amcTerms, 'New AMC term']);
+    };
+
+    const updateAmcTerm = (index, value) => {
+        const updated = [...amcTerms];
+        updated[index] = value;
+        setAmcTerms(updated);
+    };
+
+    const deleteAmcTerm = (index) => {
+        setAmcTerms(amcTerms.filter((_, i) => i !== index));
+    };
+
+    if (isLoading) {
+        return <div style={{ padding: '20px' }}>Loading settings...</div>;
+    }
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -160,10 +261,11 @@ function PrintSetup() {
                     <button
                         className="btn btn-primary"
                         onClick={handleSave}
-                        style={{ padding: '8px 16px' }}
+                        disabled={isSaving}
+                        style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', opacity: isSaving ? 0.7 : 1 }}
                     >
                         <Save size={16} />
-                        Save Settings
+                        {isSaving ? 'Saving...' : 'Save Settings'}
                     </button>
                 </div>
             </div>
@@ -585,6 +687,100 @@ function PrintSetup() {
                                         />
                                         <button
                                             onClick={() => deleteQuotationTerm(index)}
+                                            style={{
+                                                padding: '4px',
+                                                border: 'none',
+                                                background: 'none',
+                                                color: 'var(--color-danger)',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Rental Agreement Terms */}
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-lg)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                    Rental Agreement Terms
+                                </h4>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={addRentalTerm}
+                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)' }}
+                                >
+                                    <Plus size={14} />
+                                    Add Term
+                                </button>
+                            </div>
+                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '200px', overflow: 'auto' }}>
+                                {rentalTerms.map((term, index) => (
+                                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                        <input
+                                            type="text"
+                                            value={term}
+                                            onChange={(e) => updateRentalTerm(index, e.target.value)}
+                                            className="form-input"
+                                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px' }}
+                                        />
+                                        <button
+                                            onClick={() => deleteRentalTerm(index)}
+                                            style={{
+                                                padding: '4px',
+                                                border: 'none',
+                                                background: 'none',
+                                                color: 'var(--color-danger)',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* AMC Agreement Terms */}
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-lg)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                    AMC Agreement Terms
+                                </h4>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={addAmcTerm}
+                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)' }}
+                                >
+                                    <Plus size={14} />
+                                    Add Term
+                                </button>
+                            </div>
+                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '200px', overflow: 'auto' }}>
+                                {amcTerms.map((term, index) => (
+                                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                        <input
+                                            type="text"
+                                            value={term}
+                                            onChange={(e) => updateAmcTerm(index, e.target.value)}
+                                            className="form-input"
+                                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px' }}
+                                        />
+                                        <button
+                                            onClick={() => deleteAmcTerm(index)}
                                             style={{
                                                 padding: '4px',
                                                 border: 'none',

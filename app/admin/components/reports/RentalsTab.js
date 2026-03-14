@@ -5,6 +5,7 @@ import RentalPlanForm from './RentalPlanForm';
 import NewRentalForm from './NewRentalForm';
 import CollectRentForm from './CollectRentForm';
 import RentalDetailsModal from './RentalDetailsModal';
+import AgreementTemplateEditor from './AgreementTemplateEditor';
 
 function RentalsTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
@@ -141,7 +142,7 @@ function RentalsTab() {
                 marginBottom: 'var(--spacing-lg)',
                 borderBottom: '1px solid var(--border-primary)'
             }}>
-                {['active', 'plans'].map(view => (
+                {['active', 'plans', 'template'].map(view => (
                     <button
                         key={view}
                         onClick={() => setActiveView(view)}
@@ -157,7 +158,7 @@ function RentalsTab() {
                             textTransform: 'capitalize'
                         }}
                     >
-                        {view === 'active' ? 'Active Rentals' : view === 'plans' ? 'Rental Plans' : 'Analytics'}
+                        {view === 'active' ? 'Active Rentals' : view === 'plans' ? 'Rental Plans' : view === 'template' ? 'Agreement Template' : 'Analytics'}
                     </button>
                 ))}
             </div>
@@ -427,6 +428,32 @@ function RentalsTab() {
                 </div>
             )}
 
+            {activeView === 'template' && (
+                <div style={{ height: 'calc(100vh - 250px)' }}>
+                    <AgreementTemplateEditor 
+                        type="rental"
+                        title="Rental Agreement Template"
+                        placeholders={[
+                            'CUSTOMER_NAME',
+                            'CUSTOMER_ADDRESS',
+                            'CUSTOMER_PHONE',
+                            'CUSTOMER_EMAIL',
+                            'PRODUCT_NAME',
+                            'SERIAL_NUMBER',
+                            'START_DATE',
+                            'END_DATE',
+                            'MONTHLY_RENT',
+                            'SECURITY_DEPOSIT',
+                            'SETUP_FEE',
+                            'COMPANY_NAME',
+                            'COMPANY_PHONE',
+                            'COMPANY_EMAIL',
+                            'TODAYS_DATE'
+                        ]}
+                    />
+                </div>
+            )}
+
             {/* Forms */}
             {showPlanForm && (
                 <RentalPlanForm
@@ -482,6 +509,20 @@ function RentalsTab() {
                     onSave={async (rentalData) => {
                         try {
                             setLoading(true);
+                            const rentsPaidInit = rentalData.monthlyRent > 0 
+                                ? Math.floor((rentalData.rentAdvance || 0) / rentalData.monthlyRent) 
+                                : 0;
+
+                            const nextDueDate = new Date(rentalData.startDate);
+                            nextDueDate.setMonth(nextDueDate.getMonth() + rentsPaidInit);
+
+                            let totalRents = 0;
+                            if (rentalData.tenure?.unit?.includes('month')) {
+                                totalRents = rentalData.tenure.duration;
+                            } else if (rentalData.tenure?.unit?.includes('year')) {
+                                totalRents = rentalData.tenure.duration * 12;
+                            }
+
                             const payload = {
                                 customer_id: rentalData.customerId,
                                 customer_name: rentalData.customerName || '',
@@ -498,6 +539,9 @@ function RentalsTab() {
                                 deposit_paid: rentalData.depositPaid || false,
                                 deposit_amount: rentalData.depositAmount || 0,
                                 rent_advance: rentalData.rentAdvance || 0,
+                                rents_paid: rentsPaidInit,
+                                rents_remaining: Math.max(0, totalRents - rentsPaidInit),
+                                next_rent_due_date: nextDueDate.toISOString().split('T')[0],
                                 deposit_receipt_id: rentalData.depositReceiptId || null,
                                 advance_receipt_id: rentalData.advanceReceiptId || null,
                                 tenure: {
@@ -506,9 +550,10 @@ function RentalsTab() {
                                 }
                             };
 
-                            await rentalsAPI.createActive(payload);
+                            const newRental = await rentalsAPI.createActive(payload);
                             await fetchData();
-                            setShowNewRentalForm(false);
+                            // Do not close here, let the form show the success state. Return the full payload + ID.
+                            return { ...payload, id: newRental?.id, accounts: { name: payload.customer_name } };
                         } catch (err) {
                             console.error('Failed to save new rental:', err);
                             alert('Failed to create rental agreement: ' + (err.message || JSON.stringify(err)));

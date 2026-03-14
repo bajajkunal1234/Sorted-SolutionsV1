@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react';
-import { X, Plus, RefreshCcw, Receipt, CheckCircle, AlertCircle, Search } from 'lucide-react';
-import { accountsAPI, accountGroupsAPI, transactionsAPI } from '@/lib/adminAPI';
+import { X, Plus, RefreshCcw, Receipt, CheckCircle, AlertCircle, Search, Printer, FileText } from 'lucide-react';
+import { accountsAPI, accountGroupsAPI, rentalsAPI, transactionsAPI } from '@/lib/adminAPI';
 import NewAccountForm from '@/app/admin/components/accounts/NewAccountForm';
+import PrintAgreementModal from './PrintAgreementModal';
+import SetupInvoiceModal from './SetupInvoiceModal';
 
 // ─── Receipt Picker Modal ────────────────────────────────────────────────────
 function ReceiptPickerModal({ customerId, expectedAmount, onSelect, onClose }) {
@@ -168,6 +170,11 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
     const [depositReceipt, setDepositReceipt] = useState(null);
     const [advanceReceipt, setAdvanceReceipt] = useState(null);
 
+    // Post-creation success state
+    const [successData, setSuccessData] = useState(null);
+    const [showPrintAgreement, setShowPrintAgreement] = useState(false);
+    const [showPrintInvoice, setShowPrintInvoice] = useState(false);
+
     const [formData, setFormData] = useState({
         customerId: '',
         property: null,
@@ -267,28 +274,36 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
         return date.toISOString().split('T')[0];
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.selectedTenure) { alert('Please select a tenure option'); return; }
         if (!canSubmit) { alert('Please link receipt vouchers that match the entered amounts.'); return; }
 
-        onSave({
-            ...formData,
-            customerName: customers.find(c => String(c.id) === String(formData.customerId))?.name,
-            productName: selectedPlan?.product_name,
-            monthlyRent: formData.selectedTenure.monthlyRent,
-            securityDeposit: formData.selectedTenure.securityDeposit,
-            setupFee: formData.selectedTenure.setupFee,
-            depositPaid: formData.depositAmount >= formData.selectedTenure.securityDeposit,
-            depositReceiptId: depositReceipt?.id || null,
-            advanceReceiptId: advanceReceipt?.id || null,
-            tenure: {
-                duration: formData.selectedTenure.duration,
-                unit: formData.selectedTenure.unit,
-                startDate: formData.startDate,
-                endDate: calculateEndDate(formData.startDate, formData.selectedTenure.duration, formData.selectedTenure.unit)
+        try {
+            const result = await onSave({
+                ...formData,
+                customerName: customers.find(c => String(c.id) === String(formData.customerId))?.name,
+                productName: selectedPlan?.product_name,
+                monthlyRent: formData.selectedTenure.monthlyRent,
+                securityDeposit: formData.selectedTenure.securityDeposit,
+                setupFee: formData.selectedTenure.setupFee,
+                depositPaid: formData.depositAmount >= formData.selectedTenure.securityDeposit,
+                depositReceiptId: depositReceipt?.id || null,
+                advanceReceiptId: advanceReceipt?.id || null,
+                tenure: {
+                    duration: formData.selectedTenure.duration,
+                    unit: formData.selectedTenure.unit,
+                    startDate: formData.startDate,
+                    endDate: calculateEndDate(formData.startDate, formData.selectedTenure.duration, formData.selectedTenure.unit)
+                }
+            });
+
+            if (result) {
+                setSuccessData(result);
             }
-        });
+        } catch (error) {
+            console.error(error);
+        }
     };
 
     const update = (key, val) => setFormData(prev => ({ ...prev, [key]: val }));
@@ -297,13 +312,52 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
         <>
             <div className="modal-overlay" onClick={onClose}>
                 <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
-                    {/* Header */}
-                    <div className="modal-header" style={{ flexShrink: 0 }}>
-                        <h2 className="modal-title">New Rental Agreement</h2>
-                        <button className="btn-icon" onClick={onClose}><X size={20} /></button>
-                    </div>
+                    
+                    {successData ? (
+                        <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <CheckCircle color="#10b981" size={64} style={{ marginBottom: 'var(--spacing-md)' }} />
+                            <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
+                                Rental Created Successfully!
+                            </h2>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)', maxWidth: '400px' }}>
+                                The rental agreement for <strong>{successData.customerName || successData.accounts?.name || 'Customer'}</strong> has been activated in the system.
+                            </p>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%', maxWidth: '300px' }}>
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => setShowPrintAgreement(true)} 
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                                >
+                                    <Printer size={18} />
+                                    Print Agreement PDF
+                                </button>
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => setShowPrintInvoice(true)} 
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                                >
+                                    <FileText size={18} />
+                                    Generate Setup Invoice
+                                </button>
+                                <button 
+                                    className="btn btn-primary" 
+                                    onClick={onClose} 
+                                    style={{ marginTop: 'var(--spacing-md)', padding: '12px' }}
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Header */}
+                            <div className="modal-header" style={{ flexShrink: 0 }}>
+                                <h2 className="modal-title">New Rental Agreement</h2>
+                                <button className="btn-icon" onClick={onClose}><X size={20} /></button>
+                            </div>
 
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+                            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                         {/* Scrollable body */}
                         <div className="modal-content" style={{ padding: 'var(--spacing-lg)', overflowY: 'auto', flex: 1 }}>
 
@@ -503,8 +557,27 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                             <button type="submit" className="btn btn-primary">Create Rental</button>
                         </div>
                     </form>
+                        </>
+                    )}
                 </div>
             </div>
+
+            {/* Print Modals that render OVER the current modal */}
+            {showPrintAgreement && (
+                <PrintAgreementModal 
+                    type="rental" 
+                    data={successData} 
+                    onClose={() => setShowPrintAgreement(false)} 
+                />
+            )}
+            
+            {showPrintInvoice && (
+                <SetupInvoiceModal 
+                    type="rental" 
+                    data={successData} 
+                    onClose={() => setShowPrintInvoice(false)} 
+                />
+            )}
 
             {/* New Customer Form */}
             {showNewAccountForm && (

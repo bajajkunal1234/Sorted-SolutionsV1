@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, RefreshCcw } from 'lucide-react';
+import { X, RefreshCcw, CheckCircle, Printer, FileText } from 'lucide-react';
 import { accountsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
+import PrintAgreementModal from './PrintAgreementModal';
+import SetupInvoiceModal from './SetupInvoiceModal';
 
 function NewAMCForm({ plans = [], onClose, onSave }) {
     const [customers, setCustomers] = useState([]);
@@ -20,6 +22,11 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
         autoRenew: false,
         notes: ''
     });
+
+    // Post-creation success state
+    const [successData, setSuccessData] = useState(null);
+    const [showPrintAgreement, setShowPrintAgreement] = useState(false);
+    const [showPrintInvoice, setShowPrintInvoice] = useState(false);
 
     useEffect(() => {
         const fetchCustomers = async () => {
@@ -43,20 +50,29 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
 
     const selectedPlan = plans.find(p => p.id === formData.planId);
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         if (!selectedPlan) return;
 
         const endDate = calculateEndDate(formData.startDate, selectedPlan.duration.value, selectedPlan.duration.unit);
+        const customerName = customers.find(c => String(c.id) === String(formData.customerId))?.name || 'Customer';
 
         const amcData = {
             ...formData,
             amcAmount: Number(selectedPlan.price),
             endDate,
-            status: 'active'
+            status: 'active',
+            customerName
         };
 
-        onSave(amcData);
+        try {
+            const result = await onSave(amcData);
+            if (result) {
+                setSuccessData(result);
+            }
+        } catch (err) {
+            console.error(err);
+        }
     };
 
     const calculateEndDate = (startDate, duration, unit) => {
@@ -93,16 +109,56 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
-                <div className="modal-header">
-                    <h2 className="modal-title">New AMC Subscription</h2>
-                    <button className="btn-icon" onClick={onClose}>
-                        <X size={20} />
-                    </button>
-                </div>
+        <>
+            <div className="modal-overlay" onClick={onClose}>
+                <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+                    
+                    {successData ? (
+                        <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <CheckCircle color="#10b981" size={64} style={{ marginBottom: 'var(--spacing-md)' }} />
+                            <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
+                                AMC Created Successfully!
+                            </h2>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xl)', maxWidth: '400px' }}>
+                                The AMC agreement for <strong>{successData.customerName || successData.accounts?.name || 'Customer'}</strong> has been activated in the system.
+                            </p>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', width: '100%', maxWidth: '300px' }}>
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => setShowPrintAgreement(true)} 
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                                >
+                                    <Printer size={18} />
+                                    Print AMC Agreement
+                                </button>
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => setShowPrintInvoice(true)} 
+                                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px' }}
+                                >
+                                    <FileText size={18} />
+                                    Generate Setup Invoice
+                                </button>
+                                <button 
+                                    className="btn btn-primary" 
+                                    onClick={onClose} 
+                                    style={{ marginTop: 'var(--spacing-md)', padding: '12px' }}
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="modal-header">
+                                <h2 className="modal-title">New AMC Subscription</h2>
+                                <button className="btn-icon" onClick={onClose}>
+                                    <X size={20} />
+                                </button>
+                            </div>
 
-                <form onSubmit={handleSubmit}>
+                            <form onSubmit={handleSubmit}>
                     <div className="modal-content" style={{ padding: 'var(--spacing-lg)', maxHeight: '60vh', overflowY: 'auto' }}>
                         {/* Customer Selection */}
                         <div className="form-group">
@@ -350,8 +406,28 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
                         </button>
                     </div>
                 </form>
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
+
+            {/* Print Modals that render OVER the current modal */}
+            {showPrintAgreement && (
+                <PrintAgreementModal 
+                    type="amc" 
+                    data={successData} 
+                    onClose={() => setShowPrintAgreement(false)} 
+                />
+            )}
+            
+            {showPrintInvoice && (
+                <SetupInvoiceModal 
+                    type="amc" 
+                    data={successData} 
+                    onClose={() => setShowPrintInvoice(false)} 
+                />
+            )}
+        </>
     );
 }
 
