@@ -257,7 +257,7 @@ export default function Home() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 {[
                     { label: 'Properties', value: stats.properties, color: '#f59e0b', emoji: '🏠' },
-                    { label: 'Devices', value: stats.appliances, color: '#8b5cf6', emoji: '📦' },
+                    { label: 'Appliances', value: stats.appliances, color: '#8b5cf6', emoji: '📦' },
                     { label: 'Active Jobs', value: stats.activeJobs, color: '#38bdf8', emoji: '🔧' },
                     { label: 'Completed', value: stats.completedJobs, color: '#10b981', emoji: '✅' },
                 ].map(s => (

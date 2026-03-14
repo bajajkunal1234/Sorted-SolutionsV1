@@ -12,7 +12,7 @@ import OnboardingWizard from '@/components/customer/OnboardingWizard'
 
 const TABS = [
     { id: 'home', label: 'Home', icon: Home, color: '#38bdf8' },
-    { id: 'appliances', label: 'Devices', icon: Package, color: '#8b5cf6' },
+    { id: 'appliances', label: 'Appliances', icon: Package, color: '#8b5cf6' },
     { id: 'services', label: 'Services', icon: Wrench, color: '#38bdf8' },
     { id: 'plans', label: 'Plans', icon: Layers, color: '#10b981' },
     { id: 'profile', label: 'Profile', icon: User, color: '#f59e0b' },

@@ -552,7 +552,7 @@ function StepDone({ name, onFinish }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 28 }}>
                 {[
                     { emoji: '🔧', label: 'Book Service' },
-                    { emoji: '📦', label: 'Add Devices' },
+                    { emoji: '📦', label: 'Add Appliances' },
                     { emoji: '📍', label: 'Track Jobs' },
                 ].map(f => (
                     <div key={f.label} style={{

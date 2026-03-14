@@ -8,9 +8,10 @@ import BookServiceModal from '../modals/BookServiceModal'
 const APPLIANCE_META = {
   'ac': { emoji: '❄️', color: '#3b82f6', label: 'Air Conditioner' },
   'refrigerator': { emoji: '🧊', color: '#06b6d4', label: 'Refrigerator' },
-  'washing': { emoji: '🌀', color: '#10b981', label: 'Washing Machine' },
-  'tv': { emoji: '📺', color: '#8b5cf6', label: 'Television' },
-  'microwave': { emoji: '📦', color: '#ef4444', label: 'Microwave' },
+  'washing_machine': { emoji: '🌀', color: '#10b981', label: 'Washing Machine' },
+  'microwave_oven': { emoji: '📡', color: '#ef4444', label: 'Microwave Oven' },
+  'gas_stove_hob': { emoji: '🔥', color: '#f59e0b', label: 'Gas Stove / Hob' },
+  'water_purifier': { emoji: '💧', color: '#38bdf8', label: 'Water Purifier' },
   'default': { emoji: '🔌', color: '#64748b', label: 'Appliance' }
 }
 
@@ -82,7 +83,7 @@ export default function Appliances() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: 16 }}>
         <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid rgba(139,92,246,0.2)', borderTopColor: '#8b5cf6', animation: 'spin 1s linear infinite' }} />
-        <span style={{ color: '#94a3b8', fontSize: 14 }}>Loading devices...</span>
+        <span style={{ color: '#94a3b8', fontSize: 14 }}>Loading appliances...</span>
         <style>{`@keyframes spin { 100% { transform: rotate(360deg); } }`}</style>
       </div>
     )
@@ -94,7 +95,7 @@ export default function Appliances() {
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: 800, margin: 0, color: '#f8fafc', letterSpacing: '-0.5px' }}>
-            Devices
+            Appliances
           </h1>
           <p style={{ color: '#94a3b8', fontSize: '14px', marginTop: '4px', fontWeight: 500 }}>
             {appliances.length} {appliances.length === 1 ? 'appliance' : 'appliances'} registered
@@ -121,10 +122,10 @@ export default function Appliances() {
           <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(139,92,246,0.1)', margin: '0 auto 20px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6' }}>
             <Package size={40} />
           </div>
-          <h3 style={{ fontSize: 18, color: '#f8fafc', fontWeight: 700, margin: '0 0 8px 0' }}>No Devices Yet</h3>
+          <h3 style={{ fontSize: 18, color: '#f8fafc', fontWeight: 700, margin: '0 0 8px 0' }}>No Appliances Yet</h3>
           <p style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 24px 0', lineHeight: 1.5 }}>Track warranties, health scores, and book repairs magically.</p>
           <button onClick={() => setShowAddModal(true)} style={{ background: '#f8fafc', color: '#0f172a', border: 'none', padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-            Add Your First Device
+            Add Your First Appliance
           </button>
         </div>
       ) : (

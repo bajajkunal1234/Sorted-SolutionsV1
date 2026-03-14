@@ -247,7 +247,7 @@ export default function ServicesPage() {
                         {/* Info Groups */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 16, padding: 16 }}>
-                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 1 }}>Device</div>
+                                <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: 1 }}>Appliance</div>
                                 <div style={{ fontSize: 15, color: '#f8fafc', fontWeight: 600 }}>{selectedJob.product?.brand} {selectedJob.product?.type}</div>
                             </div>
 

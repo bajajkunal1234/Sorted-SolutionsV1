@@ -53,12 +53,9 @@ const CATEGORIES = [
     { value: 'ac', label: 'Air Conditioner' },
     { value: 'refrigerator', label: 'Refrigerator' },
     { value: 'washing_machine', label: 'Washing Machine' },
-    { value: 'microwave', label: 'Microwave' },
-    { value: 'tv', label: 'Television' },
-    { value: 'water_heater', label: 'Water Heater' },
-    { value: 'chimney', label: 'Kitchen Chimney' },
-    { value: 'dishwasher', label: 'Dishwasher' },
-    { value: 'other', label: 'Other' },
+    { value: 'microwave_oven', label: 'Microwave Oven' },
+    { value: 'gas_stove_hob', label: 'Gas Stove / Hob' },
+    { value: 'water_purifier', label: 'Water Purifier' },
 ]
 
 function AddApplianceModal({ isOpen, onClose, onAdd, properties }) {
@@ -117,7 +114,7 @@ function AddApplianceModal({ isOpen, onClose, onAdd, properties }) {
                         <div style={{ width: 36, height: 36, borderRadius: 12, background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <Package size={18} color="#8b5cf6" />
                         </div>
-                        <span style={S.title}>Add Device</span>
+                        <span style={S.title}>Add Appliance</span>
                     </div>
                     <button onClick={onClose} style={S.closeBtn}><X size={16} /></button>
                 </div>
@@ -182,7 +179,7 @@ function AddApplianceModal({ isOpen, onClose, onAdd, properties }) {
                     <div style={S.footer}>
                         <button type="button" onClick={onClose} style={S.cancelBtn} disabled={loading}>Cancel</button>
                         <button type="submit" style={{ ...S.submitBtn, opacity: loading ? 0.7 : 1 }} disabled={loading}>
-                            {loading ? 'Saving...' : '+ Add Device'}
+                            {loading ? 'Saving...' : '+ Add Appliance'}
                         </button>
                     </div>
                 </form>
