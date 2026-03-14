@@ -14,17 +14,11 @@ export async function GET(request) {
             )
         }
 
-        // Build query
+        // Build query — jobs stores appliance/brand/issue as plain text + JSONB notes,
+        // so we select all columns directly (no invalid FK joins)
         let query = supabase
             .from('jobs')
-            .select(`
-                *,
-                customer:customers(id, name, mobile, email),
-                product:products(id, name, category),
-                brand:brands(id, name),
-                issue:issues(id, title, category),
-                assigned_technician:technicians(id, name, mobile)
-            `)
+            .select('*')
             .eq('customer_id', customerId)
             .order('created_at', { ascending: false })
 
