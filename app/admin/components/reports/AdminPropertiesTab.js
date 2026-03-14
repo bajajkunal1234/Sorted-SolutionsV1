@@ -280,6 +280,7 @@ function AddPropertyModal({ onClose, onSaved }) {
     const [form, setForm] = useState({ flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
+    const [duplicate, setDuplicate] = useState(null) // existing property if duplicate found
 
     const handleLocalityChange = (e) => {
         const name = e.target.value
@@ -287,12 +288,20 @@ function AddPropertyModal({ onClose, onSaved }) {
         setForm(p => ({ ...p, locality: name, pincode: match ? match.pincode : p.pincode, city: 'Mumbai' }))
     }
 
-    const handleSave = async () => {
+    const handleSave = async (forceCreate = false) => {
         if (!form.address) { setError('Street address is required'); return }
         setSaving(true)
+        setDuplicate(null)
         try {
-            const res = await fetch('/api/admin/properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+            const body = forceCreate ? { ...form, force_create: true } : form
+            const res = await fetch('/api/admin/properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
             const data = await res.json()
+            if (data.duplicate) {
+                setDuplicate(data.existing)
+                setError(data.error)
+                setSaving(false)
+                return
+            }
             if (!data.success) throw new Error(data.error)
             onSaved()
         } catch (e) { setError(e.message) }
@@ -353,10 +362,28 @@ function AddPropertyModal({ onClose, onSaved }) {
                             <option value="commercial">Commercial</option>
                         </select>
                     </div>
-                    {error && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
-                    <button onClick={handleSave} disabled={saving} style={{ padding: '13px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-                        {saving ? 'Saving...' : 'Save Property'}
-                    </button>
+                    {/* Duplicate warning */}
+                    {duplicate && (
+                        <div style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: '12px 14px' }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', marginBottom: 6 }}>⚠️ Property Already Exists</div>
+                            <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>
+                                {[duplicate.flat_number, duplicate.building_name, duplicate.address].filter(Boolean).join(', ')}<br />
+                                {[duplicate.locality, duplicate.city, duplicate.pincode].filter(Boolean).join(', ')}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={() => { onSaved(); onClose() }} style={{ flex: 1, padding: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 8, color: '#10b981', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                    OK, use existing
+                                </button>
+                                <button onClick={() => handleSave(true)} style={{ flex: 1, padding: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}>
+                                    Create new anyway
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {error && !duplicate && <div style={{ color: '#f87171', fontSize: 13 }}>{error}</div>}
+                    {!duplicate && <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: '13px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                        {saving ? 'Checking...' : 'Save Property'}
+                    </button>}
                 </div>
             </div>
         </div>

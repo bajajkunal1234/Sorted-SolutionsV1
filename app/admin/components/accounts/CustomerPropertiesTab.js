@@ -33,6 +33,7 @@ function CustomerPropertiesTab({ customerId }) {
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [duplicate, setDuplicate] = useState(null);
 
     // Form state for adding
     const [newProperty, setNewProperty] = useState({
@@ -74,19 +75,25 @@ function CustomerPropertiesTab({ customerId }) {
         });
     };
 
-    const handleAddProperty = async () => {
+    const handleAddProperty = async (forceCreate = false) => {
         if (!newProperty.address.trim()) {
             alert("Street address is required");
             return;
         }
         setSubmitting(true);
+        setDuplicate(null);
         try {
+            const body = forceCreate ? { ...newProperty, customer_id: customerId, force_create: true } : { ...newProperty, customer_id: customerId };
             const res = await fetch('/api/admin/properties', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...newProperty, customer_id: customerId })
+                body: JSON.stringify(body)
             });
             const data = await res.json();
+            if (data.duplicate) {
+                setDuplicate(data.existing);
+                return;
+            }
             if (data.success) {
                 await fetchProperties();
                 setNewProperty({ flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' });
@@ -226,13 +233,27 @@ function CustomerPropertiesTab({ customerId }) {
                             style={{ opacity: 0.6 }}
                         />
                     </div>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 10 }}>
+                    {/* Duplicate warning */}
+                    {duplicate && (
+                        <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', marginBottom: 4 }}>⚠️ This property already exists</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8 }}>
+                                {[duplicate.flat_number, duplicate.building_name, duplicate.address].filter(Boolean).join(', ')}<br />
+                                {[duplicate.locality, duplicate.city, duplicate.pincode].filter(Boolean).join(', ')}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn btn-primary" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => { setDuplicate(null); setIsAdding(false); fetchProperties(); }}>OK, noted</button>
+                                <button className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => handleAddProperty(true)}>Create new anyway</button>
+                            </div>
+                        </div>
+                    )}
+                    {!duplicate && <div style={{ display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end', marginTop: 10 }}>
                         <button className="btn btn-secondary" onClick={() => setIsAdding(false)}>Cancel</button>
-                        <button className="btn btn-primary" onClick={handleAddProperty} disabled={submitting}>
+                        <button className="btn btn-primary" onClick={() => handleAddProperty(false)} disabled={submitting}>
                             {submitting && <Loader2 size={14} className="animate-spin" style={{ marginRight: '6px' }} />}
                             Save Property
                         </button>
-                    </div>
+                    </div>}
                 </div>
             )}
 

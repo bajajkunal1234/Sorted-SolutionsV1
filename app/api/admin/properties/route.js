@@ -145,9 +145,36 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { address, locality, city, pincode, property_type, customer_id, notes, flat_number, building_name } = body
+        const { address, locality, city, pincode, property_type, customer_id, notes, flat_number, building_name, force_create } = body
 
         if (!address) return NextResponse.json({ success: false, error: 'Address is required' }, { status: 400 })
+
+        // ── Duplicate detection ──────────────────────────────────────────────
+        if (!force_create) {
+            let dupQuery = supabase.from('properties').select('*')
+            if (flat_number?.trim() && building_name?.trim()) {
+                dupQuery = dupQuery
+                    .eq('flat_number', flat_number.trim())
+                    .ilike('building_name', `%${building_name.trim()}%`)
+            } else if (building_name?.trim() && address?.trim()) {
+                dupQuery = dupQuery
+                    .ilike('building_name', `%${building_name.trim()}%`)
+                    .ilike('address', `%${address.trim()}%`)
+            }
+
+            if (flat_number?.trim() || building_name?.trim()) {
+                const { data: dups } = await dupQuery.limit(1)
+                if (dups?.length > 0) {
+                    return NextResponse.json({
+                        success: false,
+                        duplicate: true,
+                        existing: dups[0],
+                        error: `A property "${[flat_number, building_name].filter(Boolean).join(', ')}" already exists.`,
+                    }, { status: 409 })
+                }
+            }
+        }
+        // ────────────────────────────────────────────────────────────────────
 
         const { data: property, error } = await supabase
             .from('properties')
