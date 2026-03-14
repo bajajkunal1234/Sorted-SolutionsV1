@@ -106,7 +106,9 @@ export default function AdminPropertiesTab() {
                                     <MapPin size={18} color="#38bdf8" />
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>{prop.address}</div>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>
+                                    {[prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ')}
+                                </div>
                                     <div style={{ fontSize: 12, color: '#64748b' }}>{[prop.locality, prop.city, prop.pincode].filter(Boolean).join(', ')}</div>
                                     <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                                         {prop.currentTenants?.length > 0 ? (
@@ -133,7 +135,9 @@ export default function AdminPropertiesTab() {
                     <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1e293b,#0f172a)', borderLeft: '1px solid rgba(255,255,255,0.1)', zIndex: 201, overflowY: 'auto', padding: '28px 24px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
                             <div>
-                                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', margin: 0 }}>{selected.address}</h2>
+                                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#f8fafc', margin: 0 }}>
+                                    {[selected.flat_number, selected.building_name, selected.address].filter(Boolean).join(', ')}
+                                </h2>
                                 <p style={{ color: '#64748b', fontSize: 13, margin: '4px 0 0' }}>{[selected.locality, selected.city, selected.pincode].filter(Boolean).join(', ')}</p>
                             </div>
                             <button onClick={() => setSelected(null)} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}>
@@ -227,12 +231,12 @@ function TenantRow({ tenant, onUnlink, past }) {
 }
 
 function AddPropertyModal({ onClose, onSaved }) {
-    const [form, setForm] = useState({ address: '', locality: '', city: '', pincode: '', property_type: 'residential' })
+    const [form, setForm] = useState({ flat_number: '', building_name: '', address: '', locality: '', city: '', pincode: '', property_type: 'residential' })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
     const handleSave = async () => {
-        if (!form.address) { setError('Address is required'); return }
+        if (!form.address) { setError('Street address is required'); return }
         setSaving(true)
         try {
             const res = await fetch('/api/admin/properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
@@ -251,9 +255,19 @@ function AddPropertyModal({ onClose, onSaved }) {
                     <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={14} /></button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                            <div style={S.label}>Flat / Wing</div>
+                            <input style={S.input} value={form.flat_number} onChange={e => setForm(p => ({ ...p, flat_number: e.target.value }))} placeholder="e.g. A-402" />
+                        </div>
+                        <div>
+                            <div style={S.label}>Building Name</div>
+                            <input style={S.input} value={form.building_name} onChange={e => setForm(p => ({ ...p, building_name: e.target.value }))} placeholder="e.g. Sunrise Residency" />
+                        </div>
+                    </div>
                     {[
-                        { key: 'address', label: 'Street Address *' },
-                        { key: 'locality', label: 'Locality / Area' },
+                        { key: 'address', label: 'Street Address / Area *' },
+                        { key: 'locality', label: 'Locality' },
                         { key: 'city', label: 'City' },
                         { key: 'pincode', label: 'Pincode' },
                     ].map(f => (

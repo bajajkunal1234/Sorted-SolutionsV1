@@ -228,7 +228,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     // Customer Properties (for Sundry Debtors/Creditors)
     const [properties, setProperties] = useState(initialData?.properties?.length > 0
         ? initialData.properties
-        : [{ id: Date.now(), name: '', address: '', locality: '', pincode: '', contactPerson: '', contactPhone: '' }]);
+        : [{ id: Date.now(), name: '', flat_number: '', building_name: '', address: '', locality: '', pincode: '', contactPerson: '', contactPhone: '' }]);
 
     // Form dirty state tracking
     const [isFormDirty, setIsFormDirty] = useState(false);
@@ -325,7 +325,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
     // Property management functions
     const addProperty = () => {
-        setProperties([...properties, { id: Date.now(), name: '', address: '', locality: '', pincode: '', contactPerson: '', contactPhone: '' }]);
+        setProperties([...properties, { id: Date.now(), name: '', flat_number: '', building_name: '', address: '', locality: '', pincode: '', contactPerson: '', contactPhone: '' }]);
     };
 
     const deleteProperty = (index) => {
@@ -983,14 +983,37 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         </div>
                                                     </div>
 
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Flat / Wing</label>
+                                                            <input
+                                                                type="text"
+                                                                className="form-input"
+                                                                value={property.flat_number || ''}
+                                                                onChange={(e) => updateProperty(index, 'flat_number', e.target.value)}
+                                                                placeholder="e.g. A-402"
+                                                            />
+                                                        </div>
+                                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                                            <label className="form-label">Building Name</label>
+                                                            <input
+                                                                type="text"
+                                                                className="form-input"
+                                                                value={property.building_name || ''}
+                                                                onChange={(e) => updateProperty(index, 'building_name', e.target.value)}
+                                                                placeholder="e.g. Sunrise Residency"
+                                                            />
+                                                        </div>
+                                                    </div>
+
                                                     <div className="form-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
-                                                        <label className="form-label">Street Address / Building</label>
-                                                        <textarea
+                                                        <label className="form-label">Street Address / Area *</label>
+                                                        <input
+                                                            type="text"
                                                             className="form-input"
                                                             value={property.address}
                                                             onChange={(e) => updateProperty(index, 'address', e.target.value)}
-                                                            rows="2"
-                                                            placeholder="e.g. Flat 4B, Tower C, Sunrise Residency"
+                                                            placeholder="e.g. Opposite Bank of India, MG Road"
                                                         />
                                                     </div>
 
