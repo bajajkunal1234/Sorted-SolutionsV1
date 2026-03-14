@@ -36,6 +36,8 @@ function CustomerPropertiesTab({ customerId }) {
 
     // Form state for adding
     const [newProperty, setNewProperty] = useState({
+        flat_number: '',
+        building_name: '',
         address: '',
         locality: '',
         city: 'Mumbai',
@@ -87,7 +89,7 @@ function CustomerPropertiesTab({ customerId }) {
             const data = await res.json();
             if (data.success) {
                 await fetchProperties();
-                setNewProperty({ address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' });
+                setNewProperty({ flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' });
                 setIsAdding(false);
             } else {
                 alert(data.error || 'Failed to add property');
@@ -155,7 +157,7 @@ function CustomerPropertiesTab({ customerId }) {
                                 )}
                                 <div>
                                     <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                        {property.address}
+                                        {[property.flat_number, property.building_name, property.address].filter(Boolean).join(', ')}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textTransform: 'capitalize' }}>
                                         {[property.locality, property.city, property.pincode].filter(Boolean).join(', ')} ({property.property_type || 'residential'})
@@ -185,10 +187,26 @@ function CustomerPropertiesTab({ customerId }) {
                     flexDirection: 'column',
                     gap: 'var(--spacing-sm)'
                 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Flat / Wing (optional)"
+                            value={newProperty.flat_number}
+                            onChange={(e) => setNewProperty({ ...newProperty, flat_number: e.target.value })}
+                        />
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Building Name (optional)"
+                            value={newProperty.building_name}
+                            onChange={(e) => setNewProperty({ ...newProperty, building_name: e.target.value })}
+                        />
+                    </div>
                     <input
                         type="text"
                         className="form-input"
-                        placeholder="Street Address / Building"
+                        placeholder="Street Address / Area *"
                         value={newProperty.address}
                         onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
                     />
