@@ -341,7 +341,13 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                                                 setFormData(prev => ({ ...prev, property: found || null }));
                                             }}>
                                             <option value="">Select property...</option>
-                                            {props.map(p => <option key={p.id} value={String(p.id)}>{p.label || p.name || p.address || `Property ${p.id}`}</option>)}
+                                            {props.map(p => {
+                                                const parts = [];
+                                                if (p.flat_number) parts.push(p.flat_number);
+                                                if (p.building_name) parts.push(p.building_name);
+                                                const prefix = parts.length > 0 ? parts.join(', ') + ' - ' : '';
+                                                return <option key={p.id} value={String(p.id)}>{prefix}{p.label || p.address || p.name || `Property ${p.id}`}</option>;
+                                            })}
                                         </select>
                                     </div>
                                 );
