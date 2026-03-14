@@ -295,8 +295,32 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const handleFormSave = async (data) => {
         try {
             if (activeTab === 'accounts') {
-                if (selectedTransaction?.id) await accountsAPI.update(selectedTransaction.id, data);
-                else await accountsAPI.create(data);
+                if (selectedTransaction?.id) {
+                    await accountsAPI.update(selectedTransaction.id, data);
+                } else {
+                    const result = await accountsAPI.create(data);
+                    // If properties were filled in the new account form, create them now
+                    if (result?.id && data.properties?.length > 0) {
+                        const validProps = data.properties.filter(p => p.address?.trim());
+                        await Promise.all(validProps.map(prop =>
+                            fetch('/api/admin/properties', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    flat_number: prop.flat_number || '',
+                                    building_name: prop.building_name || '',
+                                    address: prop.address,
+                                    locality: prop.locality || '',
+                                    city: prop.city || 'Mumbai',
+                                    pincode: prop.pincode || '',
+                                    property_type: prop.property_type || 'residential',
+                                    customer_id: result.id,   // links to the new account
+                                    force_create: false
+                                })
+                            }).then(r => r.json()).catch(e => console.error('Property save failed:', e))
+                        ));
+                    }
+                }
             } else {
                 const type = tabToTypeMap[activeTab];
                 if (selectedTransaction?.id) await transactionsAPI.update(selectedTransaction.id, data, type);
