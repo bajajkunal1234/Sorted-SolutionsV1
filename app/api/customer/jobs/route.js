@@ -14,6 +14,13 @@ export async function GET(request) {
             )
         }
 
+        // Guard: jobs.customer_id is a UUID column — if the stored ID isn't
+        // a valid UUID (e.g. demo accounts or old plain-text IDs), skip the query
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!UUID_RE.test(customerId)) {
+            return NextResponse.json({ success: true, jobs: [], count: 0 })
+        }
+
         // Build query — jobs stores appliance/brand/issue as plain text + JSONB notes,
         // so we select all columns directly (no invalid FK joins)
         let query = supabase
