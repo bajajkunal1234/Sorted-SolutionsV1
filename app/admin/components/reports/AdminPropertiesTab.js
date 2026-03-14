@@ -87,19 +87,7 @@ export default function AdminPropertiesTab() {
                 <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by address, locality, pincode..." style={{ ...S.input, paddingLeft: 36 }} />
             </div>
 
-            {/* Stats row */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
-                {[
-                    { label: 'Total Properties', value: properties.length, color: '#38bdf8' },
-                    { label: 'Occupied', value: properties.filter(p => p.currentTenants?.length > 0).length, color: '#10b981' },
-                    { label: 'Vacant', value: properties.filter(p => !p.currentTenants?.length).length, color: '#f59e0b' },
-                ].map(s => (
-                    <div key={s.label} style={{ background: s.color + '10', border: `1px solid ${s.color}25`, borderRadius: 14, padding: '14px 16px' }}>
-                        <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
-                        <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{s.label}</div>
-                    </div>
-                ))}
-            </div>
+
 
             {/* Property List */}
             {loading ? (
@@ -122,16 +110,11 @@ export default function AdminPropertiesTab() {
                                     {[prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ')}
                                 </div>
                                     <div style={{ fontSize: 12, color: '#64748b' }}>{[prop.locality, prop.city, prop.pincode].filter(Boolean).join(', ')}</div>
-                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                                        {prop.currentTenants?.length > 0 ? (
-                                            <span style={S.badge('#10b981')}><Users size={10} /> {prop.currentTenants.length} Tenant{prop.currentTenants.length > 1 ? 's' : ''}</span>
-                                        ) : (
-                                            <span style={S.badge('#f59e0b')}>Vacant</span>
-                                        )}
-                                        {prop.lastJob && (
+                                    {prop.lastJob && (
+                                        <div style={{ marginTop: 6 }}>
                                             <span style={S.badge('#64748b')}><Wrench size={10} /> Last: {prop.lastJob.category} · {formatDate(prop.lastJob.created_at)}</span>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <ChevronRight size={16} color="#475569" style={{ flexShrink: 0 }} />
