@@ -26,6 +26,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "sharp": "^0.34.5",
     "supabase": "^2.76.9"
   }
 }

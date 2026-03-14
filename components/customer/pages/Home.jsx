@@ -166,9 +166,9 @@ export default function Home() {
                         {banners.map((banner, i) => (
                             <div key={banner.id}
                                 onClick={() => banner.targetUrl && router.push(banner.targetUrl)}
-                                style={{ width: `${100 / banners.length}%`, height: '100%', flexShrink: 0, cursor: banner.targetUrl ? 'pointer' : 'default' }}
+                                style={{ width: `${100 / banners.length}%`, height: '100%', flexShrink: 0, cursor: banner.targetUrl ? 'pointer' : 'default', background: '#0f1629' }}
                             >
-                                <img src={banner.imageUrl} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                                <img src={banner.imageUrl} alt={banner.title} style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                             </div>
                         ))}
                     </div>
