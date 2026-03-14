@@ -245,7 +245,7 @@ function PrintSetup() {
                         style={{ padding: '8px 16px' }}
                     >
                         <Eye size={16} />
-                        Preview Invoice
+                        Invoice
                     </button>
                     <button
                         className="btn btn-secondary"
@@ -256,7 +256,29 @@ function PrintSetup() {
                         style={{ padding: '8px 16px' }}
                     >
                         <Eye size={16} />
-                        Preview Quotation
+                        Quotation
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                            setPreviewType('rental');
+                            setShowPreview(true);
+                        }}
+                        style={{ padding: '8px 16px' }}
+                    >
+                        <Eye size={16} />
+                        Rental
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => {
+                            setPreviewType('amc');
+                            setShowPreview(true);
+                        }}
+                        style={{ padding: '8px 16px' }}
+                    >
+                        <Eye size={16} />
+                        AMC
                     </button>
                     <button
                         className="btn btn-primary"
@@ -835,7 +857,9 @@ function PrintSetup() {
                             borderTopRightRadius: 'var(--radius-lg)'
                         }}>
                             <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
-                                {previewType === 'invoice' ? 'Invoice' : 'Quotation'} Preview - {settings.templateStyle}
+                                {previewType === 'invoice' ? 'Invoice' : 
+                                 previewType === 'quotation' ? 'Quotation' :
+                                 previewType === 'rental' ? 'Rental Agreement' : 'AMC Agreement'} Preview - {settings.templateStyle}
                             </h3>
                             <button
                                 onClick={() => setShowPreview(false)}
@@ -895,10 +919,14 @@ function PrintSetup() {
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
                                     <h2 style={{ margin: 0, fontSize: '28px', color: '#1e293b', fontWeight: 700 }}>
-                                        {previewType === 'invoice' ? 'INVOICE' : 'QUOTATION'}
+                                        {previewType === 'invoice' ? 'INVOICE' : 
+                                         previewType === 'quotation' ? 'QUOTATION' :
+                                         previewType === 'rental' ? 'RENTAL AGREEMENT' : 'AMC AGREEMENT'}
                                     </h2>
                                     <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
-                                        #{previewType === 'invoice' ? 'INV' : 'QUO'}-2026-001
+                                        #{previewType === 'invoice' ? 'INV' : 
+                                          previewType === 'quotation' ? 'QUO' :
+                                          previewType === 'rental' ? 'RA' : 'AMC'}-2026-001
                                     </p>
                                     <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
                                         Date: {new Date().toLocaleDateString('en-IN')}
@@ -922,93 +950,124 @@ function PrintSetup() {
                                 <p style={{ margin: '3px 0', fontSize: '12px', color: '#64748b' }}>Phone: +91 98765 12345</p>
                             </div>
 
-                            {/* Items Table */}
-                            <table style={{
-                                width: '100%',
-                                borderCollapse: 'collapse',
-                                marginBottom: '20px',
-                                border: settings.templateStyle === 'modern-boxes' ? '1px solid #e2e8f0' : 'none'
-                            }}>
-                                <thead>
-                                    <tr style={{
-                                        backgroundColor: settings.templateStyle === 'modern-boxes' ? '#1e293b' :
-                                            settings.templateStyle === 'professional-grid' ? '#f1f5f9' : '#f8fafc',
-                                        color: settings.templateStyle === 'modern-boxes' ? '#ffffff' : '#1e293b'
+                            {/* Render different bodies based on type */}
+                            {(previewType === 'invoice' || previewType === 'quotation') ? (
+                                <>
+                                    {/* Items Table */}
+                                    <table style={{
+                                        width: '100%',
+                                        borderCollapse: 'collapse',
+                                        marginBottom: '20px',
+                                        border: settings.templateStyle === 'modern-boxes' ? '1px solid #e2e8f0' : 'none'
                                     }}>
-                                        <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>Item</th>
-                                        <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #cbd5e1' }}>Qty</th>
-                                        <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #cbd5e1' }}>Rate</th>
-                                        <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #cbd5e1' }}>Amount</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr>
-                                        <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>AC Service - Split Unit</td>
-                                        <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>1</td>
-                                        <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹1,500</td>
-                                        <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹1,500</td>
-                                    </tr>
-                                    <tr>
-                                        <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>Gas Refilling - R32</td>
-                                        <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>1</td>
-                                        <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹2,500</td>
-                                        <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹2,500</td>
-                                    </tr>
-                                    <tr>
-                                        <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>Spare Parts</td>
-                                        <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>3</td>
-                                        <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹500</td>
-                                        <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹1,500</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                        <thead>
+                                            <tr style={{
+                                                backgroundColor: settings.templateStyle === 'modern-boxes' ? '#1e293b' :
+                                                    settings.templateStyle === 'professional-grid' ? '#f1f5f9' : '#f8fafc',
+                                                color: settings.templateStyle === 'modern-boxes' ? '#ffffff' : '#1e293b'
+                                            }}>
+                                                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>Item</th>
+                                                <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #cbd5e1' }}>Qty</th>
+                                                <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #cbd5e1' }}>Rate</th>
+                                                <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #cbd5e1' }}>Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>AC Service - Split Unit</td>
+                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>1</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹1,500</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹1,500</td>
+                                            </tr>
+                                            <tr>
+                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>Gas Refilling - R32</td>
+                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>1</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹2,500</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹2,500</td>
+                                            </tr>
+                                            <tr>
+                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>Spare Parts</td>
+                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>3</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹500</td>
+                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹1,500</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
 
-                            {/* Totals Section */}
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '30px' }}>
-                                <div style={{ minWidth: '300px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                        <span style={{ fontSize: '13px' }}>Subtotal:</span>
-                                        <span style={{ fontSize: '13px', fontWeight: 600 }}>₹5,500</span>
+                                    {/* Totals Section */}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '30px' }}>
+                                        <div style={{ minWidth: '300px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
+                                                <span style={{ fontSize: '13px' }}>Subtotal:</span>
+                                                <span style={{ fontSize: '13px', fontWeight: 600 }}>₹5,500</span>
+                                            </div>
+
+                                            {/* GST Breakdown */}
+                                            {settings.showGST && (
+                                                <>
+                                                    {settings.gstBreakdown.showCGST && (
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <span style={{ fontSize: '13px' }}>CGST ({settings.gstBreakdown.cgstRate}%):</span>
+                                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.cgstRate / 100).toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                    {settings.gstBreakdown.showSGST && (
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <span style={{ fontSize: '13px' }}>SGST ({settings.gstBreakdown.sgstRate}%):</span>
+                                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.sgstRate / 100).toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                    {settings.gstBreakdown.showIGST && (
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
+                                                            <span style={{ fontSize: '13px' }}>IGST ({settings.gstBreakdown.igstRate}%):</span>
+                                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.igstRate / 100).toFixed(2)}</span>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                padding: '12px 0',
+                                                borderTop: '2px solid #1e293b',
+                                                marginTop: '8px'
+                                            }}>
+                                                <span style={{ fontSize: '16px', fontWeight: 700 }}>Total:</span>
+                                                <span style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>
+                                                    ₹{(5500 * 1.18).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    {/* GST Breakdown */}
-                                    {settings.showGST && (
-                                        <>
-                                            {settings.gstBreakdown.showCGST && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <span style={{ fontSize: '13px' }}>CGST ({settings.gstBreakdown.cgstRate}%):</span>
-                                                    <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.cgstRate / 100).toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            {settings.gstBreakdown.showSGST && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <span style={{ fontSize: '13px' }}>SGST ({settings.gstBreakdown.sgstRate}%):</span>
-                                                    <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.sgstRate / 100).toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                            {settings.gstBreakdown.showIGST && (
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <span style={{ fontSize: '13px' }}>IGST ({settings.gstBreakdown.igstRate}%):</span>
-                                                    <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.igstRate / 100).toFixed(2)}</span>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-
+                                </>
+                            ) : (
+                                <>
+                                    {/* Agreement Body Placeholder */}
                                     <div style={{
+                                        minHeight: '200px',
+                                        padding: '20px',
+                                        backgroundColor: '#f8fafc',
+                                        border: '1px dashed #cbd5e1',
+                                        borderRadius: '8px',
+                                        marginBottom: '30px',
+                                        color: '#64748b',
                                         display: 'flex',
-                                        justifyContent: 'space-between',
-                                        padding: '12px 0',
-                                        borderTop: '2px solid #1e293b',
-                                        marginTop: '8px'
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        textAlign: 'center'
                                     }}>
-                                        <span style={{ fontSize: '16px', fontWeight: 700 }}>Total:</span>
-                                        <span style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>
-                                            ₹{(5500 * 1.18).toFixed(2)}
-                                        </span>
+                                        <div>
+                                            <p style={{ fontWeight: 600, fontSize: '16px', marginBottom: '8px', color: '#1e293b' }}>
+                                                Parsed HTML Template Content
+                                            </p>
+                                            <p style={{ fontSize: '13px' }}>
+                                                Your {previewType === 'rental' ? 'Rental' : 'AMC'} template design from the Agreement Templates tab will appear here. Placeholders like [CUSTOMER_NAME] and [PRODUCT_NAME] are replaced with actual data during generation.
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                </>
+                            )}
 
                             {/* Terms & Conditions */}
                             {settings.showTerms && (
@@ -1020,10 +1079,15 @@ function PrintSetup() {
                                     borderRadius: '8px'
                                 }}>
                                     <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#1e293b' }}>
-                                        Terms & Conditions:
+                                        {previewType === 'invoice' || previewType === 'quotation' ? 'Terms & Conditions:' : 'Standard Terms & Conditions:'}
                                     </h4>
                                     <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '11px', color: '#64748b', lineHeight: 1.6 }}>
-                                        {(previewType === 'invoice' ? invoiceTerms : quotationTerms).map((term, index) => (
+                                        {(
+                                            previewType === 'invoice' ? invoiceTerms : 
+                                            previewType === 'quotation' ? quotationTerms : 
+                                            previewType === 'rental' ? rentalTerms : 
+                                            amcTerms
+                                        ).map((term, index) => (
                                             <li key={index} style={{ marginBottom: '4px' }}>{term}</li>
                                         ))}
                                     </ul>

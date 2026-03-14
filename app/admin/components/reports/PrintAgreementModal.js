@@ -48,21 +48,20 @@ export default function PrintAgreementModal({ type, data, onClose }) {
         
         let processed = html;
 
-        // Common Account Placeholders
+        // Account properties inside HTML template (we still keep these so they can use inline placeholders if they want)
         processed = processed.replace(/\[CUSTOMER_NAME\]/g, customer.name || 'N/A');
         
-        // Handle Address (try to extract from address strings if properties aren't eagerly loaded)
-        // Note: NewRentalForm passes customerName but full address might need deriving.
         let addressStr = 'N/A';
         if (recordData.delivery_property) {
-           addressStr = recordData.delivery_property.address || 'N/A';
+           addressStr = recordData.delivery_property.address || '';
+           if (recordData.delivery_property.locality) addressStr += `, ${recordData.delivery_property.locality}`;
         } else if (customer.address) {
             addressStr = customer.address;
             if (customer.city) addressStr += `, ${customer.city}`;
             if (customer.state) addressStr += `, ${customer.state}`;
             if (customer.pincode) addressStr += ` - ${customer.pincode}`;
         }
-        processed = processed.replace(/\[CUSTOMER_ADDRESS\]/g, addressStr);
+        processed = processed.replace(/\[CUSTOMER_ADDRESS\]/g, addressStr || 'N/A');
         processed = processed.replace(/\[CUSTOMER_PHONE\]/g, customer.phone || 'N/A');
         processed = processed.replace(/\[CUSTOMER_EMAIL\]/g, customer.email || 'N/A');
 
@@ -110,6 +109,18 @@ export default function PrintAgreementModal({ type, data, onClose }) {
 
     // Determine specific terms based on type mapping back to db column logic handled in PrintSetup
     const termsList = type === 'rental' ? (settings?.rental_terms || []) : (settings?.amc_terms || []);
+
+    const customer = data?.accounts || {};
+    let customerAddressStr = '';
+    if (data?.delivery_property) {
+        customerAddressStr = data.delivery_property.address || '';
+        if (data.delivery_property.locality) customerAddressStr += `, ${data.delivery_property.locality}`;
+    } else {
+        customerAddressStr = customer.address || '';
+        if (customer.city) customerAddressStr += `, ${customer.city}`;
+        if (customer.state) customerAddressStr += `, ${customer.state}`;
+        if (customer.pincode) customerAddressStr += ` - ${customer.pincode}`;
+    }
 
     return (
         <div className="modal-overlay print-modal-hide-ui" style={{ zIndex: 1000 }}>
@@ -168,7 +179,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                             position: 'relative'
                         }}
                     >
-                        {/* Company Header */}
+                        {/* Company Header matching Invoice */}
                         <div style={{ 
                             display: 'flex', 
                             justifyContent: 'space-between', 
@@ -190,66 +201,86 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                                 <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
                                     {settings?.company_phone} | {settings?.company_email}
                                 </p>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                                <h2 style={{ margin: 0, fontSize: '24px', color: '#1e293b', fontWeight: 700, textTransform: 'uppercase' }}>
-                                    {type === 'rental' ? 'RENTAL AGREEMENT' : 'AMC AGREEMENT'}
-                                </h2>
-                                <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
-                                    Date: {new Date().toLocaleDateString('en-IN')}
-                                </p>
                                 {settings?.show_gst && settings?.gst_number && (
                                     <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>
                                         GSTIN: {settings.gst_number}
                                     </p>
                                 )}
                             </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <h2 style={{ margin: 0, fontSize: '28px', color: '#1e293b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px' }}>
+                                    {type === 'rental' ? 'RENTAL AGREEMENT' : 'AMC AGREEMENT'}
+                                </h2>
+                                <div style={{ marginTop: '15px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', textAlign: 'right', fontSize: '13px' }}>
+                                        <b style={{ color: '#475569' }}>Agr. ID:</b>
+                                        <span>{data.id?.slice(0, 8).toUpperCase() || 'NEW'}</span>
+                                        <b style={{ color: '#475569' }}>Date:</b>
+                                        <span>{new Date().toLocaleDateString('en-IN')}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Bill To Section */}
+                        <div style={{ marginBottom: '30px' }}>
+                            <h3 style={{ fontSize: '14px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Customer Details:</h3>
+                            <div style={{ fontSize: '14px', color: '#1e293b', fontWeight: 600 }}>{customer.name || data?.customerName || 'Customer Name'}</div>
+                            <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px', maxWidth: '50%' }}>
+                                {customerAddressStr ? customerAddressStr : 'Address not provided'}
+                            </div>
+                            <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>
+                                {customer.phone && `Phone: ${customer.phone}`}
+                                {customer.email && ` | Email: ${customer.email}`}
+                            </div>
                         </div>
 
                         {/* Editable Content Area */}
-                        {/* We use contentEditable so admin can make one-off manual tweaks before printing */}
                         <div 
                             contentEditable
                             suppressContentEditableWarning
                             onBlur={(e) => setParsedHTML(e.target.innerHTML)}
                             dangerouslySetInnerHTML={{ __html: parsedHTML }}
-                            style={{ outline: 'none', minHeight: '200px' }}
+                            style={{ outline: 'none', minHeight: '300px', fontSize: '13px', color: '#1e293b', lineHeight: '1.8' }}
                         />
 
-                        {/* Terms & Conditions */}
-                        {settings?.show_terms && termsList.length > 0 && (
-                            <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #cbd5e1' }}>
-                                <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px', color: '#1e293b' }}>
-                                    Terms & Conditions:
-                                </h4>
-                                <ol style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#475569' }}>
-                                    {termsList.map((term, i) => (
-                                        <li key={i} style={{ marginBottom: '4px' }}>{term}</li>
-                                    ))}
-                                </ol>
-                            </div>
-                        )}
+                        {/* Terms & Conditions and Signatures block aligned to bottom */}
+                        <div style={{ position: 'absolute', bottom: '20mm', left: '20mm', right: '20mm' }}>
+                            {/* Terms & Conditions */}
+                            {settings?.show_terms && termsList.length > 0 && (
+                                <div style={{ marginBottom: '30px', borderTop: '1px solid #cbd5e1', paddingTop: '15px' }}>
+                                    <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        Standard Terms & Conditions
+                                    </h4>
+                                    <ol style={{ margin: 0, paddingLeft: '15px', fontSize: '11px', color: '#475569', lineHeight: '1.4' }}>
+                                        {termsList.map((term, i) => (
+                                            <li key={i} style={{ marginBottom: '2px' }}>{term}</li>
+                                        ))}
+                                    </ol>
+                                </div>
+                            )}
 
-                        {/* Signatures */}
-                        {settings?.include_signature && (
-                            <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                marginTop: '80px',
-                                pageBreakInside: 'avoid'
-                            }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ width: '200px', borderBottom: '1px solid #1e293b', marginBottom: '8px' }}></div>
-                                    <p style={{ margin: 0, fontSize: '12px', fontWeight: 600 }}>Customer Signature</p>
-                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>{data.accounts?.name || 'Customer'}</p>
+                            {/* Signatures */}
+                            {settings?.include_signature && (
+                                <div style={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between', 
+                                    alignItems: 'flex-end',
+                                    pageBreakInside: 'avoid'
+                                }}>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Customer Acknowledgment</p>
+                                        <div style={{ width: '180px', borderBottom: '1px solid #cbd5e1', height: '40px', marginBottom: '8px' }}></div>
+                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{customer.name || data?.customerName || 'Customer'}</p>
+                                    </div>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>For {settings?.company_name}</p>
+                                        <div style={{ width: '180px', borderBottom: '1px solid #cbd5e1', height: '40px', marginBottom: '8px' }}></div>
+                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>Authorized Signatory</p>
+                                    </div>
                                 </div>
-                                <div style={{ textAlign: 'center' }}>
-                                    <div style={{ width: '200px', borderBottom: '1px solid #1e293b', marginBottom: '8px' }}></div>
-                                    <p style={{ margin: 0, fontSize: '12px', fontWeight: 600 }}>Authorized Signatory</p>
-                                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748b' }}>{settings?.company_name || 'Company'}</p>
-                                </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
