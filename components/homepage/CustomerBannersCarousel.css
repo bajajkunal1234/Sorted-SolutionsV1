@@ -1,0 +1,69 @@
+.customer-banners-wrapper {
+    position: relative;
+    width: 100%;
+    margin-top: 60px; /* Space for the fixed header */
+    padding: 16px;
+    padding-bottom: 0;
+    overflow: hidden;
+    background-color: var(--bg-primary);
+}
+
+.customer-banners-carousel {
+    display: flex;
+    transition: transform 0.5s ease-in-out;
+    width: 100%;
+    border-radius: 12px;
+}
+
+.banner-slide {
+    min-width: 100%;
+    flex: 0 0 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    /* Maintain a nice wide aspect ratio like 21:9 or 16:9 */
+    aspect-ratio: 16 / 7; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.banner-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.banner-pagination {
+    position: absolute;
+    bottom: 8px; /* Inside the wrapper, but below the image if we want */
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 0;
+    z-index: 2;
+}
+
+.banner-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.5); /* Assuming they sit partly inside the banner, or adjust */
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.banner-dot.active {
+    width: 16px;
+    border-radius: 10px;
+    background-color: #ffffff;
+}
+
+/* If dots are outside on white background, change colors */
+@media (prefers-color-scheme: light) {
+    .banner-pagination {
+        bottom: 8px; /* sits over the image slightly */
+    }
+}

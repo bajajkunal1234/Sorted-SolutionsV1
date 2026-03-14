@@ -12,6 +12,7 @@ import TestimonialsSection from './TestimonialsSection';
 import FAQSection from './FAQSection';
 import FooterSection from './FooterSection';
 import Header from '../common/Header';
+import CustomerBannersCarousel from './CustomerBannersCarousel';
 import HomepageBrandLogosSection from './HomepageBrandLogosSection';
 import './MobileHomepage.css';
 
@@ -89,6 +90,9 @@ function MobileHomepage({ initialBookingData }) {
         <div className="mobile-homepage">
             {/* Header */}
             <Header />
+
+            {/* Banners Carousel */}
+            <CustomerBannersCarousel />
 
             {/* Hero Section - SEO Optimized */}
             <section className="hero-section">

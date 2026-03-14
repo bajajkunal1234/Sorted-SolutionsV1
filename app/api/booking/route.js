@@ -106,12 +106,20 @@ export async function POST(request) {
         if (pincode && customer.address?.street) {
             const { data: existingProperties } = await supabase
                 .from('properties')
-                .select('id, address')
+                .select('id, address, flat_number, building_name')
                 .eq('pincode', pincode)
             
-            // Basic matching: Check if street address exactly matches (case-insensitive)
+            // Smart matching: Check if flat, building, and street match
             const streetLower = customer.address.street.toLowerCase().trim()
-            const match = existingProperties?.find(p => p.address.toLowerCase().trim() === streetLower)
+            const flatLower = (customer.address.flat_number || '').toLowerCase().trim()
+            const buildingLower = (customer.address.building_name || '').toLowerCase().trim()
+
+            const match = existingProperties?.find(p => {
+                const pStreet = (p.address || '').toLowerCase().trim()
+                const pFlat = (p.flat_number || '').toLowerCase().trim()
+                const pBuilding = (p.building_name || '').toLowerCase().trim()
+                return pStreet === streetLower && pFlat === flatLower && pBuilding === buildingLower
+            })
 
             if (match) {
                 propertyId = match.id
@@ -120,6 +128,8 @@ export async function POST(request) {
                 const { data: newProp, error: propErr } = await supabase
                     .from('properties')
                     .insert({
+                        flat_number: customer.address.flat_number || null,
+                        building_name: customer.address.building_name || null,
                         address: customer.address.street,
                         locality: customer.address.locality || '',
                         city: customer.address.city || 'Mumbai',

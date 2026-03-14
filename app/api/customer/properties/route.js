@@ -20,7 +20,7 @@ export async function GET(request) {
             const { data: matches } = await supabase
                 .from('properties')
                 .select('*')
-                .or(`pincode.eq.${term},address.ilike.%${term}%`)
+                .or(`pincode.eq.${term},address.ilike.%${term}%,building_name.ilike.%${term}%`)
                 .limit(5)
 
             const enriched = await Promise.all((matches || []).map(async (prop) => {
@@ -61,8 +61,7 @@ export async function GET(request) {
 // POST — smart create or link: check if property exists, create if not, then link
 export async function POST(request) {
     try {
-        const body = await request.json()
-        const { customer_id, property_id, address, locality, city, pincode, property_type, name } = body
+        const { customer_id, property_id, address, locality, city, pincode, property_type, name, flat_number, building_name } = body
 
         if (!customer_id) {
             return NextResponse.json({ error: 'customer_id is required' }, { status: 400 })
@@ -75,7 +74,15 @@ export async function POST(request) {
             if (!address) return NextResponse.json({ error: 'address is required' }, { status: 400 })
             const { data: prop, error: propError } = await supabase
                 .from('properties')
-                .insert({ address, locality, city, pincode, property_type: property_type || 'residential' })
+                .insert({ 
+                    flat_number: flat_number || null,
+                    building_name: building_name || null,
+                    address, 
+                    locality, 
+                    city, 
+                    pincode, 
+                    property_type: property_type || 'residential' 
+                })
                 .select()
                 .single()
             if (propError) throw propError

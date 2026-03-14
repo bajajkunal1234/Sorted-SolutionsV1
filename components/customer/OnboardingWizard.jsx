@@ -252,7 +252,7 @@ function StepWelcome({ name, onNext }) {
 // ─── Step 2: Add Property / Address ─────────────────────────────────────────
 function StepAddress({ onNext, onSkip, customerId }) {
     const [form, setForm] = useState({
-        type: 'apartment', address: '', locality: '', city: '', pincode: ''
+        type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', city: '', pincode: ''
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -361,6 +361,8 @@ function StepAddress({ onNext, onSkip, customerId }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     customer_id: cId,
+                    flat_number: form.flat_number,
+                    building_name: form.building_name,
                     address: form.address,
                     locality: form.locality || matchedLocality || '',
                     city: form.city,
@@ -441,7 +443,9 @@ function StepAddress({ onNext, onSkip, customerId }) {
                     </div>
                     {propertyMatches.map(p => (
                         <div key={p.id} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 14, padding: '12px 14px', marginBottom: 8 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>{p.address}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>
+                                {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}
+                            </div>
                             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{[p.locality, p.city].filter(Boolean).join(', ')}</div>
                             {p.lastJob && (
                                 <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
@@ -467,7 +471,9 @@ function StepAddress({ onNext, onSkip, customerId }) {
                     <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                         <CheckCircle size={14} /> Linking to existing property
                     </div>
-                    <div style={{ fontSize: 12, color: '#a7f3d0' }}>{selectedExisting.address}, {selectedExisting.locality} {selectedExisting.pincode}</div>
+                    <div style={{ fontSize: 12, color: '#a7f3d0' }}>
+                        {[selectedExisting.flat_number, selectedExisting.building_name, selectedExisting.address].filter(Boolean).join(', ')}, {selectedExisting.locality} {selectedExisting.pincode}
+                    </div>
                     <button onClick={() => { setSelectedExisting(null) }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
                         Change
                     </button>
@@ -488,9 +494,20 @@ function StepAddress({ onNext, onSkip, customerId }) {
                         </select>
                     </div>
 
+                    <div style={{ ...S.group, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                        <div>
+                            <label style={S.label}>Flat / Wing</label>
+                            <input style={S.input} value={form.flat_number} onChange={up('flat_number')} placeholder="e.g. A-402" />
+                        </div>
+                        <div>
+                            <label style={S.label}>Building Name</label>
+                            <input style={S.input} value={form.building_name} onChange={up('building_name')} placeholder="e.g. Sea View Apts" />
+                        </div>
+                    </div>
+
                     <div style={S.group}>
                         <label style={S.label}>Street Address *</label>
-                        <input style={S.input} value={form.address} onChange={up('address')} placeholder="Flat/House No., Building, Street" />
+                        <input style={S.input} value={form.address} onChange={up('address')} placeholder="Opposite Bank of India, Main Road" />
                     </div>
 
                     <div style={{ ...S.group, display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>

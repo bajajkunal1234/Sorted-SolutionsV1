@@ -23,9 +23,9 @@ export default function CustomerAppSettings() {
             const configRes = await fetch('/api/settings/section-configs?id=customer-app-banners');
             if (configRes.ok) {
                 const configData = await configRes.json();
-                if (configData.success && configData.data?.config) {
+                if (configData.success && configData.data?.extra_config) {
                     setConfig({
-                        banners: configData.data.config.banners || []
+                        banners: configData.data.extra_config.banners || []
                     });
                 }
             }
@@ -46,8 +46,8 @@ export default function CustomerAppSettings() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    id: 'customer-app-banners',
-                    config: config
+                    section_id: 'customer-app-banners',
+                    extra_config: config
                 })
             });
 

@@ -57,7 +57,7 @@ export async function GET(request) {
             const { data: matches, error } = await supabase
                 .from('properties')
                 .select('*')
-                .or(`pincode.eq.${term},address.ilike.%${term}%,locality.ilike.%${term}%`)
+                .or(`pincode.eq.${term},address.ilike.%${term}%,locality.ilike.%${term}%,building_name.ilike.%${term}%`)
                 .limit(5)
             if (error) throw error
 
@@ -131,13 +131,21 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { address, locality, city, pincode, property_type, customer_id, notes } = body
+        const { address, locality, city, pincode, property_type, customer_id, notes, flat_number, building_name } = body
 
         if (!address) return NextResponse.json({ success: false, error: 'Address is required' }, { status: 400 })
 
         const { data: property, error } = await supabase
             .from('properties')
-            .insert({ address, locality, city, pincode, property_type: property_type || 'residential' })
+            .insert({ 
+                flat_number: flat_number || null,
+                building_name: building_name || null,
+                address, 
+                locality, 
+                city, 
+                pincode, 
+                property_type: property_type || 'residential' 
+            })
             .select()
             .single()
         if (error) throw error
