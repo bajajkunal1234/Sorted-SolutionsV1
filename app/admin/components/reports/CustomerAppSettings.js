@@ -411,8 +411,3 @@ export default function CustomerAppSettings() {
     );
 }
 
-const MEDIA_TYPE_LABELS = {
-    image: '🖼️ Image', gif: '🎞️ GIF', video: '🎬 Video',
-    instagram: '📸 Instagram', facebook: '📘 Facebook',
-    youtube: '▶️ YouTube', tiktok: '🎵 TikTok', twitter: '🐦 X / Twitter',
-};
