@@ -58,6 +58,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         issue: (existingJob?.issue && typeof existingJob.issue === 'object' && existingJob.issue.id) ? { id: existingJob.issue.id, ...existingJob.issue } : null,
         warranty: existingJob?.warranty || false,
         warrantyProof: existingJob?.warranty_proof || '',
+        notes: existingJob?.notes || '',
         openingDate: existingJob?.created_at ? new Date(existingJob.created_at).toISOString().slice(0, 16) : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
         dueDate: existingJob?.scheduled_date ? new Date(existingJob.scheduled_date).toISOString().slice(0, 16) : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
         assignedTo: existingJob?.technician_id || '',
@@ -116,16 +117,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 }));
                 setCategories(categoriesData);
 
-                // Merge with operational products from inventory/products table
-                const operationalProducts = (data.operationalProducts || []).map(p => ({
-                    id: p.id,
-                    name: p.name,
-                    isOperational: true,
-                    showOnBookingForm: true // Show these by default in admin
-                }));
-
-                const allMergedProducts = [...categoriesData, ...operationalProducts];
-                setAllProducts(allMergedProducts);
+                // Only use categories from Global Quick Booking settings as the unified product list
+                setAllProducts(categoriesData);
                 // Using this as appliance source for manual entries (no filter)
                 // categories is used specifically for Issue matching later
 
@@ -652,7 +645,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 // Extra fields
                 amount: 0,
                 property: formData.property,
-                notes: formData.warranty ? `Warranty Claim: ${formData.warrantyProof}` : (existingJob?.notes || ''),
+                notes: formData.warranty ? `Warranty Claim: ${formData.warrantyProof}\n\n${formData.notes || ''}`.trim() : (formData.notes || ''),
             };
 
             // If technician is assigned, set status to assigned
@@ -1156,39 +1149,15 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         )}
                     </div>
 
-                    {/* 7. Job Name */}
                     <div className="form-group">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <label className="form-label" style={{ marginBottom: 0 }}>Job Name *</label>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setJobNameManuallyEdited(false);
-                                    const auto = buildAutoJobName(formData.brand, formData.subcategory, formData.property);
-                                    if (auto) setFormData(prev => ({ ...prev, jobName: auto }));
-                                }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(99,102,241,0.1)' }}
-                                title="Auto-fill from Brand + Sub-Category + Locality"
-                            >
-                                ✨ Auto-fill
-                            </button>
-                        </div>
-                        <input
-                            type="text"
+                        <label className="form-label">Job Notes / Description</label>
+                        <textarea
                             className="form-input"
-                            placeholder="e.g., LG Double Door Bandra West"
-                            value={formData.jobName}
-                            onChange={(e) => {
-                                setJobNameManuallyEdited(true);
-                                setFormData(prev => ({ ...prev, jobName: e.target.value }));
-                            }}
+                            rows="3"
+                            placeholder="Add any extra text, details, description, or notes related to the job..."
+                            value={formData.notes || ''}
+                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                         />
-                        {!jobNameManuallyEdited && (formData.brand || formData.subcategory || formData.property) && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
-                                🔄 Auto-filled from Brand · Sub-Type · Locality — edit to customise
-                            </div>
-                        )}
-                        {errors.jobName && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.jobName}</span>}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
