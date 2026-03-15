@@ -37,10 +37,74 @@ function InteractionsTab({ accountId, accountName }) {
         try {
             setLoading(true);
             setError(null);
-            const res = await fetch(`/api/admin/interactions?customer_id=${accountId}&limit=500`);
-            const result = await res.json();
-            if (!result.success) throw new Error(result.error || 'Failed to load');
-            setInteractions(result.data || []);
+
+            // Parallel fetch from all tables linked to this account
+            const [intRes, jobsRes, rentalsRes, amcRes] = await Promise.all([
+                fetch(`/api/admin/interactions?customer_id=${accountId}&limit=300`),
+                fetch(`/api/admin/jobs?customer_id=${accountId}`),
+                fetch(`/api/admin/rentals?customer_id=${accountId}`),
+                fetch(`/api/admin/amc?customer_id=${accountId}`),
+            ]);
+
+            const intData   = intRes.ok   ? (await intRes.json()).data   || [] : [];
+            const jobsData  = jobsRes.ok  ? (await jobsRes.json()).data  || [] : [];
+            const rentData  = rentalsRes.ok ? (await rentalsRes.json()).data || [] : [];
+            const amcData   = amcRes.ok   ? (await amcRes.json()).data   || [] : [];
+
+            // Map jobs → interaction-style objects
+            const jobItems = jobsData.map(j => ({
+                id: `job-${j.id}`,
+                type: j.status === 'completed' ? 'job-completed' : j.status === 'cancelled' ? 'job-cancelled' : j.status === 'assigned' ? 'job-assigned' : 'job-created-admin',
+                category: 'job',
+                title: `Job ${j.job_number || j.id}`,
+                description: `${j.category || ''} ${j.subcategory || ''} — Status: ${j.status}`.trim(),
+                timestamp: j.created_at,
+                customer_id: accountId,
+                customer_name: accountName,
+                performed_by_name: j.created_by || 'Admin',
+                metadata: { job_id: j.id, job_number: j.job_number, status: j.status, technician: j.technician_name },
+                source: 'Admin',
+                _table: 'jobs',
+            }));
+
+            // Map rentals
+            const rentalItems = rentData.map(r => ({
+                id: `rental-${r.id}`,
+                type: 'rental-started',
+                category: 'rental',
+                title: `Rental — ${r.product_name || 'Product'}`,
+                description: `Monthly rent: ₹${r.monthly_rent || 0} | Started: ${r.start_date ? new Date(r.start_date).toLocaleDateString('en-IN') : '—'}`,
+                timestamp: r.created_at || r.start_date,
+                customer_id: accountId,
+                customer_name: accountName,
+                performed_by_name: 'Admin',
+                metadata: { rental_id: r.id },
+                source: 'Admin',
+                _table: 'rentals',
+            }));
+
+            // Map AMC
+            const amcItems = amcData.map(a => ({
+                id: `amc-${a.id}`,
+                type: 'amc-created',
+                category: 'amc',
+                title: `AMC — ${a.plan_name || 'AMC Plan'}`,
+                description: `${a.appliance_type || ''} | Valid till: ${a.end_date ? new Date(a.end_date).toLocaleDateString('en-IN') : '—'}`,
+                timestamp: a.created_at || a.start_date,
+                customer_id: accountId,
+                customer_name: accountName,
+                performed_by_name: 'Admin',
+                metadata: { amc_id: a.id },
+                source: 'Admin',
+                _table: 'amc',
+            }));
+
+            // Merge all and sort by timestamp descending
+            const merged = [...intData, ...jobItems, ...rentalItems, ...amcItems]
+                .filter(Boolean)
+                .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+            setInteractions(merged);
         } catch (err) {
             console.error('Error fetching interactions:', err);
             setError(err.message);
