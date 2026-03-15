@@ -642,25 +642,6 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
                     <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                 </div>
 
-                {/* Show Sample Data Toggle */}
-                <button
-                    onClick={() => setShowSampleData(!showSampleData)}
-                    className="btn btn-secondary"
-                    style={{
-                        padding: '6px 12px',
-                        fontSize: 'var(--font-size-xs)',
-                        backgroundColor: showSampleData ? 'var(--bg-secondary)' : 'transparent',
-                        borderColor: showSampleData ? 'var(--color-primary)' : 'var(--border-primary)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}
-                    title={showSampleData ? "Hide Sample Data" : "Show Sample Data"}
-                >
-                    {showSampleData ? <Eye size={14} /> : <EyeOff size={14} />}
-                    {showSampleData ? "Showing Sample" : "Sample Hidden"}
-                </button>
-
                 {/* ── Column Picker ── */}
                 <div ref={colPickerRef} style={{ position: 'relative', marginLeft: 'auto' }}>
                     <button
