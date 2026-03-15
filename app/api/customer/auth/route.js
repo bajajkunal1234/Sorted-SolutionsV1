@@ -97,17 +97,17 @@ export async function POST(request) {
                 return NextResponse.json({ error: 'Failed to create account. Please try again.' }, { status: 500 })
             }
 
-            // Get Sundry Debtors group ID
-            let sundryDebtorsGroupId = null;
-            const { data: sdGroup } = await supabase
+            // Get Customers group ID (which lives under Sundry Debtors)
+            let customersGroupId = null;
+            const { data: cGroup } = await supabase
                 .from('account_groups')
                 .select('id')
-                .ilike('name', 'Sundry Debtors')
+                .ilike('name', 'Customers')
                 .limit(1)
                 .maybeSingle()
 
-            if (sdGroup) {
-                sundryDebtorsGroupId = sdGroup.id;
+            if (cGroup) {
+                customersGroupId = cGroup.id;
             }
 
             // Create Sundry Debtor entry in accounts table
@@ -117,7 +117,7 @@ export async function POST(request) {
                     name: customerName,
                     mobile: last10,
                     type: 'customer',
-                    under: sundryDebtorsGroupId, // dynamically fetched UUID
+                    under: customersGroupId, // dynamically fetched UUID for Customers sub-group
                     opening_balance: 0,
                     balance_type: 'debit',
                     created_at: new Date().toISOString(),
