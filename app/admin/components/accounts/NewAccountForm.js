@@ -595,6 +595,24 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         return null;
     };
 
+    // Add local state for date text so typing/backspace doesn't fight YYYY-MM-DD constraint
+    const [dateInputStr, setDateInputStr] = useState(() => {
+        if (!formData.asOnDate) return '';
+        const parts = formData.asOnDate.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return '';
+    });
+    
+    // Sync local date text back when asOnDate changes externally (e.g. edit mode initialization)
+    useEffect(() => {
+        if (formData.asOnDate) {
+            const parts = formData.asOnDate.split('-');
+            if (parts.length === 3 && dateInputStr.length !== 10) {
+                setDateInputStr(`${parts[2]}/${parts[1]}/${parts[0]}`);
+            }
+        }
+    }, [formData.asOnDate]);
+
     return (
         <>
             <div className="modal-overlay" onClick={(e) => e.stopPropagation()}>
@@ -718,14 +736,18 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                         <input
                                             type="text"
                                             className="form-input custom-date-picker"
-                                            value={
-                                                formData.asOnDate 
-                                                ? `${formData.asOnDate.split('-')[2]}/${formData.asOnDate.split('-')[1]}/${formData.asOnDate.split('-')[0]}`
-                                                : ''
-                                            }
+                                            value={dateInputStr}
                                             placeholder="DD/MM/YYYY"
                                             onChange={(e) => {
-                                                let val = e.target.value.replace(/\D/g, '');
+                                                const nativeValue = e.target.value;
+                                                    
+                                                // Allow erasing
+                                                if (nativeValue.length < dateInputStr.length) {
+                                                    setDateInputStr(nativeValue);
+                                                    return;
+                                                }
+                                                
+                                                let val = nativeValue.replace(/\D/g, '');
                                                 if (val.length > 8) val = val.slice(0, 8);
                                                 
                                                 // Auto format as DD/MM/YYYY
@@ -735,9 +757,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                 } else if (val.length > 2) {
                                                     formatted = `${val.slice(0,2)}/${val.slice(2)}`;
                                                 }
-                                                // Temporarily hold formatted text in UI, but if fully complete, parse to YYYY-MM-DD
-                                                e.target.value = formatted;
                                                 
+                                                setDateInputStr(formatted);
+                                                
+                                                // If complete, silently sync to actual form data
                                                 if (val.length === 8) {
                                                     const d = val.slice(0,2);
                                                     const m = val.slice(2,4);
@@ -746,10 +769,18 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                 }
                                             }}
                                             onBlur={e => {
-                                                // Fallback if they didn't finish typing or it's invalid
+                                                // Fallback if they didn't finish typing entirely
                                                 const parts = e.target.value.split('/');
                                                 if (parts.length === 3 && parts[2].length === 4) {
                                                     setFormData({ ...formData, asOnDate: `${parts[2]}-${parts[1]}-${parts[0]}` });
+                                                } else {
+                                                    // Revert cleanly to current database value if garbled
+                                                    if (formData.asOnDate) {
+                                                        const p = formData.asOnDate.split('-');
+                                                        setDateInputStr(`${p[2]}/${p[1]}/${p[0]}`);
+                                                    } else {
+                                                        setDateInputStr('');
+                                                    }
                                                 }
                                             }}
                                         />
