@@ -103,7 +103,9 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const tabs = [...baseTabs, ...customerOnlyTabs, ...contactOnlyTabs, ...commonTabs, ...rentAmcTabs];
 
     const groupPath = getGroupPath(account.under, groups);
-    const isPositive = (account.closingBalance || 0) >= 0;
+    const isReceivable = account.balanceType === 'cr' 
+        ? (account.closingBalance || 0) < 0 
+        : (account.closingBalance || 0) >= 0;
 
 
 
@@ -269,12 +271,12 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                 padding: '2px 8px',
                                 borderRadius: 'var(--radius-sm)',
                                 fontSize: 'var(--font-size-xs)',
-                                backgroundColor: isPositive ? 'var(--color-success-bg)' : 'var(--color-danger-bg)',
-                                color: isPositive ? 'var(--color-success)' : 'var(--color-danger)',
+                                backgroundColor: isReceivable ? 'var(--color-success-bg)' : 'var(--color-danger-bg)',
+                                color: isReceivable ? 'var(--color-success)' : 'var(--color-danger)',
                                 fontWeight: 500,
                                 textTransform: 'capitalize'
                             }}>
-                                {isPositive ? 'Receivable' : 'Payable'}
+                                {isReceivable ? 'Receivable' : 'Payable'}
                             </span>
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-md)', marginTop: '4px', fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)' }}>
@@ -416,6 +418,19 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                             ))}
                                         </select>
                                     </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Status</label>
+                                        <select
+                                            className="form-select"
+                                            value={editedAccount.status || 'active'}
+                                            onChange={(e) => setEditedAccount({ ...editedAccount, status: e.target.value })}
+                                            disabled={!isEditing}
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
+                                        >
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 {/* Contact Fields */}
@@ -530,6 +545,46 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                         />
                                     </div>
                                 </div>
+
+                                {/* Acquisition Details */}
+                                {(showField('acquisitionSource') || showField('referredBy')) && (
+                                    <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', marginTop: 'var(--spacing-md)' }}>
+                                        {showField('acquisitionSource') && (
+                                            <div className="form-group">
+                                                <label className="form-label">Acquisition Source</label>
+                                                <select
+                                                    className="form-select"
+                                                    value={editedAccount.acquisitionSource || ''}
+                                                    onChange={(e) => setEditedAccount({ ...editedAccount, acquisitionSource: e.target.value })}
+                                                    disabled={!isEditing}
+                                                    style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                                >
+                                                    <option value="">-- Select Source --</option>
+                                                    <option value="direct">Direct / Walk-in</option>
+                                                    <option value="referral">Referral</option>
+                                                    <option value="google">Google Ads</option>
+                                                    <option value="social">Social Media</option>
+                                                    <option value="website">Website Organic</option>
+                                                    <option value="other">Other</option>
+                                                </select>
+                                            </div>
+                                        )}
+                                        {showField('referredBy') && (
+                                            <div className="form-group">
+                                                <label className="form-label">Referred By</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={editedAccount.referredBy || ''}
+                                                    onChange={(e) => setEditedAccount({ ...editedAccount, referredBy: e.target.value })}
+                                                    disabled={!isEditing}
+                                                    placeholder="Name or details"
+                                                    style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* GST Registration (Optional) */}
@@ -918,12 +973,12 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                         <div style={{
                                             fontSize: 'var(--font-size-2xl)',
                                             fontWeight: 700,
-                                            color: isPositive ? 'var(--color-success)' : 'var(--color-danger)'
+                                            color: isReceivable ? 'var(--color-success)' : 'var(--color-danger)'
                                         }}>
                                             {formatCurrency(account.closingBalance)}
                                         </div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                            {isPositive ? 'To Receive' : 'To Pay'}
+                                            {isReceivable ? 'To Receive' : 'To Pay'}
                                         </div>
                                     </div>
 
@@ -980,7 +1035,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                 <div className="modal-footer" style={{ borderTop: '2px solid var(--border-primary)', padding: 'var(--spacing-md) var(--spacing-lg)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                            Last updated: {new Date().toLocaleDateString()}
+                            Last updated: {account.updated_at ? new Date(account.updated_at).toLocaleDateString() : new Date().toLocaleDateString()}
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                             <button className="btn btn-secondary" onClick={onClose}>

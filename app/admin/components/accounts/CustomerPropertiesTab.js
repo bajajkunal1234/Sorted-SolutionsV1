@@ -217,7 +217,7 @@ function CustomerPropertiesTab({ customerId }) {
                         value={newProperty.address}
                         onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
                     />
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-sm)' }}>
                         <select className="form-input" value={newProperty.locality} onChange={handleLocalityChange}>
                             <option value="">Select Locality...</option>
                             {MUMBAI_LOCALITIES.map((loc) => (
@@ -229,9 +229,16 @@ function CustomerPropertiesTab({ customerId }) {
                             className="form-input"
                             placeholder="Pincode"
                             value={newProperty.pincode}
-                            readOnly
-                            style={{ opacity: 0.6 }}
+                            onChange={(e) => setNewProperty({ ...newProperty, pincode: e.target.value })}
                         />
+                        <select 
+                            className="form-input" 
+                            value={newProperty.property_type || 'residential'} 
+                            onChange={(e) => setNewProperty({ ...newProperty, property_type: e.target.value })}
+                        >
+                            <option value="residential">Residential</option>
+                            <option value="commercial">Commercial</option>
+                        </select>
                     </div>
                     {/* Duplicate warning */}
                     {duplicate && (

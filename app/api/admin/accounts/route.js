@@ -144,6 +144,17 @@ export async function PUT(request) {
             }, { onConflict: 'ledger_id' });
         }
 
+        // Global logging for updates
+        logInteractionServer({
+            type: 'account-updated',
+            category: 'account',
+            customerId: id,
+            customerName: data.name,
+            performedByName: 'Admin', // Would come from auth context in a real app
+            description: `Admin updated ${data.type} account details for ${data.name}`,
+            source: 'Admin App'
+        });
+
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })

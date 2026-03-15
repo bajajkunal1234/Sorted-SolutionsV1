@@ -281,7 +281,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     const filteredLedgers = activeTab === 'accounts' ? ledgers.filter(l => {
         const matchSearch = !searchTerm || l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.sku?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchType = filterType === 'all' || l.type === filterType;
+        const matchType = filterType === 'all' 
+            ? true 
+            : filterType === 'cash' 
+                ? ['cash-in-hand', 'bank-accounts'].includes(l.type)
+                : l.type === filterType;
         const matchGroup = filterGroup === 'all' || l.under === filterGroup;
         return matchSearch && matchType && matchGroup;
     }).sort((a, b) => {

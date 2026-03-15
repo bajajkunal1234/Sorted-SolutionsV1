@@ -149,7 +149,7 @@ const MUMBAI_LOCALITIES = [
     { name: 'Worli Sea Face', pincode: '400030' },
 ];
 
-function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], onGroupCreated, initialData = null }) {
+function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], onGroupCreated, initialData = null, ledgers = [] }) {
     // Common fields
     const [formData, setFormData] = useState({
         sku: initialData?.sku || '',
@@ -216,7 +216,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
         // Acquisition Source (How did you hear about us?)
         acquisitionSource: initialData?.acquisition_source || '',
-        referredBy: initialData?.referred_by || ''
+        referredBy: initialData?.referred_by || '',
+
+        // Status
+        status: initialData?.status || 'active'
     });
 
     const [errors, setErrors] = useState({});
@@ -267,15 +270,16 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         }
     }, [formData.name, groups]);
 
-    // Check for duplicate names (only if name changed and not editing)
+    // Check for duplicate names against live ledgers (only if name changed and not editing)
     useEffect(() => {
         if (formData.name.trim() && formData.name !== initialData?.name) {
-            const duplicate = checkDuplicateName(formData.name, sampleLedgers);
+            const liveLedgers = ledgers.length > 0 ? ledgers : sampleLedgers;
+            const duplicate = checkDuplicateName(formData.name, liveLedgers);
             setDuplicateWarning(duplicate);
         } else {
             setDuplicateWarning(null);
         }
-    }, [formData.name, initialData]);
+    }, [formData.name, initialData, ledgers]);
 
     // Track form dirty state
     useEffect(() => {
@@ -509,13 +513,12 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             account.properties = properties.filter(p => p.name.trim() !== '' || p.address.trim() !== '');
         }
 
-        console.log('Processed Account for Supabase:', account);
-
         if (onSave) {
             onSave(account);
+            // Note: onClose is called by the parent (AccountsTab.handleFormSave) on success.
+            // Do NOT call onClose() here — it creates a race condition where the form closes
+            // before the async save completes, preventing error recovery.
         }
-
-        onClose();
     };
 
     // Render initials avatar if no image
@@ -611,7 +614,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     {/* SKU */}
                                     <div className="form-group">
-                                        <label className="form-label">KU / Alias *</label>
+                                        <label className="form-label">Account Code *</label>
                                         <input
                                             type="text"
                                             className="form-input"
@@ -710,6 +713,19 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             style={{ colorScheme: 'dark' }}
                                         />
                                     </div>
+                                </div>
+
+                                {/* Status Field */}
+                                <div className="form-group">
+                                    <label className="form-label">Status</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                    >
+                                        <option value="active">Active</option>
+                                        <option value="inactive">Inactive</option>
+                                    </select>
                                 </div>
                             </div>
 
@@ -1042,13 +1058,22 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                                 onChange={(e) => updateProperty(index, 'pincode', e.target.value)}
                                                                 placeholder="e.g. 400053"
                                                                 maxLength={6}
-                                                                disabled={!!property.locality} // Disable if auto-filled by locality
-                                                                style={{
-                                                                    backgroundColor: property.locality ? 'var(--bg-secondary)' : undefined,
-                                                                    opacity: property.locality ? 0.7 : 1
-                                                                }}
                                                             />
                                                         </div>
+                                                    </div>
+
+                                                    {/* Property Type */}
+                                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                                        <label className="form-label">Property Type</label>
+                                                        <select
+                                                            className="form-select"
+                                                            value={property.property_type || 'residential'}
+                                                            onChange={(e) => updateProperty(index, 'property_type', e.target.value)}
+                                                        >
+                                                            <option value="residential">Residential</option>
+                                                            <option value="commercial">Commercial</option>
+                                                            <option value="industrial">Industrial</option>
+                                                        </select>
                                                     </div>
                                                 </div>
                                             ))}
@@ -1207,9 +1232,9 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                         </div>
                                     )}
 
-                                    {/* Credit Limit & Period */}
-                                    {(showField('creditLimit') || showField('creditPeriod')) && (
-                                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                    {/* Credit Limit, Period & Price Level */}
+                                    {(showField('creditLimit') || showField('creditPeriod') || showField('priceLevel')) && (
+                                        <div className="form-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
                                             {showField('creditLimit') && (
                                                 <div className="form-group">
                                                     <label className="form-label">Credit Limit (₹)</label>
@@ -1235,6 +1260,67 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     />
                                                 </div>
                                             )}
+                                            {showField('priceLevel') && (
+                                                <div className="form-group">
+                                                    <label className="form-label">Price Level</label>
+                                                    <select
+                                                        className="form-select"
+                                                        value={formData.priceLevel}
+                                                        onChange={(e) => setFormData({ ...formData, priceLevel: e.target.value })}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        <option value="retail">Retail</option>
+                                                        <option value="wholesale">Wholesale</option>
+                                                        <option value="dealer">Dealer</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {/* Acquisition Fields */}
+                                    {(showField('acquisitionSource') || showField('referredBy')) && (
+                                        <div style={{
+                                            padding: 'var(--spacing-md)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border-primary)',
+                                            marginBottom: 'var(--spacing-md)'
+                                        }}>
+                                            <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: '#3b82f6' }}>
+                                                Acquisition Details
+                                            </h3>
+                                            <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                                {showField('acquisitionSource') && (
+                                                    <div className="form-group">
+                                                        <label className="form-label">Acquisition Source</label>
+                                                        <select
+                                                            className="form-select"
+                                                            value={formData.acquisitionSource}
+                                                            onChange={(e) => setFormData({ ...formData, acquisitionSource: e.target.value })}
+                                                        >
+                                                            <option value="">-- Select Source --</option>
+                                                            <option value="direct">Direct / Walk-in</option>
+                                                            <option value="referral">Referral</option>
+                                                            <option value="google">Google Ads</option>
+                                                            <option value="social">Social Media</option>
+                                                            <option value="website">Website Organic</option>
+                                                            <option value="other">Other</option>
+                                                        </select>
+                                                    </div>
+                                                )}
+                                                {showField('referredBy') && (
+                                                    <div className="form-group" style={{ marginBottom: 0 }}>
+                                                        <label className="form-label">Referred By</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            value={formData.referredBy}
+                                                            onChange={(e) => setFormData({ ...formData, referredBy: e.target.value })}
+                                                            placeholder="Name or details"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
 
