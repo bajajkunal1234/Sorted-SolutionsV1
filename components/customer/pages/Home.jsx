@@ -20,8 +20,8 @@ function getEmbedUrl(item) {
 
     if (type === 'instagram') {
         // Extract shortcode from instagram.com/p/CODE/ or /reel/CODE/
-        const m = url.match(/instagram\.com\/(p|reel|stories\/[^/]+)\/([A-Za-z0-9_-]+)/)
-        if (m) return `https://www.instagram.com/p/${m[2]}/embed/captioned/`
+        const m = url.match(/instagram\.com\/(?:p|reel|stories\/[^/]+)\/([A-Za-z0-9_-]+)/)
+        if (m) return `https://www.instagram.com/p/${m[1]}/embed/`
         return url
     }
     if (type === 'facebook') {
@@ -79,14 +79,56 @@ function MediaRenderer({ item }) {
         )
     }
 
-    // Social embeds — iframe
+    if (type === 'instagram') {
+        return (
+            <div style={{ width: '100%', height: 480, background: '#0a0f1e', position: 'relative', overflow: 'hidden' }}>
+                {/* 
+                  Instagram's embed iframe has a forced header (approx 54px) and footer.
+                  We shift the iframe up by 54px and increase its height to hide the poster's profile header.
+                */}
+                <iframe
+                    title="Instagram Embed"
+                    src={embedUrl}
+                    style={{ position: 'absolute', top: -54, left: -2, width: 'calc(100% + 4px)', height: 'calc(100% + 100px)', border: 'none', display: 'block' }}
+                    allowFullScreen
+                    scrolling="no"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    loading="lazy"
+                />
+
+                {/* Custom Sorted Solutions Header Overlay */}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(to bottom, rgba(10,15,30,0.85), rgba(10,15,30,0))', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <img src="/logo-dark.jpg" alt="Sorted" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(255,255,255,0.2)' }} />
+                        <span style={{ color: '#ffffff', fontSize: 13, fontWeight: 700, letterSpacing: '0.2px', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+                            sortedsolutions.in
+                        </span>
+                    </div>
+                    
+                    {/* The Follow button pointerEvents is set to auto to be clickable */}
+                    <a href="https://instagram.com/sortedsolutions.in" target="_blank" rel="noreferrer" style={{ background: 'var(--color-primary)', color: '#ffffff', padding: '6px 14px', borderRadius: 20, fontSize: 11, fontWeight: 600, textDecoration: 'none', pointerEvents: 'auto', boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
+                        Follow
+                    </a>
+                </div>
+
+                {/* Invisible clickable overlay at the bottom to intercept the original "View more on Instagram" click */}
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, zIndex: 10, background: 'linear-gradient(to top, rgba(10,15,30,0.95), rgba(10,15,30,0))', display: 'flex', alignItems: 'center', padding: '0 16px', justifyContent: 'flex-start' }}>
+                    <a href="https://instagram.com/sortedsolutions.in" target="_blank" rel="noreferrer" style={{ color: '#ffffff', textDecoration: 'none', fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, width: '100%', height: '100%' }}>
+                        View our profile on Instagram 
+                    </a>
+                </div>
+            </div>
+        )
+    }
+
+    // Default social embeds — iframe
     return (
         <div style={{ width: '100%', aspectRatio: aspect, background: '#0f172a', position: 'relative', overflow: 'hidden' }}>
             <iframe
                 src={embedUrl}
                 style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                 allowFullScreen
-                scrolling={type === 'instagram' ? 'no' : 'yes'}
+                scrolling="yes"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 loading="lazy"
             />
