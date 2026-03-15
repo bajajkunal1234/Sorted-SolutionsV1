@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import bcrypt from 'bcryptjs'
@@ -6,6 +6,8 @@ import bcrypt from 'bcryptjs'
 // ─── GET: check if a phone number already has an account ────────────────────
 export async function GET(request) {
     try {
+        const supabase = createServerSupabase();
+        
         const { searchParams } = new URL(request.url)
         const phone = searchParams.get('phone')
         if (!phone) return NextResponse.json({ error: 'phone required' }, { status: 400 })
@@ -41,6 +43,8 @@ export async function GET(request) {
 // ─── POST: signup | login | reset-password | otp-sync (legacy) ──────────────
 export async function POST(request) {
     try {
+        const supabase = createServerSupabase();
+        
         const body = await request.json()
         const { action } = body
 
