@@ -1154,6 +1154,21 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             )}
                                         </div>
                                     )}
+
+                                    {/* Customer Description */}
+                                    {showField('customerDescription') && (
+                                        <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
+                                            <label className="form-label">Customer Description</label>
+                                            <textarea
+                                                className="form-input"
+                                                value={formData.customerDescription || ''}
+                                                onChange={(e) => setFormData({ ...formData, customerDescription: e.target.value })}
+                                                rows="3"
+                                                placeholder="Specific notes or context about this customer..."
+                                                style={{ resize: 'vertical' }}
+                                            />
+                                        </div>
+                                    )}
                                     {/* Acquisition Fields */}
                                     {(showField('acquisitionSource') || showField('referredBy')) && (
                                         <div style={{
