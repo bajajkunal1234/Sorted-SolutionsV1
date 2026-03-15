@@ -132,7 +132,11 @@ function LoginContent() {
     const recaptchaInitRef = useRef(false);
     const recaptchaVerifierRef = useRef(null);
 
+    const initializedRef = useRef(false);
     useEffect(() => {
+        if (initializedRef.current) return;
+        initializedRef.current = true;
+        
         const p = searchParams.get('phone');
         if (p) setPhone(p.replace(/\D/g, '').slice(-10));
         const f = searchParams.get('flow');
@@ -143,6 +147,12 @@ function LoginContent() {
     const switchFlow = (newFlow) => {
         setFlow(newFlow);
         setStep('phone');
+        
+        // Remove trailing url parameters so NextJS doesn't force re-evaluations
+        if (typeof window !== 'undefined') {
+            window.history.replaceState(null, '', '/login');
+        }
+        
         setError('');
         setSuccessMsg('');
         setOtp(['', '', '', '', '', '']);
