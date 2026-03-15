@@ -61,6 +61,7 @@ export async function GET(request) {
 // POST — smart create or link: check if property exists, create if not, then link
 export async function POST(request) {
     try {
+        const body = await request.json()
         const { customer_id, property_id, address, locality, city, pincode, property_type, name, flat_number, building_name } = body
 
         if (!customer_id) {
