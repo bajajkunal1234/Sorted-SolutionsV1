@@ -52,6 +52,42 @@ const EMBED_ASPECT = {
     video:     '16/9',
 }
 
+function AutoPlayVideo({ src, aspect }) {
+    const videoRef = useRef(null)
+
+    useEffect(() => {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    if (videoRef.current) {
+                        // Play silently, handling the autoplay promise rejection gracefully
+                        videoRef.current.play().catch(e => console.log('Autoplay blocked:', e))
+                    }
+                } else {
+                    if (videoRef.current) {
+                        videoRef.current.pause()
+                    }
+                }
+            })
+        }, { threshold: 0.5 })
+
+        if (videoRef.current) observer.observe(videoRef.current)
+        return () => observer.disconnect()
+    }, [])
+
+    return (
+        <video
+            ref={videoRef}
+            src={src}
+            controls
+            playsInline
+            muted
+            loop
+            style={{ width: '100%', display: 'block', aspectRatio: aspect, background: '#000' }}
+        />
+    )
+}
+
 // ── Single media renderer ───────────────────────────────────────
 function MediaRenderer({ item }) {
     const type = item.type || 'image'
@@ -69,14 +105,7 @@ function MediaRenderer({ item }) {
     }
 
     if (type === 'video') {
-        return (
-            <video
-                src={item.url}
-                controls
-                playsInline
-                style={{ width: '100%', display: 'block', aspectRatio: aspect, background: '#000' }}
-            />
-        )
+        return <AutoPlayVideo src={item.url} aspect={aspect} />
     }
 
     if (type === 'instagram') {
