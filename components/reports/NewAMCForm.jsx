@@ -306,7 +306,7 @@ function NewAMCForm({ onClose, onSave }) {
                                     <div>Duration: <strong>{selectedPlan.duration.value} {selectedPlan.duration.unit}</strong></div>
                                     <div>Amount: <strong>₹{selectedPlan.price}</strong></div>
                                     {formData.startDate && (
-                                        <div>Contract Period: <strong>{new Date(formData.startDate).toLocaleDateString()} - {new Date(calculateEndDate(formData.startDate, selectedPlan.duration.value, selectedPlan.duration.unit)).toLocaleDateString()}</strong></div>
+                                        <div>Contract Period: <strong>{new Date(formData.startDate).toLocaleDateString('en-GB')} - {new Date(calculateEndDate(formData.startDate, selectedPlan.duration.value, selectedPlan.duration.unit)).toLocaleDateString('en-GB')}</strong></div>
                                     )}
                                 </div>
                             </div>

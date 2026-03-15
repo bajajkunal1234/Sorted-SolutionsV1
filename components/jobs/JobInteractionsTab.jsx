@@ -78,7 +78,7 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
         } else if (diffDays < 7) {
             return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
         } else {
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
         }
     };
 

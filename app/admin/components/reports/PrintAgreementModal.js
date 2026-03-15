@@ -70,19 +70,19 @@ export default function PrintAgreementModal({ type, data, onClose }) {
         processed = processed.replace(/\[SERIAL_NUMBER\]/g, serialNumber);
 
         // Dates
-        processed = processed.replace(/\[START_DATE\]/g, recordData.start_date ? new Date(recordData.start_date).toLocaleDateString() : 'N/A');
-        processed = processed.replace(/\[END_DATE\]/g, recordData.end_date ? new Date(recordData.end_date).toLocaleDateString() : 'N/A');
-        processed = processed.replace(/\[TODAYS_DATE\]/g, new Date().toLocaleDateString());
+        processed = processed.replace(/\[START_DATE\]/g, recordData.start_date ? new Date(recordData.start_date).toLocaleDateString('en-GB') : 'N/A');
+        processed = processed.replace(/\[END_DATE\]/g, recordData.end_date ? new Date(recordData.end_date).toLocaleDateString('en-GB') : 'N/A');
+        processed = processed.replace(/\[TODAYS_DATE\]/g, new Date().toLocaleDateString('en-GB'));
 
         // Type Specific
         if (agreementType === 'rental') {
             processed = processed.replace(/\[MONTHLY_RENT\]/g, recordData.monthly_rent || 0);
             processed = processed.replace(/\[SECURITY_DEPOSIT\]/g, recordData.security_deposit || 0);
             processed = processed.replace(/\[SETUP_FEE\]/g, recordData.setup_fee || 0);
-            processed = processed.replace(/\[NEXT_RENT_DUE\]/g, recordData.next_rent_due_date ? new Date(recordData.next_rent_due_date).toLocaleDateString() : 'N/A');
+            processed = processed.replace(/\[NEXT_RENT_DUE\]/g, recordData.next_rent_due_date ? new Date(recordData.next_rent_due_date).toLocaleDateString('en-GB') : 'N/A');
         } else if (agreementType === 'amc') {
             processed = processed.replace(/\[AMC_AMOUNT\]/g, recordData.amc_amount || 0);
-            processed = processed.replace(/\[NEXT_SERVICE_DATE\]/g, recordData.next_service_date ? new Date(recordData.next_service_date).toLocaleDateString() : 'N/A');
+            processed = processed.replace(/\[NEXT_SERVICE_DATE\]/g, recordData.next_service_date ? new Date(recordData.next_service_date).toLocaleDateString('en-GB') : 'N/A');
         }
 
         // Company Details
@@ -216,7 +216,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                                         <b style={{ color: '#475569' }}>Agr. ID:</b>
                                         <span>{data.id?.slice(0, 8).toUpperCase() || 'NEW'}</span>
                                         <b style={{ color: '#475569' }}>Date:</b>
-                                        <span>{new Date().toLocaleDateString('en-IN')}</span>
+                                        <span>{new Date().toLocaleDateString('en-GB')}</span>
                                     </div>
                                 </div>
                             </div>

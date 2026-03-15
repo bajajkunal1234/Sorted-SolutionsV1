@@ -289,7 +289,7 @@ function FinancialReports() {
                                             <tr key={invoice.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{invoice.id}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                    {new Date(invoice.date).toLocaleDateString('en-IN')}
+                                                    {new Date(invoice.date).toLocaleDateString('en-GB')}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>{invoice.customerName}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
@@ -397,7 +397,7 @@ function FinancialReports() {
                                             <tr key={invoice.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{invoice.id}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                    {new Date(invoice.date).toLocaleDateString('en-IN')}
+                                                    {new Date(invoice.date).toLocaleDateString('en-GB')}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>{invoice.vendorName}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
@@ -479,7 +479,7 @@ function FinancialReports() {
                                             <tr key={quote.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{quote.quote_number || quote.id}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                    {new Date(quote.date).toLocaleDateString('en-IN')}
+                                                    {new Date(quote.date).toLocaleDateString('en-GB')}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>{quote.account_name}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
@@ -558,7 +558,7 @@ function FinancialReports() {
                                             <tr key={receipt.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{receipt.receipt_number}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                    {new Date(receipt.date).toLocaleDateString('en-IN')}
+                                                    {new Date(receipt.date).toLocaleDateString('en-GB')}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>{receipt.account_name}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>{receipt.payment_mode}</td>
@@ -623,7 +623,7 @@ function FinancialReports() {
                                             <tr key={payment.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace' }}>{payment.payment_number}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                    {new Date(payment.date).toLocaleDateString('en-IN')}
+                                                    {new Date(payment.date).toLocaleDateString('en-GB')}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>{payment.account_name}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>{payment.payment_mode}</td>
@@ -900,7 +900,7 @@ function FinancialReports() {
                         <div style={{ marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)' }}>
                             <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: '4px' }}>Balance Sheet</div>
                             <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                As on {new Date(balanceSheetData.asOnDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                As on {new Date(balanceSheetData.asOnDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
                             </div>
                         </div>
 

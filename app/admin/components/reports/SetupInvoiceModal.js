@@ -264,9 +264,9 @@ export default function SetupInvoiceModal({ type, data, onClose }) {
                                         <b style={{ color: '#475569' }}>Invoice No:</b>
                                         <span>{invoiceNumber}</span>
                                         <b style={{ color: '#475569' }}>Date:</b>
-                                        <span>{new Date(invoiceDate).toLocaleDateString('en-IN')}</span>
+                                        <span>{new Date(invoiceDate).toLocaleDateString('en-GB')}</span>
                                         <b style={{ color: '#475569' }}>Due Date:</b>
-                                        <span>{new Date(dueDate).toLocaleDateString('en-IN')}</span>
+                                        <span>{new Date(dueDate).toLocaleDateString('en-GB')}</span>
                                     </div>
                                 </div>
                             </div>

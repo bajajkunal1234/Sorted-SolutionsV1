@@ -223,7 +223,7 @@ function DailyExpenses() {
                                                 </h4>
                                                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                                                     <Calendar size={12} />
-                                                    {new Date(expense.date).toLocaleDateString('en-IN', {
+                                                    {new Date(expense.date).toLocaleDateString('en-GB', {
                                                         day: '2-digit',
                                                         month: 'short',
                                                         year: 'numeric'

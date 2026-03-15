@@ -296,7 +296,7 @@ function VoucherNumberingSettings() {
                                     fontSize: 'var(--font-size-xs)',
                                     color: 'var(--text-secondary)'
                                 }}>
-                                    Last reset: {new Date(setting.lastResetDate).toLocaleDateString('en-IN', {
+                                    Last reset: {new Date(setting.lastResetDate).toLocaleDateString('en-GB', {
                                         day: '2-digit',
                                         month: 'short',
                                         year: 'numeric'

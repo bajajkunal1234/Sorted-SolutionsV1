@@ -740,7 +740,7 @@ function TechnicianApp() {
                     <div>
                         <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Joined</label>
                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                            {technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '...'}
+                            {technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '...'}
                         </div>
                     </div>
                 </div>

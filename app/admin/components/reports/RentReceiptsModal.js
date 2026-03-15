@@ -90,7 +90,7 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
 
     // Helper formats
     const fmtAmt = n => `₹${Number(n || 0).toLocaleString()}`;
-    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
     const getReceiptDetails = (id) => receipts.find(r => r.id === id);
 

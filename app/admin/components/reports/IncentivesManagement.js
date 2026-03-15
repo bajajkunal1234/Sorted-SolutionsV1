@@ -590,7 +590,7 @@ function IncentivesManagement() {
                                         {tech.history.map((record, idx) => (
                                             <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                    {new Date(record.month + '-01').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}
+                                                    {new Date(record.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
                                                     {record.onTimeVisits}%
@@ -650,7 +650,7 @@ function IncentivesManagement() {
                             borderTopRightRadius: 'var(--radius-lg)'
                         }}>
                             <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
-                                Incentives Policy Sheet - {new Date(activeMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                                Incentives Policy Sheet - {new Date(activeMonth + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                             </h3>
                             <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                                 <button
@@ -693,7 +693,7 @@ function IncentivesManagement() {
                                 <h1 style={{ margin: 0, fontSize: '32px', color: '#1e293b' }}>AC Repair Services</h1>
                                 <p style={{ margin: '5px 0', fontSize: '16px', color: '#64748b', fontWeight: 600 }}>Technician Incentives Policy</p>
                                 <p style={{ margin: '5px 0', fontSize: '14px', color: '#64748b' }}>
-                                    Effective Period: {new Date(activeMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                                    Effective Period: {new Date(activeMonth + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                 </p>
                             </div>
 
@@ -770,7 +770,7 @@ function IncentivesManagement() {
                             {/* Footer */}
                             <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '2px solid #e2e8f0', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
                                 <p style={{ margin: '5px 0' }}>This is an official company policy document</p>
-                                <p style={{ margin: '5px 0' }}>Generated on: {new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+                                <p style={{ margin: '5px 0' }}>Generated on: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
                                 <p style={{ margin: '5px 0' }}>For queries, contact: hr@acrepair.com</p>
                             </div>
                         </div>
@@ -866,7 +866,7 @@ function IncentivesManagement() {
                                 <div>
                                     <strong style={{ color: '#64748b', fontSize: '12px' }}>Period:</strong>
                                     <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
-                                        {new Date(activeMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                                        {new Date(activeMonth + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                     </div>
                                 </div>
                             </div>
@@ -922,7 +922,7 @@ function IncentivesManagement() {
 
                             <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '2px solid #e2e8f0', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
                                 <p style={{ margin: '5px 0' }}>This is a system-generated document</p>
-                                <p style={{ margin: '5px 0' }}>Generated on: {new Date().toLocaleDateString('en-IN')}</p>
+                                <p style={{ margin: '5px 0' }}>Generated on: {new Date().toLocaleDateString('en-GB')}</p>
                             </div>
                         </div>
                     </div>

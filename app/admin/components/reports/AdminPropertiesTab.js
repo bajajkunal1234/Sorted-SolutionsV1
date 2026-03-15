@@ -122,7 +122,7 @@ export default function AdminPropertiesTab() {
         return !q || (p.address || '').toLowerCase().includes(q) || (p.locality || '').toLowerCase().includes(q) || (p.city || '').toLowerCase().includes(q) || (p.pincode || '').includes(q)
     })
 
-    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
 
     return (
         <div style={{ padding: '24px 20px', maxWidth: 900, margin: '0 auto' }}>
@@ -316,7 +316,7 @@ function Section({ title, icon, children, action }) {
 function TenantRow({ tenant, onUnlink, past }) {
     const c = tenant.customer
     const name = c?.name || c?.full_name || 'Unknown'
-    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
+    const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
     return (
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
             <div>

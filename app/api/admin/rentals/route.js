@@ -99,7 +99,7 @@ export async function POST(request) {
                 category: 'rental',
                 jobId: String(data.id),
                 customerName,
-                description: `Rent due on ${rentDueDate.toLocaleDateString('en-IN')} for ${productName}`,
+                description: `Rent due on ${rentDueDate.toLocaleDateString('en-GB')} for ${productName}`,
                 metadata: { rentalId: data.id, dueDate: rentDueDate.toISOString().split('T')[0] },
                 source: 'System',
             })

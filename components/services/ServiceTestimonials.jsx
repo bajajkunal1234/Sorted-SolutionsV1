@@ -52,7 +52,7 @@ export default function ServiceTestimonials({ category, subcategory, location, s
                         rating: t.rating,
                         review: t.review_text,
                         date: t.date
-                            ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                            ? new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
                             : '',
                         location: t.location,
                         verified: t.is_verified,

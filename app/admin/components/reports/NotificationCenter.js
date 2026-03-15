@@ -575,7 +575,7 @@ function LogsTab() {
     const fmtTime = (ts) => {
         if (!ts) return '-';
         const d = new Date(ts);
-        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     };
 
     return (

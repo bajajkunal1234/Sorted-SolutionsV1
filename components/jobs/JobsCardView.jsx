@@ -144,7 +144,7 @@ function JobsCardView({ jobs, onJobClick }) {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                     <Calendar size={14} style={{ color: 'var(--text-tertiary)' }} />
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                        {new Date(job.dueDate).toLocaleDateString()}
+                                        {new Date(job.dueDate).toLocaleDateString('en-GB')}
                                     </span>
                                 </div>
                             )}

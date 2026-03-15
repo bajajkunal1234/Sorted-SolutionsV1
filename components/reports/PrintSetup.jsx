@@ -753,7 +753,7 @@ function PrintSetup() {
                                         #{previewType === 'invoice' ? 'INV' : 'QUO'}-2026-001
                                     </p>
                                     <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
-                                        Date: {new Date().toLocaleDateString('en-IN')}
+                                        Date: {new Date().toLocaleDateString('en-GB')}
                                     </p>
                                 </div>
                             </div>

@@ -131,7 +131,7 @@ function JobsListView({ jobs, onJobClick }) {
                                         <span style={overdue && !isBooking ? { color: 'var(--color-danger)', fontWeight: 600 } : {}}>
                                             {isBooking
                                                 ? `${bd.schedule?.date || ''} ${bd.schedule?.slot ? `(${bd.schedule.slot})` : ''}`.trim() || 'No schedule'
-                                                : dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'
+                                                : dueDate ? new Date(dueDate).toLocaleDateString('en-GB') : 'No date'
                                             }
                                         </span>
                                     </div>

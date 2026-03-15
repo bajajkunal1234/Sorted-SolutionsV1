@@ -18,8 +18,8 @@ function TenureBar({ start, end }) {
     return (
         <div style={{ marginTop: 10 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginBottom: 6 }}>
-                <span>Started {new Date(start).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                <span style={{ color: remaining < 15 ? '#ef4444' : '#94a3b8' }}>Ends {new Date(end).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <span>Started {new Date(start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                <span style={{ color: remaining < 15 ? '#ef4444' : '#94a3b8' }}>Ends {new Date(end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 6, height: 8, overflow: 'hidden', position: 'relative' }}>
                 <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #10b981, #38bdf8)', borderRadius: 6 }} />
@@ -169,7 +169,7 @@ export default function RentalsPage() {
                                             <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>NEXT DUE</div>
                                             <div style={{ fontSize: 14, fontWeight: 700, color: isOverdue ? '#ef4444' : '#f8fafc' }}>
                                                 {r.nextRentDueDate
-                                                    ? new Date(r.nextRentDueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                                                    ? new Date(r.nextRentDueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
                                                     : 'N/A'}
                                             </div>
                                         </div>

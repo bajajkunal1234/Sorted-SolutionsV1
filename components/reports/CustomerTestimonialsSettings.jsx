@@ -774,7 +774,7 @@ function CustomerTestimonialsSettings() {
                                 <div style={{ display: 'flex', gap: 'var(--spacing-md)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: 'var(--spacing-sm)' }}>
                                     {testimonial.service && <span>Service: {testimonial.service}</span>}
                                     {testimonial.location && <span>📍 {testimonial.location}</span>}
-                                    <span>📅 {new Date(testimonial.date).toLocaleDateString()}</span>
+                                    <span>📅 {new Date(testimonial.date).toLocaleDateString('en-GB')}</span>
                                     <span style={{ color: testimonial.source === 'Google Reviews' ? '#4285f4' : 'var(--text-tertiary)' }}>
                                         Source: {testimonial.source}
                                     </span>

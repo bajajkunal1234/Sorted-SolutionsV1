@@ -42,7 +42,7 @@ function RentAMCTab({ customerId }) {
     };
 
     const fmt = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN')}`;
-    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
     const isOverdue = (d) => d && new Date(d) < new Date();
     const isExpiringSoon = (d) => {
         if (!d) return false;

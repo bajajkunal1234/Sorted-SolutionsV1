@@ -117,7 +117,7 @@ function JobsTableView({ jobs, onJobClick }) {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                         <Calendar size={14} style={{ color: overdue ? 'var(--color-danger)' : 'var(--text-tertiary)' }} />
                                         <span style={{ color: overdue ? 'var(--color-danger)' : 'var(--text-secondary)', fontWeight: overdue ? 600 : 400 }}>
-                                            {job.dueDate ? new Date(job.dueDate).toLocaleDateString() : '-'}
+                                            {job.dueDate ? new Date(job.dueDate).toLocaleDateString('en-GB') : '-'}
                                         </span>
                                         {overdue && <AlertCircle size={14} style={{ color: 'var(--color-danger)' }} />}
                                     </div>

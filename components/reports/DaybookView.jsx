@@ -281,7 +281,7 @@ function DaybookView() {
                                     onMouseLeave={(e) => !selectedTransaction && (e.currentTarget.style.backgroundColor = 'transparent')}
                                 >
                                     <td style={{ padding: 'var(--spacing-sm)' }}>
-                                        {new Date(txn.date).toLocaleDateString('en-IN', {
+                                        {new Date(txn.date).toLocaleDateString('en-GB', {
                                             day: '2-digit',
                                             month: 'short',
                                             year: 'numeric'
@@ -423,7 +423,7 @@ function DaybookView() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                                     <div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Date</div>
-                                        <div>{new Date(selectedTransaction.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                                        <div>{new Date(selectedTransaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Account</div>

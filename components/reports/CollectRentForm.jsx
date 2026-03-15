@@ -46,7 +46,7 @@ function CollectRentForm({ rental, onClose, onSave }) {
                                 {rental.productName} • SN: {rental.serialNumber}
                             </div>
                             <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: 'var(--spacing-xs)' }}>
-                                Due Date: {new Date(rental.nextRentDueDate).toLocaleDateString()}
+                                Due Date: {new Date(rental.nextRentDueDate).toLocaleDateString('en-GB')}
                             </div>
                         </div>
 

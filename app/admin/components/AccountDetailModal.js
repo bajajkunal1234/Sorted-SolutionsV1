@@ -1035,7 +1035,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                 <div className="modal-footer" style={{ borderTop: '2px solid var(--border-primary)', padding: 'var(--spacing-md) var(--spacing-lg)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                            Last updated: {account.updated_at ? new Date(account.updated_at).toLocaleDateString() : new Date().toLocaleDateString()}
+                            Last updated: {account.updated_at ? new Date(account.updated_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                             <button className="btn btn-secondary" onClick={onClose}>

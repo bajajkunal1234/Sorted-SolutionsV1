@@ -59,7 +59,7 @@ export default function ServicesPage() {
 
     const formatDate = (dateString) => {
         if (!dateString) return 'Not scheduled'
-        return new Date(dateString).toLocaleDateString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        return new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
     }
 
     const handleCancelJob = async (jobId) => {

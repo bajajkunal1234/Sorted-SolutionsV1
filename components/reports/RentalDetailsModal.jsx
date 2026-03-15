@@ -122,13 +122,13 @@ function RentalDetailsModal({ rental, onClose }) {
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Start Date</div>
                                 <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                    {new Date(rental.tenure.startDate).toLocaleDateString()}
+                                    {new Date(rental.tenure.startDate).toLocaleDateString('en-GB')}
                                 </div>
                             </div>
                             <div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>End Date</div>
                                 <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                    {new Date(rental.tenure.endDate).toLocaleDateString()}
+                                    {new Date(rental.tenure.endDate).toLocaleDateString('en-GB')}
                                 </div>
                             </div>
                         </div>
@@ -173,7 +173,7 @@ function RentalDetailsModal({ rental, onClose }) {
                             </span>
                         </div>
                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 700 }}>
-                            {new Date(rental.nextRentDueDate).toLocaleDateString()} • ₹{rental.monthlyRent.toLocaleString()}
+                            {new Date(rental.nextRentDueDate).toLocaleDateString('en-GB')} • ₹{rental.monthlyRent.toLocaleString()}
                         </div>
                     </div>
                 </div>

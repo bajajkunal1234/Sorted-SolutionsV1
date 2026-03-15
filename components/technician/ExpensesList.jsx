@@ -117,7 +117,7 @@ export default function ExpensesList({ technicianId }) {
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-IN', {
+        return date.toLocaleDateString('en-GB', {
             day: 'numeric',
             month: 'short',
             year: 'numeric'

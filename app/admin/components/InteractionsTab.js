@@ -161,7 +161,7 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
                     key = interaction.customerName || 'Anonymous';
                     break;
                 case 'date':
-                    key = new Date(interaction.timestamp).toLocaleDateString();
+                    key = new Date(interaction.timestamp).toLocaleDateString('en-GB');
                     break;
                 case 'type':
                     key = getInteractionType(interaction.type).label;

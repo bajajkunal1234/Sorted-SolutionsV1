@@ -41,7 +41,7 @@ export async function GET(request) {
                 name: c.name || '—',
                 phone: c.mobile || '—',
                 email: c.email || '—',
-                joined: c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+                joined: c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
             }))
         }
 
@@ -58,7 +58,7 @@ export async function GET(request) {
                 name: c.name || '—',
                 phone: c.mobile || '—',
                 email: c.email || '—',
-                joined: c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
+                joined: c.created_at ? new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—',
             }))
         }
 
@@ -81,7 +81,7 @@ export async function GET(request) {
                 service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
                 status: j.status || '—',
                 date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
-                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
             }))
         }
 
@@ -101,7 +101,7 @@ export async function GET(request) {
                 service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
                 status: j.status || '—',
                 date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
-                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
             }))
         }
 
@@ -120,7 +120,7 @@ export async function GET(request) {
                 service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
                 status: j.status || '—',
                 date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
-                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
             }))
         }
 
@@ -143,7 +143,7 @@ export async function GET(request) {
                 service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
                 status: j.status || '—',
                 date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
-                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
             }))
         }
 
@@ -165,7 +165,7 @@ export async function GET(request) {
                 service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
                 status: j.status || '—',
                 date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
-                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
             }))
         }
 
@@ -187,7 +187,7 @@ export async function GET(request) {
                 service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
                 status: j.status || '—',
                 date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
-                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
             }))
         }
 
@@ -215,7 +215,7 @@ export async function GET(request) {
                 service: [j.category, j.subcategory].filter(Boolean).join(' › ').replace(/-/g, ' '),
                 status: j.status || '—',
                 date: j.scheduled_date || (j.created_at ? j.created_at.split('T')[0] : '—'),
-                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—',
+                created: j.created_at ? new Date(j.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—',
             }))
         }
 

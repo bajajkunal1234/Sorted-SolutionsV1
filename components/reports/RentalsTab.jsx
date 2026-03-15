@@ -193,7 +193,7 @@ function RentalsTab() {
                                             <div>
                                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Rent Due</div>
                                                 <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: new Date(rental.nextRentDueDate) < new Date() ? '#ef4444' : 'inherit' }}>
-                                                    {new Date(rental.nextRentDueDate).toLocaleDateString()}
+                                                    {new Date(rental.nextRentDueDate).toLocaleDateString('en-GB')}
                                                 </div>
                                             </div>
                                             <div>

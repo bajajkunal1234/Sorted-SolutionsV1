@@ -60,7 +60,7 @@ function CollectRentForm({ rental, onClose, onSave }) {
     });
 
     const fmtAmt = n => `₹${Number(n || 0).toLocaleString()}`;
-    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+    const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -92,7 +92,7 @@ function CollectRentForm({ rental, onClose, onSave }) {
                             </div>
                             {nextDue && (
                                 <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: 4 }}>
-                                    Due Date: {new Date(nextDue).toLocaleDateString('en-IN')}
+                                    Due Date: {new Date(nextDue).toLocaleDateString('en-GB')}
                                 </div>
                             )}
                         </div>

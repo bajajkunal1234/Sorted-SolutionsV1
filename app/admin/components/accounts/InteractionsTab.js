@@ -73,7 +73,7 @@ function InteractionsTab({ accountId, accountName }) {
                 type: 'rental-started',
                 category: 'rental',
                 title: `Rental — ${r.product_name || 'Product'}`,
-                description: `Monthly rent: ₹${r.monthly_rent || 0} | Started: ${r.start_date ? new Date(r.start_date).toLocaleDateString('en-IN') : '—'}`,
+                description: `Monthly rent: ₹${r.monthly_rent || 0} | Started: ${r.start_date ? new Date(r.start_date).toLocaleDateString('en-GB') : '—'}`,
                 timestamp: r.created_at || r.start_date,
                 customer_id: accountId,
                 customer_name: accountName,
@@ -89,7 +89,7 @@ function InteractionsTab({ accountId, accountName }) {
                 type: 'amc-created',
                 category: 'amc',
                 title: `AMC — ${a.plan_name || 'AMC Plan'}`,
-                description: `${a.appliance_type || ''} | Valid till: ${a.end_date ? new Date(a.end_date).toLocaleDateString('en-IN') : '—'}`,
+                description: `${a.appliance_type || ''} | Valid till: ${a.end_date ? new Date(a.end_date).toLocaleDateString('en-GB') : '—'}`,
                 timestamp: a.created_at || a.start_date,
                 customer_id: accountId,
                 customer_name: accountName,
@@ -239,7 +239,7 @@ function InteractionsTab({ accountId, accountName }) {
         } else if (diffDays < 7) {
             return `${diffDays} days ago`;
         } else {
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
         }
     };
 

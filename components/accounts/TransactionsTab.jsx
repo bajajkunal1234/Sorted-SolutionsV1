@@ -232,7 +232,7 @@ function TransactionsTab({ accountId, accountName }) {
                                 }}
                             >
                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                    {new Date(txn.date).toLocaleDateString()}
+                                    {new Date(txn.date).toLocaleDateString('en-GB')}
                                 </td>
                                 <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <span style={{

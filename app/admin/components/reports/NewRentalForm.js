@@ -39,7 +39,7 @@ function ReceiptPickerModal({ customerId, expectedAmount, onSelect, onClose }) {
     });
 
     const fmtAmount = (n) => `₹${Number(n || 0).toLocaleString()}`;
-    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+    const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
     return (
         <div className="modal-overlay" style={{ zIndex: 1100 }}>

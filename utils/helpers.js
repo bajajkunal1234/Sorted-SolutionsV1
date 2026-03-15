@@ -3,7 +3,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 /**
  * Format date for display
  */
-export const formatDate = (date, formatStr = 'MMM dd, yyyy') => {
+export const formatDate = (date, formatStr = 'dd/MM/yyyy') => {
     if (!date) return '';
     const dateObj = typeof date === 'string' ? new Date(date) : date;
     return format(dateObj, formatStr);
@@ -13,7 +13,7 @@ export const formatDate = (date, formatStr = 'MMM dd, yyyy') => {
  * Format date with time
  */
 export const formatDateTime = (date) => {
-    return formatDate(date, 'MMM dd, yyyy hh:mm a');
+    return formatDate(date, 'dd/MM/yyyy hh:mm a');
 };
 
 /**

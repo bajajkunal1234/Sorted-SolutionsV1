@@ -545,7 +545,7 @@ function StepAddress({ onNext, onSkip, customerId }) {
                             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{[p.locality, p.city].filter(Boolean).join(', ')}</div>
                             {p.lastJob && (
                                 <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
-                                    Last service: <span style={{ color: '#94a3b8' }}>{p.lastJob.category}</span> · {new Date(p.lastJob.date || p.lastJob.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                                    Last service: <span style={{ color: '#94a3b8' }}>{p.lastJob.category}</span> · {new Date(p.lastJob.date || p.lastJob.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
                                 </div>
                             )}
                             <div style={{ display: 'flex', gap: 8 }}>

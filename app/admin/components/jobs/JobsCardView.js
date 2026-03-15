@@ -159,7 +159,7 @@ function JobsCardView({ jobs, onJobClick }) {
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                                         {isBooking
                                             ? `${bd.schedule?.date || ''} ${bd.schedule?.slot ? `(${bd.schedule.slot})` : ''}`.trim() || 'No schedule'
-                                            : new Date(dueDate).toLocaleDateString()
+                                            : new Date(dueDate).toLocaleDateString('en-GB')
                                         }
                                     </span>
                                 </div>

@@ -23,7 +23,7 @@ function RentalDetailsModal({ rental, onClose }) {
     const isOverdue    = nextDue && new Date(nextDue) < new Date();
 
     const fmtAmt  = n  => `₹${n.toLocaleString()}`;
-    const fmtDate = d  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    const fmtDate = d  => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
     const Card = ({ children, style }) => (
         <div style={{ padding: '14px 16px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', ...style }}>

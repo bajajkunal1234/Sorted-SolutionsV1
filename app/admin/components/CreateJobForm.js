@@ -318,9 +318,34 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         _source: 'ledger'
                     }));
 
-                const allProps = [...dbProps, ...ledgerProps];
+                // Deduplicate properties by ID and normalized address
+                const dbPropsMap = new Map();
+                const allProps = [];
+                
+                for (const p of dbProps) {
+                    dbPropsMap.set(String(p.id), true);
+                    const normAddr = normalizeAddress(p.address);
+                    if (normAddr) dbPropsMap.set(normAddr, true);
+                    allProps.push(p);
+                }
+                
+                for (const p of ledgerProps) {
+                    const normAddr = normalizeAddress(p.address);
+                    if (!dbPropsMap.has(String(p.id)) && !(normAddr && dbPropsMap.has(normAddr))) {
+                        dbPropsMap.set(String(p.id), true);
+                        if (normAddr) dbPropsMap.set(normAddr, true);
+                        allProps.push(p);
+                    } else if (p.property_name && p.property_name !== 'Home') {
+                        // If it's a duplicate but the ledger version has a specific proper naming, try to inherit it if dbProp lacks one
+                        const match = allProps.find(existing => String(existing.id) === String(p.id) || (normAddr && normalizeAddress(existing.address) === normAddr));
+                        if (match && !match.property_name) {
+                            match.property_name = p.property_name;
+                        }
+                    }
+                }
+
                 setProperties(allProps);
-                console.log('Available properties for customer:', allProps.length, allProps.map(p => p.property_name));
+                console.log('Available properties for customer:', allProps.length, allProps.map(p => p.property_name || p.address));
 
                 // Auto-match property for booking requests or existing jobs
                 if (allProps.length > 0 && !formData.property?.id) {
@@ -865,11 +890,22 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 <option value="">
                                     {!formData.customer ? 'Select customer first' : (loadingStates.properties ? 'Loading addresses...' : 'Select property...')}
                                 </option>
-                                {properties.map(property => (
-                                    <option key={property.id} value={property.id}>
-                                        {property.property_name || property.label || property.address?.line1 || `Property #${property.id.slice(0, 6)}`}
-                                    </option>
-                                ))}
+                                {properties.map(property => {
+                                    let addrStr = '';
+                                    if (typeof property.address === 'string') {
+                                        addrStr = property.address;
+                                    } else if (property.address?.line1) {
+                                        addrStr = property.address.line1;
+                                    }
+                                    const dbAddrStr = [property.flat_number, property.building_name, addrStr, property.locality].filter(Boolean).join(', ');
+                                    const displayLabel = property.property_name || property.label || dbAddrStr || `Property #${String(property.id).slice(0, 6)}`;
+                                    
+                                    return (
+                                        <option key={property.id} value={property.id}>
+                                            {displayLabel}
+                                        </option>
+                                    );
+                                })}
                             </select>
                             <button
                                 type="button"

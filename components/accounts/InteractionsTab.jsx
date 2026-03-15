@@ -218,7 +218,7 @@ function InteractionsTab({ accountId, accountName }) {
         } else if (diffDays < 7) {
             return `${diffDays} days ago`;
         } else {
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
         }
     };
 

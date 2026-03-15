@@ -260,7 +260,7 @@ function RentalsTab() {
                                                     <div>
                                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Rent Due</div>
                                                         <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: (rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date()) ? '#ef4444' : 'inherit' }}>
-                                                            {rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString() : 'N/A'}
+                                                            {rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : 'N/A'}
                                                         </div>
                                                     </div>
                                                     <div>

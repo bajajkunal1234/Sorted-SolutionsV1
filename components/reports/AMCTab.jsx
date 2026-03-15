@@ -180,13 +180,13 @@ function AMCTab() {
                                             <div>
                                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Contract Period</div>
                                                 <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                                                    {new Date(amc.startDate).toLocaleDateString()} - {new Date(amc.endDate).toLocaleDateString()}
+                                                    {new Date(amc.startDate).toLocaleDateString('en-GB')} - {new Date(amc.endDate).toLocaleDateString('en-GB')}
                                                 </div>
                                             </div>
                                             <div>
                                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Service</div>
                                                 <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                                                    {amc.nextServiceDate ? new Date(amc.nextServiceDate).toLocaleDateString() : 'Not scheduled'}
+                                                    {amc.nextServiceDate ? new Date(amc.nextServiceDate).toLocaleDateString('en-GB') : 'Not scheduled'}
                                                 </div>
                                             </div>
                                             <div>
@@ -227,7 +227,7 @@ function AMCTab() {
                                         <button
                                             className="btn btn-secondary"
                                             style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                                            onClick={() => alert(`AMC Details: ${amc.id}\n\nCustomer: ${amc.customerName}\nPlan: ${amc.planName}\nProduct: ${amc.productBrand} ${amc.productModel}\nContract: ${new Date(amc.startDate).toLocaleDateString()} - ${new Date(amc.endDate).toLocaleDateString()}\nAmount: ₹${amc.amcAmount}\nServices Completed: ${amc.servicesCompleted.length}\n\nThis will open a detailed view modal.`)}
+                                            onClick={() => alert(`AMC Details: ${amc.id}\n\nCustomer: ${amc.customerName}\nPlan: ${amc.planName}\nProduct: ${amc.productBrand} ${amc.productModel}\nContract: ${new Date(amc.startDate).toLocaleDateString('en-GB')} - ${new Date(amc.endDate).toLocaleDateString('en-GB')}\nAmount: ₹${amc.amcAmount}\nServices Completed: ${amc.servicesCompleted.length}\n\nThis will open a detailed view modal.`)}
                                         >
                                             View Details
                                         </button>

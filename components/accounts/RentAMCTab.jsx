@@ -91,13 +91,13 @@ function RentAMCTab({ customerId }) {
                                             {rental.tenure.duration} {rental.tenure.unit}
                                         </div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                            {new Date(rental.tenure.startDate).toLocaleDateString()} - {new Date(rental.tenure.endDate).toLocaleDateString()}
+                                            {new Date(rental.tenure.startDate).toLocaleDateString('en-GB')} - {new Date(rental.tenure.endDate).toLocaleDateString('en-GB')}
                                         </div>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Rent Due</div>
                                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: new Date(rental.nextRentDueDate) < new Date() ? '#ef4444' : '#f59e0b' }}>
-                                            {new Date(rental.nextRentDueDate).toLocaleDateString()}
+                                            {new Date(rental.nextRentDueDate).toLocaleDateString('en-GB')}
                                         </div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                                             {rental.rentsPaid}/{rental.rentsPaid + rental.rentsRemaining} paid
@@ -115,7 +115,7 @@ function RentAMCTab({ customerId }) {
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', color: 'var(--text-secondary)' }}>
                                             <Wrench size={14} />
-                                            Next Service: {new Date(rental.nextServiceDate).toLocaleDateString()}
+                                            Next Service: {new Date(rental.nextServiceDate).toLocaleDateString('en-GB')}
                                         </div>
                                     </div>
                                 )}
@@ -223,16 +223,16 @@ function RentAMCTab({ customerId }) {
                                     <div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Contract Period</div>
                                         <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>
-                                            {new Date(amc.startDate).toLocaleDateString()}
+                                            {new Date(amc.startDate).toLocaleDateString('en-GB')}
                                         </div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                            to {new Date(amc.endDate).toLocaleDateString()}
+                                            to {new Date(amc.endDate).toLocaleDateString('en-GB')}
                                         </div>
                                     </div>
                                     <div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Next Service</div>
                                         <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, color: '#f59e0b' }}>
-                                            {amc.nextServiceDate ? new Date(amc.nextServiceDate).toLocaleDateString() : 'Not scheduled'}
+                                            {amc.nextServiceDate ? new Date(amc.nextServiceDate).toLocaleDateString('en-GB') : 'Not scheduled'}
                                         </div>
                                         <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                                             {amc.nextServiceType || 'N/A'}

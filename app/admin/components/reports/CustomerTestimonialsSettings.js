@@ -70,7 +70,7 @@ function CustomerTestimonialsSettings() {
         location: t.location,
         rating: t.rating,
         review: t.review_text,
-        date: t.date ? new Date(t.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+        date: t.date ? new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
         service: t.service_type,
         verified: t.is_verified,
         featured: t.is_featured,

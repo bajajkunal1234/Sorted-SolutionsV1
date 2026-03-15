@@ -285,7 +285,7 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
                             <div>
                                 <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '2px' }}>SCHEDULED</div>
                                 <div style={{ fontSize: '13px', fontWeight: 500 }}>
-                                    {new Date(booking.scheduled_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    {new Date(booking.scheduled_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     {booking.scheduled_time && ` · ${booking.scheduled_time}`}
                                 </div>
                             </div>

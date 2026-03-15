@@ -251,7 +251,7 @@ function RemindersTab({ accountId, accountName }) {
                                             <div>
                                                 <Calendar size={14} style={{ display: 'inline', marginRight: '4px' }} />
                                                 <span style={{ color: isOverdue ? '#ef4444' : 'var(--text-primary)', fontWeight: 500 }}>
-                                                    {new Date(reminder.due_date).toLocaleDateString()}
+                                                    {new Date(reminder.due_date).toLocaleDateString('en-GB')}
                                                 </span>
                                                 {reminder.status === 'pending' && (
                                                     <span style={{ marginLeft: '8px', color: 'var(--text-tertiary)' }}>
@@ -276,7 +276,7 @@ function RemindersTab({ accountId, accountName }) {
                                                 color: 'var(--text-tertiary)'
                                             }}>
                                                 Status: {reminder.status.toUpperCase()}
-                                                {reminder.completed_at && ` on ${new Date(reminder.completed_at).toLocaleDateString()}`}
+                                                {reminder.completed_at && ` on ${new Date(reminder.completed_at).toLocaleDateString('en-GB')}`}
                                             </div>
                                         )}
                                     </div>

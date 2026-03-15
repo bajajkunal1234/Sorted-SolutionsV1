@@ -136,8 +136,8 @@ export default function AMCPage() {
                                     {/* Progress bar */}
                                     <div style={{ marginBottom: 16 }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginBottom: 4 }}>
-                                            <span>{new Date(c.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                                            <span>{new Date(c.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                            <span>{new Date(c.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                            <span>{new Date(c.endDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                         </div>
                                         <ProgressBar start={c.startDate} end={c.endDate} color="#8b5cf6" />
                                     </div>
@@ -148,7 +148,7 @@ export default function AMCPage() {
                                             <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>NEXT SERVICE</div>
                                             <div style={{ fontSize: 14, fontWeight: 700, color: '#f8fafc' }}>
                                                 {c.nextServiceDate
-                                                    ? new Date(c.nextServiceDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                                                    ? new Date(c.nextServiceDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
                                                     : 'Not scheduled'}
                                             </div>
                                         </div>

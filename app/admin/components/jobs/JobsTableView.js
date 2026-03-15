@@ -132,7 +132,7 @@ function JobsTableView({ jobs, onJobClick }) {
                                         <span style={overdue && !isBooking ? { color: 'var(--color-danger)', fontWeight: 600 } : {}}>
                                             {isBooking
                                                 ? bd.schedule?.date || 'Asap'
-                                                : dueDate ? new Date(dueDate).toLocaleDateString() : 'No date'
+                                                : dueDate ? new Date(dueDate).toLocaleDateString('en-GB') : 'No date'
                                             }
                                         </span>
                                         {overdue && !isBooking && <AlertCircle size={14} color="var(--color-danger)" />}

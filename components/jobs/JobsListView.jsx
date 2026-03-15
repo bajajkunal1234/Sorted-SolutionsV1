@@ -121,7 +121,7 @@ function JobsListView({ jobs, onJobClick }) {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                             <Calendar size={14} style={{ color: overdue ? 'var(--color-danger)' : 'var(--text-tertiary)' }} />
                                             <span style={{ color: overdue ? 'var(--color-danger)' : 'inherit', fontWeight: overdue ? 600 : 400 }}>
-                                                {new Date(job.dueDate).toLocaleDateString()}
+                                                {new Date(job.dueDate).toLocaleDateString('en-GB')}
                                             </span>
                                             {overdue && <AlertCircle size={14} style={{ color: 'var(--color-danger)' }} />}
                                         </div>

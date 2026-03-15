@@ -318,7 +318,7 @@ function DaybookView() {
                                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                 >
                                     <td style={{ padding: 'var(--spacing-sm)' }}>
-                                        {new Date(txn.date).toLocaleDateString('en-IN', {
+                                        {new Date(txn.date).toLocaleDateString('en-GB', {
                                             day: '2-digit',
                                             month: 'short',
                                             year: 'numeric'
