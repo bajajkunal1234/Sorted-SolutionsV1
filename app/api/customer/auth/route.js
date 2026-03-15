@@ -110,6 +110,10 @@ export async function POST(request) {
                 .limit(1)
                 .maybeSingle()
 
+            if (cGroup && cGroup.id) {
+                customersGroupId = cGroup.id;
+            }
+
             // Generate Account SKU securely for standard customers automatically
             const { data: existingAccounts } = await supabase
                 .from('accounts')
