@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, Plus, Upload, Trash2, AlertCircle } from 'lucide-react';
+import { X, Save, Upload, Trash2, Plus, AlertCircle, Calendar } from 'lucide-react';
 import { coaFieldMappings, sampleLedgers } from '@/lib/data/accountingData';
 import { acquisitionSources } from '@/lib/data/interactionTypes';
 import GroupCreationModal from './GroupCreationModal';
@@ -713,15 +713,49 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             <option value="cr">Cr</option>
                                         </select>
                                     </div>
-                                    <div className="form-group">
+                                    <div className="form-group" style={{ position: 'relative' }}>
                                         <label className="form-label">As on Date</label>
                                         <input
-                                            type="date"
-                                            className="form-input date-input-white-icon"
-                                            value={formData.asOnDate}
-                                            onChange={(e) => setFormData({ ...formData, asOnDate: e.target.value })}
-                                            style={{ colorScheme: 'dark' }}
+                                            type="text"
+                                            className="form-input custom-date-picker"
+                                            value={
+                                                formData.asOnDate 
+                                                ? `${formData.asOnDate.split('-')[2]}/${formData.asOnDate.split('-')[1]}/${formData.asOnDate.split('-')[0]}`
+                                                : ''
+                                            }
+                                            placeholder="DD/MM/YYYY"
+                                            onChange={(e) => {
+                                                let val = e.target.value.replace(/\D/g, '');
+                                                if (val.length > 8) val = val.slice(0, 8);
+                                                
+                                                // Auto format as DD/MM/YYYY
+                                                let formatted = val;
+                                                if (val.length > 4) {
+                                                    formatted = `${val.slice(0,2)}/${val.slice(2,4)}/${val.slice(4)}`;
+                                                } else if (val.length > 2) {
+                                                    formatted = `${val.slice(0,2)}/${val.slice(2)}`;
+                                                }
+                                                // Temporarily hold formatted text in UI, but if fully complete, parse to YYYY-MM-DD
+                                                e.target.value = formatted;
+                                                
+                                                if (val.length === 8) {
+                                                    const d = val.slice(0,2);
+                                                    const m = val.slice(2,4);
+                                                    const y = val.slice(4,8);
+                                                    setFormData({ ...formData, asOnDate: `${y}-${m}-${d}` });
+                                                }
+                                            }}
+                                            onBlur={e => {
+                                                // Fallback if they didn't finish typing or it's invalid
+                                                const parts = e.target.value.split('/');
+                                                if (parts.length === 3 && parts[2].length === 4) {
+                                                    setFormData({ ...formData, asOnDate: `${parts[2]}-${parts[1]}-${parts[0]}` });
+                                                }
+                                            }}
                                         />
+                                        <div style={{ position: 'absolute', right: '12px', top: '34px', pointerEvents: 'none', color: 'var(--text-tertiary)' }}>
+                                            <Calendar size={16} />
+                                        </div>
                                     </div>
                                 </div>
 
@@ -986,28 +1020,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         />
                                                     </div>
 
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
-                                                        <div className="form-group" style={{ marginBottom: 0 }}>
-                                                            <label className="form-label">Contact Person</label>
-                                                            <input
-                                                                type="text"
-                                                                className="form-input"
-                                                                value={property.contactPerson || ''}
-                                                                onChange={(e) => updateProperty(index, 'contactPerson', e.target.value)}
-                                                                placeholder="Site contact name"
-                                                            />
-                                                        </div>
-                                                        <div className="form-group" style={{ marginBottom: 0 }}>
-                                                            <label className="form-label">Contact Phone</label>
-                                                            <input
-                                                                type="text"
-                                                                className="form-input"
-                                                                value={property.contactPhone || ''}
-                                                                onChange={(e) => updateProperty(index, 'contactPhone', e.target.value)}
-                                                                placeholder="Site contact number"
-                                                            />
-                                                        </div>
-                                                    </div>
+
 
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
