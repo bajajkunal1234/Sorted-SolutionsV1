@@ -1,101 +1,51 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Download, Calendar, Edit2, Activity, Database, Eye, EyeOff, Columns } from 'lucide-react';
-import { sampleInteractions } from '@/lib/data/interactionsData';
-import { sampleSalesInvoices, samplePurchaseInvoices, sampleQuotations, sampleReceipts, samplePayments } from '@/lib/data/transactionsData';
+import { Search, ChevronDown, Download, Calendar, Edit2, Activity, Database, Eye, EyeOff, Columns, RefreshCcw, Zap } from 'lucide-react';
 import { interactionTypes, interactionCategories, getInteractionType, getCategory } from '@/lib/data/interactionTypes';
 import SalesInvoiceForm from './accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from './accounts/PurchaseInvoiceForm';
 import QuotationForm from './accounts/QuotationForm';
 import ReceiptVoucherForm from './accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from './accounts/PaymentVoucherForm';
+import InteractionTriggersTab from './reports/InteractionTriggersTab';
 
-import { supabase } from '@/lib/supabase';
 
 function InteractionsTab({ searchTerm, setSearchTerm }) {
     const [interactions, setInteractions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [showSampleData, setShowSampleData] = useState(false);
+    const [loadError, setLoadError] = useState(null);
+    const [activeView, setActiveView] = useState('feed'); // 'feed' | 'triggers'
 
-    // Setup Supabase Realtime
-    useEffect(() => {
-        const channel = supabase
-            .channel('realtime_interactions')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'interactions'
-            }, (payload) => {
-                console.log('New interaction received via Realtime:', payload.new);
-                const newEntry = {
-                    ...payload.new,
-                    isLive: true,
-                    customerId: payload.new.customer_id,
-                    customerName: payload.new.customer_name || 'System',
-                    jobId: payload.new.job_id,
-                    invoiceId: payload.new.invoice_id,
-                    performedBy: payload.new.performed_by,
-                    performedByName: payload.new.performed_by_name
-                };
-                setInteractions(prev => [newEntry, ...prev]);
-            })
-            .subscribe();
+    const fetchInteractions = async () => {
+        setIsLoading(true);
+        setLoadError(null);
+        try {
+            const res = await fetch('/api/admin/interactions?limit=500');
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error);
+            // Normalize DB fields to what the UI expects
+            const mapped = (result.data || []).map(item => ({
+                ...item,
+                isLive: true,
+                customerId: item.customer_id,
+                customerName: item.customer_name || 'System',
+                jobId: item.job_id,
+                invoiceId: item.invoice_id,
+                performedBy: item.performed_by,
+                performedByName: item.performed_by_name || 'System',
+            }));
+            setInteractions(mapped);
+        } catch (err) {
+            console.error('Failed to fetch interactions:', err);
+            setLoadError(err.message);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-        };
-    }, []);
+    useEffect(() => { fetchInteractions(); }, []);
 
-    // Load interactions from Supabase and merge with sample data
-    useEffect(() => {
-        const fetchInteractions = async () => {
-            setIsLoading(true);
-            try {
-                // Fetch from Supabase
-                const { data, error } = await supabase
-                    .from('interactions')
-                    .select('*')
-                    .order('timestamp', { ascending: false })
-                    .limit(100);
-
-                if (error) throw error;
-
-                // Map database fields to the UI format
-                const dbInteractions = (data || []).map(item => ({
-                    ...item,
-                    isLive: true,
-                    customerId: item.customer_id,
-                    customerName: item.customer_name || 'System',
-                    jobId: item.job_id,
-                    invoiceId: item.invoice_id,
-                    performedBy: item.performed_by,
-                    performedByName: item.performed_by_name
-                }));
-
-                // Load fallback from localStorage if any
-                const localLogs = JSON.parse(localStorage.getItem('system_interactions_fallback') || '[]');
-
-                // Merge and sort
-                const combined = [...dbInteractions, ...localLogs, ...sampleInteractions].sort((a, b) =>
-                    new Date(b.timestamp) - new Date(a.timestamp)
-                );
-
-                setInteractions(combined);
-            } catch (err) {
-                console.error('Failed to fetch interactions from Supabase:', err);
-                const localLogs = JSON.parse(localStorage.getItem('system_interactions_fallback') || '[]');
-                const combined = [...localLogs, ...sampleInteractions].sort((a, b) =>
-                    new Date(b.timestamp) - new Date(a.timestamp)
-                );
-                setInteractions(combined);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchInteractions();
-    }, []);
 
     // Local search props are now passed from parent
     const [searchField, setSearchField] = useState('all'); // all, customer, job, invoice, description
@@ -149,11 +99,6 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
     // Filter interactions
     const getFilteredInteractions = () => {
         return interactions.filter(interaction => {
-            // Sample data filter
-            if (!showSampleData && !interaction.isLive) {
-                return false;
-            }
-
             // Search filter
             if (searchTerm) {
                 const term = searchTerm.toLowerCase();
@@ -466,6 +411,19 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Sub-tab Navigation */}
+            <div style={{ display: 'flex', borderBottom: '2px solid var(--border-primary)', padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', gap: 4, flexShrink: 0 }}>
+                {[{ id: 'feed', label: 'Interaction Feed', icon: Activity }, { id: 'triggers', label: '⚡ Triggers', icon: Zap }].map(tab => (
+                    <button key={tab.id} type="button" onClick={() => setActiveView(tab.id)}
+                        style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: activeView === tab.id ? 700 : 500, color: activeView === tab.id ? 'var(--color-primary)' : 'var(--text-secondary)', borderBottom: activeView === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
+
+            {activeView === 'triggers' && <InteractionTriggersTab />}
+
+            {activeView === 'feed' && <>
             {/* Row 1: Date Range & Actions */}
             <div style={{
                 padding: 'var(--spacing-sm) var(--spacing-md)',
@@ -513,6 +471,17 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
                 <div style={{ flex: 1 }} />
 
                 <button
+                    type="button"
+                    onClick={fetchInteractions}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                    <RefreshCcw size={14} />
+                    Refresh
+                </button>
+
+                <button
+                    type="button"
                     onClick={handleExport}
                     className="btn btn-secondary"
                     style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
@@ -915,6 +884,7 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
                     existingPayment={editData}
                 />
             )}
+            </>}
         </div>
     );
 }

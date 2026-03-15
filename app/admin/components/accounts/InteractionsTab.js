@@ -36,26 +36,11 @@ function InteractionsTab({ accountId, accountName }) {
     const fetchInteractions = async () => {
         try {
             setLoading(true);
-            const { supabase } = await import('@/lib/supabase');
-            if (!supabase) return;
-
-            // Fetch interactions
-            const { data: interactionData, error: interactionError } = await supabase
-                .from('interactions')
-                .select('*')
-                .eq('customer_id', accountId)
-                .order('timestamp', { ascending: false });
-
-            if (interactionError) throw interactionError;
-
-            // Fetch jobs (as interactions if not already logged)
-            // Ideally jobs should insert into interactions on creation, but for now we can fetch them too
-            // For simplicity, let's assume interactions table is the single source of truth for the timeline
-            // and separate job fetching isn't needed if we log job creation there.
-            // If we need to mix, we can do parallel fetch similar to TransactionsTab.
-
-            setInteractions(interactionData || []);
-
+            setError(null);
+            const res = await fetch(`/api/admin/interactions?customer_id=${accountId}&limit=500`);
+            const result = await res.json();
+            if (!result.success) throw new Error(result.error || 'Failed to load');
+            setInteractions(result.data || []);
         } catch (err) {
             console.error('Error fetching interactions:', err);
             setError(err.message);
