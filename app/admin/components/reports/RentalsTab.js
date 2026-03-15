@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer } from 'lucide-react';
 import { rentalsAPI, transactionsAPI } from '@/lib/adminAPI';
 import RentalPlanForm from './RentalPlanForm';
 import NewRentalForm from './NewRentalForm';
