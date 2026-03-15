@@ -621,8 +621,9 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             type="text"
                                             className="form-input"
                                             value={formData.sku}
-                                            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                                            disabled
                                             placeholder="Auto-generated"
+                                            style={{ backgroundColor: 'var(--bg-secondary)', cursor: 'not-allowed', color: 'var(--text-tertiary)' }}
                                             required
                                         />
                                     </div>
