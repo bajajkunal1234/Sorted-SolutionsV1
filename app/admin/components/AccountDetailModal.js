@@ -23,6 +23,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         mobile: account.mobile || '',
         email: account.email || '',
         mailingName: account.mailingName || '',
+        customerDescription: account.customerDescription || account.mailingAddress || '',
         accountImage: account.accountImage || null,
 
         // GST fields
@@ -164,7 +165,12 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
             }
         }
 
-        onUpdate(editedAccount);
+        const payloadToSave = {
+            ...editedAccount,
+            mailingAddress: editedAccount.customerDescription
+        };
+
+        onUpdate(payloadToSave);
         setIsEditing(false);
     };
 
@@ -541,10 +547,26 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                             value={editedAccount.asOnDate}
                                             onChange={(e) => setEditedAccount({ ...editedAccount, asOnDate: e.target.value })}
                                             disabled={!isEditing}
-                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)', colorScheme: 'dark' }}
                                         />
                                     </div>
                                 </div>
+
+                                {/* Customer Description */}
+                                {showField('customerDescription') && (
+                                    <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
+                                        <label className="form-label">Customer Description</label>
+                                        <textarea
+                                            className="form-input"
+                                            value={editedAccount.customerDescription || ''}
+                                            onChange={(e) => setEditedAccount({ ...editedAccount, customerDescription: e.target.value })}
+                                            disabled={!isEditing}
+                                            rows="3"
+                                            placeholder="Specific notes or context about this customer..."
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)', resize: 'vertical' }}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Acquisition Details */}
                                 {(showField('acquisitionSource') || showField('referredBy')) && (

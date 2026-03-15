@@ -174,10 +174,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         stateName: initialData?.state_name || '',
         country: initialData?.country || 'India',
 
-        // Multiple Address Types (Tally-style)
-        mailingAddress: initialData?.mailing_address || '',
-        billingAddress: initialData?.billing_address || '',
-        shippingAddress: initialData?.shipping_address || '',
+        // Customer description (stored in mailing_address DB column)
+        customerDescription: initialData?.mailing_address || '',
 
         // Credit fields
         creditLimit: initialData?.credit_limit || 0,
@@ -489,9 +487,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             mobile: formData.mobile,
             email: formData.email,
             mailing_name: formData.mailingName,
-            mailing_address: formData.mailingAddress,
-            billing_address: formData.billingAddress,
-            shipping_address: formData.shippingAddress,
+            mailing_address: formData.customerDescription,
             gstin: formData.gstin,
             pan: formData.pan,
             state_name: formData.stateName,
@@ -736,6 +732,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                         <input
                                             type="date"
                                             className="form-input"
+                                            style={{ colorScheme: 'dark' }}
                                             value={formData.asOnDate || ''}
                                             onChange={e => setFormData({ ...formData, asOnDate: e.target.value })}
                                         />
@@ -1097,141 +1094,15 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                 Addresses
                                             </h4>
 
-                                            {showField('mailingAddress') && (
+                                            {showField('customerDescription') && (
                                                 <div className="form-group">
-                                                    <label className="form-label">Mailing Address</label>
-
-                                                    {/* Property Selection Dropdown (for customers) */}
-                                                    {showField('properties') && properties.length > 0 && (
-                                                        <select
-                                                            className="form-select"
-                                                            onChange={(e) => {
-                                                                const selectedProperty = properties.find(p => p.name === e.target.value);
-                                                                if (selectedProperty) {
-                                                                    setFormData({ ...formData, mailingAddress: selectedProperty.address });
-                                                                }
-                                                            }}
-                                                            style={{ marginBottom: 'var(--spacing-xs)' }}
-                                                        >
-                                                            <option value="">-- Select from Properties --</option>
-                                                            {properties.filter(p => p.name.trim() !== '').map((property, idx) => (
-                                                                <option key={idx} value={property.name}>
-                                                                    {property.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-
+                                                    <label className="form-label">Customer Description</label>
                                                     <textarea
                                                         className="form-input"
-                                                        value={formData.mailingAddress}
-                                                        onChange={(e) => setFormData({ ...formData, mailingAddress: e.target.value })}
-                                                        rows="2"
-                                                        placeholder="Enter mailing address or select from properties above"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {showField('billingAddress') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">
-                                                        Billing Address
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setFormData({ ...formData, billingAddress: formData.mailingAddress })}
-                                                            style={{
-                                                                marginLeft: 'var(--spacing-sm)',
-                                                                fontSize: 'var(--font-size-xs)',
-                                                                color: '#3b82f6',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                textDecoration: 'underline'
-                                                            }}
-                                                        >
-                                                            Same as Mailing
-                                                        </button>
-                                                    </label>
-
-                                                    {/* Property Selection Dropdown (for customers) */}
-                                                    {showField('properties') && properties.length > 0 && (
-                                                        <select
-                                                            className="form-select"
-                                                            onChange={(e) => {
-                                                                const selectedProperty = properties.find(p => p.name === e.target.value);
-                                                                if (selectedProperty) {
-                                                                    setFormData({ ...formData, billingAddress: selectedProperty.address });
-                                                                }
-                                                            }}
-                                                            style={{ marginBottom: 'var(--spacing-xs)' }}
-                                                        >
-                                                            <option value="">-- Select from Properties --</option>
-                                                            {properties.filter(p => p.name.trim() !== '').map((property, idx) => (
-                                                                <option key={idx} value={property.name}>
-                                                                    {property.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-
-                                                    <textarea
-                                                        className="form-input"
-                                                        value={formData.billingAddress}
-                                                        onChange={(e) => setFormData({ ...formData, billingAddress: e.target.value })}
-                                                        rows="2"
-                                                        placeholder="Enter billing address or select from properties above"
-                                                    />
-                                                </div>
-                                            )}
-
-                                            {showField('shippingAddress') && (
-                                                <div className="form-group">
-                                                    <label className="form-label">
-                                                        Shipping Address
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setFormData({ ...formData, shippingAddress: formData.mailingAddress })}
-                                                            style={{
-                                                                marginLeft: 'var(--spacing-sm)',
-                                                                fontSize: 'var(--font-size-xs)',
-                                                                color: '#3b82f6',
-                                                                background: 'none',
-                                                                border: 'none',
-                                                                cursor: 'pointer',
-                                                                textDecoration: 'underline'
-                                                            }}
-                                                        >
-                                                            Same as Mailing
-                                                        </button>
-                                                    </label>
-
-                                                    {/* Property Selection Dropdown (for customers) */}
-                                                    {showField('properties') && properties.length > 0 && (
-                                                        <select
-                                                            className="form-select"
-                                                            onChange={(e) => {
-                                                                const selectedProperty = properties.find(p => p.name === e.target.value);
-                                                                if (selectedProperty) {
-                                                                    setFormData({ ...formData, shippingAddress: selectedProperty.address });
-                                                                }
-                                                            }}
-                                                            style={{ marginBottom: 'var(--spacing-xs)' }}
-                                                        >
-                                                            <option value="">-- Select from Properties --</option>
-                                                            {properties.filter(p => p.name.trim() !== '').map((property, idx) => (
-                                                                <option key={idx} value={property.name}>
-                                                                    {property.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
-                                                    )}
-
-                                                    <textarea
-                                                        className="form-input"
-                                                        value={formData.shippingAddress}
-                                                        onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })}
-                                                        rows="2"
-                                                        placeholder="Enter shipping address or select from properties above"
+                                                        value={formData.customerDescription || ''}
+                                                        onChange={(e) => setFormData({ ...formData, customerDescription: e.target.value })}
+                                                        rows="3"
+                                                        placeholder="Add any specific notes or context deeply specific to this customer..."
                                                     />
                                                 </div>
                                             )}
