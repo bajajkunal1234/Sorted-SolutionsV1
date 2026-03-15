@@ -40,15 +40,38 @@ export async function GET(request) {
                 customer: t.customer || (t.account_id ? { id: t.account_id, name: accountMap[t.account_id] || 'Account' } : null)
             }))
 
-            // Fetch job history for this property
-            const { data: jobs } = await supabase
-                .from('jobs')
-                .select('id, job_number, category, status, created_at, customer_name, assigned_technician_name')
-                .eq('property_id', id)
-                .order('created_at', { ascending: false })
-                .limit(20)
+            // Fetch job history for this property:
+            // 1. Jobs directly tagged with property_id
+            // 2. Jobs for any customer linked to this property (covers older jobs without property_id)
+            const linkedCustomerIds = (tenants || [])
+                .map(t => t.customer_id || t.account_id)
+                .filter(Boolean)
 
-            return NextResponse.json({ success: true, data: { ...property, tenants: enrichedTenants, jobs: jobs || [] } })
+            const [byPropId, byCustomerIds] = await Promise.all([
+                supabase
+                    .from('jobs')
+                    .select('id, job_number, category, subcategory, status, created_at, customer_name, technician_name, property_id')
+                    .eq('property_id', id)
+                    .order('created_at', { ascending: false })
+                    .limit(30),
+                linkedCustomerIds.length > 0
+                    ? supabase
+                        .from('jobs')
+                        .select('id, job_number, category, subcategory, status, created_at, customer_name, technician_name, property_id')
+                        .in('customer_id', linkedCustomerIds)
+                        .order('created_at', { ascending: false })
+                        .limit(50)
+                    : Promise.resolve({ data: [] })
+            ])
+
+            // Merge and deduplicate by job id
+            const allJobs = [...(byPropId.data || []), ...(byCustomerIds.data || [])]
+            const seen = new Set()
+            const jobs = allJobs.filter(j => { if (seen.has(j.id)) return false; seen.add(j.id); return true })
+                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                .slice(0, 50)
+
+            return NextResponse.json({ success: true, data: { ...property, tenants: enrichedTenants, jobs } })
         }
 
         // Properties for a specific customer (admin view: query both customer_id and account_id)

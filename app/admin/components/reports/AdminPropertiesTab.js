@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Link, Unlink, Calendar, Clock, Home, Trash2 } from 'lucide-react'
+import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Link, Unlink, Calendar, Clock, Home, Trash2, Activity, MessageSquare, RefreshCw } from 'lucide-react'
 
 const MUMBAI_LOCALITIES = [
     { name: 'Aarey Colony', pincode: '400065' }, { name: 'Airoli', pincode: '400708' },
@@ -56,6 +56,8 @@ export default function AdminPropertiesTab() {
     const [selected, setSelected] = useState(null) // property detail panel
     const [detailLoading, setDetailLoading] = useState(false)
     const [showAddModal, setShowAddModal] = useState(false)
+    const [propertyInteractions, setPropertyInteractions] = useState([])
+    const [intLoading, setIntLoading] = useState(false)
 
     useEffect(() => { fetchProperties() }, [])
 
@@ -71,13 +73,29 @@ export default function AdminPropertiesTab() {
 
     const openDetail = async (prop) => {
         setSelected({ ...prop, tenants: [], jobs: [] })
+        setPropertyInteractions([])
         setDetailLoading(true)
         try {
-            const res = await fetch(`/api/admin/properties?id=${prop.id}`)
-            const data = await res.json()
+            const [detailRes, intRes] = await Promise.all([
+                fetch(`/api/admin/properties?id=${prop.id}`),
+                fetch(`/api/admin/interactions?property_id=${prop.id}&limit=100`),
+            ])
+            const data = await detailRes.json()
+            const intData = await intRes.json().catch(() => ({ data: [] }))
             setSelected(data.data)
+            setPropertyInteractions(intData.data || [])
         } catch (e) { console.error(e) }
         finally { setDetailLoading(false) }
+    }
+
+    const refreshInteractions = async (propId) => {
+        setIntLoading(true)
+        try {
+            const res = await fetch(`/api/admin/interactions?property_id=${propId}&limit=100`)
+            const data = await res.json()
+            setPropertyInteractions(data.data || [])
+        } catch (e) { console.error(e) }
+        finally { setIntLoading(false) }
     }
 
     const handleUnlink = async (linkId) => {
@@ -208,10 +226,47 @@ export default function AdminPropertiesTab() {
                                         (selected.jobs || []).map(job => (
                                             <div key={job.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>{job.category || 'Service'}</div>
-                                                    <span style={S.badge(job.status === 'completed' ? '#10b981' : '#f59e0b')}>{job.status}</span>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+                                                        {[job.category, job.subcategory].filter(Boolean).join(' › ') || 'Service'}
+                                                        {job.job_number && <span style={{ fontSize: 11, color: '#64748b', marginLeft: 6 }}>#{job.job_number}</span>}
+                                                    </div>
+                                                    <span style={S.badge(job.status === 'completed' ? '#10b981' : job.status === 'cancelled' ? '#ef4444' : '#f59e0b')}>{job.status}</span>
                                                 </div>
                                                 <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{job.customer_name} · {formatDate(job.created_at)}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </Section>
+
+                                {/* Interactions Timeline */}
+                                <Section
+                                    title="Interactions"
+                                    icon={<Activity size={14} color="#f59e0b" />}
+                                    action={
+                                        <button
+                                            onClick={() => refreshInteractions(selected.id)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4, display: 'flex', alignItems: 'center' }}
+                                            title="Refresh"
+                                        >
+                                            <RefreshCw size={12} style={{ animation: intLoading ? 'spin 1s linear infinite' : 'none' }} />
+                                        </button>
+                                    }
+                                >
+                                    {propertyInteractions.length === 0 ? (
+                                        <p style={{ color: '#475569', fontSize: 13 }}>No interactions recorded yet.</p>
+                                    ) : (
+                                        propertyInteractions.map(int => (
+                                            <div key={int.id} style={{ padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', gap: 10 }}>
+                                                <div style={{ width: 6, height: 6, borderRadius: '50%', background: int.category === 'property' ? '#f59e0b' : '#38bdf8', marginTop: 6, flexShrink: 0 }} />
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0' }}>
+                                                        {(int.type || '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                                    </div>
+                                                    <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{int.description}</div>
+                                                    <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>
+                                                        {int.performed_by_name || 'System'} · {formatDate(int.timestamp || int.created_at)}
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))
                                     )}
@@ -241,12 +296,15 @@ export default function AdminPropertiesTab() {
     )
 }
 
-function Section({ title, icon, children }) {
+function Section({ title, icon, children, action }) {
     return (
         <div style={{ marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                {icon}
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>{title}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12, justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {icon}
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>{title}</span>
+                </div>
+                {action}
             </div>
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '4px 14px' }}>
                 {children}
