@@ -377,34 +377,8 @@ function StepAddress({ onNext, onSkip, customerId }) {
             }).catch(() => { })
     }, [])
 
-    const validateAndSearch = async (pin) => {
-        setPropertyMatches([])
-        setSelectedExisting(null)
-        setMatchChecked(false)
-
-        if (!pin || pin.length < 6) { setPincodeStatus(null); setMatchedLocality(null); return }
-
-        // Check serviceability
-        if (advancedPincodes.length > 0) {
-            const match = advancedPincodes.find(p => p.pincode === pin)
-            if (match) { setPincodeStatus('valid'); setMatchedLocality(match.locality) }
-            else { setPincodeStatus('invalid'); setMatchedLocality(null); return }
-        }
-
-        // Smart search — are there existing properties at this pincode?
-        try {
-            const res = await fetch(`/api/customer/properties?search=${pin}`)
-            const data = await res.json()
-            if (data.success && data.properties?.length > 0) {
-                setPropertyMatches(data.properties)
-            }
-        } catch { /* silent */ }
-        setMatchChecked(true)
-    }
-
     const up = field => e => {
         setForm(p => ({ ...p, [field]: e.target.value }))
-        if (field === 'pincode') validateAndSearch(e.target.value)
     }
 
     const handleLocalityChange = (e) => {
@@ -416,13 +390,9 @@ function StepAddress({ onNext, onSkip, customerId }) {
             locality: selectedLocalityName,
             pincode: matched ? matched.pincode : p.pincode
         }));
-
-        if (matched) {
-            validateAndSearch(matched.pincode);
-        }
     }
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (forceMatch = false) => {
         setError('')
         const cId = customerId || localStorage.getItem('customerId')
         if (!cId) { setError('Session expired. Please log in again.'); return }
@@ -447,8 +417,35 @@ function StepAddress({ onNext, onSkip, customerId }) {
         // Create new property
         if (!form.address.trim()) { setError('Please enter your street address.'); return }
         if (!form.city.trim()) { setError('Please enter your city.'); return }
-        if (!form.pincode.trim()) { setError('Please enter your pincode.'); return }
-        if (pincodeStatus === 'invalid') { setError('We do not service this pincode yet.'); return }
+        if (!form.pincode.trim() || form.pincode.length < 6) { setError('Please enter a valid pincode.'); return }
+        
+        // Serviceability logic
+        if (advancedPincodes.length > 0) {
+            const match = advancedPincodes.find(p => p.pincode === form.pincode)
+            if (!match) { setError('We do not service this pincode yet.'); return }
+        }
+
+        // Exact Match Logic
+        if (!matchChecked && !forceMatch && form.flat_number?.trim() && form.building_name?.trim()) {
+            setLoading(true)
+            try {
+                const res = await fetch(`/api/customer/properties?search=${form.pincode}`)
+                const data = await res.json()
+                if (data.success && data.properties?.length > 0) {
+                    const exact = data.properties.filter(p => 
+                        p.flat_number?.trim().toLowerCase() === form.flat_number.trim().toLowerCase() && 
+                        p.building_name?.trim().toLowerCase() === form.building_name.trim().toLowerCase()
+                    )
+                    if (exact.length > 0) {
+                        setPropertyMatches(exact)
+                        setMatchChecked(true)
+                        setLoading(false)
+                        return // Stop and wait for user response
+                    }
+                }
+            } catch (e) { console.error(e) }
+            setLoading(false)
+        }
 
         setLoading(true)
         try {
@@ -526,7 +523,7 @@ function StepAddress({ onNext, onSkip, customerId }) {
                     placeholder="e.g. 400001"
                     maxLength={6}
                     inputMode="numeric"
-                    disabled={true}
+                    disabled={false}
                 />
                 {pincodeStatus === 'invalid' && <div style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>✗ We don't service this pincode yet</div>}
             </div>
@@ -555,7 +552,7 @@ function StepAddress({ onNext, onSkip, customerId }) {
                             </div>
                         </div>
                     ))}
-                    <button onClick={() => { setPropertyMatches([]); setMatchChecked(false) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 10, color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
+                    <button onClick={() => { setPropertyMatches([]); setMatchChecked(true); setTimeout(() => handleSubmit(true), 0); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 10, color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
                         None of these — add a new address
                     </button>
                 </div>

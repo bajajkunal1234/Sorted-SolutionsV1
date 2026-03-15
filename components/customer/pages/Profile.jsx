@@ -212,22 +212,7 @@ function PropertyManagerModal({ onClose }) {
         }
     }
 
-    const validateAndSearch = async (pin) => {
-        setPropertyMatches([])
-        setSelectedExisting(null)
-        setMatchChecked(false)
 
-        if (!pin || pin.length < 6) return
-        
-        try {
-            const res = await fetch(`/api/customer/properties?search=${pin}`)
-            const data = await res.json()
-            if (data.success && data.properties?.length > 0) {
-                setPropertyMatches(data.properties)
-            }
-        } catch { /* silent */ }
-        setMatchChecked(true)
-    }
 
     const handleLocalityChange = (e) => {
         const selectedLocalityName = e.target.value;
@@ -238,13 +223,9 @@ function PropertyManagerModal({ onClose }) {
             locality: selectedLocalityName,
             pincode: matched ? matched.pincode : p.pincode
         }));
-
-        if (matched) {
-            validateAndSearch(matched.pincode);
-        }
     }
 
-    const handleSave = async () => {
+    const handleSave = async (forceMatch = false) => {
         setError('')
         const customerId = localStorage.getItem('customerId')
         if (!customerId) { setError('Session expired. Please log in again.'); return }
@@ -271,6 +252,28 @@ function PropertyManagerModal({ onClose }) {
         if (!form.address.trim()) { setError('Please enter your street address.'); return }
         if (!form.city.trim()) { setError('Please enter your city.'); return }
         if (!form.pincode.trim() || form.pincode.length !== 6) { setError('Please enter a valid pincode.'); return }
+
+        // Exact Match Logic
+        if (!matchChecked && !forceMatch && form.flat_number?.trim() && form.building_name?.trim()) {
+            setSaving(true)
+            try {
+                const res = await fetch(`/api/customer/properties?search=${form.pincode}`)
+                const data = await res.json()
+                if (data.success && data.properties?.length > 0) {
+                    const exact = data.properties.filter(p => 
+                        p.flat_number?.trim().toLowerCase() === form.flat_number.trim().toLowerCase() && 
+                        p.building_name?.trim().toLowerCase() === form.building_name.trim().toLowerCase()
+                    )
+                    if (exact.length > 0) {
+                        setPropertyMatches(exact)
+                        setMatchChecked(true)
+                        setSaving(false)
+                        return
+                    }
+                }
+            } catch(e){}
+            setSaving(false)
+        }
 
         setSaving(true)
         try {
@@ -351,8 +354,9 @@ function PropertyManagerModal({ onClose }) {
                         <input
                             style={{ ...S.input, opacity: 0.7, background: 'rgba(0,0,0,0.2)' }}
                             value={form.pincode}
-                            disabled
-                            placeholder="Auto-filled from locality"
+                            disabled={false}
+                            onChange={e => setForm(p => ({...p, pincode: e.target.value}))}
+                            placeholder="e.g. 400001"
                         />
                     </div>
 
@@ -373,7 +377,7 @@ function PropertyManagerModal({ onClose }) {
                                     </button>
                                 </div>
                             ))}
-                            <button onClick={() => { setPropertyMatches([]); setMatchChecked(false) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 8, color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
+                            <button onClick={() => { setPropertyMatches([]); setMatchChecked(true); setTimeout(() => handleSave(true), 0); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 8, color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
                                 None of these — enter manually
                             </button>
                         </div>
