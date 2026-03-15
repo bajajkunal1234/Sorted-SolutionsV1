@@ -120,6 +120,7 @@ function LoginContent() {
     const [step, setStep] = useState('phone');
 
     const [phone, setPhone] = useState('');
+    const [name, setName] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -297,7 +298,7 @@ function LoginContent() {
             const res = await fetch('/api/customer/auth', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'signup', phone, password })
+                body: JSON.stringify({ action: 'signup', phone, password, name })
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Signup failed');
@@ -447,7 +448,18 @@ function LoginContent() {
                             {step === 'password' && (
                                 <form onSubmit={handleSignupPassword}>
                                     <div style={inputGap}>
-                                        <PasswordInput value={password} onChange={setPassword} placeholder="Create password (min. 6 chars)" autoFocus />
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type="text"
+                                                placeholder="Full Name"
+                                                value={name}
+                                                onChange={e => setName(e.target.value)}
+                                                autoFocus
+                                                style={{ width: '100%', padding: '13px 14px', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box' }}
+                                                required
+                                            />
+                                        </div>
+                                        <PasswordInput value={password} onChange={setPassword} placeholder="Create password (min. 6 chars)" />
                                         <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm password" />
                                     </div>
                                     <div style={{ marginBottom: 20 }}>

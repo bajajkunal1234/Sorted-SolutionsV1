@@ -106,15 +106,29 @@ export async function POST(request) {
                 .limit(1)
                 .maybeSingle()
 
-            if (cGroup) {
-                customersGroupId = cGroup.id;
-            }
+            // Generate Account SKU securely for standard customers automatically
+            const { data: existingAccounts } = await supabase
+                .from('accounts')
+                .select('sku')
+                .ilike('sku', 'C%');
 
-            // Create Sundry Debtor entry in accounts table
+            let maxC = 100; // Customer format: C101
+            if (existingAccounts && existingAccounts.length > 0) {
+                existingAccounts.forEach(acc => {
+                    if (acc.sku) {
+                        const numPart = parseInt(acc.sku.substring(1));
+                        if (!isNaN(numPart) && numPart > maxC) maxC = numPart;
+                    }
+                });
+            }
+            const nextSku = `C${maxC + 1}`;
+
+            // Create entry in accounts table
             const { data: accountEntry, error: accountError } = await supabase
                 .from('accounts')
                 .insert({
                     name: customerName,
+                    sku: nextSku,
                     mobile: last10,
                     type: 'customer',
                     under: customersGroupId, // dynamically fetched UUID for Customers sub-group

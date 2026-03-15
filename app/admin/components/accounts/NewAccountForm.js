@@ -731,62 +731,14 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             <option value="cr">Cr</option>
                                         </select>
                                     </div>
-                                    <div className="form-group" style={{ position: 'relative' }}>
+                                    <div className="form-group">
                                         <label className="form-label">As on Date</label>
                                         <input
-                                            type="text"
-                                            className="form-input custom-date-picker"
-                                            value={dateInputStr}
-                                            placeholder="DD/MM/YYYY"
-                                            onChange={(e) => {
-                                                const nativeValue = e.target.value;
-                                                    
-                                                // Allow erasing
-                                                if (nativeValue.length < dateInputStr.length) {
-                                                    setDateInputStr(nativeValue);
-                                                    return;
-                                                }
-                                                
-                                                let val = nativeValue.replace(/\D/g, '');
-                                                if (val.length > 8) val = val.slice(0, 8);
-                                                
-                                                // Auto format as DD/MM/YYYY
-                                                let formatted = val;
-                                                if (val.length > 4) {
-                                                    formatted = `${val.slice(0,2)}/${val.slice(2,4)}/${val.slice(4)}`;
-                                                } else if (val.length > 2) {
-                                                    formatted = `${val.slice(0,2)}/${val.slice(2)}`;
-                                                }
-                                                
-                                                setDateInputStr(formatted);
-                                                
-                                                // If complete, silently sync to actual form data
-                                                if (val.length === 8) {
-                                                    const d = val.slice(0,2);
-                                                    const m = val.slice(2,4);
-                                                    const y = val.slice(4,8);
-                                                    setFormData({ ...formData, asOnDate: `${y}-${m}-${d}` });
-                                                }
-                                            }}
-                                            onBlur={e => {
-                                                // Fallback if they didn't finish typing entirely
-                                                const parts = e.target.value.split('/');
-                                                if (parts.length === 3 && parts[2].length === 4) {
-                                                    setFormData({ ...formData, asOnDate: `${parts[2]}-${parts[1]}-${parts[0]}` });
-                                                } else {
-                                                    // Revert cleanly to current database value if garbled
-                                                    if (formData.asOnDate) {
-                                                        const p = formData.asOnDate.split('-');
-                                                        setDateInputStr(`${p[2]}/${p[1]}/${p[0]}`);
-                                                    } else {
-                                                        setDateInputStr('');
-                                                    }
-                                                }
-                                            }}
+                                            type="date"
+                                            className="form-input"
+                                            value={formData.asOnDate || ''}
+                                            onChange={e => setFormData({ ...formData, asOnDate: e.target.value })}
                                         />
-                                        <div style={{ position: 'absolute', right: '12px', top: '34px', pointerEvents: 'none', color: 'var(--text-tertiary)' }}>
-                                            <Calendar size={16} />
-                                        </div>
                                     </div>
                                 </div>
 
