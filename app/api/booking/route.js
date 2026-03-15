@@ -2,6 +2,32 @@ import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 
+// Generate Job Number like JOB-1001, JOB-1002
+async function generateJobNumber() {
+    // Find the highest existing JOB- number
+    const { data: latestJobs } = await supabase
+        .from('jobs')
+        .select('job_number')
+        .not('job_number', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(50);
+        
+    let nextNum = 1001; // Start from 1001 if none exist
+    if (latestJobs && latestJobs.length > 0) {
+        const nums = latestJobs
+            .map(j => {
+                const match = j.job_number?.match(/^JOB-(\d+)$/);
+                return match ? parseInt(match[1]) : 0;
+            })
+            .filter(n => n > 0);
+        
+        if (nums.length > 0) {
+            nextNum = Math.max(...nums) + 1;
+        }
+    }
+    return `JOB-${nextNum}`;
+}
+
 export async function POST(request) {
     try {
         const body = await request.json()
@@ -170,8 +196,7 @@ export async function POST(request) {
         }
 
         // ── Generate booking reference number ──────────────────────────────────
-        const timestamp = Date.now().toString().slice(-6)
-        const bookingNumber = `BK-${timestamp}`
+        const bookingNumber = await generateJobNumber()
 
         // ── Create the booking_request job ─────────────────────────────────────
         const { data: job, error: jobError } = await supabase
