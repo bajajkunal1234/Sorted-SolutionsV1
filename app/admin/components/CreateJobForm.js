@@ -626,8 +626,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
             // Map to Supabase Schema (snake_case)
             const jobData = {
-                // Generated fields
-                job_number: existingJob?.job_number || `JOB-${Date.now().toString().slice(-6)}`,
+                // Generated fields will be added by the server if not present
+                ...(existingJob?.job_number ? { job_number: existingJob.job_number } : {}),
 
                 // References
                 customer_id: resolvedCustomerId,

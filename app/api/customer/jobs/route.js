@@ -105,6 +105,32 @@ export async function GET(request) {
     }
 }
 
+// Generate Job Number like JOB-1001, JOB-1002
+async function generateJobNumber() {
+    // Find the highest existing JOB- number
+    const { data: latestJobs } = await supabase
+        .from('jobs')
+        .select('job_number')
+        .not('job_number', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(50);
+        
+    let nextNum = 1001; // Start from 1001 if none exist
+    if (latestJobs && latestJobs.length > 0) {
+        const nums = latestJobs
+            .map(j => {
+                const match = j.job_number?.match(/^JOB-(\d+)$/);
+                return match ? parseInt(match[1]) : 0;
+            })
+            .filter(n => n > 0);
+        
+        if (nums.length > 0) {
+            nextNum = Math.max(...nums) + 1;
+        }
+    }
+    return `JOB-${nextNum}`;
+}
+
 export async function POST(request) {
     try {
         const jobData = await request.json()
@@ -195,6 +221,9 @@ export async function POST(request) {
             preferredTimeSlot: preferred_time_slot,
         }
 
+        // ── Auto Generate Job Number ────────────────────────────────────────
+        const job_number = await generateJobNumber();
+
         // ── Insert job using confirmed existing columns ────────────────────────
         // We map app fields → existing jobs columns to avoid schema errors:
         //   appliance_type → category   (text appliance name)
@@ -205,6 +234,7 @@ export async function POST(request) {
         const { data: job, error } = await supabase
             .from('jobs')
             .insert({
+                job_number,
                 customer_id,
                 property_id: property_id || null,
                 property: propertyBlob,            // JSONB blob for address display
@@ -230,6 +260,7 @@ export async function POST(request) {
                 const { data: jobRetry, error: retryError } = await supabase
                     .from('jobs')
                     .insert({
+                        job_number,
                         customer_id,
                         property_id: property_id || null,
                         property: propertyBlob,
