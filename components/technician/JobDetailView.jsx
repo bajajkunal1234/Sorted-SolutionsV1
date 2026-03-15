@@ -19,18 +19,31 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         const fetchFreshData = async () => {
             if (!job?.id) return;
             try {
-                // Fetch fresh job
-                const jobRes = await fetch(`/api/technician/jobs/${job.id}`);
+                // Fetch fresh job + both interaction sources simultaneously
+                const [jobRes, intRes, jobIntRes] = await Promise.all([
+                    fetch(`/api/technician/jobs/${job.id}`),
+                    fetch(`/api/admin/interactions?job_id=${job.id}`),
+                    fetch(`/api/technician/jobs/${job.id}/interactions`),
+                ]);
                 const jobData = await jobRes.json();
-                
-                // Fetch interactions
-                const intRes = await fetch(`/api/technician/jobs/${job.id}/interactions`);
-                const intData = await intRes.json();
-                
+                const intData = await intRes.json().catch(() => ({ data: [] }));
+                const jobIntData = await jobIntRes.json().catch(() => ({ data: [] }));
+
                 if (jobData.success) {
+                    // Merge and sort both interaction sources
+                    const allInt = [
+                        ...(intData.data || []),
+                        ...(jobIntData.data || []).map(ji => ({
+                            ...ji,
+                            performed_by_name: ji.user_name || ji.performed_by_name || 'Technician',
+                            description: ji.message || ji.description || '',
+                            timestamp: ji.created_at || ji.timestamp,
+                        }))
+                    ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
                     setEditedJob({
                         ...jobData.job,
-                        interactions: intData.data || []
+                        interactions: allInt
                     });
                 }
             } catch (err) {
