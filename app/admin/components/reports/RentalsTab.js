@@ -3,7 +3,7 @@ import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCi
 import { rentalsAPI, transactionsAPI } from '@/lib/adminAPI';
 import RentalPlanForm from './RentalPlanForm';
 import NewRentalForm from './NewRentalForm';
-import CollectRentForm from './CollectRentForm';
+import RentReceiptsModal from './RentReceiptsModal';
 import RentalDetailsModal from './RentalDetailsModal';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
 import PrintAgreementModal from './PrintAgreementModal';
@@ -279,7 +279,7 @@ function RentalsTab() {
                                                         setShowCollectRentForm(true);
                                                     }}
                                                 >
-                                                    Collect Rent
+                                                    Rent Receipts
                                                 </button>
                                                 <button
                                                     className="btn btn-secondary"
@@ -584,7 +584,7 @@ function RentalsTab() {
             )}
 
             {showCollectRentForm && selectedRentalForPayment && (
-                <CollectRentForm
+                <RentReceiptsModal
                     rental={selectedRentalForPayment}
                     onClose={() => {
                         setShowCollectRentForm(false);
@@ -593,47 +593,22 @@ function RentalsTab() {
                     onSave={async (paymentData) => {
                         try {
                             setLoading(true);
-                            const rental = selectedRentalForPayment;
-
-                            // 1. Calculate next due date
-                            const currentDueDate = new Date(rental.next_rent_due_date || rental.start_date || new Date());
-                            const nextDueDate = new Date(currentDueDate);
-                            nextDueDate.setMonth(nextDueDate.getMonth() + 1);
-
-                            // 2. Create receipt voucher OR link existing one
-                            let receiptId = paymentData.linkedReceiptId || null;
-
-                            if (!paymentData.useExistingReceipt || !receiptId) {
-                                // Create a new receipt voucher in accounts
-                                const productName = rental.product_name || rental.productName || 'Rental';
-                                const receipt = await transactionsAPI.create({
-                                    type: 'receipt',
-                                    date: paymentData.paymentDate || new Date().toISOString().split('T')[0],
-                                    account_id: rental.customer_id,
-                                    account_name: rental.customer_name,
-                                    amount: paymentData.amount,
-                                    description: `Rent payment for ${productName}${rental.serial_number ? ` (SN: ${rental.serial_number})` : ''}`,
-                                    reference: paymentData.transactionRef || null,
-                                    payment_method: paymentData.paymentMethod || 'cash',
-                                    notes: paymentData.notes || null,
-                                });
-                                receiptId = receipt?.id || null;
-                            }
-
-                            // 3. Update active_rental record
-                            await rentalsAPI.updateActive(rental.id, {
-                                rents_paid: (rental.rents_paid || 0) + 1,
-                                rents_remaining: Math.max(0, (rental.rents_remaining || 0) - 1),
-                                next_rent_due_date: nextDueDate.toISOString().split('T')[0],
-                                ...(receiptId ? { last_receipt_id: String(receiptId) } : {}),
+                            // Ensure next_rent_due_date is not blindly null from the modal if they skip.
+                            // The modal sends null if all rents are paid or if there is no next.
+                            await rentalsAPI.updateActive(paymentData.rentalId, {
+                                rent_receipts: paymentData.rent_receipts,
+                                deposit_receipt_id: paymentData.deposit_receipt_id,
+                                rents_paid: paymentData.rents_paid,
+                                rents_remaining: paymentData.rents_remaining,
+                                next_rent_due_date: paymentData.next_rent_due_date || null
                             });
 
                             await fetchData();
                             setShowCollectRentForm(false);
                             setSelectedRentalForPayment(null);
                         } catch (err) {
-                            console.error('Failed to collect rent:', err);
-                            alert('Failed to process payment: ' + (err.message || err));
+                            console.error('Failed to link receipts:', err);
+                            alert('Failed to save receipt linkages: ' + (err.message || err));
                         } finally {
                             setLoading(false);
                         }
