@@ -46,10 +46,12 @@ export async function POST(request) {
 
         logInteractionServer({
             type: 'property-linked',
-            category: 'account',
+            category: 'property',
             customerId: customer_id,
             customerName: cName,
-            description: `Customer "${cName}" linked to property: ${pAddr}`,
+            propertyId: property_id,
+            description: `"${cName}" linked to property: ${pAddr}`,
+            metadata: { property_id, customer_id },
             source: 'Admin App',
         })
 

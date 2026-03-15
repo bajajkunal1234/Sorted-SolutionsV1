@@ -33,10 +33,12 @@ export async function POST(request) {
 
         logInteractionServer({
             type: 'property-unlinked',
-            category: 'account',
+            category: 'property',
             customerId: data.customer_id,
             customerName: cName,
-            description: `Customer "${cName}" unlinked from property: ${pAddr}`,
+            propertyId: data.property_id,
+            description: `"${cName}" unlinked from property: ${pAddr}`,
+            metadata: { property_id: data.property_id, customer_id: data.customer_id },
             source: 'Admin App',
         })
 

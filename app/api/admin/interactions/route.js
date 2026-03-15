@@ -10,6 +10,7 @@ export async function GET(request) {
         const customerId = searchParams.get('customer_id')
         const jobId = searchParams.get('job_id')
         const productId = searchParams.get('product_id')
+        const propertyId = searchParams.get('property_id')
         const technicianId = searchParams.get('technician_id')
         const source = searchParams.get('source')
         const category = searchParams.get('category')
@@ -24,9 +25,11 @@ export async function GET(request) {
         if (customerId) query = query.eq('customer_id', customerId)
         if (jobId) query = query.eq('job_id', jobId)
         if (productId) query = query.eq('product_id', productId)
+        if (propertyId) query = query.eq('property_id', propertyId)
         if (technicianId) query = query.eq('technician_id', technicianId)
         if (source) query = query.eq('source', source)
         if (category) query = query.eq('category', category)
+
 
         const { data, error } = await query
         if (error) throw error

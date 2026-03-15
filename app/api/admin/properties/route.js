@@ -233,8 +233,11 @@ export async function POST(request) {
 
         logInteractionServer({
             type: 'property-created',
-            category: 'account',
-            description: `Property created: ${address}, ${locality || ''}, ${city || ''} ${pincode || ''}`,
+            category: 'property',
+            customerId: customer_id || null,
+            propertyId: property.id,
+            description: `Property created: ${[flat_number, building_name, address, locality, city, pincode].filter(Boolean).join(', ')}`,
+            metadata: { property_id: property.id, address, locality, city, pincode, linked_to_customer: customer_id || null },
             source: 'Admin App',
         })
 
@@ -258,6 +261,17 @@ export async function PUT(request) {
             .select()
             .single()
         if (error) throw error
+
+        // Log the edit
+        const changedFields = Object.keys(updates).filter(k => k !== 'id')
+        logInteractionServer({
+            type: 'property-edited',
+            category: 'property',
+            propertyId: id,
+            description: `Property updated: ${changedFields.join(', ')}`,
+            metadata: { property_id: id, changed_fields: changedFields, updates },
+            source: 'Admin App',
+        })
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
