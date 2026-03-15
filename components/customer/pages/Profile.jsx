@@ -664,9 +664,14 @@ export default function ProfilePage() {
                         </button>
                     )}
                 </div>
-                <h1 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 4px 0', color: '#f8fafc' }}>
-                    {customer?.name || 'Sorted Customer'}
-                </h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 4px 0' }}>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, color: '#f8fafc' }}>
+                        {customer?.name || 'Sorted Customer'}
+                    </h1>
+                    <button onClick={() => setModal('edit')} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', display: 'flex' }}>
+                        <Edit2 size={16} />
+                    </button>
+                </div>
                 <p style={{ margin: 0, color: '#94a3b8', fontSize: 14 }}>{customer?.mobile || customer?.email || ''}</p>
                 <div style={{ marginTop: 16, display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', padding: '6px 12px', borderRadius: 20, color: '#10b981', fontSize: 12, fontWeight: 700 }}>
                     <ShieldCheck size={14} /> Sorted Member
@@ -675,8 +680,7 @@ export default function ProfilePage() {
 
             {/* Account Group */}
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 24, padding: '8px 0' }}>
-                <SettingsRow icon={User} color="#38bdf8" label="Edit Profile" onClick={() => setModal('edit')} />
-                <SettingsRow divider icon={MapPin} color="#f59e0b" label="My Properties" onClick={() => setModal('address')} />
+                <SettingsRow icon={MapPin} color="#f59e0b" label="My Properties" onClick={() => setModal('address')} />
                 <SettingsRow divider icon={CreditCard} color="#8b5cf6" label="Payment Methods" onClick={() => setModal('payment')} />
             </div>
 

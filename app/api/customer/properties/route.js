@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
-        const customerId = searchParams.get('customerId')
+        const customerId = searchParams.get('customerId') || searchParams.get('customer_id')
         const search = searchParams.get('search') // smart match: pincode
 
         if (!customerId && !search) {
