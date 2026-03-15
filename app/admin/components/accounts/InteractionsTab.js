@@ -39,11 +39,12 @@ function InteractionsTab({ accountId, accountName }) {
             setError(null);
 
             // Parallel fetch from all tables linked to this account
+            const t = Date.now();
             const [intRes, jobsRes, rentalsRes, amcRes] = await Promise.all([
-                fetch(`/api/admin/interactions?customer_id=${accountId}&limit=300`),
-                fetch(`/api/admin/jobs?customer_id=${accountId}`),
-                fetch(`/api/admin/rentals?customer_id=${accountId}`),
-                fetch(`/api/admin/amc?customer_id=${accountId}`),
+                fetch(`/api/admin/interactions?customer_id=${accountId}&limit=300&_t=${t}`, { cache: 'no-store' }),
+                fetch(`/api/admin/jobs?customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
+                fetch(`/api/admin/rentals?customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
+                fetch(`/api/admin/amc?customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
             ]);
 
             const intData   = intRes.ok   ? (await intRes.json()).data   || [] : [];

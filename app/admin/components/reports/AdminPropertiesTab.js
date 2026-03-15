@@ -78,7 +78,7 @@ export default function AdminPropertiesTab() {
         try {
             const [detailRes, intRes] = await Promise.all([
                 fetch(`/api/admin/properties?id=${prop.id}`),
-                fetch(`/api/admin/interactions?property_id=${prop.id}&limit=100`),
+                fetch(`/api/admin/interactions?property_id=${prop.id}&limit=100&_t=${Date.now()}`, { cache: 'no-store' }),
             ])
             const data = await detailRes.json()
             const intData = await intRes.json().catch(() => ({ data: [] }))
@@ -91,7 +91,7 @@ export default function AdminPropertiesTab() {
     const refreshInteractions = async (propId) => {
         setIntLoading(true)
         try {
-            const res = await fetch(`/api/admin/interactions?property_id=${propId}&limit=100`)
+            const res = await fetch(`/api/admin/interactions?property_id=${propId}&limit=100&_t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json()
             setPropertyInteractions(data.data || [])
         } catch (e) { console.error(e) }

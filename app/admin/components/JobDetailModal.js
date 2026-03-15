@@ -27,7 +27,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     jobsAPI.getById(job.id),
                     fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] })),
                     // Global interactions table filtered by job_id
-                    fetch(`/api/admin/interactions?job_id=${job.id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                    fetch(`/api/admin/interactions?job_id=${job.id}&_t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({ data: [] })),
                     // Legacy job_interactions table
                     fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] }))
                 ]);

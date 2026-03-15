@@ -21,7 +21,7 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
         setIsLoading(true);
         setLoadError(null);
         try {
-            const res = await fetch('/api/admin/interactions?limit=500');
+            const res = await fetch(`/api/admin/interactions?limit=500&_t=${Date.now()}`, { cache: 'no-store' });
             const result = await res.json();
             if (!result.success) throw new Error(result.error);
             // Normalize DB fields to what the UI expects
