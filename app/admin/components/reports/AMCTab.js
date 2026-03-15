@@ -6,12 +6,15 @@ import { amcAPI } from '@/lib/adminAPI';
 import AMCPlanForm from './AMCPlanForm';
 import NewAMCForm from './NewAMCForm';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
+import PrintAgreementModal from './PrintAgreementModal';
 
 function AMCTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
     const [showPlanForm, setShowPlanForm] = useState(false);
     const [showNewAMCForm, setShowNewAMCForm] = useState(false);
     const [editingPlan, setEditingPlan] = useState(null);
+    const [showPrintAgreement, setShowPrintAgreement] = useState(false);
+    const [selectedAmcForPrint, setSelectedAmcForPrint] = useState(null);
     const [plans, setPlans] = useState([]);
     const [activeAMCs, setActiveAMCs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -260,6 +263,17 @@ function AMCTab() {
                                             onClick={() => alert(`Schedule Service for ${amc.accounts?.name}\n\nAMC: ${amc.plan_name}\nProduct: ${amc.product_brand} ${amc.product_model}\nNext Service: ${amc.next_service_type || 'General Service'}\n\nThis will create a new job and assign a technician.`)}
                                         >
                                             Schedule Service
+                                        </button>
+                                        <button
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                                            onClick={() => {
+                                                setSelectedAmcForPrint(amc);
+                                                setShowPrintAgreement(true);
+                                            }}
+                                            title="Print Agreement"
+                                        >
+                                            <Printer size={16} />
                                         </button>
                                         <button
                                             className="btn btn-secondary"
@@ -523,6 +537,14 @@ function AMCTab() {
                             setLoading(false);
                         }
                     }}
+                />
+            )}
+
+            {showPrintAgreement && selectedAmcForPrint && (
+                <PrintAgreementModal 
+                    type="amc"
+                    data={selectedAmcForPrint}
+                    onClose={() => setShowPrintAgreement(false)}
                 />
             )}
         </div>

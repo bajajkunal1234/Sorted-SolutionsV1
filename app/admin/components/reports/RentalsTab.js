@@ -6,6 +6,7 @@ import NewRentalForm from './NewRentalForm';
 import CollectRentForm from './CollectRentForm';
 import RentalDetailsModal from './RentalDetailsModal';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
+import PrintAgreementModal from './PrintAgreementModal';
 
 function RentalsTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
@@ -22,6 +23,8 @@ function RentalsTab() {
     const [showRentalDetails, setShowRentalDetails] = useState(false);
     const [selectedRentalForDetails, setSelectedRentalForDetails] = useState(null);
     const [onNewCustomerCallback, setOnNewCustomerCallback] = useState(null);
+    const [showPrintAgreement, setShowPrintAgreement] = useState(false);
+    const [selectedRentalForPrint, setSelectedRentalForPrint] = useState(null);
 
     const fetchData = async () => {
         try {
@@ -287,6 +290,17 @@ function RentalsTab() {
                                                     }}
                                                 >
                                                     View Details
+                                                </button>
+                                                <button
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                                                    onClick={() => {
+                                                        setSelectedRentalForPrint({ ...rental, productName, customerName, monthlyRent, securityDeposit });
+                                                        setShowPrintAgreement(true);
+                                                    }}
+                                                    title="Print Agreement"
+                                                >
+                                                    <Printer size={16} />
                                                 </button>
                                                 <button
                                                     className="btn"
@@ -634,6 +648,14 @@ function RentalsTab() {
                         setShowRentalDetails(false);
                         setSelectedRentalForDetails(null);
                     }}
+                />
+            )}
+
+            {showPrintAgreement && selectedRentalForPrint && (
+                <PrintAgreementModal 
+                    type="rental"
+                    data={selectedRentalForPrint}
+                    onClose={() => setShowPrintAgreement(false)}
                 />
             )}
         </div>

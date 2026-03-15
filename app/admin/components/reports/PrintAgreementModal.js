@@ -99,7 +99,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
 
     if (isLoading) {
         return (
-            <div className="modal-overlay" style={{ zIndex: 1000 }}>
+            <div className="modal-overlay" style={{ zIndex: 1200 }}>
                 <div className="modal-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
                     <RefreshCcw className="animate-spin" size={32} style={{ color: 'var(--text-tertiary)' }} />
                 </div>
@@ -123,7 +123,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
     }
 
     return (
-        <div className="modal-overlay print-modal-hide-ui" style={{ zIndex: 1000 }}>
+        <div className="modal-overlay print-modal-hide-ui" style={{ zIndex: 1200 }}>
             <div className="modal-content print-modal-content" style={{ maxWidth: '900px', width: '90vw', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '90vh' }}>
                 
                 {/* Fixed Non-Printable Header */}
