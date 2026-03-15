@@ -23,15 +23,30 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             if (!job?.id) return;
             try {
                 setLoading(true);
-                const [freshJob, techRes, intRes] = await Promise.all([
+                const [freshJob, techRes, intRes, jobIntRes] = await Promise.all([
                     jobsAPI.getById(job.id),
                     fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] })),
+                    // Global interactions table filtered by job_id
+                    fetch(`/api/admin/interactions?job_id=${job.id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                    // Legacy job_interactions table
                     fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] }))
                 ]);
                 if (freshJob) {
+                    // Merge both interaction sources, deduplicate by id, sort by timestamp
+                    const allInt = [
+                        ...(intRes?.data || []),
+                        ...(jobIntRes?.data || []).map(ji => ({
+                            ...ji,
+                            // Normalise job_interactions fields to global interactions format
+                            performed_by_name: ji.user_name || ji.performed_by_name || 'System',
+                            description: ji.message || ji.description || '',
+                            timestamp: ji.created_at || ji.timestamp,
+                        }))
+                    ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
                     setEditedJob({
                         ...freshJob,
-                        interactions: intRes?.data || []
+                        interactions: allInt
                     });
                 }
                 if (techRes?.success && Array.isArray(techRes.data)) {
@@ -129,22 +144,25 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     const handleAddNote = async (note) => {
         try {
-            const payload = {
-                job_id: editedJob.id,
-                type: 'note-added',
-                category: note.category || 'communication',
-                description: note.description,
-                performed_by_name: 'Admin', // In real app, get from auth context
-                attachments: note.attachments,
-                timestamp: new Date().toISOString()
-            };
-
-            const createdInteraction = await interactionsAPI.create(payload);
-
-            if (createdInteraction) {
+            // POST directly to job-specific endpoint so job_id and customer_id are set correctly
+            const res = await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'note-added',
+                    category: note.category || 'communication',
+                    description: note.description,
+                    customer_id: editedJob.customer_id || null,
+                    customer_name: editedJob.customer_name || null,
+                    user_name: 'Admin',
+                    metadata: { attachments: note.attachments || [] },
+                }),
+            });
+            const result = await res.json();
+            if (result.success && result.data) {
                 setEditedJob(prev => ({
                     ...prev,
-                    interactions: [...(prev.interactions || []), createdInteraction]
+                    interactions: [result.data, ...(prev.interactions || [])]
                 }));
             }
         } catch (err) {
