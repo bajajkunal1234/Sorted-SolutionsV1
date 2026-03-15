@@ -58,8 +58,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         issue: (existingJob?.issue && typeof existingJob.issue === 'object' && existingJob.issue.id) ? { id: existingJob.issue.id, ...existingJob.issue } : null,
         warranty: existingJob?.warranty || false,
         warrantyProof: existingJob?.warranty_proof || '',
-        openingDate: existingJob?.created_at ? new Date(existingJob.created_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
-        dueDate: existingJob?.scheduled_date ? new Date(existingJob.scheduled_date).toISOString().slice(0, 16) : '',
+        openingDate: existingJob?.created_at ? new Date(existingJob.created_at).toISOString().slice(0, 16) : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+        dueDate: existingJob?.scheduled_date ? new Date(existingJob.scheduled_date).toISOString().slice(0, 16) : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
         assignedTo: existingJob?.technician_id || '',
         assignedToName: existingJob?.technician_name || '',
         tags: existingJob?.tags || []
@@ -691,6 +691,24 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                 {/* Body - Scrollable */}
                 <div className="modal-body" style={{ flex: 1, overflowY: 'auto' }}>
+                    {/* 0. Job ID / SKU (Auto-generated) */}
+                    <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                        <label className="form-label">Job ID / SKU</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            value={existingJob?.job_number || "Auto-generated on save"}
+                            disabled
+                            style={{
+                                backgroundColor: 'var(--bg-tertiary)',
+                                color: 'var(--text-secondary)',
+                                cursor: 'not-allowed',
+                                fontStyle: existingJob?.job_number ? 'normal' : 'italic',
+                                opacity: 0.8
+                            }}
+                        />
+                    </div>
+
                     {/* 1. Job Name — auto-filled, always at the top */}
                     <div className="form-group">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
