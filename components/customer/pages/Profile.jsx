@@ -439,7 +439,7 @@ function PropertyManagerModal({ onClose }) {
     }
 
     return (
-        <Modal title="Saved Addresses" onClose={onClose}>
+        <Modal title="My Properties" onClose={onClose}>
             {loading ? (
                 <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748b' }}>
                     <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
@@ -448,7 +448,7 @@ function PropertyManagerModal({ onClose }) {
             ) : properties.length === 0 ? (
                 <div style={{ padding: '40px 0', textAlign: 'center', color: '#94a3b8' }}>
                     <MapPin size={48} style={{ opacity: 0.2, margin: '0 auto 16px' }} />
-                    <p style={{ margin: 0, fontSize: 14 }}>You haven't added any addresses yet.</p>
+                    <p style={{ margin: 0, fontSize: 14 }}>You haven't added any properties yet.</p>
                 </div>
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
@@ -486,7 +486,7 @@ function PropertyManagerModal({ onClose }) {
                 borderRadius: 14, color: '#f8fafc', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
             }}>
-                <Plus size={18} /> Add New Address
+                <Plus size={18} /> Add New Property
             </button>
         </Modal>
     )
@@ -506,7 +506,7 @@ export default function ProfilePage() {
         const fetchProfile = async () => {
             try {
                 const customerId = localStorage.getItem('customerId') || ''
-                const response = await fetch(`/api/customer/profile?customerId=${customerId}`)
+                const response = await fetch(`/api/customer/profile?customerId=${customerId}&_t=${Date.now()}`, { cache: 'no-store' })
                 const data = await response.json()
                 const c = data.customer || { name: localStorage.getItem('customerName') || 'Customer', mobile: localStorage.getItem('customerMobile') || '' }
                 setCustomer(c)
@@ -667,14 +667,14 @@ export default function ProfilePage() {
             {/* Account Group */}
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 24, padding: '8px 0' }}>
                 <SettingsRow icon={User} color="#38bdf8" label="Edit Profile" onClick={() => setModal('edit')} />
-                <SettingsRow divider icon={MapPin} color="#f59e0b" label="Saved Addresses" onClick={() => setModal('address')} />
+                <SettingsRow divider icon={MapPin} color="#f59e0b" label="My Properties" onClick={() => setModal('address')} />
                 <SettingsRow divider icon={CreditCard} color="#8b5cf6" label="Payment Methods" onClick={() => setModal('payment')} />
             </div>
 
             {/* Support Group */}
             <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 24, padding: '8px 0' }}>
                 <SettingsRow icon={Bell} color="#f59e0b" label="Notifications" onClick={() => setModal('notif')} />
-                <SettingsRow divider icon={Star} color="#10b981" label="Rate the App" onClick={() => window.open('https://play.google.com/store', '_blank')} />
+                <SettingsRow divider icon={Star} color="#10b981" label="Rate Sorted Solutions" onClick={() => window.open('https://g.page/r/CZ155hCgBae2EBM/review', '_blank')} />
                 <SettingsRow divider icon={LifeBuoy} color="#38bdf8" label="Help & Support" onClick={() => setModal('help')} />
             </div>
 
