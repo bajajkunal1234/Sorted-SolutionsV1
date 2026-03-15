@@ -1,6 +1,7 @@
 import './globals.css'
 import { Suspense } from 'react'
 import GoogleTagsProvider from '@/components/GoogleTagsProvider'
+import ClickTracker from '@/components/ClickTracker'
 
 export const metadata = {
     title: 'Sorted Solutions - Expert Appliance Repair Services',
@@ -38,7 +39,11 @@ export default function RootLayout({ children }) {
                     <GoogleTagsProvider />
                 </Suspense>
             </head>
-            <body>{children}</body>
+            <body>
+                {children}
+                {/* Global no-code click tracker — auto-fires triggers configured in Admin > Interactions > Triggers */}
+                <ClickTracker />
+            </body>
         </html>
     )
 }

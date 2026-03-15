@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { type, category, source, description, is_enabled, webhook_url } = body
+        const { type, category, source, description, is_enabled, webhook_url, css_selector, page_pattern } = body
 
         const { data, error } = await supabase
             .from('interaction_triggers')
@@ -33,6 +33,8 @@ export async function POST(request) {
                 description: description || '',
                 is_enabled: is_enabled !== false,
                 webhook_url: webhook_url || null,
+                css_selector: css_selector || null,
+                page_pattern: page_pattern || null,
                 fire_count: 0,
             }])
             .select()

@@ -43,7 +43,7 @@ const CATEGORY_COLORS = {
     other: '#94a3b8',
 };
 
-const BLANK_TRIGGER = { type: '', category: 'other', source: 'Admin', description: '', is_enabled: true, webhook_url: '' };
+const BLANK_TRIGGER = { type: '', category: 'other', source: 'Website', description: '', is_enabled: true, webhook_url: '', css_selector: '', page_pattern: '' };
 
 function TriggerRow({ trigger, onToggle, onEdit, onDelete }) {
     const color = CATEGORY_COLORS[trigger.category] || '#94a3b8';
@@ -104,7 +104,7 @@ function TriggerForm({ trigger, onSave, onCancel, saving }) {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <div>
                     <label style={labelStyle}>Trigger Type Key *</label>
-                    <input style={inputStyle} value={form.type} onChange={up('type')} placeholder="e.g. amc-renewed" />
+                    <input style={inputStyle} value={form.type} onChange={up('type')} placeholder="e.g. login-btn-click" />
                     <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>Use lowercase with hyphens. This is the type value stored in the interactions table.</div>
                 </div>
                 <div>
@@ -126,9 +126,32 @@ function TriggerForm({ trigger, onSave, onCancel, saving }) {
                     <input style={inputStyle} value={form.webhook_url || ''} onChange={up('webhook_url')} placeholder="https://..." />
                 </div>
             </div>
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 12 }}>
                 <label style={labelStyle}>Description</label>
                 <input style={inputStyle} value={form.description} onChange={up('description')} placeholder="What triggers this interaction log?" />
+            </div>
+
+            {/* ── No-Code Website Tracking ── */}
+            <div style={{ margin: '16px 0 12px', padding: '14px', background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)', borderRadius: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    🖱️ No-Code Website Click Tracking (Optional)
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                        <label style={labelStyle}>CSS Selector</label>
+                        <input style={inputStyle} value={form.css_selector || ''} onChange={up('css_selector')} placeholder="e.g. #login-btn, .book-now-button" />
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                            Right-click any element on your website → Inspect → Right-click the highlighted code → Copy → Copy selector. Paste it here.
+                        </div>
+                    </div>
+                    <div>
+                        <label style={labelStyle}>Page Pattern (Optional)</label>
+                        <input style={inputStyle} value={form.page_pattern || ''} onChange={up('page_pattern')} placeholder="e.g. /services or leave blank for all pages" />
+                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+                            Only track clicks on pages whose URL contains this text. Leave blank to track on every page.
+                        </div>
+                    </div>
+                </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
