@@ -237,14 +237,30 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     const [isFormDirty, setIsFormDirty] = useState(false);
     const [showConfirmClose, setShowConfirmClose] = useState(false);
 
-    // Auto-generate SKU/KU on mount
+    // Provide a fail-safe way to load ledgers if not passed in as a prop
+    const [localLedgers, setLocalLedgers] = useState(ledgers);
     useEffect(() => {
-        if (!formData.sku) {
-            const liveLedgers = ledgers.length > 0 ? ledgers : sampleLedgers;
-            const newKU = generateShortKU(formData.under, liveLedgers, groups);
-            setFormData(prev => ({ ...prev, sku: newKU }));
+        if (ledgers && ledgers.length > 0) {
+            setLocalLedgers(ledgers);
+        } else if (!initialData) {
+            import('@/lib/adminAPI').then(({ accountsAPI }) => {
+                accountsAPI.getAll().then(data => {
+                    if (data && data.length > 0) {
+                        setLocalLedgers(data);
+                    }
+                }).catch(err => console.error('Failed to pre-fetch accounts for SKU generation:', err));
+            });
         }
-    }, [formData.under, groups, ledgers]);
+    }, [ledgers, initialData]);
+
+    // Auto-generate SKU/KU dynamically
+    useEffect(() => {
+        if (!initialData) {
+            const liveLedgers = localLedgers.length > 0 ? localLedgers : (typeof sampleLedgers !== 'undefined' ? sampleLedgers : []);
+            const newKU = generateShortKU(formData.under, liveLedgers, groups);
+            setFormData(prev => prev.sku !== newKU ? { ...prev, sku: newKU } : prev);
+        }
+    }, [formData.under, groups, localLedgers, initialData]);
 
     // Update 'under' if preselectedType or groups change
     useEffect(() => {
@@ -263,25 +279,16 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         }
     }, [formData.under, initialData]);
 
-    // Auto-fill KU when name is entered if empty
-    useEffect(() => {
-        if (formData.name.trim() && !formData.sku) {
-            const liveLedgers = ledgers.length > 0 ? ledgers : sampleLedgers;
-            const newKU = generateShortKU(formData.under, liveLedgers, groups);
-            setFormData(prev => ({ ...prev, sku: newKU }));
-        }
-    }, [formData.name, groups, ledgers]);
-
     // Check for duplicate names against live ledgers (only if name changed and not editing)
     useEffect(() => {
         if (formData.name.trim() && formData.name !== initialData?.name) {
-            const liveLedgers = ledgers.length > 0 ? ledgers : sampleLedgers;
+            const liveLedgers = localLedgers.length > 0 ? localLedgers : (typeof sampleLedgers !== 'undefined' ? sampleLedgers : []);
             const duplicate = checkDuplicateName(formData.name, liveLedgers);
             setDuplicateWarning(duplicate);
         } else {
             setDuplicateWarning(null);
         }
-    }, [formData.name, initialData, ledgers]);
+    }, [formData.name, initialData, localLedgers]);
 
     // Track form dirty state
     useEffect(() => {
