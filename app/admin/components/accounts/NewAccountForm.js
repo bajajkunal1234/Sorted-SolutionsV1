@@ -240,10 +240,11 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     // Auto-generate SKU/KU on mount
     useEffect(() => {
         if (!formData.sku) {
-            const newKU = generateShortKU(formData.under, sampleLedgers, groups);
+            const liveLedgers = ledgers.length > 0 ? ledgers : sampleLedgers;
+            const newKU = generateShortKU(formData.under, liveLedgers, groups);
             setFormData(prev => ({ ...prev, sku: newKU }));
         }
-    }, [formData.under, groups]);
+    }, [formData.under, groups, ledgers]);
 
     // Update 'under' if preselectedType or groups change
     useEffect(() => {
@@ -265,10 +266,11 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     // Auto-fill KU when name is entered if empty
     useEffect(() => {
         if (formData.name.trim() && !formData.sku) {
-            const newKU = generateShortKU(formData.under, sampleLedgers, groups);
+            const liveLedgers = ledgers.length > 0 ? ledgers : sampleLedgers;
+            const newKU = generateShortKU(formData.under, liveLedgers, groups);
             setFormData(prev => ({ ...prev, sku: newKU }));
         }
-    }, [formData.name, groups]);
+    }, [formData.name, groups, ledgers]);
 
     // Check for duplicate names against live ledgers (only if name changed and not editing)
     useEffect(() => {
