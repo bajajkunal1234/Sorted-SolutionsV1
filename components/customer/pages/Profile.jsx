@@ -538,17 +538,26 @@ export default function ProfilePage() {
             fd.append('file', file)
             fd.append('bucket', 'media')
             fd.append('folder', 'customer-photos')
+            
+            // 1. Upload to Storage
             const up = await fetch('/api/upload', { method: 'POST', body: fd })
             const upData = await up.json()
-            if (!upData.url) throw new Error('Upload failed')
-            await fetch('/api/customer/profile', {
+            if (!upData.success || !upData.url) throw new Error(upData.error || 'Failed to upload image file')
+            
+            // 2. Link to Profile
+            const patchRes = await fetch('/api/customer/profile', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ customerId, image_url: upData.url }),
             })
+            const patchData = await patchRes.json()
+            if (!patchData.success) throw new Error(patchData.error || 'Failed to link image to profile')
+
+            // 3. Update UI only if successful
             setCustomer(prev => ({ ...prev, image_url: upData.url }))
         } catch (err) {
             console.error('Photo upload error:', err)
+            alert(err.message || 'Something went wrong uploading your photo. Please try again.')
         } finally {
             setPhotoUploading(false)
         }
