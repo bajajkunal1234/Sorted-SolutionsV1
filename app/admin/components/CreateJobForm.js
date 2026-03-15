@@ -1232,9 +1232,10 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             <label className="form-label">Scheduled Date</label>
                             <input
                                 type="datetime-local"
-                                className="form-input"
+                                className="form-input custom-date-picker"
                                 value={formData.dueDate}
                                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                style={{ colorScheme: 'dark' }}
                             />
                         </div>
 
@@ -1247,7 +1248,12 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 onChange={(e) => handleTechnicianChange(e.target.value)}
                             >
                                 <option value="">{loadingStates.technicians ? 'Loading technicians...' : 'Unassigned'}</option>
-                                {technicians.map(tech => (
+                                {technicians
+                                    .filter(tech => {
+                                        const name = (tech.name || '').toLowerCase();
+                                        return !name.includes('demo') && !name.includes('test');
+                                    })
+                                    .map(tech => (
                                     <option key={tech.id} value={tech.id}>
                                         {tech.name} {tech.status === 'busy' ? '(Busy)' : ''}
                                     </option>
