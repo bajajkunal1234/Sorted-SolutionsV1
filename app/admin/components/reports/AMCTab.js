@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { Shield, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer } from 'lucide-react';
 import { amcAPI } from '@/lib/adminAPI';
 import AMCPlanForm from './AMCPlanForm';
 import NewAMCForm from './NewAMCForm';
