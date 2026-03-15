@@ -6,6 +6,7 @@ import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
 import { transactionsAPI } from '@/lib/adminAPI';
+import { logInteraction } from '@/lib/interactions';
 
 export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -63,6 +64,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
     const handleSaveStatus = async (newStatus) => {
         if (!newStatus || newStatus === editedJob.status) return;
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         setLoading(true);
         setError(null);
         try {
@@ -71,13 +73,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     status: newStatus,
-                    updated_by_name: editedJob.assigned_technician?.name || 'Technician',
+                    updated_by_name: techName,
+                    source: 'Technician App',
                     _changeLog: [`Status changed: ${editedJob.status} → ${newStatus}`]
                 })
             });
 
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to update status');
+
+            // Log to global interactions (client-side, fire-and-forget)
+            logInteraction({
+                type: `job-status-${newStatus.replace(/[^a-z0-9]/gi, '-')}`,
+                category: 'job',
+                jobId: String(job.id),
+                customerId: editedJob.customerId ? String(editedJob.customerId) : undefined,
+                customerName: editedJob.customerName || editedJob.customer_name,
+                description: `Status changed to "${newStatus}" by technician ${techName}`,
+                performedByName: techName,
+                source: 'Technician App',
+            });
 
             setEditedJob(prev => ({ ...prev, status: newStatus }));
             if (onJobUpdate) onJobUpdate(data.job);
@@ -139,11 +154,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     };
 
     const handleMapClick = () => {
-        // Log the interaction when the technician clicks the navigation link
-        handleAddNote({
-            description: `Technician started navigation to customer location`,
-            category: 'update',
-            attachments: []
+        logInteraction({
+            type: 'map-navigation-opened',
+            category: 'job',
+            jobId: String(job.id),
+            customerId: editedJob.customerId ? String(editedJob.customerId) : undefined,
+            customerName: editedJob.customerName || editedJob.customer_name,
+            description: `Technician opened maps navigation for job at: ${editedJob.address || editedJob.locality || 'customer location'}`,
+            source: 'Technician App',
         });
     };
 

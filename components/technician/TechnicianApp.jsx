@@ -226,22 +226,50 @@ function TechnicianApp() {
         groupedJobs[key].push(job);
     });
 
-    const handleViewLocation = (job) => {
-        const url = `https://www.google.com/maps/search/?api=1&query=${job.location.lat},${job.location.lng}`;
-        window.open(url, '_blank');
-    };
-
-    const handleCallCustomer = (mobile, customerName = 'Customer') => {
+    const handleCallCustomer = (mobile, customerName = 'Customer', jobId = null, customerId = null) => {
         logInteraction({
             type: 'call-customer',
             category: 'action',
+            jobId: jobId ? String(jobId) : undefined,
+            customerId: customerId ? String(customerId) : undefined,
             customerName: customerName,
-            description: `Technician called customer: ${customerName}`,
+            description: `Technician called customer: ${customerName} for job`,
             source: 'Technician App',
             performedBy: technicianId,
             performedByName: technicianData?.name
         });
         window.location.href = `tel:${mobile}`;
+    };
+
+    const handleOpenJob = (job) => {
+        logInteraction({
+            type: 'job-opened',
+            category: 'job',
+            jobId: String(job.id),
+            customerId: job.customerId ? String(job.customerId) : undefined,
+            customerName: job.customerName,
+            description: `Technician opened job: ${job.customerName} — ${job.category || job.product?.type || 'Service'}`,
+            source: 'Technician App',
+            performedBy: technicianId,
+            performedByName: technicianData?.name
+        });
+        setSelectedJob(job);
+    };
+
+    const handleViewLocation = (job) => {
+        logInteraction({
+            type: 'map-navigation-opened',
+            category: 'job',
+            jobId: String(job.id),
+            customerId: job.customerId ? String(job.customerId) : undefined,
+            customerName: job.customerName,
+            description: `Technician opened maps navigation for: ${job.customerName} (${job.locality || job.address || ''})`,
+            source: 'Technician App',
+            performedBy: technicianId,
+            performedByName: technicianData?.name
+        });
+        const addr = encodeURIComponent(job.address || job.locality || job.customerName);
+        window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`, '_blank');
     };
 
     // Jobs Tab Content
@@ -398,7 +426,7 @@ function TechnicianApp() {
                                                 transition: 'all var(--transition-normal)',
                                                 boxShadow: timeLeft.urgent ? '0 0 0 2px rgba(239, 68, 68, 0.1)' : 'none'
                                             }}
-                                            onClick={() => setSelectedJob(job)}
+                                            onClick={() => handleOpenJob(job)}
                                             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                                             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                                         >
@@ -483,7 +511,7 @@ function TechnicianApp() {
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        handleCallCustomer(job.mobile);
+                                                        handleCallCustomer(job.mobile, job.customerName, job.id, job.customerId);
                                                     }}
                                                     className="btn"
                                                     style={{ flex: 1, padding: '6px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', backgroundColor: '#10b981' }}
@@ -497,8 +525,18 @@ function TechnicianApp() {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setSelectedJob(job);
-                                                    // Auto-open workflow tab
+                                                    logInteraction({
+                                                        type: 'workflow-started',
+                                                        category: 'job',
+                                                        jobId: String(job.id),
+                                                        customerId: job.customerId ? String(job.customerId) : undefined,
+                                                        customerName: job.customerName,
+                                                        description: `Technician ${job.stage === 'assigned' ? 'started' : 'resumed'} workflow for job: ${job.customerName}`,
+                                                        source: 'Technician App',
+                                                        performedBy: technicianId,
+                                                        performedByName: technicianData?.name
+                                                    });
+                                                    handleOpenJob(job);
                                                     setTimeout(() => {
                                                         const workflowTab = document.querySelector('[data-tab="workflow"]');
                                                         if (workflowTab) workflowTab.click();

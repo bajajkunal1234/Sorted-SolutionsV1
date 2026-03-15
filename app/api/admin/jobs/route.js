@@ -106,10 +106,10 @@ export async function PUT(request) {
         const body = await request.json()
         const { id, _changeLog, ...updates } = body  // _changeLog is meta from the UI, not stored in DB
 
-        // Fetch current state to detect changes (e.g. technician_id)
+        // Fetch current state for diffing ALL changed fields server-side
         const { data: existing } = await supabase
             .from('jobs')
-            .select('technician_id, technician_name, status, customer_id, customer_name, job_number')
+            .select('technician_id, technician_name, status, customer_id, customer_name, job_number, priority, scheduled_date, scheduled_time, description, notes, category, subcategory, issue')
             .eq('id', id)
             .single()
 
@@ -165,25 +165,54 @@ export async function PUT(request) {
             });
         }
 
-        // 3 — Log any other field changes that the UI detected (_changeLog)
-        if (Array.isArray(_changeLog) && _changeLog.length > 0) {
-            // Only log the non-status, non-reassignment changes (already logged above)
-            const extraChanges = _changeLog.filter(
-                c => !c.startsWith('Status changed') && !c.startsWith('Technician reassigned')
-            )
-            if (extraChanges.length > 0) {
-                logInteractionServer({
-                    type: 'job-edited',
-                    category: 'job',
-                    jobId: String(id),
-                    customerId,
-                    customerName,
-                    performedByName,
-                    description: `Job #${jobRef} updated by ${performedByName}: ${extraChanges.join('; ')}`,
-                    metadata: { changes: extraChanges },
-                    source: 'Admin',
-                });
+        // 3 — Server-side diff ALL changed fields (does not rely on UI sending _changeLog)
+        const fieldLabels = {
+            priority: 'Priority',
+            scheduled_date: 'Scheduled date',
+            scheduled_time: 'Scheduled time',
+            description: 'Job description',
+            notes: 'Notes',
+            category: 'Category',
+            subcategory: 'Subcategory',
+            issue: 'Issue',
+        };
+        const serverChanges = [];
+        for (const [field, label] of Object.entries(fieldLabels)) {
+            if (updates[field] !== undefined && existing && String(updates[field] || '') !== String(existing[field] || '')) {
+                serverChanges.push(`${label} changed: "${existing[field] || '—'}" → "${updates[field] || '—'}"`);
             }
+        }
+        // Also include any UI-provided changes that aren't status/technician (they may have extra context)
+        const uiExtraChanges = Array.isArray(_changeLog)
+            ? _changeLog.filter(c => !c.startsWith('Status changed') && !c.startsWith('Technician reassigned'))
+            : [];
+        // Merge, deduplicate by prefix
+        const allExtraChanges = [
+            ...serverChanges,
+            ...uiExtraChanges.filter(u => !serverChanges.some(s => s.startsWith(u.split(':')[0])))
+        ];
+        if (allExtraChanges.length > 0) {
+            logInteractionServer({
+                type: 'job-edited',
+                category: 'job',
+                jobId: String(id),
+                customerId,
+                customerName,
+                performedByName,
+                description: `Job #${jobRef} updated by ${performedByName}: ${allExtraChanges.join('; ')}`,
+                metadata: { changes: allExtraChanges },
+                source: body.source || 'Admin',
+            });
+        }
+
+        // Also insert into job_interactions for timeline visibility
+        if (allExtraChanges.length > 0) {
+            supabase.from('job_interactions').insert([{
+                job_id: id,
+                type: 'edited',
+                message: `Updated by ${performedByName}: ${allExtraChanges.join('; ')}`,
+                user_name: performedByName,
+            }]).then(() => {}).catch(() => {});
         }
 
         // Fire notification trigger for relevant status changes (fire-and-forget)
@@ -271,12 +300,34 @@ export async function DELETE(request) {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
 
+        // Fetch job info before deleting for logging
+        const { data: job } = await supabase
+            .from('jobs')
+            .select('id, job_number, customer_id, customer_name, category, subcategory, status, technician_name')
+            .eq('id', id)
+            .single()
+
         const { error } = await supabase
             .from('jobs')
             .delete()
             .eq('id', id)
 
         if (error) throw error
+
+        // Log the deletion
+        if (job) {
+            logInteractionServer({
+                type: 'job-deleted',
+                category: 'job',
+                jobId: String(id),
+                customerId: job.customer_id ? String(job.customer_id) : null,
+                customerName: job.customer_name || null,
+                performedByName: searchParams.get('deleted_by') || 'Admin',
+                description: `Job #${job.job_number || id} deleted — ${job.category || ''} ${job.subcategory || ''} (was ${job.status})`.trim(),
+                metadata: { job_number: job.job_number, category: job.category, status: job.status, technician: job.technician_name },
+                source: 'Admin',
+            });
+        }
 
         return NextResponse.json({ success: true })
     } catch (error) {
