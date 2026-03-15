@@ -72,7 +72,7 @@ function MediaItem({ item, onChange, onRemove }) {
                 }}
                 placeholder="Paste URL — auto-detects Instagram, YouTube, etc."
             />
-            <button onClick={onRemove} style={{ padding: '6px 8px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', flexShrink: 0 }}>
+            <button type="button" onClick={onRemove} style={{ padding: '6px 8px', background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', flexShrink: 0 }}>
                 <Trash2 size={14} />
             </button>
         </div>
@@ -122,7 +122,7 @@ function FeedPostForm({ post, onSave, onCancel, saving }) {
             <div style={{ marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <label style={{ ...labelStyle, margin: 0 }}>Media — Images, Videos, GIFs, Social Posts</label>
-                    <button onClick={addMedia} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12 }}>
+                    <button type="button" onClick={addMedia} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12 }}>
                         <Plus size={13} /> Add
                     </button>
                 </div>
@@ -162,10 +162,10 @@ function FeedPostForm({ post, onSave, onCancel, saving }) {
             </div>
 
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button onClick={onCancel} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button type="button" onClick={onCancel} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <X size={14} /> Cancel
                 </button>
-                <button onClick={() => onSave(form)} disabled={saving || !form.title.trim()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button type="button" onClick={() => onSave(form)} disabled={saving || !form.title.trim()} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     {saving ? <Loader2 size={14} className="spin" /> : <Check size={14} />}
                     {post?.id ? 'Update Post' : 'Create Post'}
                 </button>
@@ -276,7 +276,7 @@ export default function CustomerAppSettings() {
                     <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>Manage banners and the feed shown in the customer app.</p>
                 </div>
                 {activeTab === 'banners' && (
-                    <button onClick={handleSaveBanners} disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button type="button" onClick={handleSaveBanners} disabled={saving} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {saving ? <Loader2 size={15} className="spin" /> : <Save size={15} />} Save Banners
                     </button>
                 )}
@@ -291,7 +291,7 @@ export default function CustomerAppSettings() {
             {/* Tabs */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', marginBottom: 24 }}>
                 {[{ id: 'banners', label: '🖼️  Banners' }, { id: 'feed', label: '📋  Feed Posts' }].map(tab => (
-                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent', color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tab.id ? 700 : 400, fontSize: 14, cursor: 'pointer' }}>{tab.label}</button>
+                    <button type="button" key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent', color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tab.id ? 700 : 400, fontSize: 14, cursor: 'pointer' }}>{tab.label}</button>
                 ))}
             </div>
 
@@ -349,7 +349,7 @@ export default function CustomerAppSettings() {
                             <h4 style={{ margin: '0 0 4px 0', fontSize: 15, fontWeight: 600 }}>Feed Posts ({posts.length})</h4>
                             <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>Newest posts appear first. Pinned posts stay at the top.</p>
                         </div>
-                        <button onClick={() => { setShowPostForm(true); setEditingPost(null); }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <button type="button" onClick={() => { setShowPostForm(true); setEditingPost(null); }} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <Plus size={15} /> New Post
                         </button>
                     </div>
@@ -394,9 +394,9 @@ export default function CustomerAppSettings() {
                                                 </div>
 
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
-                                                    <button onClick={() => setEditingPost(post)} className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Edit2 size={12} /> Edit</button>
-                                                    <button onClick={() => handleToggleActive(post)} className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }}>{post.is_active ? 'Hide' : 'Show'}</button>
-                                                    <button onClick={() => handleDeletePost(post.id)} style={{ padding: '5px 10px', fontSize: 12, background: 'transparent', border: '1px solid #ef444440', borderRadius: 6, color: '#ef4444', cursor: 'pointer' }}><Trash2 size={12} /></button>
+                                                    <button type="button" onClick={() => setEditingPost(post)} className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}><Edit2 size={12} /> Edit</button>
+                                                    <button type="button" onClick={() => handleToggleActive(post)} className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }}>{post.is_active ? 'Hide' : 'Show'}</button>
+                                                    <button type="button" onClick={() => handleDeletePost(post.id)} style={{ padding: '5px 10px', fontSize: 12, background: 'transparent', border: '1px solid #ef444440', borderRadius: 6, color: '#ef4444', cursor: 'pointer' }}><Trash2 size={12} /></button>
                                                 </div>
                                             </div>
                                         )}
