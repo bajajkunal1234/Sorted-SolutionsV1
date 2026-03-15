@@ -838,22 +838,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                         </div>
                                     )}
 
-                                    {/* Mailing Name */}
-                                    {showField('mailingName') && (
-                                        <div className="form-group">
-                                            <label className="form-label">Mailing Name</label>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                value={formData.mailingName}
-                                                onChange={(e) => setFormData({ ...formData, mailingName: e.target.value })}
-                                                placeholder="Name for correspondence"
-                                            />
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                Leave blank to use account name
-                                            </span>
-                                        </div>
-                                    )}
+
 
                                     {/* GST Registration (Optional) */}
                                     {showField('gstRegistration') && (

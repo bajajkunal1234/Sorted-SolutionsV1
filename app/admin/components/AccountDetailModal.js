@@ -492,24 +492,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                     </div>
                                 )}
 
-                                {/* Mailing Name */}
-                                {showField('mailingName') && (
-                                    <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
-                                        <label className="form-label">Mailing Name</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            value={editedAccount.mailingName}
-                                            onChange={(e) => setEditedAccount({ ...editedAccount, mailingName: e.target.value })}
-                                            disabled={!isEditing}
-                                            placeholder="Name for correspondence"
-                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
-                                        />
-                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                            Leave blank to use account name
-                                        </span>
-                                    </div>
-                                )}
+
 
                                 {/* Opening Balance */}
                                 <div className="form-grid" style={{ gridTemplateColumns: '2fr 1fr 2fr', marginTop: 'var(--spacing-md)' }}>
