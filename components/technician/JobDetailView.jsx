@@ -179,6 +179,104 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         }
     };
 
+    const handleEditNote = async (editedNote, editInteractionData) => {
+        setIsAddingNote(true);
+        // Get author name
+        const storedTech = localStorage.getItem('technicianData');
+        let techName = 'Technician';
+        if (storedTech) {
+            try { techName = JSON.parse(storedTech).name || techName; } catch(e){}
+        } else if (editedJob.assigned_technician?.name) {
+            techName = editedJob.assigned_technician.name;
+        } else if (editedJob.technician_name) {
+            techName = editedJob.technician_name;
+        }
+
+        try {
+            // 1. Upload new attachments if any
+            const uploadedUrls = [];
+            if (editedNote.attachments && editedNote.attachments.length > 0) {
+                for (const att of editedNote.attachments) {
+                    if (att.file) {
+                        const formData = new FormData();
+                        formData.append('file', att.file);
+                        const uploadRes = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const uploadData = await uploadRes.json();
+                        if (uploadData.success) {
+                            uploadedUrls.push(uploadData.url);
+                        }
+                    } else if (att.url && !att.url.startsWith('blob:')) {
+                        uploadedUrls.push(att.url);
+                    }
+                }
+            }
+
+            // 2. Patch the original note
+            const patchRes = await fetch('/api/admin/interactions', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editedNote.id,
+                    description: editedNote.description,
+                    metadata: { ...editedNote.metadata, attachments: uploadedUrls }
+                })
+            });
+            const patchData = await patchRes.json();
+            if (!patchRes.ok || !patchData.success) {
+                throw new Error(patchData.error || 'Failed to update note');
+            }
+
+            // 3. Insert the edit interaction history log
+            const interactionPayload = {
+                job_id: editedJob.id,
+                customer_id: editedJob.customerId || editedJob.customer_id || null,
+                type: 'note-edited',
+                category: editInteractionData.category || 'communication',
+                description: editInteractionData.description,
+                performed_by_name: techName,
+                source: 'Technician App',
+                timestamp: new Date().toISOString(),
+                metadata: editInteractionData.metadata,
+            };
+
+            const postRes = await fetch('/api/admin/interactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(interactionPayload),
+            });
+            const postData = await postRes.json();
+            
+            if (!postRes.ok || !postData.success) {
+                console.error("Failed to log edit interaction history:", postData.error);
+                // We don't throw here because the main action (editing the note) succeeded
+            }
+
+            // 4. Update UI state directly by mapping and prepend new history log
+            setEditedJob(prev => {
+                const prevInts = prev.interactions || [];
+                const updatedInts = prevInts.map(int => 
+                    int.id === editedNote.id ? { ...int, description: patchData.data.description, metadata: patchData.data.metadata } : int
+                );
+                
+                // If the post succeeded, prepend it
+                if (postData.success) {
+                    return { ...prev, interactions: [postData.data, ...updatedInts] };
+                }
+                
+                return { ...prev, interactions: updatedInts };
+            });
+
+        } catch (err) {
+            console.error('Failed to edit note:', err);
+            alert(`Failed to edit note: ${err.message}`);
+        } finally {
+            setIsAddingNote(false);
+        }
+    };
+
     const handleFormSave = async (data) => {
         try {
             const type = activeForm === 'quotation' ? 'quotation' : 'sales';
@@ -347,19 +445,33 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         </div>
                     )}
 
-                    {activeTab === 'interactions' && (
-                        <div className="card" style={{ minHeight: '100%', boxSizing: 'border-box' }}>
-                             {/* Re-use the Admin interactions tab component, it's perfect for this */}
-                             <JobInteractionsTab 
-                                jobId={editedJob.id}
-                                jobReference={editedJob.job_number}
-                                interactions={editedJob.interactions || []}
-                                onAddNote={handleAddNote}
-                                onUpdate={() => {}} // Not strictly needed, local state updates handle it
-                                isSubmitting={isAddingNote}
-                             />
-                        </div>
-                    )}
+                    {activeTab === 'interactions' && (() => {
+                        const storedTech = localStorage.getItem('technicianData');
+                        let techName = 'Technician';
+                        if (storedTech) {
+                            try { techName = JSON.parse(storedTech).name || techName; } catch(e){}
+                        } else if (editedJob.assigned_technician?.name) {
+                            techName = editedJob.assigned_technician.name;
+                        } else if (editedJob.technician_name) {
+                            techName = editedJob.technician_name;
+                        }
+                        
+                        return (
+                            <div className="card" style={{ minHeight: '100%', boxSizing: 'border-box' }}>
+                                 {/* Re-use the Admin interactions tab component, it's perfect for this */}
+                                 <JobInteractionsTab 
+                                    jobId={editedJob.id}
+                                    jobReference={editedJob.job_number}
+                                    interactions={editedJob.interactions || []}
+                                    onAddNote={handleAddNote}
+                                    onEditNote={handleEditNote}
+                                    onUpdate={() => {}} // Not strictly needed, local state updates handle it
+                                    isSubmitting={isAddingNote}
+                                    currentUserName={techName}
+                                 />
+                            </div>
+                        );
+                    })()}
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>

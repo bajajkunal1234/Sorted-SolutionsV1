@@ -8,7 +8,7 @@ import QuotationForm from '../accounts/QuotationForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 
-function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate, isSubmitting = false }) {
+function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate, isSubmitting = false, currentUserName = '' }) {
     const [showNoteForm, setShowNoteForm] = useState(false);
     const [noteText, setNoteText] = useState('');
     const [attachments, setAttachments] = useState([]);
@@ -187,7 +187,15 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
 
     // Check if interaction is an editable note
     const isEditableNote = (interaction) => {
-        return interaction.type === 'note-added' && interaction.editable;
+        if (interaction.type !== 'note-added' || !interaction.editable) return false;
+        
+        // If currentUserName is provided, only allow editing if names match
+        if (currentUserName) {
+            const author = interaction.performed_by_name || interaction.user_name || interaction.performedByName;
+            return author === currentUserName;
+        }
+        
+        return true; // Fallback for admin context where everyone might edit
     };
 
     // Get form type from interaction type
