@@ -105,19 +105,51 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     };
 
     const handleAddNote = async (note) => {
-        const techName = editedJob.assigned_technician?.name || 'Technician';
+        // Read name from local storage or passed technician data
+        const storedTech = localStorage.getItem('technicianData');
+        let techName = 'Technician';
+        if (storedTech) {
+            try { techName = JSON.parse(storedTech).name || techName; } catch(e){}
+        } else if (editedJob.assigned_technician?.name) {
+            techName = editedJob.assigned_technician.name;
+        } else if (editedJob.technician_name) {
+            techName = editedJob.technician_name;
+        }
+
         try {
-            // Use the same admin interactions endpoint used everywhere else in the app
+            // 1. Upload attachments first if any exist
+            const uploadedUrls = [];
+            if (note.attachments && note.attachments.length > 0) {
+                for (const att of note.attachments) {
+                    if (att.file) {
+                        const formData = new FormData();
+                        formData.append('file', att.file);
+                        const uploadRes = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const uploadData = await uploadRes.json();
+                        if (uploadData.success) {
+                            uploadedUrls.push(uploadData.url);
+                        }
+                    } else if (att.url && !att.url.startsWith('blob:')) {
+                        // Already uploaded URL
+                        uploadedUrls.push(att.url);
+                    }
+                }
+            }
+
+            // 2. Save the interaction
             const payload = {
                 job_id: editedJob.id,
                 customer_id: editedJob.customerId || editedJob.customer_id || null,
                 type: 'note-added',
                 category: note.category || 'communication',
                 description: note.description,
-                performed_by_name: techName,
+                performed_by_name: techName, // Ensures the By: field isn't generic
                 source: 'Technician App',
                 timestamp: new Date().toISOString(),
-                metadata: { attachments: note.attachments || [] },
+                metadata: { attachments: uploadedUrls },
             };
 
             const res = await fetch('/api/admin/interactions', {
@@ -132,7 +164,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 throw new Error(data.error || `Server error ${res.status}`);
             }
 
-            // Prepend to local interactions list
+            // 3. Prepend to local interactions list
             setEditedJob(prev => ({
                 ...prev,
                 interactions: [data.data, ...(prev.interactions || [])]

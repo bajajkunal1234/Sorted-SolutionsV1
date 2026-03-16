@@ -88,8 +88,9 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
             attachments: attachments.map((file, index) => ({
                 id: `ATT-${Date.now()}-${index}`,
                 name: file.name,
-                url: URL.createObjectURL(file),
-                type: file.type.startsWith('image/') ? 'image' : 'document'
+                url: URL.createObjectURL(file), // Local preview
+                type: file.type.startsWith('image/') ? 'image' : 'document',
+                file: file // <--- Pass the raw file for uploading
             })),
             source: 'Admin Panel',
             status: 'completed',
