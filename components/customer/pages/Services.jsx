@@ -96,13 +96,14 @@ export default function ServicesPage() {
                 <button
                     onClick={() => setShowServiceModal(true)}
                     style={{
-                        width: 44, height: 44, borderRadius: 16,
+                        height: 44, padding: '0 16px', borderRadius: 16,
                         background: 'linear-gradient(135deg, #38bdf8, #3b82f6)',
-                        border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 8px 20px rgba(56,189,248,0.3)', cursor: 'pointer', transition: 'transform 0.2s'
+                        border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', gap: 6,
+                        boxShadow: '0 8px 20px rgba(56,189,248,0.3)', cursor: 'pointer', transition: 'transform 0.2s',
+                        fontSize: 14, fontWeight: 700, whiteSpace: 'nowrap',
                     }}
                 >
-                    <Plus size={22} strokeWidth={2.5} />
+                    <Plus size={18} strokeWidth={2.5} /> New Service Request
                 </button>
             </header>
 

@@ -65,6 +65,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
     const [brands, setBrands] = useState([])            // booking_brands
     const [allIssues, setAllIssues] = useState([])     // flat list of all issues
     const [slots, setSlots] = useState([])             // booking-slots, active only
+    const [customerProperties, setCustomerProperties] = useState([]) // customer's linked properties
     const [settingsLoading, setSettingsLoading] = useState(true)
 
     useEffect(() => {
@@ -75,14 +76,17 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
     const loadSettings = async () => {
         setSettingsLoading(true)
         try {
-            const [bookingRes, brandsRes, slotsRes] = await Promise.all([
+            const customerId = localStorage.getItem('customerId')
+            const [bookingRes, brandsRes, slotsRes, propsRes] = await Promise.all([
                 fetch('/api/settings/quick-booking'),
                 fetch('/api/settings/booking-brands'),
                 fetch('/api/settings/booking-slots'),
+                customerId ? fetch(`/api/customer/properties?customer_id=${customerId}`) : Promise.resolve(null),
             ])
             const [bookingData, brandsData, slotsData] = await Promise.all([
                 bookingRes.json(), brandsRes.json(), slotsRes.json(),
             ])
+            const propsData = propsRes ? await propsRes.json() : null
 
             const cats = bookingData.success ? (bookingData.data?.categories || []) : []
             setAppliances(cats.filter(c => c.showOnBookingForm !== false))
@@ -105,6 +109,10 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
 
             const activeSlots = (slotsData.data || []).filter(s => s.active !== false)
             setSlots(activeSlots)
+
+            if (propsData?.success) {
+                setCustomerProperties(propsData.properties || [])
+            }
         } catch (err) {
             console.error('Failed to load booking settings:', err)
         } finally {
@@ -269,15 +277,15 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                             <select style={S.select} value={form.propertyId}
                                 onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))}>
                                 <option value="">Select your property</option>
-                                {properties.map(p => (
+                                {customerProperties.map(p => (
                                     <option key={p.id} value={p.id}>
-                                        {p.name || p.address} {p.pincode ? `— ${p.pincode}` : ''}
+                                        {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}{p.locality ? ` — ${p.locality}` : ''}{p.pincode ? ` ${p.pincode}` : ''}
                                     </option>
                                 ))}
                             </select>
-                            {properties.length === 0 && (
-                                <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 4 }}>
-                                    ⚠ Add a property first from the Home tab
+                            {customerProperties.length === 0 && (
+                                <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 6 }}>
+                                    ⚠ No properties saved. Go to Profile → My Properties to add one first.
                                 </p>
                             )}
                         </div>
