@@ -342,7 +342,17 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const handleFormClose = () => { setActiveForm(null); setSelectedTransaction(null); };
 
     const handleUpdateAccount = async (updatedAccount) => {
-        if (updatedAccount === 'deleted') { setLedgers(prev => prev.filter(l => l.id !== selectedAccount.id)); return; }
+        if (updatedAccount === 'deleted') {
+            // Re-fetch from server instead of optimistic filter to avoid ghost accounts
+            try {
+                const data = await accountsAPI.getAll();
+                setLedgers(data || []);
+            } catch (e) {
+                // Fallback to optimistic remove if fetch fails
+                setLedgers(prev => prev.filter(l => l.id !== selectedAccount.id));
+            }
+            return;
+        }
         try {
             const result = await accountsAPI.update(updatedAccount.id, updatedAccount);
             setLedgers(prev => prev.map(l => l.id === result.id ? result : l));

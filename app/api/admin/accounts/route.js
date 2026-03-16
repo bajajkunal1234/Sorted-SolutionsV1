@@ -46,6 +46,32 @@ export async function POST(request) {
     try {
         const body = await request.json()
 
+        // ── Generate SKU server-side to prevent client race conditions ──────────
+        if (!body.sku || body.sku === '') {
+            // Determine prefix from under/type
+            let prefix = 'A'
+            const under = (body.under || '').toLowerCase()
+            const type  = (body.type  || '').toLowerCase()
+            if (under.includes('customer') || under.includes('debtor') || type === 'customer') prefix = 'C'
+            else if (under.includes('supplier') || under.includes('creditor') || type === 'supplier') prefix = 'S'
+            else if (under.includes('bank')) prefix = 'B'
+            else if (under.includes('fixed')) prefix = 'FA'
+            else if (under.includes('technician') || type === 'technician') prefix = 'T'
+
+            // Find max existing SKU number with this prefix
+            const { data: existing } = await supabase
+                .from('accounts')
+                .select('sku')
+                .like('sku', `${prefix}%`)
+            
+            const maxNum = (existing || []).reduce((max, acc) => {
+                const n = parseInt((acc.sku || '').replace(prefix, '')) || 0
+                return n > max ? n : max
+            }, 100)
+
+            body.sku = `${prefix}${maxNum + 1}`
+        }
+
         const { data, error } = await supabase
             .from('accounts')
             .insert([body])
@@ -89,8 +115,8 @@ export async function POST(request) {
             category: 'account',
             customerId: data.id,
             customerName: data.name,
-            performedByName: 'Admin', // Would come from auth context in a real app
-            description: `Admin created a new ${body.type} account named ${body.name}`,
+            performedByName: 'Admin',
+            description: `Admin created a new ${body.type} account named ${body.name} (SKU: ${data.sku})`,
             source: 'Admin App'
         });
 
