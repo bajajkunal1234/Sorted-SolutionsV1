@@ -112,7 +112,7 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
     };
 
     // Handle save edited note
-    const handleSaveEditedNote = () => {
+    const handleSaveEditedNote = async () => {
         if (!noteText.trim()) return;
 
         const editedNote = {
@@ -150,11 +150,16 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
             status: 'completed'
         };
 
-        onEditNote(editedNote, editInteraction);
-        setNoteText('');
-        setAttachments([]);
-        setEditingNote(null);
-        setShowNoteForm(false);
+        try {
+            await onEditNote(editedNote, editInteraction);
+            setNoteText('');
+            setAttachments([]);
+            setEditingNote(null);
+            setShowNoteForm(false);
+        } catch (error) {
+            console.error("Failed to save edited note:", error);
+            alert("Failed to save edited note: " + error.message);
+        }
     };
 
     // Handle cancel
