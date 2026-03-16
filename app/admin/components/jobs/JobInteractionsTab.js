@@ -64,22 +64,12 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
 
     // Format timestamp
     const formatTimestamp = (timestamp) => {
+        if (!timestamp) return '';
         const date = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-        if (diffHours < 1) {
-            const diffMins = Math.floor(diffMs / (1000 * 60));
-            return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
-        } else if (diffHours < 24) {
-            return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-        } else if (diffDays < 7) {
-            return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-        } else {
-            return date.toLocaleDateString('en-GB', { month: 'short', day: 'numeric', year: 'numeric' });
-        }
+        return date.toLocaleDateString('en-GB', { 
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true 
+        });
     };
 
     // Handle save note
@@ -365,29 +355,28 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                                 </p>
 
                                 {/* Attachments */}
-                                {interaction.attachments && interaction.attachments.length > 0 && (
+                                {interaction.metadata?.attachments && interaction.metadata.attachments.length > 0 && (
                                     <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap', marginBottom: 'var(--spacing-sm)' }}>
-                                        {interaction.attachments.map((att) => (
+                                        {interaction.metadata.attachments.map((url, i) => (
                                             <a
-                                                key={att.id}
-                                                href={att.url}
+                                                key={i}
+                                                href={url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 style={{
                                                     display: 'flex',
                                                     alignItems: 'center',
-                                                    gap: '4px',
-                                                    padding: '4px 8px',
+                                                    justifyContent: 'center',
+                                                    width: '60px',
+                                                    height: '60px',
                                                     backgroundColor: 'var(--bg-secondary)',
                                                     borderRadius: 'var(--radius-sm)',
-                                                    fontSize: 'var(--font-size-xs)',
                                                     textDecoration: 'none',
-                                                    color: 'var(--text-primary)',
+                                                    overflow: 'hidden',
                                                     border: '1px solid var(--border-primary)'
                                                 }}
                                             >
-                                                <Paperclip size={12} />
-                                                {att.name}
+                                                <img src={url} alt="Attachment" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                             </a>
                                         ))}
                                     </div>
@@ -396,7 +385,7 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                                 {/* Footer with User and Edit Buttons */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                                     <div>
-                                        By: <span style={{ fontWeight: 500 }}>{interaction.performedByName}</span>
+                                        By: <span style={{ fontWeight: 500 }}>{interaction.performed_by_name || interaction.user_name || interaction.performedByName || 'Unknown'}</span>
                                     </div>
                                     <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                                         {/* Edit Note Button */}
