@@ -12,6 +12,14 @@ export const metadata = {
     },
 }
 
+// ── Mobile viewport — prevents zoom/horizontal scroll on all devices ────────
+export const viewport = {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,   // still allows pinch-zoom for accessibility
+    userScalable: true,
+}
+
 export default function RootLayout({ children }) {
     return (
         <html lang="en" suppressHydrationWarning>
@@ -39,7 +47,7 @@ export default function RootLayout({ children }) {
                     <GoogleTagsProvider />
                 </Suspense>
             </head>
-            <body>
+            <body style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
                 {children}
                 {/* Global no-code click tracker — auto-fires triggers configured in Admin > Interactions > Triggers */}
                 <ClickTracker />
