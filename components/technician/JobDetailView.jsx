@@ -105,33 +105,34 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     };
 
     const handleAddNote = async (note) => {
+        const techName = editedJob.assigned_technician?.name || 'Technician';
         try {
+            // Use the same admin interactions endpoint used everywhere else in the app
             const payload = {
+                job_id: editedJob.id,
+                customer_id: editedJob.customerId || editedJob.customer_id || null,
                 type: 'note-added',
                 category: note.category || 'communication',
                 description: note.description,
-                user_name: editedJob.assigned_technician?.name || 'Technician',
-                customer_id: editedJob.customerId,
-                // ── Images must go inside metadata so the API stores them ──
-                metadata: {
-                    attachments: note.attachments || [],
-                }
+                performed_by_name: techName,
+                source: 'Technician App',
+                timestamp: new Date().toISOString(),
+                metadata: { attachments: note.attachments || [] },
             };
 
-            const res = await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+            const res = await fetch('/api/admin/interactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
-            // Always parse the body regardless of status so we get the error message
             const data = await res.json();
 
             if (!res.ok || !data.success) {
-                throw new Error(data.error || data.message || `Server error ${res.status}`);
+                throw new Error(data.error || `Server error ${res.status}`);
             }
 
-            // Optimistically prepend the new interaction to the list
+            // Prepend to local interactions list
             setEditedJob(prev => ({
                 ...prev,
                 interactions: [data.data, ...(prev.interactions || [])]

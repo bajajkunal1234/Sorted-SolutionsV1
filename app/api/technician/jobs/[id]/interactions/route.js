@@ -40,7 +40,7 @@ export async function POST(request, { params }) {
 
         const interactionPayload = {
             job_id: jobId,
-            customer_id: body.customer_id || null, // Optional, can be supplied from frontend
+            customer_id: body.customer_id || null,
             type: body.type || 'note-added',
             category: body.category || 'communication',
             description: body.description,
@@ -50,19 +50,36 @@ export async function POST(request, { params }) {
             timestamp: new Date().toISOString()
         };
 
-        const { data, error } = await supabase
+        let result = await supabase
             .from('interactions')
             .insert([interactionPayload])
             .select()
             .single();
 
-        if (error) throw error;
+        // If metadata column doesn't exist, retry without it
+        if (result.error?.message?.includes('metadata') || result.error?.code === '42703') {
+            console.warn('metadata column not found, retrying without it');
+            const { metadata: _dropped, ...payloadWithoutMeta } = interactionPayload;
+            result = await supabase
+                .from('interactions')
+                .insert([payloadWithoutMeta])
+                .select()
+                .single();
+        }
 
-        return NextResponse.json({ success: true, data });
+        if (result.error) {
+            console.error('Supabase insert error:', result.error);
+            return NextResponse.json(
+                { success: false, error: result.error.message || 'Failed to save interaction' },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({ success: true, data: result.data });
     } catch (error) {
         console.error('Error creating job interaction:', error);
         return NextResponse.json(
-            { success: false, error: 'Failed to save interaction' },
+            { success: false, error: error.message || 'Failed to save interaction' },
             { status: 500 }
         );
     }
