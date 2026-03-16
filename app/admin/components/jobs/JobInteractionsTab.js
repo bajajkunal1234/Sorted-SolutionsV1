@@ -187,7 +187,7 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
 
     // Check if interaction is an editable note
     const isEditableNote = (interaction) => {
-        if (interaction.type !== 'note-added' || !interaction.editable) return false;
+        if (interaction.type !== 'note-added') return false;
         
         // If currentUserName is provided, only allow editing if names match
         if (currentUserName) {
