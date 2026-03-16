@@ -173,7 +173,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 if (result.status === 'rejected') {
                     const ledger = activeTab === 'accounts' ? ledgers.find(l => l.id === ids[i]) : null;
                     const name = ledger?.name || ids[i];
-                    failed.push({ name, error: result.reason?.message || 'Unknown error' });
+                    failed.push({
+                        name,
+                        error: result.reason?.message || 'Unknown error',
+                        blocking: result.reason?.blocking || null,  // rich dependency info
+                    });
                 }
             });
 
@@ -197,23 +201,21 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 alert(`✅ ${count} item(s) deleted successfully.`);
             } else {
                 const successCount = count - failed.length;
-            const failLines = failed.map(f => {
-                    // Try to parse structured dependency data from the error message
-                    // API sends e.g. "Cannot delete — this account has active dependencies:\n\n• Customer Profile (1)..."
-                    const depMatch = f.error.match(/dependencies[^:]*:([\s\S]*)/i);
-                    if (depMatch) {
-                        // Extract "Type (N)" pairs and reformat as clean summary
-                        const pairs = [...depMatch[1].matchAll(/•\s*([^(]+)\((\d+)\)/g)];
-                        const summary = pairs.length > 0
-                            ? pairs.map(m => `${m[2]} ${m[1].trim()}`).join(', ')
-                            : 'has active dependencies';
-                        return `\n• ${f.name}: ${summary}`;
+                const failLines = failed.map(f => {
+                    if (f.blocking && f.blocking.length > 0) {
+                        // Rich structured dependency info from API
+                        const depLines = f.blocking.map(b => {
+                            const records = b.records?.join(', ') || '';
+                            const action = b.action ? `\n     → ${b.action}` : '';
+                            return `  • ${b.type} (${b.records?.length || 0}): ${records}${action}`;
+                        }).join('\n');
+                        return `\n❌ "${f.name}" cannot be deleted — clear these first:\n${depLines}`;
                     }
-                    return `\n• ${f.name}: ${f.error}`;
-                }).join('');
+                    return `\n❌ "${f.name}": ${f.error}`;
+                }).join('\n');
                 alert(
                     `${successCount > 0 ? `✅ ${successCount} deleted.\n` : ''}` +
-                    `❌ ${failed.length} could not be deleted:\n${failLines}`
+                    failLines
                 );
             }
         } catch (err) {
