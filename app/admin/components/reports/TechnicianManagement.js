@@ -63,9 +63,21 @@ function TechnicianManagement() {
 
             setTechnicians(techsData || []);
             setAllPermissions(permsData?.value || {});
-            // accountsAPI.getAll() returns the data array directly via apiFetch
-            setTechnicianAccounts(accountsData || []);
+            const allAccounts = accountsData || [];
+            setTechnicianAccounts(allAccounts);
             setGroups(groupsData || []);
+
+            // ── Only show technicians that are linked to a proper 'technician'-type account ──
+            // This prevents "Demo", "Test", or leftover rows from showing up
+            const technicianTypeAccountIds = new Set(
+                allAccounts
+                    .filter(a => a.type === 'technician')
+                    .map(a => a.id)
+            );
+            const filtered = (techsData || []).filter(t =>
+                !t.ledger_id || technicianTypeAccountIds.has(t.ledger_id)
+            );
+            setTechnicians(filtered);
         } catch (err) {
             console.error('Error fetching data:', err);
         } finally {
@@ -367,18 +379,10 @@ function TechnicianManagement() {
                                                     <optgroup label="Setup Credentials for Ledger Accounts">
                                                         {technicianAccounts
                                                             .filter(acc => {
-                                                                // Filter: Account is not already a technician, and is either:
-                                                                // 1. Explicitly type 'technician'
-                                                                // 2. OR under 'sundry-creditors' or 'supplier-accounts' or 'technicians' group
+                                                                // Only accounts explicitly created as 'technician' type
                                                                 const isAlreadyTech = technicians.some(t => t.ledger_id === acc.id);
                                                                 if (isAlreadyTech) return false;
-
-                                                                if (acc.type === 'technician') return true;
-
-                                                                // Check if it's under a relevant group (Sundry Creditors)
-                                                                const relevantGroups = ['sundry-creditors', 'supplier-accounts', 'technicians'];
-                                                                return relevantGroups.includes(acc.under) ||
-                                                                    acc.type === 'liability'; // Fallback to any liability nature account
+                                                                return acc.type === 'technician';
                                                             })
                                                             .map(acc => (
                                                                 <option key={acc.id} value={acc.id}>
