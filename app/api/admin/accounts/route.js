@@ -109,14 +109,23 @@ export async function POST(request) {
             }, { onConflict: 'ledger_id' });
         }
 
-        // Global logging
+        // ── Rich creation log ──────────────────────────────────────────────
+        const creationDetails = [
+            `SKU: ${data.sku}`,
+            `Type: ${body.type || 'N/A'}`,
+            body.mobile   ? `Phone: ${body.mobile}`   : null,
+            body.email    ? `Email: ${body.email}`     : null,
+            body.gstin    ? `GSTIN: ${body.gstin}`     : null,
+            body.status   ? `Status: ${body.status}`   : null,
+        ].filter(Boolean).join(' · ');
+
         logInteractionServer({
             type: 'account-created',
             category: 'account',
             customerId: data.id,
             customerName: data.name,
             performedByName: 'Admin',
-            description: `Admin created a new ${body.type} account named ${body.name} (SKU: ${data.sku})`,
+            description: `Account created — ${data.name} · ${creationDetails}`,
             source: 'Admin App'
         });
 
@@ -131,6 +140,13 @@ export async function PUT(request) {
     try {
         const body = await request.json()
         const { id, ...updates } = body
+
+        // Fetch the current state BEFORE updating so we can diff it
+        const { data: before } = await supabase
+            .from('accounts')
+            .select('*')
+            .eq('id', id)
+            .single()
 
         const { data, error } = await supabase
             .from('accounts')
@@ -170,14 +186,49 @@ export async function PUT(request) {
             }, { onConflict: 'ledger_id' });
         }
 
-        // Global logging for updates
+        // ── Build a per-field diff log ─────────────────────────────────────
+        const TRACKED_FIELDS = {
+            name:            'Name',
+            mobile:          'Phone',
+            email:           'Email',
+            status:          'Status',
+            type:            'Type',
+            gstin:           'GSTIN',
+            pan:             'PAN',
+            credit_limit:    'Credit Limit',
+            credit_period:   'Credit Period',
+            opening_balance: 'Opening Balance',
+            balance_type:    'Balance Type',
+            under:           'Group',
+            mailing_address: 'Address',
+        };
+
+        const changed = [];
+        if (before) {
+            Object.entries(TRACKED_FIELDS).forEach(([field, label]) => {
+                const oldVal = before[field];
+                const newVal = updates[field];
+                if (newVal !== undefined) {
+                    const oldStr = typeof oldVal === 'object' ? JSON.stringify(oldVal) : String(oldVal ?? '');
+                    const newStr = typeof newVal === 'object' ? JSON.stringify(newVal) : String(newVal ?? '');
+                    if (oldStr !== newStr) {
+                        changed.push(`${label}: "${oldStr}" → "${newStr}"`);
+                    }
+                }
+            });
+        }
+
+        const diffSummary = changed.length > 0
+            ? `Changed: ${changed.join(' | ')}`
+            : 'No tracked fields changed (internal fields updated)';
+
         logInteractionServer({
-            type: 'account-updated',
+            type: 'account-edited',
             category: 'account',
             customerId: id,
             customerName: data.name,
-            performedByName: 'Admin', // Would come from auth context in a real app
-            description: `Admin updated ${data.type} account details for ${data.name}`,
+            performedByName: 'Admin',
+            description: `Account edited — ${data.name} (${data.sku || ''}) · ${diffSummary}`,
             source: 'Admin App'
         });
 
@@ -279,12 +330,23 @@ export async function DELETE(request) {
             }, { status: 400 })
         }
 
-        // No dependencies — safe to delete
+        // No dependencies — safe to delete. Capture account details BEFORE deletion.
         const { data: accountToDelete } = await supabase
             .from('accounts')
-            .select('mobile, type')
+            .select('name, sku, mobile, type, email')
             .eq('id', id)
             .single()
+
+        // ── Log deletion BEFORE removing the record ────────────────────────
+        logInteractionServer({
+            type: 'account-deleted',
+            category: 'account',
+            customerId: id,
+            customerName: accountToDelete?.name || id,
+            performedByName: 'Admin',
+            description: `Account deleted — ${accountToDelete?.name || 'Unknown'} (SKU: ${accountToDelete?.sku || 'N/A'}, Type: ${accountToDelete?.type || 'N/A'}${accountToDelete?.mobile ? `, Phone: ${accountToDelete.mobile}` : ''})`,
+            source: 'Admin App'
+        });
 
         const { error } = await supabase
             .from('accounts')

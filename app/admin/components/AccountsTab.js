@@ -136,6 +136,25 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const handleCreateClick = () => { setSelectedTransaction(null); setActiveForm(tabConfig[activeTab].formType); };
     const handleTransactionClick = (transaction) => { setSelectedTransaction(transaction); setActiveForm(tabConfig[activeTab].formType); };
 
+    // Opens an account detail modal and logs the view interaction
+    const handleOpenAccount = (account) => {
+        setSelectedAccount(account);
+        // Fire-and-forget view log
+        fetch('/api/admin/interactions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'account-viewed',
+                category: 'account',
+                customerId: account.id,
+                customerName: account.name,
+                performedByName: 'Admin',
+                description: `Admin opened account record — ${account.name} (SKU: ${account.sku || 'N/A'})`,
+                source: 'Admin App',
+            }),
+        }).catch(() => {}); // silent — never block the UI for a log call
+    };
+
     // Multi-select helpers
     const toggleItem = (id, e) => {
         e.stopPropagation();
@@ -383,21 +402,21 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             const allSelected = filteredLedgers.length > 0 && selectedItems.size === filteredLedgers.length;
             return (
                 <div style={{ flex: 1, overflow: 'auto' }}>
-                    {viewType === 'card' && <AccountsCardView accounts={filteredLedgers} onAccountClick={setSelectedAccount} />}
-                    {viewType === 'kanban' && <AccountsKanbanView accounts={filteredLedgers} onAccountClick={setSelectedAccount} onAccountUpdate={handleUpdateAccount} />}
-                    {viewType === 'details' && <AccountsDetailsView accounts={filteredLedgers} onAccountClick={setSelectedAccount} />}
+                    {viewType === 'card' && <AccountsCardView accounts={filteredLedgers} onAccountClick={handleOpenAccount} />}
+                    {viewType === 'kanban' && <AccountsKanbanView accounts={filteredLedgers} onAccountClick={handleOpenAccount} onAccountUpdate={handleUpdateAccount} />}
+                    {viewType === 'details' && <AccountsDetailsView accounts={filteredLedgers} onAccountClick={handleOpenAccount} />}
                     {viewType === 'table' && (() => {
                         const activeCols = ACCOUNT_COLUMNS.filter(c => visibleColumns.has(c.id));
                         const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || '—';
                         const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
                         const renderCell = (col, ledger) => {
                             switch (col.id) {
-                                case 'sku':             return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || '—'}</td>;
-                                case 'type':            return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={tdBase}><span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)' }}>{ledger.type}</span></td>;
-                                case 'group':           return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{getGroupName(ledger.under)}</td>;
-                                case 'opening_balance': return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(ledger.opening_balance || ledger.openingBalance || 0)}</td>;
-                                case 'closing_balance': return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ledger.closing_balance || ledger.closingBalance || 0)}</td>;
-                                case 'jobs':            return <td key={col.id} onClick={() => setSelectedAccount(ledger)} style={{ ...tdBase, textAlign: 'center' }}>{ledger.jobs_done || ledger.jobsDone || 0}</td>;
+                                case 'sku':             return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || '—'}</td>;
+                                case 'type':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={tdBase}><span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)' }}>{ledger.type}</span></td>;
+                                case 'group':           return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{getGroupName(ledger.under)}</td>;
+                                case 'opening_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(ledger.opening_balance || ledger.openingBalance || 0)}</td>;
+                                case 'closing_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ledger.closing_balance || ledger.closingBalance || 0)}</td>;
+                                case 'jobs':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'center' }}>{ledger.jobs_done || ledger.jobsDone || 0}</td>;
                                 case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || '—'}</td>;
                                 case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || '—'}</td>;
                                 case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || '—'}</td>;
