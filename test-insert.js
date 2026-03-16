@@ -1,38 +1,35 @@
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/"/g, '');
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY.replace(/"/g, '');
+const supabase = createClient(url, key);
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-async function test() {
-    console.log('Fetching groups...');
-    const { data: cGroup, error: grpErr } = await supabase
-        .from('account_groups')
-        .select('id, name')
-        .ilike('name', 'Customers')
-        .limit(1)
-        .maybeSingle();
-        
-    console.log('Group mapping:', cGroup, grpErr);
+async function run() {
+    // 1. Get a valid account ID and job ID
+    const { data: accounts } = await supabase.from('accounts').select('id').limit(1);
+    const validAccountId = accounts[0].id;
     
-    // Simulate what the API is doing
+    const { data: jobs } = await supabase.from('jobs').select('id').limit(1);
+    const validJobId = jobs[0].id;
+    
+    console.log("Testing with Account:", validAccountId, "Job:", validJobId);
+    
+    // 2. Try inserting an interaction using this account ID
     const payload = {
-        name: 'Test Customer',
-        sku: 'C999',
-        mobile: '9999999999',
-        type: 'customer',
-        under: cGroup ? cGroup.id : null, 
-        opening_balance: 0,
-        balance_type: 'debit',
-        created_at: new Date().toISOString(),
+        job_id: validJobId,
+        customer_id: validAccountId,
+        type: 'test-insert',
+        category: 'communication',
+        description: 'Testing FK constraint',
+        timestamp: new Date().toISOString(),
+        source: 'Script'
     };
     
-    console.log('Inserting payload:', payload);
-    const { data, error } = await supabase
-        .from('accounts')
-        .insert(payload)
-        .select('id');
+    const { data: insertData, error: insertError } = await supabase
+        .from('interactions')
+        .insert(payload);
         
-    console.log('Result:', { data, error });
+    console.log("Insert Result:", insertError ? insertError.message : "Success");
 }
+run();
 
-test();

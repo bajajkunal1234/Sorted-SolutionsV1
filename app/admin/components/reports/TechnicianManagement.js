@@ -64,18 +64,34 @@ function TechnicianManagement() {
             setTechnicians(techsData || []);
             setAllPermissions(permsData?.value || {});
             const allAccounts = accountsData || [];
-            setTechnicianAccounts(allAccounts);
             setGroups(groupsData || []);
 
-            // ── Only show technicians that are linked to a proper 'technician'-type account ──
-            // This prevents "Demo", "Test", or leftover rows from showing up
-            const technicianTypeAccountIds = new Set(
-                allAccounts
-                    .filter(a => a.type === 'technician')
-                    .map(a => a.id)
-            );
+            // ── Find 'Technicians' group and all its nested sub-groups ──
+            const getGroupIds = (groupName) => {
+                const targetGroup = (groupsData || []).find(g => g.name.toLowerCase() === groupName.toLowerCase());
+                if (!targetGroup) return new Set();
+                const ids = new Set([targetGroup.id]);
+                const addChildren = (parentId) => {
+                    const children = (groupsData || []).filter(g => g.under === parentId);
+                    children.forEach(c => {
+                        ids.add(c.id);
+                        addChildren(c.id);
+                    });
+                };
+                addChildren(targetGroup.id);
+                return ids;
+            };
+
+            const validGroupIds = getGroupIds('Technicians');
+            
+            // Only keep accounts that belong to the Technicians group (or its sub-groups)
+            const validTechAccounts = allAccounts.filter(a => validGroupIds.has(a.under));
+            setTechnicianAccounts(validTechAccounts);
+
+            // ── Only show technicians that are linked to a valid Technician group account ──
+            const validAccountIds = new Set(validTechAccounts.map(a => a.id));
             const filtered = (techsData || []).filter(t =>
-                !t.ledger_id || technicianTypeAccountIds.has(t.ledger_id)
+                !t.ledger_id || validAccountIds.has(t.ledger_id)
             );
             setTechnicians(filtered);
         } catch (err) {
@@ -379,14 +395,15 @@ function TechnicianManagement() {
                                                     <optgroup label="Setup Credentials for Ledger Accounts">
                                                         {technicianAccounts
                                                             .filter(acc => {
-                                                                // Only accounts explicitly created as 'technician' type
+                                                                // The accounts are already filtered to only 'Technicians' group above in fetchTechnicians.
+                                                                // Prevent duplicate setups by hiding accounts already linked to a technician profile.
                                                                 const isAlreadyTech = technicians.some(t => t.ledger_id === acc.id);
                                                                 if (isAlreadyTech) return false;
-                                                                return acc.type === 'technician';
+                                                                return true;
                                                             })
                                                             .map(acc => (
                                                                 <option key={acc.id} value={acc.id}>
-                                                                    {acc.name} ({acc.type || 'Account'})
+                                                                    {acc.name}
                                                                 </option>
                                                             ))}
                                                     </optgroup>
