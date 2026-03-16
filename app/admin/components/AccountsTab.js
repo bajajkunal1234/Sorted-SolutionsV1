@@ -55,6 +55,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         { id: 'opening_balance', label: 'Opening Bal',   align: 'right',  defaultOn: true  },
         { id: 'closing_balance', label: 'Closing Bal',   align: 'right',  defaultOn: true  },
         { id: 'jobs',            label: 'Jobs',          align: 'center', defaultOn: true  },
+        { id: 'source',          label: 'Created By',    align: 'left',   defaultOn: false },
         { id: 'mobile',          label: 'Mobile',        align: 'left',   defaultOn: false },
         { id: 'email',           label: 'Email',         align: 'left',   defaultOn: false },
         { id: 'gstin',           label: 'GSTIN',         align: 'left',   defaultOn: false },
@@ -417,6 +418,23 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                 case 'opening_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(ledger.opening_balance || ledger.openingBalance || 0)}</td>;
                                 case 'closing_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ledger.closing_balance || ledger.closingBalance || 0)}</td>;
                                 case 'jobs':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'center' }}>{ledger.jobs_done || ledger.jobsDone || 0}</td>;
+                                case 'source': {
+                                    const src = ledger.source || '';
+                                    const isAdmin   = src === 'admin'    || src === 'Admin App';
+                                    const isBooking = src.toLowerCase().includes('booking') || src.toLowerCase().includes('website');
+                                    const isCustomer = src.toLowerCase().includes('customer') || src.toLowerCase().includes('signup');
+                                    const badge = isAdmin   ? { icon: '🛡️', label: 'Admin',          bg: '#6366f115', color: '#6366f1' }
+                                                : isBooking ? { icon: '🌐', label: 'Website Booking', bg: '#10b98115', color: '#10b981' }
+                                                : isCustomer? { icon: '📱', label: 'Customer Signup', bg: '#f59e0b15', color: '#f59e0b' }
+                                                : { icon: '—', label: src || 'Unknown', bg: 'transparent', color: 'var(--text-tertiary)' };
+                                    return (
+                                        <td key={col.id} style={tdBase}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: badge.bg, color: badge.color, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                {badge.icon} {badge.label}
+                                            </span>
+                                        </td>
+                                    );
+                                }
                                 case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || '—'}</td>;
                                 case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || '—'}</td>;
                                 case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || '—'}</td>;

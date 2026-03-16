@@ -139,9 +139,10 @@ export async function POST(request) {
                     sku: nextSku,
                     mobile: last10,
                     type: 'customer',
-                    under: customersGroupId, // dynamically fetched UUID for Customers sub-group
+                    under: customersGroupId,
                     opening_balance: 0,
                     balance_type: 'debit',
+                    source: 'customer-signup',   // ← marks this as self-service signup
                     created_at: new Date().toISOString(),
                 })
                 .select('id')

@@ -72,6 +72,9 @@ export async function POST(request) {
             body.sku = `${prefix}${maxNum + 1}`
         }
 
+        // ── Stamp the origin so it shows in the 'Created By' column ──────────
+        body.source = body.source || 'admin';
+
         const { data, error } = await supabase
             .from('accounts')
             .insert([body])
