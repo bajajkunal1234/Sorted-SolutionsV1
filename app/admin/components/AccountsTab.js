@@ -423,9 +423,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                     const isAdmin   = src === 'admin'    || src === 'Admin App';
                                     const isBooking = src.toLowerCase().includes('booking') || src.toLowerCase().includes('website');
                                     const isCustomer = src.toLowerCase().includes('customer') || src.toLowerCase().includes('signup');
-                                    const badge = isAdmin   ? { icon: '🛡️', label: 'Admin',          bg: '#6366f115', color: '#6366f1' }
-                                                : isBooking ? { icon: '🌐', label: 'Website Booking', bg: '#10b98115', color: '#10b981' }
-                                                : isCustomer? { icon: '📱', label: 'Customer Signup', bg: '#f59e0b15', color: '#f59e0b' }
+                                    const badge = isAdmin   ? { icon: '🛡️', label: 'Admin Created',    bg: '#6366f115', color: '#6366f1' }
+                                                : isBooking ? { icon: '🌐', label: 'Website (Auto)',    bg: '#10b98115', color: '#10b981' }
+                                                : isCustomer? { icon: '📱', label: 'Customer Signup',   bg: '#f59e0b15', color: '#f59e0b' }
                                                 : { icon: '—', label: src || 'Unknown', bg: 'transparent', color: 'var(--text-tertiary)' };
                                     return (
                                         <td key={col.id} style={tdBase}>
