@@ -27,6 +27,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     const [groups, setGroups] = useState([]);
     const [loadingGroups, setLoadingGroups] = useState(false);
     const [dismissing, setDismissing] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     // Build full address string
     const fullAddress = [
@@ -100,6 +101,20 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
             alert('Failed to dismiss: ' + err.message);
         } finally {
             setDismissing(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm('Are you sure you want to PERMANENTLY delete this booking request? This action cannot be undone.')) return;
+        setDeleting(true);
+        try {
+            await jobsAPI.delete(booking.id);
+            onDismissed(); // Reusing onDismissed to trigger the UI to remove the card/close modal
+        } catch (err) {
+            console.error('Error deleting booking:', err);
+            alert('Failed to delete: ' + err.message);
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -218,9 +233,14 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                 </div>
 
                 <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
-                    <button onClick={handleDismiss} disabled={dismissing} className="btn" style={{ color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}>
-                        {dismissing ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} Dismiss Request
-                    </button>
+                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                        <button onClick={handleDelete} disabled={deleting || dismissing} className="btn btn-secondary" style={{ color: 'var(--color-danger)', borderColor: 'transparent', padding: '6px 12px' }}>
+                            {deleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete Request'}
+                        </button>
+                        <button onClick={handleDismiss} disabled={dismissing || deleting} className="btn" style={{ color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}>
+                            {dismissing ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} Dismiss Request
+                        </button>
+                    </div>
 
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                         <button
