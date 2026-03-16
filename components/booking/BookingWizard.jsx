@@ -270,6 +270,7 @@ export default function BookingWizard() {
 
     // Navigation — now 5 steps
     const handleNext = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         if (currentStep === 'service') setCurrentStep('contact');
         else if (currentStep === 'contact') setCurrentStep('slot');
         else if (currentStep === 'slot') setCurrentStep('fees');
@@ -277,6 +278,7 @@ export default function BookingWizard() {
     };
 
     const handleBack = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         if (currentStep === 'contact') setCurrentStep('service');
         else if (currentStep === 'slot') setCurrentStep('contact');
         else if (currentStep === 'fees') setCurrentStep('slot');
@@ -286,6 +288,19 @@ export default function BookingWizard() {
     const canProceedFromSlot = formData.selectedDate && formData.selectedSlotId;
 
     const handleSubmit = async () => {
+        // ── Client-side validation before hitting the API ────────────────
+        const missing = [];
+        if (!formData.phone?.trim()) missing.push('Phone number (Step 2)');
+        if (!formData.name?.trim()) missing.push('Your name (Step 2)');
+        if (!formData.address?.trim()) missing.push('Street / landmark address (Step 2)');
+        if (!formData.locality?.trim()) missing.push('Locality (Step 2)');
+        if (!formData.selectedDate) missing.push('Preferred date (Step 3)');
+        if (!formData.selectedSlotId) missing.push('Time slot (Step 3)');
+        if (missing.length > 0) {
+            alert('Please fill in the following before completing your booking:\n\n• ' + missing.join('\n• '));
+            return;
+        }
+
         setSubmitting(true);
         try {
             // Resolve human-readable names from metadata
