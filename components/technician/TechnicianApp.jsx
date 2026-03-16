@@ -495,69 +495,6 @@ function TechnicianApp() {
                                                 "{job.defect || 'No defect specified'}"
                                             </div>
 
-                                            {/* Actions */}
-                                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleViewLocation(job);
-                                                    }}
-                                                    className="btn btn-secondary"
-                                                    style={{ flex: 1, padding: '6px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                                                >
-                                                    <Navigation size={12} />
-                                                    Map
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCallCustomer(job.mobile, job.customerName, job.id, job.customerId);
-                                                    }}
-                                                    className="btn"
-                                                    style={{ flex: 1, padding: '6px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', backgroundColor: '#10b981' }}
-                                                >
-                                                    <Phone size={12} />
-                                                    Call
-                                                </button>
-                                            </div>
-
-                                            {/* Workflow Button */}
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    logInteraction({
-                                                        type: 'workflow-started',
-                                                        category: 'job',
-                                                        jobId: String(job.id),
-                                                        customerId: job.customerId ? String(job.customerId) : undefined,
-                                                        customerName: job.customerName,
-                                                        description: `Technician ${job.stage === 'assigned' ? 'started' : 'resumed'} workflow for job: ${job.customerName}`,
-                                                        source: 'Technician App',
-                                                        performedBy: technicianId,
-                                                        performedByName: technicianData?.name
-                                                    });
-                                                    handleOpenJob(job);
-                                                    setTimeout(() => {
-                                                        const workflowTab = document.querySelector('[data-tab="workflow"]');
-                                                        if (workflowTab) workflowTab.click();
-                                                    }, 100);
-                                                }}
-                                                className="btn"
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '8px',
-                                                    fontSize: '12px',
-                                                    marginTop: 'var(--spacing-xs)',
-                                                    backgroundColor: job.stage === 'assigned' ? '#3b82f6' : '#8b5cf6',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    gap: '4px'
-                                                }}
-                                            >
-                                                <ChevronRight size={14} />
-                                                {job.stage === 'assigned' ? 'Start Workflow' : 'Resume Workflow'}
-                                            </button>
                                         </div>
                                     );
                                 })}

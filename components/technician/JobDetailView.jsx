@@ -58,7 +58,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
-        { id: 'interactions', label: 'Timeline', icon: Clock },
+        { id: 'interactions', label: 'Interactions', icon: Clock },
         { id: 'actions', label: 'Actions', icon: CheckSquare }
     ];
 
@@ -112,7 +112,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 description: note.description,
                 user_name: editedJob.assigned_technician?.name || 'Technician',
                 customer_id: editedJob.customerId,
-                attachments: note.attachments
+                // ── Images must go inside metadata so the API stores them ──
+                metadata: {
+                    attachments: note.attachments || [],
+                }
             };
 
             const res = await fetch(`/api/technician/jobs/${job.id}/interactions`, {
@@ -120,16 +123,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+
+            // Always parse the body regardless of status so we get the error message
             const data = await res.json();
-            
-            if (data.success) {
-                setEditedJob(prev => ({
-                    ...prev,
-                    interactions: [data.data, ...(prev.interactions || [])]
-                }));
+
+            if (!res.ok || !data.success) {
+                throw new Error(data.error || data.message || `Server error ${res.status}`);
             }
+
+            // Optimistically prepend the new interaction to the list
+            setEditedJob(prev => ({
+                ...prev,
+                interactions: [data.data, ...(prev.interactions || [])]
+            }));
         } catch (err) {
-            alert('Failed to save note');
+            console.error('Failed to save note:', err);
+            alert(`Failed to save note: ${err.message}`);
         }
     };
 
