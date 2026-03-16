@@ -119,12 +119,13 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
             ...editingNote,
             description: noteText,
             attachments: [
-                ...(editingNote.attachments || []),
+                ...(editingNote.metadata?.attachments || editingNote.attachments || []).map(url => typeof url === 'string' ? { url, name: 'Attachment' } : url),
                 ...attachments.map((file, index) => ({
                     id: `ATT-${Date.now()}-${index}`,
                     name: file.name,
                     url: URL.createObjectURL(file),
-                    type: file.type.startsWith('image/') ? 'image' : 'document'
+                    type: file.type.startsWith('image/') ? 'image' : 'document',
+                    file: file
                 }))
             ]
         };
