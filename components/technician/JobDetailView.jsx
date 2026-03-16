@@ -14,6 +14,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice'
+    const [isAddingNote, setIsAddingNote] = useState(false);
 
     // Fetch fresh job and interactions on mount
     useEffect(() => {
@@ -105,6 +106,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     };
 
     const handleAddNote = async (note) => {
+        setIsAddingNote(true);
         // Read name from local storage or passed technician data
         const storedTech = localStorage.getItem('technicianData');
         let techName = 'Technician';
@@ -172,6 +174,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         } catch (err) {
             console.error('Failed to save note:', err);
             alert(`Failed to save note: ${err.message}`);
+        } finally {
+            setIsAddingNote(false);
         }
     };
 
@@ -352,6 +356,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 interactions={editedJob.interactions || []}
                                 onAddNote={handleAddNote}
                                 onUpdate={() => {}} // Not strictly needed, local state updates handle it
+                                isSubmitting={isAddingNote}
                              />
                         </div>
                     )}

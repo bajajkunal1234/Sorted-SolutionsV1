@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react';
-import { MessageSquare, Paperclip, X, Edit2, Save, Clock, FileText, DollarSign, Package, Briefcase } from 'lucide-react';
+import { MessageSquare, Paperclip, X, Edit2, Save, Clock, FileText, DollarSign, Package, Briefcase, Loader2 } from 'lucide-react';
 import SalesInvoiceForm from '../accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
 import QuotationForm from '../accounts/QuotationForm';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 
-function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate }) {
+function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote, onEditNote, onUpdate, isSubmitting = false }) {
     const [showNoteForm, setShowNoteForm] = useState(false);
     const [noteText, setNoteText] = useState('');
     const [attachments, setAttachments] = useState([]);
@@ -288,6 +288,7 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                         <button
                             className="btn btn-secondary"
                             onClick={handleCancel}
+                            disabled={isSubmitting}
                             style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
                         >
                             Cancel
@@ -295,10 +296,20 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                         <button
                             className="btn btn-primary"
                             onClick={editingNote ? handleSaveEditedNote : handleSaveNote}
-                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                            disabled={isSubmitting}
+                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', opacity: isSubmitting ? 0.7 : 1 }}
                         >
-                            <Save size={16} />
-                            {editingNote ? 'Save Changes' : 'Save Note'}
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 size={16} className="spin" style={{ marginRight: '6px' }} />
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={16} style={{ marginRight: '6px' }} />
+                                    {editingNote ? 'Save Changes' : 'Save Note'}
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

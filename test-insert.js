@@ -5,31 +5,18 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY.replace(/"/g, '');
 const supabase = createClient(url, key);
 
 async function run() {
-    // 1. Get a valid account ID and job ID
-    const { data: accounts } = await supabase.from('accounts').select('id').limit(1);
-    const validAccountId = accounts[0].id;
-    
-    const { data: jobs } = await supabase.from('jobs').select('id').limit(1);
-    const validJobId = jobs[0].id;
-    
-    console.log("Testing with Account:", validAccountId, "Job:", validJobId);
-    
-    // 2. Try inserting an interaction using this account ID
-    const payload = {
-        job_id: validJobId,
-        customer_id: validAccountId,
-        type: 'test-insert',
-        category: 'communication',
-        description: 'Testing FK constraint',
-        timestamp: new Date().toISOString(),
-        source: 'Script'
-    };
-    
-    const { data: insertData, error: insertError } = await supabase
+    const { data, error } = await supabase
         .from('interactions')
-        .insert(payload);
+        .select('*')
+        .eq('type', 'note-added')
+        .order('timestamp', { ascending: false })
+        .limit(2);
         
-    console.log("Insert Result:", insertError ? insertError.message : "Success");
+    if (error) {
+        console.error(error);
+    } else {
+        console.log("Latest interactions:", JSON.stringify(data, null, 2));
+    }
 }
 run();
 
