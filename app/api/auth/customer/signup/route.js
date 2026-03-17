@@ -90,9 +90,10 @@ export async function POST(request) {
                 name: name.trim(),
                 mobile: last10,
                 type: 'customer',
-                under: 'Sundry Debtors',
+                under: 'sundry-debtors',
                 opening_balance: 0,
                 balance_type: 'debit',
+                status: 'active',
                 created_at: new Date().toISOString(),
             }])
             .select('id')

@@ -112,6 +112,8 @@ export async function POST(request) {
 
             if (cGroup && cGroup.id) {
                 customersGroupId = cGroup.id;
+            } else {
+                customersGroupId = 'sundry-debtors';
             }
 
             // Generate Account SKU securely for standard customers automatically
@@ -142,7 +144,7 @@ export async function POST(request) {
                     under: customersGroupId,
                     opening_balance: 0,
                     balance_type: 'debit',
-                    source: 'customer-signup',   // ← marks this as self-service signup
+                    status: 'active',
                     created_at: new Date().toISOString(),
                 })
                 .select('id')
