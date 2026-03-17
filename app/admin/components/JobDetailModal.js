@@ -352,36 +352,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             placeholder="e.g., LG Double Door Bandra West"
                                         />
                                     </div>
-                                    
-                                    <div className="form-group">
-                                        <label className="form-label">Status</label>
-                                        <select
-                                            className="form-select"
-                                            value={editedJob.status}
-                                            onChange={(e) => setEditedJob({ ...editedJob, status: e.target.value })}
-                                        >
-                                            <option value="pending">Pending</option>
-                                            <option value="booking_request">Booking Request</option>
-                                            <option value="assigned">Assigned</option>
-                                            <option value="in-progress">In Progress</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="cancelled">Cancelled</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Priority</label>
-                                        <select
-                                            className="form-select"
-                                            value={editedJob.priority || 'normal'}
-                                            onChange={(e) => setEditedJob({ ...editedJob, priority: e.target.value })}
-                                        >
-                                            <option value="urgent">🔴 Urgent</option>
-                                            <option value="high">🟡 High</option>
-                                            <option value="normal">🟢 Normal</option>
-                                            <option value="low">⚪ Low</option>
-                                        </select>
-                                    </div>
 
                                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                         <label className="form-label">Assigned Technician</label>
@@ -574,6 +544,47 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Activity size={18} color="#3b82f6" /> Status & Priority
+                                </h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Job Status</label>
+                                        <select
+                                            className="form-select"
+                                            value={editedJob.status}
+                                            onChange={(e) => setEditedJob({ ...editedJob, status: e.target.value })}
+                                            style={{ backgroundColor: 'var(--bg-elevated)' }}
+                                        >
+                                            <option value="pending">Pending</option>
+                                            <option value="booking_request">Booking Request</option>
+                                            <option value="assigned">Assigned</option>
+                                            <option value="in-progress">In Progress</option>
+                                            <option value="spare-part-needed">Spare Part Needed</option>
+                                            <option value="quotation-sent">Quotation Sent</option>
+                                            <option value="completed">Completed</option>
+                                            <option value="cancelled">Cancelled</option>
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Priority</label>
+                                        <select
+                                            className="form-select"
+                                            value={editedJob.priority || 'normal'}
+                                            onChange={(e) => setEditedJob({ ...editedJob, priority: e.target.value })}
+                                            style={{ backgroundColor: 'var(--bg-elevated)' }}
+                                        >
+                                            <option value="urgent">🔴 Urgent</option>
+                                            <option value="high">🟡 High</option>
+                                            <option value="normal">🟢 Normal</option>
+                                            <option value="low">⚪ Low</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Status changes will be logged in the timeline when you Save Changes.</p>
+                            </div>
+
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Tag size={18} color="#10b981" /> Documents & Billing
