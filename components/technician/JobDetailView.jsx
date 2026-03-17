@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
@@ -431,6 +431,59 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Linked Agreement Card */}
+                            {editedJob.rental_id && editedJob.rental && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid #10b981' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                        <Package size={20} color="#10b981" />
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#10b981' }}>Linked Rental</h3>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                        <div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Started On</div>
+                                            <div style={{ fontWeight: 500 }}>{new Date(editedJob.rental.start_date).toLocaleDateString()}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Status</div>
+                                            <div style={{ fontWeight: 600, color: editedJob.rental.status === 'active' ? '#10b981' : '#f59e0b', textTransform: 'uppercase' }}>
+                                                {editedJob.rental.status || 'Active'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {editedJob.rental.notes && (
+                                        <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                                            "{editedJob.rental.notes}"
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {editedJob.amc_id && editedJob.amc && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid #8b5cf6' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                                        <Shield size={20} color="#8b5cf6" />
+                                        <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#8b5cf6' }}>Linked AMC Contract</h3>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                        <div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Started On</div>
+                                            <div style={{ fontWeight: 500 }}>{new Date(editedJob.amc.start_date).toLocaleDateString()}</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Status</div>
+                                            <div style={{ fontWeight: 600, color: editedJob.amc.status === 'active' ? '#10b981' : '#f59e0b', textTransform: 'uppercase' }}>
+                                                {editedJob.amc.status || 'Active'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {editedJob.amc.notes && (
+                                        <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                                            "{editedJob.amc.notes}"
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Issue Card */}
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>

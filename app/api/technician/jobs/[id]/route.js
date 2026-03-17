@@ -10,7 +10,9 @@ export async function GET(request, { params }) {
             .select(`
                 *,
                 customer:accounts(*),
-                assigned_technician:technicians(id, name, phone)
+                assigned_technician:technicians(id, name, phone),
+                rental:active_rentals(*),
+                amc:amc_contracts(*)
             `)
             .eq('id', id)
             .single()

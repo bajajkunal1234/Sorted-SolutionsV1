@@ -30,7 +30,9 @@ export async function GET(request) {
             .select(`
                 *,
                 customer:accounts(*),
-                technician:technicians(*)
+                technician:technicians(*),
+                rental:active_rentals(*),
+                amc:amc_contracts(*)
             `)
             .order('created_at', { ascending: false })
 
@@ -140,7 +142,7 @@ export async function PUT(request) {
         // Fetch current state for diffing ALL changed fields server-side
         const { data: existing } = await supabase
             .from('jobs')
-            .select('technician_id, technician_name, status, customer_id, customer_name, job_number, priority, scheduled_date, scheduled_time, description, notes, category, subcategory, issue')
+            .select('technician_id, technician_name, status, customer_id, customer_name, job_number, priority, scheduled_date, scheduled_time, description, notes, category, subcategory, issue, rental_id, amc_id')
             .eq('id', id)
             .single()
 
@@ -206,6 +208,8 @@ export async function PUT(request) {
             category: 'Category',
             subcategory: 'Subcategory',
             issue: 'Issue',
+            rental_id: 'Linked Rental',
+            amc_id: 'Linked AMC',
         };
         const serverChanges = [];
         for (const [field, label] of Object.entries(fieldLabels)) {

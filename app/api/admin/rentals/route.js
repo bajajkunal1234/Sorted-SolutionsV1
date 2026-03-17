@@ -20,7 +20,7 @@ export async function GET(request) {
         } else if (type === 'active') {
             let query = supabase
                 .from('active_rentals')
-                .select('*, rental_plans(product_name)')  // only join rental_plans (has FK)
+                .select('*, rental_plans(product_name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')  // only join rental_plans (has FK) and jobs
                 .order('created_at', { ascending: false })
 
             if (customerId) query = query.eq('customer_id', customerId)

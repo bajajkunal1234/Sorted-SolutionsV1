@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Package, Shield, Calendar, DollarSign, Loader2, RefreshCcw, CheckCircle, AlertCircle } from 'lucide-react';
+import { Package, Shield, Calendar, DollarSign, Loader2, RefreshCcw, CheckCircle, AlertCircle, Wrench } from 'lucide-react';
 import CollectRentForm from '../reports/CollectRentForm';
 import { transactionsAPI, rentalsAPI } from '@/lib/adminAPI';
 
@@ -24,8 +24,8 @@ function RentAMCTab({ customerId }) {
             const { supabase } = await import('@/lib/supabase');
 
             const [rentalsRes, amcsRes] = await Promise.all([
-                supabase.from('active_rentals').select('*').eq('customer_id', customerId).order('start_date', { ascending: false }),
-                supabase.from('active_amcs').select('*, amc_plans(name)').eq('customer_id', customerId).order('created_at', { ascending: false })
+                supabase.from('active_rentals').select('*, jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)').eq('customer_id', customerId).order('start_date', { ascending: false }),
+                supabase.from('active_amcs').select('*, amc_plans(name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)').eq('customer_id', customerId).order('created_at', { ascending: false })
             ]);
 
             if (rentalsRes.error) console.error('Rentals error:', rentalsRes.error);
@@ -156,6 +156,29 @@ function RentAMCTab({ customerId }) {
                                     </div>
                                 )}
 
+                                {rental.jobs && rental.jobs.length > 0 && (
+                                    <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed var(--border-primary)' }}>
+                                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                            <Wrench size={12} /> Linked Jobs ({rental.jobs.length})
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {rental.jobs.map(job => (
+                                                <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '4px', fontSize: 12 }}>
+                                                    <div>
+                                                        <span style={{ fontWeight: 600 }}>{job.job_number || 'JOB'}</span>: {job.description || 'No description'}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        <span style={{ color: 'var(--text-tertiary)' }}>{job.technician_name || 'Unassigned'}</span>
+                                                        <span style={{ padding: '2px 6px', borderRadius: 4, backgroundColor: job.status === 'completed' ? '#10b98120' : '#f59e0b20', color: job.status === 'completed' ? '#10b981' : '#f59e0b', fontWeight: 600, textTransform: 'uppercase', fontSize: 10 }}>
+                                                            {job.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                                     <button className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: 12 }}
                                         onClick={() => {
@@ -247,6 +270,29 @@ function RentAMCTab({ customerId }) {
                                             </div>
                                         </div>
                                     </div>
+
+                                    {amc.jobs && amc.jobs.length > 0 && (
+                                        <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px dashed var(--border-primary)' }}>
+                                            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Wrench size={12} /> Linked Jobs ({amc.jobs.length})
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {amc.jobs.map(job => (
+                                                    <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', padding: '6px 10px', borderRadius: '4px', fontSize: 12 }}>
+                                                        <div>
+                                                            <span style={{ fontWeight: 600 }}>{job.job_number || 'JOB'}</span>: {job.description || 'No description'}
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                            <span style={{ color: 'var(--text-tertiary)' }}>{job.technician_name || 'Unassigned'}</span>
+                                                            <span style={{ padding: '2px 6px', borderRadius: 4, backgroundColor: job.status === 'completed' ? '#10b98120' : '#f59e0b20', color: job.status === 'completed' ? '#10b981' : '#f59e0b', fontWeight: 600, textTransform: 'uppercase', fontSize: 10 }}>
+                                                                {job.status}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {amc.notes && (
                                         <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8, fontStyle: 'italic' }}>

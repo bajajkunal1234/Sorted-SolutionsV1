@@ -16,6 +16,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [newNote, setNewNote] = useState({ description: '', files: [] });
 
     const [technicians, setTechnicians] = useState([]);
+    const [rentals, setRentals] = useState([]);
+    const [amcs, setAmcs] = useState([]);
 
     // Fetch fresh job data and technicians on mount
     useEffect(() => {
@@ -31,7 +33,17 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     // Legacy job_interactions table
                     fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] }))
                 ]);
+                
                 if (freshJob) {
+                    // Fetch related rentals and AMCs for this customer
+                    if (freshJob.customer_id) {
+                        const [rentalsRes, amcsRes] = await Promise.all([
+                            fetch(`/api/admin/rentals?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch(`/api/admin/amc?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] }))
+                        ]);
+                        if (rentalsRes?.success) setRentals(rentalsRes.data || []);
+                        if (amcsRes?.success) setAmcs(amcsRes.data || []);
+                    }
                     // Merge both interaction sources, deduplicate by id, sort by timestamp
                     const allInt = [
                         ...(intRes?.data || []),
@@ -112,6 +124,13 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         if ((editedJob.scheduled_date || '') !== (job.scheduled_date || '')) changes.push(`Scheduled date updated to ${editedJob.scheduled_date || 'none'}`);
         if ((editedJob.scheduled_time || '') !== (job.scheduled_time || '')) changes.push(`Scheduled time updated to ${editedJob.scheduled_time || 'none'}`);
         if ((editedJob.notes || '') !== (job.notes || '')) changes.push('Notes updated');
+        
+        if (editedJob.rental_id !== job.rental_id) {
+            changes.push(`Linked Rental Agreement updated`);
+        }
+        if (editedJob.amc_id !== job.amc_id) {
+            changes.push(`Linked AMC updated`);
+        }
 
         const updatePayload = {
             id: editedJob.id,
@@ -123,6 +142,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             scheduled_date: editedJob.scheduled_date,
             scheduled_time: editedJob.scheduled_time,
             notes: editedJob.notes,
+            rental_id: editedJob.rental_id || null,
+            amc_id: editedJob.amc_id || null,
             _changeLog: changes
         };
         onUpdate(updatePayload);
@@ -421,6 +442,52 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                                 </div>
                             </div>
+                            
+                            {/* Linked Agreements */}
+                            <div className="card mb-md" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
+                                <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Linked Agreements</h3>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Rental Agreement</label>
+                                        <select
+                                            className="form-select"
+                                            value={editedJob.rental_id || ''}
+                                            onChange={(e) => setEditedJob({ ...editedJob, rental_id: e.target.value || null })}
+                                            disabled={rentals.length === 0}
+                                        >
+                                            <option value="">— None —</option>
+                                            {rentals.map(rental => (
+                                                <option key={rental.id} value={rental.id}>
+                                                    {rental.rental_plans?.product_name || 'Item'} (Started: {new Date(rental.start_date).toLocaleDateString()})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {rentals.length === 0 && (
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>No active rentals for this customer</div>
+                                        )}
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">AMC Contract</label>
+                                        <select
+                                            className="form-select"
+                                            value={editedJob.amc_id || ''}
+                                            onChange={(e) => setEditedJob({ ...editedJob, amc_id: e.target.value || null })}
+                                            disabled={amcs.length === 0}
+                                        >
+                                            <option value="">— None —</option>
+                                            {amcs.map(amc => (
+                                                <option key={amc.id} value={amc.id}>
+                                                    {amc.amc_plans?.name || 'Plan'} (Started: {new Date(amc.start_date).toLocaleDateString()})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {amcs.length === 0 && (
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>No active AMCs for this customer</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
                             
                             <div className="card mb-md" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                                 <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Appliance Info (Read Only)</h3>
