@@ -176,6 +176,27 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
     const handleAddNote = async (note) => {
         try {
+            // Upload new attachments if any
+            const uploadedUrls = [];
+            if (note.attachments && note.attachments.length > 0) {
+                for (const att of note.attachments) {
+                    if (att.file) {
+                        const formData = new FormData();
+                        formData.append('file', att.file);
+                        const uploadRes = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const uploadData = await uploadRes.json();
+                        if (uploadData.success) {
+                            uploadedUrls.push(uploadData.url);
+                        }
+                    } else if (att.url && !att.url.startsWith('blob:')) {
+                        uploadedUrls.push(att.url);
+                    }
+                }
+            }
+
             // POST directly to job-specific endpoint so job_id and customer_id are set correctly
             const res = await fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                 method: 'POST',
@@ -187,7 +208,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     customer_id: editedJob.customer_id || null,
                     customer_name: editedJob.customer_name || null,
                     user_name: 'Admin',
-                    metadata: { attachments: note.attachments || [] },
+                    metadata: { attachments: uploadedUrls },
                 }),
             });
             const result = await res.json();
@@ -203,18 +224,83 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         }
     };
 
-    const handleEditNote = (editedNote, editInteraction) => {
-        // For now, this just updates local state. 
-        // TODO: Implement API for editing interactions
-        const updatedInteractions = editedJob.interactions.map(interaction =>
-            interaction.id === editedNote.id ? editedNote : interaction
-        );
+    const handleEditNote = async (editedNote, editInteraction) => {
+        try {
+            // 1. Upload new attachments if any
+            const uploadedUrls = [];
+            if (editedNote.attachments && editedNote.attachments.length > 0) {
+                for (const att of editedNote.attachments) {
+                    if (att.file) {
+                        const formData = new FormData();
+                        formData.append('file', att.file);
+                        const uploadRes = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const uploadData = await uploadRes.json();
+                        if (uploadData.success) {
+                            uploadedUrls.push(uploadData.url);
+                        }
+                    } else if (att.url && !att.url.startsWith('blob:')) {
+                        uploadedUrls.push(att.url);
+                    }
+                }
+            }
 
-        const updatedJob = {
-            ...editedJob,
-            interactions: [...updatedInteractions, editInteraction]
-        };
-        setEditedJob(updatedJob);
+            // 2. Patch the original note
+            const patchRes = await fetch('/api/admin/interactions', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editedNote.id,
+                    description: editedNote.description,
+                    metadata: { ...editedNote.metadata, attachments: uploadedUrls }
+                })
+            });
+            const patchData = await patchRes.json();
+            if (!patchRes.ok || !patchData.success) {
+                throw new Error(patchData.error || 'Failed to update note');
+            }
+
+            // 3. Insert the edit interaction history log
+            const interactionPayload = {
+                job_id: editedJob.id,
+                customer_id: editedJob.customer_id || null,
+                type: 'note-edited',
+                category: editInteraction.category || 'communication',
+                description: editInteraction.description,
+                performed_by_name: 'Admin',
+                source: 'Admin App',
+                timestamp: new Date().toISOString(),
+                metadata: editInteraction.metadata,
+            };
+
+            const postRes = await fetch('/api/admin/interactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(interactionPayload),
+            });
+            const postData = await postRes.json();
+
+            // 4. Update UI state directly by mapping and prepend new history log
+            setEditedJob(prev => {
+                const prevInts = prev.interactions || [];
+                const updatedInts = prevInts.map(int => 
+                    int.id === editedNote.id ? { ...int, description: patchData.data.description, metadata: patchData.data.metadata } : int
+                );
+                
+                // If the post succeeded, prepend it
+                if (postData.success) {
+                    return { ...prev, interactions: [postData.data, ...updatedInts] };
+                }
+                
+                return { ...prev, interactions: updatedInts };
+            });
+
+        } catch (err) {
+            console.error('Failed to edit note:', err);
+            alert(`Failed to edit note: ${err.message}`);
+        }
     };
 
     const handleInteractionsUpdate = () => {
