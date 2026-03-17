@@ -672,7 +672,8 @@ function StepDone({ name, onFinish }) {
 
 // ─── Main Wizard Component ───────────────────────────────────────────────────
 export default function OnboardingWizard({ initialName, customerId, onComplete }) {
-    const [step, setStep] = useState(1) // 1 | 2 | 3 | 4
+    const hasRealName = initialName && initialName.trim() !== '' && !initialName.trim().startsWith('Customer ');
+    const [step, setStep] = useState(hasRealName ? 2 : 1) // 1 | 2 | 3 | 4
     const [name, setName] = useState(initialName || '')
 
     const handleNameNext = async (confirmedName) => {
