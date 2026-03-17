@@ -50,7 +50,6 @@ export async function GET(request, { params }) {
             issueCategory: job.issue?.category,
             priority: job.priority,
             status: job.status,
-            stage: job.stage,
             assignedTechnician: job.assigned_technician?.name,
             technicianMobile: job.assigned_technician?.mobile,
             dueDate: job.due_date,

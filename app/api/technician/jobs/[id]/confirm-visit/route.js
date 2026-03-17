@@ -18,7 +18,6 @@ export async function POST(request, { params }) {
             .from('jobs')
             .update({
                 status: 'confirmed',
-                stage: 'confirmed',
                 confirmed_visit_time: confirmedVisitTime,
                 updated_at: new Date().toISOString()
             })

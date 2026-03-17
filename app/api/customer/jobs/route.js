@@ -79,7 +79,6 @@ export async function GET(request) {
                 issueCategory: job.issue?.category,
                 priority: job.priority,
                 status: job.status,
-                stage: job.stage,
                 assignedTechnician: job.assigned_technician?.name,
                 technicianMobile: job.assigned_technician?.mobile,
                 dueDate: job.due_date,
@@ -246,8 +245,6 @@ export async function POST(request) {
                 notes: JSON.stringify(bookingData), // full context as JSONB
                 priority: 'normal',
                 status: 'pending',
-                stage: 'new',
-                source: 'customer_app',
                 created_at: new Date().toISOString()
             })
             .select()
@@ -272,7 +269,6 @@ export async function POST(request) {
                         notes: JSON.stringify(bookingData),
                         priority: 'normal',
                         status: 'pending',
-                        stage: 'new',
                         created_at: new Date().toISOString()
                     })
                     .select()

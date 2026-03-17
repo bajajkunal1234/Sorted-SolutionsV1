@@ -92,7 +92,6 @@ export async function GET(request) {
                 issueCategory: job.category || '',
                 priority: job.priority || 'normal',
                 status: job.status || 'open',
-                stage: job.stage || job.status || 'pending',
                 assignedTo: job.technician_id,
                 assignedAt: job.created_at, // Map to createdAt if missing
                 dueDate: job.scheduled_date || job.due_date,

@@ -9,7 +9,6 @@ export async function POST(request, { params }) {
             .from('jobs')
             .update({
                 status: 'in-progress',
-                stage: 'started',
                 started_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
