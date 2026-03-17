@@ -198,7 +198,7 @@ export async function POST(request) {
         let propertyBlob = null
         if (property_id) {
             const { data: prop } = await supabase
-                .from('customer_properties')
+                .from('properties')
                 .select('*')
                 .eq('id', property_id)
                 .single()
@@ -206,7 +206,7 @@ export async function POST(request) {
                 propertyBlob = {
                     id: prop.id,
                     name: prop.name || prop.address,
-                    address: prop.address,
+                    address: [prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ') || prop.address,
                     locality: prop.locality || '',
                     city: prop.city || '',
                     pincode: prop.pincode || ''
