@@ -72,8 +72,8 @@ export async function POST(request) {
             body.sku = `${prefix}${maxNum + 1}`
         }
 
-        // ── Stamp the origin so it shows in the 'Created By' column ──────────
-        body.source = body.source || 'admin';
+        // ── Remove source column to conform to new schema ──────────────
+        delete body.source;
 
         const { data, error } = await supabase
             .from('accounts')
@@ -143,6 +143,7 @@ export async function PUT(request) {
     try {
         const body = await request.json()
         const { id, ...updates } = body
+        delete updates.source;
 
         // Fetch the current state BEFORE updating so we can diff it
         const { data: before } = await supabase
