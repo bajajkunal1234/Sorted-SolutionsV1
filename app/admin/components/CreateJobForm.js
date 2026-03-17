@@ -448,13 +448,28 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         }
     };
 
-    const handleCustomerChange = (customerId) => {
+    const handleCustomerChange = async (customerId) => {
         const customer = customers.find(c => String(c.id) === String(customerId));
         setFormData(prev => ({
             ...prev,
             customer,
             property: null, // Reset property when customer changes
         }));
+        
+        if (customer && customer.id) {
+            try {
+                const res = await fetch(`/api/admin/jobs?customerId=${customer.id}`);
+                const data = await res.json();
+                if (data.success && data.data) {
+                    setFormData(prev => ({
+                        ...prev,
+                        customer: { ...prev.customer, jobs_done: data.data.length }
+                    }));
+                }
+            } catch (err) {
+                console.error("Failed to fetch jobs done for customer", err);
+            }
+        }
     };
 
     const handlePropertyChange = (propertyId) => {
@@ -866,11 +881,11 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 justifyContent: 'space-between'
                             }}>
                                 <div>
-                                    <div><strong>Phone:</strong> {formData.customer.phone}</div>
+                                    <div><strong>Phone:</strong> {formData.customer.mobile || formData.customer.phone || 'N/A'}</div>
                                     <div><strong>Email:</strong> {formData.customer.email || 'N/A'}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div><strong>Jobs Done:</strong> {formData.customer.jobs_done || 0}</div>
+                                    <div><strong>Jobs Done:</strong> {formData.customer.jobs_done !== undefined ? formData.customer.jobs_done : 'Loading...'}</div>
                                 </div>
                             </div>
                         )}
