@@ -96,13 +96,20 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         } catch (e) { }
     }
 
-    const displayPhone = customer.phone || bookingData.customer?.phone || editedJob.customer_phone || 'N/A';
+    const displayPhone = customer.mobile || customer.phone || bookingData.customer?.phone || editedJob.customer_phone || 'N/A';
     const rawAddr = bookingData.customer?.address || {};
     const bookingAddr = rawAddr.locality ? `${rawAddr.apartment || ''}, ${rawAddr.street || ''}, ${rawAddr.locality}, ${rawAddr.city}`.replace(/^, /, '') : null;
 
-    const jobAddress = property.address ?
-        (property.address.line1 ? `${property.address.line1}, ${property.address.locality || ''}` : property.address) :
-        (bookingAddr || 'No address');
+    let jobAddress = 'No address';
+    if (property.address) {
+        if (typeof property.address === 'object' && property.address.line1) {
+            jobAddress = `${property.address.line1}, ${property.address.locality || ''}`;
+        } else {
+            jobAddress = `${property.address}${property.locality ? ', ' + property.locality : ''}`;
+        }
+    } else if (bookingAddr) {
+        jobAddress = bookingAddr;
+    }
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },

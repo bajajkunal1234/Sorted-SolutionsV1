@@ -21,12 +21,16 @@ export async function GET(request) {
             return NextResponse.json({ success: true, jobs: [], count: 0 })
         }
 
+        // Fetch customer's ledger_id to query jobs mapped to their account
+        const { data: cx } = await supabase.from('customers').select('ledger_id').eq('id', customerId).single()
+        const accountId = cx?.ledger_id || customerId
+
         // Build query — jobs stores appliance/brand/issue as plain text + JSONB notes,
         // so we select all columns directly (no invalid FK joins)
         let query = supabase
             .from('jobs')
             .select('*')
-            .eq('customer_id', customerId)
+            .or(`customer_id.eq.${customerId},customer_id.eq.${accountId}`)
             .order('created_at', { ascending: false })
 
         // Filter by status if provided
@@ -293,11 +297,13 @@ export async function POST(request) {
                     )
                 }
                 // Log and return with retry result
-                await supabase.from('job_interactions').insert({
+                await supabase.from('interactions').insert({
                     job_id: jobRetry.id,
-                    type: 'created',
-                    message: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
-                    user_name: 'Customer App'
+                    customer_id: account_id,
+                    type: 'job_created',
+                    description: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
+                    created_by: 'Customer App',
+                    created_at: new Date().toISOString()
                 })
                 return NextResponse.json({ success: true, job: jobRetry, message: 'Service request created successfully' })
             }
@@ -308,11 +314,13 @@ export async function POST(request) {
         }
 
         // ── Log interaction ───────────────────────────────────────────────────
-        await supabase.from('job_interactions').insert({
+        await supabase.from('interactions').insert({
             job_id: job.id,
-            type: 'created',
-            message: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
-            user_name: 'Customer App'
+            customer_id: account_id,
+            type: 'job_created',
+            description: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
+            created_by: 'Customer App',
+            created_at: new Date().toISOString()
         })
 
         return NextResponse.json({
