@@ -223,6 +223,16 @@ export async function POST(request) {
         // ── Auto Generate Job Number ────────────────────────────────────────
         const job_number = await generateJobNumber();
 
+        // ── Fetch Customer Name and Account Ledger ID ──────────────────────
+        const { data: customerData } = await supabase
+            .from('customers')
+            .select('name, full_name, phone, ledger_id')
+            .eq('id', customer_id)
+            .single()
+        
+        const customer_name = customerData ? (customerData.name || customerData.full_name || customerData.phone || 'Customer') : 'Customer';
+        const account_id = customerData?.ledger_id || customer_id; // Fallback to raw ID if ledger_id isn't present
+
         // ── Insert job using confirmed existing columns ────────────────────────
         // We map app fields → existing jobs columns to avoid schema errors:
         //   appliance_type → category   (text appliance name)
@@ -234,7 +244,8 @@ export async function POST(request) {
             .from('jobs')
             .insert({
                 job_number,
-                customer_id,
+                customer_id: account_id,
+                customer_name,
                 property_id: property_id || null,
                 property: propertyBlob,            // JSONB blob for address display
                 category: appliance_type,          // appliance name in category column
@@ -258,7 +269,8 @@ export async function POST(request) {
                     .from('jobs')
                     .insert({
                         job_number,
-                        customer_id,
+                        customer_id: account_id,
+                        customer_name,
                         property_id: property_id || null,
                         property: propertyBlob,
                         category: appliance_type,
