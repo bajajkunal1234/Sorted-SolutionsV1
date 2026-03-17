@@ -5,6 +5,8 @@ import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIc
 import { formatDateTime, generatePreVisitChecklist, getLocalityFromAddress } from '@/lib/utils/helpers';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
 import LogNoteItem from './LogNoteItem';
+import SalesInvoiceForm from './accounts/SalesInvoiceForm';
+import QuotationForm from './accounts/QuotationForm';
 import { jobsAPI, interactionsAPI } from '@/lib/adminAPI';
 
 function JobDetailModal({ job, onClose, onUpdate }) {
@@ -14,6 +16,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [newNote, setNewNote] = useState({ description: '', files: [] });
+    const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice'
 
     const [technicians, setTechnicians] = useState([]);
     const [rentals, setRentals] = useState([]);
@@ -114,7 +117,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
         { id: 'interactions', label: 'Interactions', icon: Clock },
-        { id: 'checklist', label: 'Pre-Visit', icon: CheckSquare }
+        { id: 'checklist', label: 'Pre-Visit', icon: CheckSquare },
+        { id: 'actions', label: 'Billing/Actions', icon: Tag }
     ];
 
     const handleSave = () => {
@@ -567,6 +571,24 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             </div>
                         </div>
                     )}
+
+                    {activeTab === 'actions' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Tag size={18} color="#10b981" /> Documents & Billing
+                                </h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => setActiveForm('quotation')}>
+                                        <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation
+                                    </button>
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => setActiveForm('sales-invoice')}>
+                                        <CheckSquare size={18} style={{ marginRight: '8px' }} /> Create Sales Voucher
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
@@ -588,6 +610,28 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     </button>
                 </div>
             </div>
+
+            {/* Document Generation Forms overlaid over the modal */}
+            {activeForm === 'quotation' && (
+                <QuotationForm 
+                    onClose={() => setActiveForm(null)}
+                    onSave={(data) => {
+                        console.log('Saved Quotation:', data);
+                        setActiveForm(null);
+                    }}
+                    defaultAccount={job.customer_id ? { id: job.customer_id } : null}
+                />
+            )}
+            {activeForm === 'sales-invoice' && (
+                <SalesInvoiceForm 
+                    onClose={() => setActiveForm(null)}
+                    onSave={(data) => {
+                        console.log('Saved Invoice:', data);
+                        setActiveForm(null);
+                    }}
+                    defaultAccount={job.customer_id ? { id: job.customer_id } : null}
+                />
+            )}
         </div>
     );
 }

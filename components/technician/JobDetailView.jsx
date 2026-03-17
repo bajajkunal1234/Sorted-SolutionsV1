@@ -413,7 +413,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
                             {/* Appliance Card */}
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Appliance Details</h3>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Appliance Details</h3>
+                                    {editedJob.priority && (
+                                        <div style={{
+                                            padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
+                                            backgroundColor: editedJob.priority === 'urgent' ? '#fee2e2' : editedJob.priority === 'high' ? '#ffedd5' : 'var(--bg-elevated)',
+                                            color: editedJob.priority === 'urgent' ? '#ef4444' : editedJob.priority === 'high' ? '#f59e0b' : 'var(--text-secondary)'
+                                        }}>
+                                            {editedJob.priority}
+                                        </div>
+                                    )}
+                                </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
                                     <div>
                                         <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Category</div>
@@ -424,13 +435,45 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         <div style={{ fontWeight: 500 }}>{editedJob.product?.brand || 'N/A'}</div>
                                     </div>
                                     {editedJob.product?.name && (
-                                        <div style={{ gridColumn: '1 / -1' }}>
+                                        <div>
                                             <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Model / Item</div>
                                             <div style={{ fontWeight: 500 }}>{editedJob.product.name}</div>
                                         </div>
                                     )}
+                                    <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Reported Issue</div>
+                                        <div style={{ fontWeight: 500, color: '#ef4444' }}>{editedJob.defect || 'Not specified'}</div>
+                                        {editedJob.notes && (
+                                            <div style={{ marginTop: '4px', fontSize: '13px', color: 'var(--text-primary)', fontStyle: 'italic', backgroundColor: 'var(--bg-elevated)', padding: '8px', borderRadius: '6px' }}>
+                                                "{editedJob.notes}"
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Scheduling Card */}
+                            {(editedJob.dueDate || editedJob.confirmedVisitTime) && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Clock size={16} color="var(--text-secondary)" /> Scheduling
+                                    </h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                        {editedJob.dueDate && (
+                                            <div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Preferred Date</div>
+                                                <div style={{ fontWeight: 500 }}>{new Date(editedJob.dueDate).toLocaleDateString()}</div>
+                                            </div>
+                                        )}
+                                        {editedJob.confirmedVisitTime && (
+                                            <div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Time Slot</div>
+                                                <div style={{ fontWeight: 500 }}>{editedJob.confirmedVisitTime}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Linked Agreement Card */}
                             {editedJob.rental_id && editedJob.rental && (

@@ -98,7 +98,11 @@ export async function GET(request, { params }) {
             createdAt: job.created_at,
             notes: typeof job.notes === 'string' && !job.notes.startsWith('{') ? job.notes : job.description_notes,
             internalNotes: job.internal_notes,
-             _raw_property: job.property
+            rental_id: job.rental_id || null,
+            rental: job.rental || null,
+            amc_id: job.amc_id || null,
+            amc: job.amc || null,
+            _raw_property: job.property
         }
 
         return NextResponse.json({
