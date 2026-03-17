@@ -32,7 +32,7 @@ export async function GET(request) {
                 customer:accounts(*),
                 technician:technicians(*),
                 rental:active_rentals(*),
-                amc:amc_contracts(*)
+                amc:active_amcs(*)
             `)
             .order('created_at', { ascending: false })
 
