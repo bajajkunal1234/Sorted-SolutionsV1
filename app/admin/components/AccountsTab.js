@@ -526,18 +526,14 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                 case 'closing_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ledger.closing_balance || ledger.closingBalance || 0)}</td>;
                                 case 'jobs':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'center' }}>{ledger.jobs_done || ledger.jobsDone || 0}</td>;
                                 case 'source': {
-                                    const src = ledger.source || ledger.acquisition_source || 'Admin';
+                                    const src = ledger.source || 'Admin';
                                     const isAdmin = src.toLowerCase().includes('admin');
                                     let badge;
                                     
                                     if (isAdmin) {
                                         badge = { icon: '🛡️', label: 'Admin Created', bg: '#6366f115', color: '#6366f1' };
                                     } else {
-                                        // Customer signup UTM tag formatting
-                                        const cleanSrc = src.toLowerCase();
-                                        const isGeneric = cleanSrc === 'customer signup' || cleanSrc === 'website booking' || cleanSrc === 'customer';
-                                        const labelText = isGeneric ? 'Customer Signup' : `Customer Signup (${src})`;
-                                        badge = { icon: '👤', label: labelText, bg: '#10b98115', color: '#10b981' };
+                                        badge = { icon: '👤', label: 'Customer Signup', bg: '#10b98115', color: '#10b981' };
                                     }
 
                                     return (

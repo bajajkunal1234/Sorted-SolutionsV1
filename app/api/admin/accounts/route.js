@@ -36,15 +36,12 @@ export async function GET(request) {
         if (error) throw error
 
         const enrichedData = data.map(account => {
-            let derivedSource = account.acquisition_source || account.source;
-            if (!derivedSource) {
-                const customerData = account.customers && account.customers[0];
-                if (customerData?.password_hash) {
-                    derivedSource = 'Customer Signup';
-                } else {
-                    derivedSource = 'Admin';
-                }
-            }
+            const customerData = account.customers && account.customers[0];
+            const isOrganicCustomer = !!customerData?.password_hash;
+            const strictSource = isOrganicCustomer ? 'Customer Signup' : 'Admin';
+
+            // Keep the raw acquisition source intact for marketing purposes, but decouple it from the Created By metric
+            const acqSource = account.acquisition_source || account.source || '';
 
             // Don't leak the password hash to the frontend
             delete account.customers;
@@ -53,8 +50,8 @@ export async function GET(request) {
                 ...account,
                 jobs_done: account.jobs?.[0]?.count || 0,
                 jobs: undefined, // Clean up the raw relational object before sending to client
-                acquisition_source: derivedSource,
-                source: derivedSource
+                acquisition_source: acqSource,
+                source: strictSource
             };
         });
 
