@@ -29,12 +29,12 @@ export async function GET(request) {
 
         const { data } = await supabase
             .from('customers')
-            .select('id, name, phone')
+            .select('id, name, phone, password_hash')
             .or(`phone.eq.${last10},phone.eq.+91${last10}`)
             .limit(1)
             .maybeSingle()
 
-        return NextResponse.json({ exists: !!data, hasPassword: !!(data && data.password_hash !== undefined) })
+        return NextResponse.json({ exists: !!data, hasPassword: !!(data && data.password_hash), existingName: data?.name || '' })
     } catch {
         return NextResponse.json({ exists: false })
     }
@@ -70,13 +70,54 @@ export async function POST(request) {
             // Check not already registered as customer
             const { data: existing } = await supabase
                 .from('customers')
-                .select('id')
+                .select('id, password_hash, ledger_id')
                 .or(`phone.eq.${last10},phone.eq.+91${last10}`)
                 .limit(1)
                 .maybeSingle()
 
             if (existing) {
-                return NextResponse.json({ error: 'An account with this number already exists. Please log in.' }, { status: 409 })
+                if (existing.password_hash) {
+                    return NextResponse.json({ error: 'An account with this number already exists. Please log in.' }, { status: 409 });
+                } else {
+                    // Account Claim Flow (Organic adoption of Admin-created record)
+                    const passwordHash = await bcrypt.hash(password, 12);
+                    const customerName = name || `Customer ${last10.slice(-4)}`;
+
+                    const { data: updatedCustomer, error: updateError } = await supabase
+                        .from('customers')
+                        .update({
+                            name: customerName,
+                            password_hash: passwordHash,
+                            profile_complete: true, // Bypass the property creation step dynamically
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', existing.id)
+                        .select()
+                        .single();
+
+                    if (updateError) {
+                        return NextResponse.json({ error: 'Failed to claim account.' }, { status: 500 });
+                    }
+
+                    if (updatedCustomer.ledger_id) {
+                        await supabase
+                            .from('accounts')
+                            .update({ name: customerName })
+                            .eq('id', updatedCustomer.ledger_id);
+                    }
+
+                    logInteractionServer({
+                        type: 'account-claimed',
+                        category: 'account',
+                        customerId: String(updatedCustomer.id),
+                        customerName,
+                        description: `Customer claimed organic access to admin-created account (${last10})`,
+                        source: 'Customer App'
+                    });
+
+                    const { password_hash: ph, ...safeUser } = updatedCustomer;
+                    return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: true, ledger_id: updatedCustomer.ledger_id }, message: 'Account registered successfully' });
+                }
             }
 
             // Hash password

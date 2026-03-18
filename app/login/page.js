@@ -266,17 +266,22 @@ function LoginContent() {
 
     // ── FLOW: SIGNUP — step 1: send OTP ─────────────────────────────────────
     const handleSignupPhone = async (e) => {
-        e.preventDefault(); setError('');
+        e.preventDefault(); setError(''); setSuccessMsg('');
         if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
         // Check if already registered
         const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
         if (check.exists) {
             if (check.isTechnician) {
                 setError('This number is registered as a technician account. Please log in using your technician credentials.');
-            } else {
+                return;
+            } else if (check.hasPassword) {
                 setError('An account already exists with this number. Please log in.');
+                return;
+            } else {
+                // Claim flow: Organic adoption of Admin-created record
+                setName(check.existingName || '');
+                setSuccessMsg('An account with this number was created by our team. Please verify your number to complete registration.');
             }
-            return;
         }
         await sendOtp();
     };
