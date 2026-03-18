@@ -23,7 +23,7 @@ export async function GET(request) {
 
         let query = supabase
             .from('accounts')
-            .select('*')
+            .select('*, jobs:jobs(count)')
             .order('name', { ascending: true })
             .limit(200)
 
@@ -35,7 +35,13 @@ export async function GET(request) {
 
         if (error) throw error
 
-        return NextResponse.json({ success: true, data })
+        const enrichedData = data.map(account => ({
+            ...account,
+            jobs_done: account.jobs?.[0]?.count || 0,
+            jobs: undefined // Clean up the raw relational object before sending to client
+        }))
+
+        return NextResponse.json({ success: true, data: enrichedData })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }

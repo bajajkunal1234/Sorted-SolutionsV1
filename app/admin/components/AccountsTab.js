@@ -496,23 +496,19 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             </div>
         );
 
-        const thStyle = { padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 };
-        const thRight = { ...thStyle, textAlign: 'right' };
-        const thCenter = { ...thStyle, textAlign: 'center' };
+        const activeTxCols = tabColumns[activeTab].filter(c => visibleColumns[activeTab].has(c.id));
+        const thBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' };
+        const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
 
         return (
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
                 <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                            <th style={{ ...thCenter, width: '40px' }}>
+                        <tr>
+                            <th style={{ ...thBase, width: '40px', textAlign: 'center' }}>
                                 <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(processedData)} />
                             </th>
-                            {activeTab === 'sales' && <><th style={thStyle}>Invoice No</th><th style={thStyle}>Date</th><th style={thStyle}>Ledger Name</th><th style={thRight}>Amount</th><th style={thCenter}>Status</th></>}
-                            {activeTab === 'purchases' && <><th style={thStyle}>Invoice No</th><th style={thStyle}>Date</th><th style={thStyle}>Supplier</th><th style={thRight}>Amount</th><th style={thCenter}>Status</th></>}
-                            {activeTab === 'quotations' && <><th style={thStyle}>Quote No</th><th style={thStyle}>Date</th><th style={thStyle}>Customer</th><th style={thRight}>Amount</th><th style={thCenter}>Status</th></>}
-                            {activeTab === 'receipts' && <><th style={thStyle}>Receipt No</th><th style={thStyle}>Date</th><th style={thStyle}>From Account</th><th style={thRight}>Amount</th><th style={thCenter}>Method</th></>}
-                            {activeTab === 'payments' && <><th style={thStyle}>Payment No</th><th style={thStyle}>Date</th><th style={thStyle}>To Account</th><th style={thRight}>Amount</th><th style={thCenter}>Method</th></>}
+                            {activeTxCols.map(col => <th key={col.id} style={{ ...thBase, textAlign: col.align }}>{col.label}</th>)}
                         </tr>
                     </thead>
                     <tbody>
@@ -520,7 +516,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                             <>
                                 {label !== null && (
                                     <tr key={`grp-${label}`}>
-                                        <td colSpan={6} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>▸ {label}</td>
+                                        <td colSpan={10} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>▸ {label}</td>
                                     </tr>
                                 )}
                                 {items.map(item => (
@@ -532,16 +528,37 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                         <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                                             <input type="checkbox" style={chkStyle} checked={selectedItems.has(item.id)} onChange={e => toggleItem(item.id, e)} />
                                         </td>
-                                        {activeTab === 'sales' && <><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, fontFamily: 'monospace' }}>{item.invoice_number}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.date}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.account_name}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(item.total_amount || 0)}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{renderStatusBadge(item.status)}</td></>}
-                                        {activeTab === 'purchases' && <><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, fontFamily: 'monospace' }}>{item.invoice_number}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.date}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.account_name}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(item.total_amount || 0)}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{renderStatusBadge(item.status)}</td></>}
-                                        {activeTab === 'quotations' && <><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, fontFamily: 'monospace' }}>{item.quote_number}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.date}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.account_name}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(item.total_amount || 0)}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{renderStatusBadge(item.status)}</td></>}
-                                        {activeTab === 'receipts' && <><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, fontFamily: 'monospace' }}>{item.receipt_number}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.date}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.account_name}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(item.amount)}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}><span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', backgroundColor: 'var(--bg-secondary)', fontWeight: 500 }}>{item.payment_mode || 'Cash'}</span></td></>}
-                                        {activeTab === 'payments' && <><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, fontFamily: 'monospace' }}>{item.payment_number}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.date}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{item.account_name}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(item.amount)}</td><td onClick={() => handleTransactionClick(item)} style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}><span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', backgroundColor: 'var(--bg-secondary)', fontWeight: 500 }}>{item.payment_mode || 'Cash'}</span></td></>}
+                                        {activeTxCols.map(col => {
+                                            switch (col.id) {
+                                                case 'number': 
+                                                    const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || '—';
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{no}</td>;
+                                                case 'date':
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || '—'}</td>;
+                                                case 'account_name':
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || '—'}</td>;
+                                                case 'amount':
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 600, fontFamily: 'monospace' }}>{formatCurrency(item.amount || item.total_amount || 0)}</td>;
+                                                case 'status': {
+                                                    const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
+                                                    if (isVoucher) {
+                                                        return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}><span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', backgroundColor: 'var(--bg-secondary)', fontWeight: 500 }}>{item.payment_mode || 'Cash'}</span></td>;
+                                                    }
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{renderStatusBadge(item.status)}</td>;
+                                                }
+                                                case 'created_by':
+                                                    const srcText = item.created_by || 'Admin';
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: '#6366f115', color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>🛡️ {srcText}</span>
+                                                    </td>;
+                                                default: return null;
+                                            }
+                                        })}
                                     </tr>
                                 ))}
                             </>
                         ))}
-                        {processedData.length === 0 && <tr><td colSpan={6} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No records found.</td></tr>}
+                        {processedData.length === 0 && <tr><td colSpan={10} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No records found.</td></tr>}
                     </tbody>
                 </table>
             </div>
@@ -691,6 +708,34 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     <button onClick={() => setTxSortDir(d => d === 'asc' ? 'desc' : 'asc')} style={{ padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
                         {txSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
                     </button>
+                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
+                    <div style={{ position: 'relative' }}>
+                        <button onClick={() => setShowColumnPicker(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showColumnPicker ? '#6366f1' : '#334155', color: showColumnPicker ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                            <SlidersHorizontal size={13} /> Columns
+                        </button>
+                        {showColumnPicker && (
+                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
+                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange & Toggle Columns</div>
+                                {tabColumns[activeTab].map((col, index) => (
+                                    <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
+                                            <input type="checkbox" checked={visibleColumns[activeTab].has(col.id)} onChange={() => toggleColumn(activeTab, col.id)}
+                                                style={{ accentColor: '#6366f1', width: 14, height: 14, margin: 0, cursor: 'pointer' }} />
+                                            {col.label}
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button onClick={() => moveColumn(activeTab, index, -1)} disabled={index === 0} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'transparent' : 'var(--text-secondary)' }}>▲</button>
+                                            <button onClick={() => moveColumn(activeTab, index, 1)} disabled={index === tabColumns[activeTab].length - 1} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === tabColumns[activeTab].length - 1 ? 'default' : 'pointer', color: index === tabColumns[activeTab].length - 1 ? 'transparent' : 'var(--text-secondary)' }}>▼</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div style={{ borderTop: '1px solid var(--border-primary)', margin: '8px 0 4px' }} />
+                                <button onClick={() => resetColumnsToDefault(activeTab)} style={{ width: '100%', textAlign: 'left', padding: '5px 14px', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer' }}>Reset to defaults</button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 
