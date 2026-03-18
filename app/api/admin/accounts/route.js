@@ -23,7 +23,7 @@ export async function GET(request) {
 
         let query = supabase
             .from('accounts')
-            .select('*, jobs:jobs(count)')
+            .select('*, jobs:jobs(count), customers:customers(password_hash)')
             .order('name', { ascending: true })
             .limit(200)
 
@@ -35,11 +35,28 @@ export async function GET(request) {
 
         if (error) throw error
 
-        const enrichedData = data.map(account => ({
-            ...account,
-            jobs_done: account.jobs?.[0]?.count || 0,
-            jobs: undefined // Clean up the raw relational object before sending to client
-        }))
+        const enrichedData = data.map(account => {
+            let derivedSource = account.acquisition_source || account.source;
+            if (!derivedSource) {
+                const customerData = account.customers && account.customers[0];
+                if (customerData?.password_hash) {
+                    derivedSource = 'Customer Signup';
+                } else {
+                    derivedSource = 'Admin';
+                }
+            }
+
+            // Don't leak the password hash to the frontend
+            delete account.customers;
+
+            return {
+                ...account,
+                jobs_done: account.jobs?.[0]?.count || 0,
+                jobs: undefined, // Clean up the raw relational object before sending to client
+                acquisition_source: derivedSource,
+                source: derivedSource
+            };
+        });
 
         return NextResponse.json({ success: true, data: enrichedData })
     } catch (error) {
