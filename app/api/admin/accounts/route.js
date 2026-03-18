@@ -112,6 +112,38 @@ export async function POST(request) {
             }, { onConflict: 'ledger_id' });
         }
 
+        // ── Native Property Insertion ─────────────────────────────────────
+        if (body.properties && Array.isArray(body.properties) && body.properties.length > 0) {
+            for (const p of body.properties) {
+                const address = p.address?.trim() || '';
+                if (!address) continue;
+                
+                const { data: newProp } = await supabase
+                    .from('properties')
+                    .insert({
+                        address: address,
+                        flat_number: p.flat_number || '',
+                        building_name: p.building_name || '',
+                        locality: p.locality || '',
+                        city: p.city || 'Mumbai',
+                        pincode: p.pincode || '',
+                        property_type: p.property_type || 'residential'
+                    })
+                    .select()
+                    .single();
+                    
+                if (newProp) {
+                    await supabase
+                        .from('customer_properties')
+                        .insert({
+                            property_id: newProp.id,
+                            account_id: data.id,
+                            is_active: true
+                        });
+                }
+            }
+        }
+
         // ── Rich creation log ──────────────────────────────────────────────
         const creationDetails = [
             `SKU: ${data.sku}`,

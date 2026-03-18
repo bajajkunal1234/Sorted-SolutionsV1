@@ -90,69 +90,17 @@ export async function GET(request) {
                 .eq('is_active', true)
                 .order('linked_at', { ascending: false })
                 
-            // Fetch ledger properties from accounts JSONB
-            const { data: accountData } = await supabase
-                .from('accounts')
-                .select('properties, id, created_at')
-                .eq('id', customerId)
-                .single();
-
-            let ledgerProps = [];
-            if (accountData && accountData.properties && Array.isArray(accountData.properties)) {
-                ledgerProps = accountData.properties.map((p, index) => {
-                    return {
-                        id: p.id || `ledger-${accountData.id}-${index}`,
-                        property_name: p.name || p.label || 'Home',
-                        address: p.address,
-                        contactPerson: p.contactPerson || '',
-                        contactPhone: p.contactPhone || '',
-                        _source: 'ledger',
-                        link_id: null,
-                        linked_at: accountData.created_at
-                    };
-                });
-            }
-
-            // Merge, deduplicate by property id/normalized address
+            // Merge, deduplicate by property id
             const mergedDb = [...(byCustomer || []), ...(byAccount || [])]
             const seenIds = new Set()
-            const seenAddrs = new Set()
             
-            const normalizeAddress = (addr) => {
-                if (!addr) return '';
-                const str = typeof addr === 'string' ? addr : `${addr.line1 || ''} ${addr.locality || ''} ${addr.city || ''} ${addr.pincode || ''}`;
-                return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
-            };
-
             const uniqueDb = mergedDb.filter(r => {
                 if (!r.property || seenIds.has(r.property.id)) return false
                 seenIds.add(r.property.id)
-                const normAddr = normalizeAddress(r.property.address);
-                if (normAddr) seenAddrs.add(normAddr);
                 return true
             }).map(r => ({ ...r.property, link_id: r.id, linked_at: r.linked_at, _source: 'db' }));
 
-            // Add ledger properties if not duplicate
-            const finalUnique = [...uniqueDb];
-            for (const lp of ledgerProps) {
-                const normAddr = normalizeAddress(lp.address);
-                if (!seenIds.has(String(lp.id)) && (!normAddr || !seenAddrs.has(normAddr))) {
-                    seenIds.add(String(lp.id));
-                    if (normAddr) seenAddrs.add(normAddr);
-                    finalUnique.push(lp);
-                } else {
-                    // It's a duplicate, try to enrich the DB property with better name if possible
-                    const match = finalUnique.find(existing => String(existing.id) === String(lp.id) || (normAddr && normalizeAddress(existing.address) === normAddr));
-                    if (match && !match.property_name && lp.property_name && lp.property_name !== 'Home') {
-                        match.property_name = lp.property_name;
-                    }
-                }
-            }
-
-            // Sort by linked_at
-            finalUnique.sort((a, b) => new Date(b.linked_at) - new Date(a.linked_at));
-
-            return NextResponse.json({ success: true, data: finalUnique })
+            return NextResponse.json({ success: true, data: uniqueDb })
         }
 
         // Smart search by pincode or address (for matching when adding a property)
