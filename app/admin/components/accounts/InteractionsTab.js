@@ -43,8 +43,8 @@ function InteractionsTab({ accountId, accountName }) {
             const [intRes, jobsRes, rentalsRes, amcRes] = await Promise.all([
                 fetch(`/api/admin/interactions?customer_id=${accountId}&limit=300&_t=${t}`, { cache: 'no-store' }),
                 fetch(`/api/admin/jobs?customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
-                fetch(`/api/admin/rentals?customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
-                fetch(`/api/admin/amc?customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
+                fetch(`/api/admin/rentals?type=active&customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
+                fetch(`/api/admin/amc?type=active&customer_id=${accountId}&_t=${t}`, { cache: 'no-store' }),
             ]);
 
             const intData   = intRes.ok   ? (await intRes.json()).data   || [] : [];
