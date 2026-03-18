@@ -147,9 +147,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             body: JSON.stringify({
                 type: 'account-viewed',
                 category: 'account',
-                customerId: account.id,
-                customerName: account.name,
-                performedByName: 'Admin',
+                customer_id: account.id,
+                customer_name: account.name,
+                performed_by_name: 'Admin',
                 description: `Admin opened account record — ${account.name} (SKU: ${account.sku || 'N/A'})`,
                 source: 'Admin App',
             }),
