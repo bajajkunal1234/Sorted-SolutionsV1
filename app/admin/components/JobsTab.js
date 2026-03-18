@@ -15,7 +15,7 @@ import { jobsAPI } from '@/lib/adminAPI';
 import { filterJobs, sortJobs, groupJobsBy } from '@/lib/utils/helpers';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
-function JobsTab() {
+function JobsTab({ jobToOpen, onJobOpened }) {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -56,6 +56,20 @@ function JobsTab() {
     }, []);
 
     const [processedJobs, setProcessedJobs] = useState([]);
+
+    useEffect(() => {
+        if (jobToOpen && jobs.length > 0) {
+            const matchingJob = jobs.find(j => j.id === jobToOpen.id);
+            if (matchingJob) {
+                if (matchingJob.status === 'booking_request') {
+                    setReviewBooking(matchingJob);
+                } else {
+                    setSelectedJob(matchingJob);
+                }
+            }
+            if (onJobOpened) onJobOpened();
+        }
+    }, [jobToOpen, jobs, onJobOpened]);
 
     useEffect(() => {
         let result = filterJobs(jobs, { searchTerm, status: filterStatus });

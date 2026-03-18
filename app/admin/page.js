@@ -15,6 +15,7 @@ export default function AdminApp() {
     const router = useRouter()
     const [activeTab, setActiveTab] = useState('dashboard')
     const [customerToOpen, setCustomerToOpen] = useState(null)
+    const [jobToOpen, setJobToOpen] = useState(null)
     const [authChecked, setAuthChecked] = useState(false)
 
     // ── Auth Guard ─────────────────────────────────────────────────────────
@@ -45,8 +46,13 @@ export default function AdminApp() {
             setActiveTab('accounts')
             setCustomerToOpen(customer)
         }
+        window.openJobInJobsTab = (job) => {
+            setActiveTab('jobs')
+            setJobToOpen(job)
+        }
         return () => {
             delete window.openCustomerAccount
+            delete window.openJobInJobsTab
         }
     }, [])
 
@@ -71,7 +77,7 @@ export default function AdminApp() {
     const renderTabContent = () => {
         switch (activeTab) {
             case 'jobs':
-                return <JobsTab />
+                return <JobsTab jobToOpen={jobToOpen} onJobOpened={() => setJobToOpen(null)} />
             case 'dashboard':
                 return (
                     <div className="dashboard-placeholder">

@@ -479,7 +479,16 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             sku: formData.sku,
             alias: formData.alias,
             under: formData.under,
-            type: groups.find(g => g.id === formData.under)?.nature || coaFieldMappings[formData.under]?.defaultNature || 'asset',
+            type: (() => {
+                const underLower = (formData.under || '').toLowerCase();
+                const groupNameLower = (groups.find(g => g.id === formData.under)?.name || '').toLowerCase();
+                if (underLower.includes('customer') || underLower.includes('debtor') || groupNameLower.includes('customer') || groupNameLower.includes('debtor')) return 'customer';
+                if (underLower.includes('supplier') || underLower.includes('creditor') || groupNameLower.includes('supplier') || groupNameLower.includes('creditor')) return 'supplier';
+                if (underLower.includes('technician') || groupNameLower.includes('technician')) return 'technician';
+                if (underLower.includes('bank') || groupNameLower.includes('bank')) return 'bank';
+                if (underLower.includes('cash') || groupNameLower.includes('cash')) return 'cash';
+                return groups.find(g => g.id === formData.under)?.nature || coaFieldMappings[formData.under]?.defaultNature || 'asset';
+            })(),
             opening_balance: parseFloat(formData.openingBalance) || 0,
             balance_type: formData.balanceType,
             as_on_date: formData.asOnDate,

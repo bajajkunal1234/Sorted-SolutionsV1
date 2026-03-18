@@ -11,6 +11,8 @@ import RemindersTab from './accounts/RemindersTab';
 import InteractionsTab from './accounts/InteractionsTab';
 import TransactionsTab from './accounts/TransactionsTab';
 import RentAMCTab from './accounts/RentAMCTab';
+import CustomerJobsTab from './accounts/CustomerJobsTab';
+import { Briefcase } from 'lucide-react';
 
 function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -91,6 +93,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
     const contactOnlyTabs = isContactAccount ? [
         { id: 'interactions', label: 'Interactions', icon: History },
+        { id: 'jobs', label: 'Jobs', icon: Briefcase },
     ] : [];
 
     const commonTabs = [
