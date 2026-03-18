@@ -1037,6 +1037,13 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                     {activeTab === 'rentamc' && isCustomer && (
                         <RentAMCTab customerId={account.id} />
                     )}
+
+                    {activeTab === 'jobs' && (
+                        <CustomerJobsTab 
+                            customerId={account.id} 
+                            onClose={onClose} 
+                        />
+                    )}
                 </div>
 
                 {/* Footer */}
