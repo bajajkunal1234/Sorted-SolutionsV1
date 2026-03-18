@@ -15,14 +15,9 @@ function CustomerJobsTab({ customerId, onClose }) {
             if (!customerId) return;
             try {
                 setLoading(true);
-                // The GET /api/admin/jobs supports customer_id filter
-                const response = await fetch(`/api/admin/jobs?customer_id=${customerId}`);
-                const data = await response.json();
-                if (data.success) {
-                    setJobs(data.data || []);
-                } else {
-                    setError('Failed to load jobs');
-                }
+                // The GET /api/admin/jobs supports customer_id filter via API service
+                const data = await jobsAPI.getAll({ customer_id: customerId });
+                setJobs(data || []);
             } catch (err) {
                 console.error(err);
                 setError('Failed to load jobs');
@@ -137,7 +132,7 @@ function CustomerJobsTab({ customerId, onClose }) {
                                     {new Date(job.created_at).toLocaleDateString()}
                                 </td>
                                 <td style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>
-                                    {formatCurrency(job.total_amount || 0)}
+                                    {formatCurrency(job.amount || 0)}
                                 </td>
                                 <td style={{ padding: 'var(--spacing-md)' }}>
                                     {renderStatusBadge(job.status)}
