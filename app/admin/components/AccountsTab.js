@@ -48,25 +48,132 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [txGroupBy, setTxGroupBy] = useState('none');
 
     // Column picker
-    const ACCOUNT_COLUMNS = [
-        { id: 'sku',             label: 'SKU',           align: 'left',   defaultOn: true  },
-        { id: 'type',            label: 'Type',          align: 'left',   defaultOn: true  },
-        { id: 'group',           label: 'Group',         align: 'left',   defaultOn: true  },
-        { id: 'opening_balance', label: 'Opening Bal',   align: 'right',  defaultOn: true  },
-        { id: 'closing_balance', label: 'Closing Bal',   align: 'right',  defaultOn: true  },
-        { id: 'jobs',            label: 'Jobs',          align: 'center', defaultOn: true  },
-        { id: 'source',          label: 'Created By',    align: 'left',   defaultOn: false },
-        { id: 'mobile',          label: 'Mobile',        align: 'left',   defaultOn: false },
-        { id: 'email',           label: 'Email',         align: 'left',   defaultOn: false },
-        { id: 'gstin',           label: 'GSTIN',         align: 'left',   defaultOn: false },
-        { id: 'credit_limit',    label: 'Credit Limit',  align: 'right',  defaultOn: false },
-        { id: 'credit_period',   label: 'Credit Period', align: 'center', defaultOn: false },
-        { id: 'status',          label: 'Status',        align: 'center', defaultOn: false },
-        { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false },
-    ];
-    const [visibleColumns, setVisibleColumns] = useState(() => new Set(ACCOUNT_COLUMNS.filter(c => c.defaultOn).map(c => c.id)));
+    const DEFAULT_CONFIG = {
+        accounts: [
+            { id: 'sku',             label: 'SKU',           align: 'left',   defaultOn: true  },
+            { id: 'type',            label: 'Type',          align: 'left',   defaultOn: true  },
+            { id: 'group',           label: 'Group',         align: 'left',   defaultOn: true  },
+            { id: 'opening_balance', label: 'Opening Bal',   align: 'right',  defaultOn: true  },
+            { id: 'closing_balance', label: 'Closing Bal',   align: 'right',  defaultOn: true  },
+            { id: 'jobs',            label: 'Jobs',          align: 'center', defaultOn: true  },
+            { id: 'source',          label: 'Created By',    align: 'left',   defaultOn: true  },
+            { id: 'mobile',          label: 'Mobile',        align: 'left',   defaultOn: false },
+            { id: 'email',           label: 'Email',         align: 'left',   defaultOn: false },
+            { id: 'gstin',           label: 'GSTIN',         align: 'left',   defaultOn: false },
+            { id: 'credit_limit',    label: 'Credit Limit',  align: 'right',  defaultOn: false },
+            { id: 'credit_period',   label: 'Credit Period', align: 'center', defaultOn: false },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: false },
+            { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false }
+        ],
+        sales: [
+            { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
+            { id: 'account_name',    label: 'Ledger Name',   align: 'left',   defaultOn: true },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+        ],
+        purchases: [
+            { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
+            { id: 'account_name',    label: 'Supplier',      align: 'left',   defaultOn: true },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+        ],
+        quotations: [
+            { id: 'number',          label: 'Quote No',      align: 'left',   defaultOn: true },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
+            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+        ],
+        receipts: [
+            { id: 'number',          label: 'Receipt No',    align: 'left',   defaultOn: true },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
+            { id: 'account_name',    label: 'From Account',  align: 'left',   defaultOn: true },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
+            { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+        ],
+        payments: [
+            { id: 'number',          label: 'Payment No',    align: 'left',   defaultOn: true },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
+            { id: 'account_name',    label: 'To Account',    align: 'left',   defaultOn: true },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
+            { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+        ]
+    };
+
+    const [tabColumns, setTabColumns] = useState(DEFAULT_CONFIG);
+    const [visibleColumns, setVisibleColumns] = useState(() => {
+        const initial = {};
+        for (const tab in DEFAULT_CONFIG) {
+            initial[tab] = new Set(DEFAULT_CONFIG[tab].filter(c => c.defaultOn).map(c => c.id));
+        }
+        return initial;
+    });
+
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            try {
+                const saved = localStorage.getItem('accounts_configurable_tables');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    if (parsed.tabColumns) setTabColumns({ ...DEFAULT_CONFIG, ...parsed.tabColumns });
+                    if (parsed.visibleColumns) {
+                        const hydratedVis = {};
+                        for (const tab in parsed.visibleColumns) {
+                            hydratedVis[tab] = new Set(parsed.visibleColumns[tab]);
+                        }
+                        setVisibleColumns(prev => ({ ...prev, ...hydratedVis }));
+                    }
+                }
+            } catch(e) {}
+        }
+    }, []);
+
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            const serializedVis = {};
+            for (const tab in visibleColumns) {
+                serializedVis[tab] = Array.from(visibleColumns[tab]);
+            }
+            if (typeof window !== "undefined") {
+                localStorage.setItem('accounts_configurable_tables', JSON.stringify({ tabColumns, visibleColumns: serializedVis }));
+            }
+        }, 300);
+        return () => clearTimeout(timeout);
+    }, [tabColumns, visibleColumns]);
+
     const [showColumnPicker, setShowColumnPicker] = useState(false);
-    const toggleColumn = (id) => setVisibleColumns(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    
+    const toggleColumn = (tab, id) => {
+        setVisibleColumns(prev => {
+            const n = new Set(prev[tab]);
+            n.has(id) ? n.delete(id) : n.add(id);
+            return { ...prev, [tab]: n };
+        });
+    };
+
+    const moveColumn = (tab, index, direction) => {
+        setTabColumns(prev => {
+            const cols = [...prev[tab]];
+            if (direction === -1 && index > 0) {
+                [cols[index - 1], cols[index]] = [cols[index], cols[index - 1]];
+            } else if (direction === 1 && index < cols.length - 1) {
+                [cols[index], cols[index + 1]] = [cols[index + 1], cols[index]];
+            }
+            return { ...prev, [tab]: cols };
+        });
+    };
+
+    const resetColumnsToDefault = (tab) => {
+        setTabColumns(prev => ({ ...prev, [tab]: DEFAULT_CONFIG[tab] }));
+        setVisibleColumns(prev => ({ ...prev, [tab]: new Set(DEFAULT_CONFIG[tab].filter(c => c.defaultOn).map(c => c.id)) }));
+    };
 
     // Multi-select state
     const [selectedItems, setSelectedItems] = useState(new Set());
@@ -419,8 +526,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                 case 'closing_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{formatCurrency(ledger.closing_balance || ledger.closingBalance || 0)}</td>;
                                 case 'jobs':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'center' }}>{ledger.jobs_done || ledger.jobsDone || 0}</td>;
                                 case 'source': {
-                                    const src = ledger.source || '';
-                                    const isAdmin   = src === 'admin'    || src === 'Admin App';
+                                    const src = ledger.source || ledger.acquisition_source || 'Admin';
+                                    const isAdmin   = src === 'admin'    || src === 'Admin App' || src === 'Admin';
                                     const isBooking = src.toLowerCase().includes('booking') || src.toLowerCase().includes('website');
                                     const isCustomer = src.toLowerCase().includes('customer') || src.toLowerCase().includes('signup');
                                     const badge = isAdmin   ? { icon: '🛡️', label: 'Admin Created',    bg: '#6366f115', color: '#6366f1' }
@@ -647,19 +754,25 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                             <SlidersHorizontal size={13} /> Columns
                         </button>
                         {showColumnPicker && (
-                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '180px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
-                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Toggle Columns</div>
-                                {ACCOUNT_COLUMNS.map(col => (
-                                    <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 14px', cursor: 'pointer', fontSize: 13 }}
+                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
+                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange & Toggle Columns</div>
+                                {tabColumns[activeTab].map((col, index) => (
+                                    <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                        <input type="checkbox" checked={visibleColumns.has(col.id)} onChange={() => toggleColumn(col.id)}
-                                            style={{ accentColor: '#6366f1', width: 14, height: 14 }} />
-                                        {col.label}
-                                    </label>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
+                                            <input type="checkbox" checked={visibleColumns[activeTab].has(col.id)} onChange={() => toggleColumn(activeTab, col.id)}
+                                                style={{ accentColor: '#6366f1', width: 14, height: 14, margin: 0, cursor: 'pointer' }} />
+                                            {col.label}
+                                        </label>
+                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                            <button onClick={() => moveColumn(activeTab, index, -1)} disabled={index === 0} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'transparent' : 'var(--text-secondary)' }}>▲</button>
+                                            <button onClick={() => moveColumn(activeTab, index, 1)} disabled={index === tabColumns[activeTab].length - 1} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === tabColumns[activeTab].length - 1 ? 'default' : 'pointer', color: index === tabColumns[activeTab].length - 1 ? 'transparent' : 'var(--text-secondary)' }}>▼</button>
+                                        </div>
+                                    </div>
                                 ))}
                                 <div style={{ borderTop: '1px solid var(--border-primary)', margin: '8px 0 4px' }} />
-                                <button onClick={() => setVisibleColumns(new Set(ACCOUNT_COLUMNS.filter(c => c.defaultOn).map(c => c.id)))} style={{ width: '100%', textAlign: 'left', padding: '5px 14px', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer' }}>Reset to defaults</button>
+                                <button onClick={() => resetColumnsToDefault(activeTab)} style={{ width: '100%', textAlign: 'left', padding: '5px 14px', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer' }}>Reset to defaults</button>
                             </div>
                         )}
                     </div>
