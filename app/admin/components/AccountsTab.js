@@ -514,7 +514,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     {viewType === 'kanban' && <AccountsKanbanView accounts={filteredLedgers} onAccountClick={handleOpenAccount} onAccountUpdate={handleUpdateAccount} />}
                     {viewType === 'details' && <AccountsDetailsView accounts={filteredLedgers} onAccountClick={handleOpenAccount} />}
                     {viewType === 'table' && (() => {
-                        const activeCols = ACCOUNT_COLUMNS.filter(c => visibleColumns.has(c.id));
+                        const activeCols = tabColumns.accounts.filter(c => visibleColumns.accounts.has(c.id));
                         const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || '—';
                         const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
                         const renderCell = (col, ledger) => {
