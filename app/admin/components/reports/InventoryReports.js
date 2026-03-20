@@ -1,12 +1,19 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Package, Tag, BarChart2, TrendingUp, TrendingDown, Filter, RefreshCcw, Search, List, Printer, Share2, ExternalLink } from 'lucide-react';
+import { Package, Tag, BarChart2, TrendingUp, TrendingDown, Filter, RefreshCcw, Search, List, Printer, Share2, ExternalLink, X } from 'lucide-react';
 import { inventoryAPI, inventoryCategoriesAPI } from '@/lib/adminAPI';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor } from '@/lib/utils/inventoryHelpers';
 import ProductDetailModal from '../ProductDetailModal';
 
 const fmt = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+const PRICE_OPTIONS = [
+    { key: 'sale_price',     label: 'Sale Price',         color: '#10b981', desc: 'Standard sale price' },
+    { key: 'dealer_price',   label: 'Dealer Price',       color: '#f59e0b', desc: 'Price for dealers / partners' },
+    { key: 'retail_price',   label: 'Retail Price / MRP', color: '#8b5cf6', desc: 'Maximum Retail Price' },
+    { key: 'purchase_price', label: 'Purchase Rate',      color: '#ef4444', desc: 'Your cost / purchase rate (internal)' },
+];
 
 function InventoryReports() {
     const [activeReport, setActiveReport] = useState('overview');
@@ -22,6 +29,7 @@ function InventoryReports() {
 
     // Price Lists state
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [pricePickerFor, setPricePickerFor] = useState(null); // 'print' | 'csv'
     const priceListRef = useRef(null);
 
     const loadInventory = async () => {
@@ -99,43 +107,66 @@ function InventoryReports() {
     const lowStock = filtered.filter(p => p.type === 'product' && (p.current_stock || 0) > 0 && (p.current_stock || 0) <= (p.min_stock_level || 5));
     const inStock = filtered.filter(p => p.type === 'product' && (p.current_stock || 0) > (p.min_stock_level || 5));
 
-    // Print handler
-    const handlePrint = () => {
-        const content = priceListRef.current?.innerHTML;
-        if (!content) return;
+    // Show picker first, then confirm action
+    const handlePrint = () => setPricePickerFor('print');
+    const handleShareCSV = () => setPricePickerFor('csv');
+
+    const handleConfirmPrint = (priceKey) => {
+        setPricePickerFor(null);
+        const opt = PRICE_OPTIONS.find(o => o.key === priceKey);
+        const rows = filtered.map(p => {
+            const isService = p.type === 'service';
+            const price = (isService && priceKey === 'purchase_price') ? '—' : fmt(p[priceKey] || 0);
+            return `<tr>
+                <td>${p.sku || ''}</td>
+                <td>${p.name || ''}</td>
+                <td>${p.category || '—'}</td>
+                <td>${p.brand || '—'}</td>
+                <td style="text-transform:capitalize">${p.type}</td>
+                <td style="text-align:right;font-weight:600">${price}</td>
+            </tr>`;
+        }).join('');
+        const filterInfo = [
+            filterCategory !== 'all' && `Category: ${filterCategory}`,
+            filterBrand !== 'all' && `Brand: ${filterBrand}`,
+            filterType !== 'all' && `Type: ${filterType}`,
+        ].filter(Boolean).join(' · ');
         const win = window.open('', '_blank');
-        win.document.write(`
-            <html><head><title>Price List</title>
+        win.document.write(`<html><head><title>Price List — ${opt.label}</title>
             <style>
-                body { font-family: system-ui, sans-serif; font-size: 12px; margin: 20px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-                th, td { border: 1px solid #ddd; padding: 6px 10px; text-align: left; }
-                th { background: #f3f4f6; font-weight: 600; }
-                td.num { text-align: right; }
-                h2 { margin: 0 0 4px; font-size: 18px; }
-                p { margin: 0 0 12px; font-size: 12px; color: #6b7280; }
-                .badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; }
-                @media print { body { margin: 10px; } }
-            </style></head><body>${content}</body></html>
-        `);
+                body{font-family:system-ui,sans-serif;font-size:12px;margin:20px}
+                h2{margin:0 0 4px;font-size:18px} p{margin:0 0 12px;color:#6b7280;font-size:12px}
+                table{width:100%;border-collapse:collapse;margin-top:12px}
+                th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}
+                th{background:#f3f4f6;font-weight:600} @media print{body{margin:10px}}
+            </style></head><body>
+            <h2>Price List — ${opt.label}</h2>
+            <p>Generated ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}${filterInfo ? ' · ' + filterInfo : ''}</p>
+            <table>
+                <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Brand</th><th>Type</th><th style="text-align:right">Price (${opt.label})</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+            </body></html>`);
         win.document.close();
         win.focus();
         setTimeout(() => { win.print(); }, 300);
     };
 
-    // Share as CSV
-    const handleShareCSV = () => {
-        const headers = ['SKU', 'Name', 'Category', 'Brand', 'Type', 'Purchase Rate', 'Sale Price', 'Dealer Price', 'Retail Price'];
-        const rows = filtered.map(p => [
-            p.sku, p.name, p.category || '', p.brand || '', p.type,
-            p.purchase_price || 0, p.sale_price || 0, p.dealer_price || 0, p.retail_price || 0
-        ]);
+    const handleConfirmCSV = (priceKey) => {
+        setPricePickerFor(null);
+        const opt = PRICE_OPTIONS.find(o => o.key === priceKey);
+        const headers = ['SKU', 'Name', 'Category', 'Brand', 'Type', `Price (${opt.label})`];
+        const rows = filtered.map(p => {
+            const isService = p.type === 'service';
+            const price = (isService && priceKey === 'purchase_price') ? '' : (p[priceKey] || 0);
+            return [p.sku, p.name, p.category || '', p.brand || '', p.type, price];
+        });
         const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `price-list-${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `price-list-${opt.key}-${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -169,6 +200,47 @@ function InventoryReports() {
                     onSave={handleProductSave}
                     onDelete={() => setSelectedProduct(null)}
                 />
+            )}
+
+            {/* Price picker modal */}
+            {pricePickerFor && (
+                <div className="modal-overlay" onClick={() => setPricePickerFor(null)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">
+                                {pricePickerFor === 'print' ? '🖨️ Print Price List' : '📤 Export Price List'}
+                            </h3>
+                            <button className="btn-icon" onClick={() => setPricePickerFor(null)}><X size={18} /></button>
+                        </div>
+                        <div style={{ padding: 'var(--spacing-md)' }}>
+                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: '0 0 var(--spacing-md)' }}>
+                                Which price column should appear in this {pricePickerFor === 'print' ? 'printout' : 'export'}?
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                                {PRICE_OPTIONS.map(opt => (
+                                    <button
+                                        key={opt.key}
+                                        onClick={() => pricePickerFor === 'print' ? handleConfirmPrint(opt.key) : handleConfirmCSV(opt.key)}
+                                        style={{
+                                            padding: 'var(--spacing-sm) var(--spacing-md)',
+                                            backgroundColor: `${opt.color}12`,
+                                            border: `1.5px solid ${opt.color}40`,
+                                            borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px',
+                                            transition: 'border-color 0.15s',
+                                            textAlign: 'left',
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.borderColor = opt.color}
+                                        onMouseLeave={e => e.currentTarget.style.borderColor = `${opt.color}40`}
+                                    >
+                                        <span style={{ fontWeight: 600, color: opt.color, fontSize: 'var(--font-size-sm)' }}>{opt.label}</span>
+                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{opt.desc}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* Header */}
