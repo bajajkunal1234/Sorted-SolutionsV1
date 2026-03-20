@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { X, Package, BarChart2, MessageSquare, History, DollarSign, Edit2, Save, Trash2, ArrowUpRight, ArrowDownLeft, RefreshCcw, Plus, Paperclip, TrendingUp, TrendingDown, ShoppingCart, FileText } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock } from '@/lib/utils/inventoryHelpers';
-import { inventoryLogsAPI, inventoryMovementAPI } from '@/lib/adminAPI';
+import { inventoryLogsAPI, inventoryMovementAPI, inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 import { productCategories } from '@/lib/data/inventoryData';
 
-function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [] }) {
+function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [], brands = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [isEditing, setIsEditing] = useState(false);
     const [logs, setLogs] = useState([]);
@@ -23,6 +23,34 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
         current_stock: parseFloat(product.current_stock) || 0,
         min_stock_level: parseInt(product.min_stock_level) || 0
     });
+
+    // Inline add category / brand
+    const [addingList, setAddingList] = useState(null);
+    const [newListItem, setNewListItem] = useState('');
+    const [addingListError, setAddingListError] = useState('');
+    const [localCategories, setLocalCategories] = useState(categories);
+    const [localBrands, setLocalBrands] = useState(brands);
+
+    const handleAddListItem = async () => {
+        const name = newListItem.trim();
+        if (!name) return;
+        try {
+            if (addingList === 'category') {
+                await inventoryCategoriesAPI.create({ name });
+                setLocalCategories(prev => [...prev, { id: `_new_${name}`, name }]);
+                setEditedProduct(prev => ({ ...prev, category: name }));
+            } else {
+                await inventoryBrandsAPI.create({ name });
+                setLocalBrands(prev => [...prev, { id: `_new_${name}`, name }]);
+                setEditedProduct(prev => ({ ...prev, brand: name }));
+            }
+            setNewListItem('');
+            setAddingList(null);
+            setAddingListError('');
+        } catch (err) {
+            setAddingListError(err?.message || 'Failed to add — it may already exist.');
+        }
+    };
 
     // Fetch logs when interactions tab is active
     useEffect(() => {
@@ -228,6 +256,24 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                     {/* ══ MASTER DETAILS TAB ══════════════════════════════════ */}
                     {activeTab === 'details' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                            {/* Add category/brand mini-modal */}
+                            {addingList && (
+                                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={() => { setAddingList(null); setNewListItem(''); setAddingListError(''); }}>
+                                    <div style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-lg)', width: '360px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                            <h4 style={{ margin: 0, fontSize: 'var(--font-size-md)' }}>Add New {addingList === 'category' ? 'Category' : 'Brand'}</h4>
+                                            <button type="button" className="btn-icon" onClick={() => { setAddingList(null); setNewListItem(''); setAddingListError(''); }}><X size={16} /></button>
+                                        </div>
+                                        <input type="text" className="form-input" value={newListItem} onChange={e => { setNewListItem(e.target.value); setAddingListError(''); }} placeholder={addingList === 'category' ? 'e.g., Air Conditioners' : 'e.g., Samsung'} autoFocus onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddListItem())} style={{ marginBottom: 'var(--spacing-xs)' }} />
+                                        {addingListError && <div style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--spacing-xs)' }}>{addingListError}</div>}
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
+                                            <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddListItem}>Add {addingList === 'category' ? 'Category' : 'Brand'}</button>
+                                            <button type="button" className="btn btn-secondary" onClick={() => { setAddingList(null); setNewListItem(''); setAddingListError(''); }}>Cancel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Basic Information */}
                             <div>
                                 <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--text-primary)' }}>
@@ -266,7 +312,10 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                     </div>
 
                                     <div className="form-group">
-                                        <label className="form-label">Category *</label>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                            <label className="form-label" style={{ margin: 0 }}>Category *</label>
+                                            {isEditing && <button type="button" onClick={() => { setAddingList('category'); setNewListItem(''); setAddingListError(''); }} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}><Plus size={12} /> Add new</button>}
+                                        </div>
                                         <select
                                             className="form-select"
                                             value={editedProduct.category}
@@ -275,23 +324,29 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                             style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
                                         >
                                             <option value="">Select Category</option>
-                                            {(categories.length > 0 ? categories : productCategories).map(cat => (
-                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            {localCategories.map(cat => (
+                                                <option key={cat.id} value={cat.name}>{cat.name}</option>
                                             ))}
                                         </select>
                                     </div>
 
                                     <div className="form-group">
-                                        <label className="form-label">Brand</label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                            <label className="form-label" style={{ margin: 0 }}>Brand</label>
+                                            {isEditing && <button type="button" onClick={() => { setAddingList('brand'); setNewListItem(''); setAddingListError(''); }} style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}><Plus size={12} /> Add new</button>}
+                                        </div>
+                                        <select
+                                            className="form-select"
                                             value={editedProduct.brand || ''}
                                             onChange={(e) => setEditedProduct({ ...editedProduct, brand: e.target.value })}
                                             disabled={!isEditing}
-                                            placeholder="Enter brand name"
                                             style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)' }}
-                                        />
+                                        >
+                                            <option value="">— Select brand —</option>
+                                            {localBrands.map(b => (
+                                                <option key={b.id} value={b.name}>{b.name}</option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div className="form-group">

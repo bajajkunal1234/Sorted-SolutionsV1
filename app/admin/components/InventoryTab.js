@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X } from 'lucide-react';
-import { inventoryAPI, inventoryCategoriesAPI, inventoryLogsAPI, printTemplatesAPI } from '@/lib/adminAPI';
+import { inventoryAPI, inventoryCategoriesAPI, inventoryBrandsAPI, inventoryLogsAPI, printTemplatesAPI } from '@/lib/adminAPI';
 import { productCategories, stockStatuses } from '@/lib/data/inventoryData';
 import { filterProducts, sortProducts, getUniqueBrands, getStockStatus } from '@/lib/utils/inventoryHelpers';
 import InventoryTableView from './inventory/InventoryTableView';
@@ -17,6 +17,7 @@ function InventoryTab() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [categories, setCategories] = useState([]);
+    const [managedBrands, setManagedBrands] = useState([]);
     const [termsTemplates, setTermsTemplates] = useState([]);
     const [error, setError] = useState(null);
     const [viewType, setViewType] = useState('table');
@@ -62,9 +63,11 @@ function InventoryTab() {
                 // Background fetch for non-critical data
                 Promise.all([
                     inventoryCategoriesAPI.getAll(),
+                    inventoryBrandsAPI.getAll(),
                     printTemplatesAPI.getAll()
-                ]).then(([catData, tempData]) => {
+                ]).then(([catData, brandData, tempData]) => {
                     setCategories(catData || []);
+                    setManagedBrands(brandData || []);
                     setTermsTemplates(tempData || []);
                 }).catch(err => console.error('Secondary fetching failed:', err));
             } catch (err) {
@@ -404,6 +407,7 @@ function InventoryTab() {
                     onUpdate={handleUpdateProduct}
                     onDelete={() => handleDeleteProduct(selectedProduct.id)}
                     categories={categories}
+                    brands={managedBrands}
                 />
             )}
 
@@ -413,6 +417,7 @@ function InventoryTab() {
                     onClose={() => setShowCreateForm(false)}
                     onSave={handleCreateProduct}
                     categories={categories}
+                    brands={managedBrands}
                     termsTemplates={termsTemplates}
                     existingProducts={products}
                 />

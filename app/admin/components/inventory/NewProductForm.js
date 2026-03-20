@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { X, Upload, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
+import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 
 
-function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [], existingProducts = [] }) {
+function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTemplates = [], existingProducts = [] }) {
     const [formData, setFormData] = useState({
         name: '',
         type: 'product',
@@ -58,6 +59,34 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
         const newImages = formData.images.filter((_, i) => i !== index);
         setImagePreview(newPreviews);
         setFormData({ ...formData, images: newImages });
+    };
+
+    // ── Inline add category / brand ──────────────────────────────────────────
+    const [addingList, setAddingList] = useState(null); // 'category' | 'brand' | null
+    const [newListItem, setNewListItem] = useState('');
+    const [addingListError, setAddingListError] = useState('');
+    const [localCategories, setLocalCategories] = useState(categories);
+    const [localBrands, setLocalBrands] = useState(brands);
+
+    const handleAddListItem = async () => {
+        const name = newListItem.trim();
+        if (!name) return;
+        try {
+            if (addingList === 'category') {
+                await inventoryCategoriesAPI.create({ name });
+                setLocalCategories(prev => [...prev, { id: `_new_${name}`, name }]);
+                setFormData(prev => ({ ...prev, category: name }));
+            } else {
+                await inventoryBrandsAPI.create({ name });
+                setLocalBrands(prev => [...prev, { id: `_new_${name}`, name }]);
+                setFormData(prev => ({ ...prev, brand: name }));
+            }
+            setNewListItem('');
+            setAddingList(null);
+            setAddingListError('');
+        } catch (err) {
+            setAddingListError(err?.message || 'Failed to add — it may already exist.');
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -242,48 +271,84 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                                 />
                             </div>
 
+                            {/* Inline add mini-modal */}
+                            {addingList && (
+                                <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' }} onClick={() => { setAddingList(null); setNewListItem(''); setAddingListError(''); }}>
+                                    <div style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-lg)', width: '360px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }} onClick={e => e.stopPropagation()}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                            <h4 style={{ margin: 0, fontSize: 'var(--font-size-md)' }}>
+                                                Add New {addingList === 'category' ? 'Category' : 'Brand'}
+                                            </h4>
+                                            <button type="button" className="btn-icon" onClick={() => { setAddingList(null); setNewListItem(''); setAddingListError(''); }}><X size={16} /></button>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            value={newListItem}
+                                            onChange={e => { setNewListItem(e.target.value); setAddingListError(''); }}
+                                            placeholder={addingList === 'category' ? 'e.g., Air Conditioners' : 'e.g., Samsung'}
+                                            autoFocus
+                                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddListItem())}
+                                            style={{ marginBottom: 'var(--spacing-xs)' }}
+                                        />
+                                        {addingListError && <div style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)', marginBottom: 'var(--spacing-xs)' }}>{addingListError}</div>}
+                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
+                                            <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={handleAddListItem}>Add {addingList === 'category' ? 'Category' : 'Brand'}</button>
+                                            <button type="button" className="btn btn-secondary" onClick={() => { setAddingList(null); setNewListItem(''); setAddingListError(''); }}>Cancel</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                                 <div className="form-group">
-                                    <label className="form-label">Category *</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                        <label className="form-label" style={{ margin: 0 }}>Category *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setAddingList('category'); setNewListItem(''); setAddingListError(''); }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+                                            title="Add new category"
+                                        >
+                                            <Plus size={12} /> Add new
+                                        </button>
+                                    </div>
+                                    <select
+                                        className="form-select"
                                         value={formData.category}
                                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                        placeholder="Type to search or enter new"
-                                        list="category-suggestions"
                                         required
-                                    />
-                                    <datalist id="category-suggestions">
-                                        {categories.map(cat => (
-                                            <option key={cat.id} value={cat.name} />
+                                    >
+                                        <option value="">— Select category —</option>
+                                        {localCategories.map(cat => (
+                                            <option key={cat.id} value={cat.name}>{cat.name}</option>
                                         ))}
-                                    </datalist>
+                                    </select>
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">Brand *</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                        <label className="form-label" style={{ margin: 0 }}>Brand *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setAddingList('brand'); setNewListItem(''); setAddingListError(''); }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: 'var(--font-size-xs)', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}
+                                            title="Add new brand"
+                                        >
+                                            <Plus size={12} /> Add new
+                                        </button>
+                                    </div>
+                                    <select
+                                        className="form-select"
                                         value={formData.brand}
                                         onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                                        placeholder="e.g., Samsung, LG, Voltas"
-                                        list="brand-suggestions"
                                         required
-                                    />
-                                    <datalist id="brand-suggestions">
-                                        <option value="Samsung" />
-                                        <option value="LG" />
-                                        <option value="Voltas" />
-                                        <option value="Daikin" />
-                                        <option value="Hitachi" />
-                                        <option value="Blue Star" />
-                                        <option value="Carrier" />
-                                        <option value="Godrej" />
-                                        <option value="Whirlpool" />
-                                        <option value="Panasonic" />
-                                    </datalist>
+                                    >
+                                        <option value="">— Select brand —</option>
+                                        {localBrands.map(b => (
+                                            <option key={b.id} value={b.name}>{b.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
                             </div>
 
