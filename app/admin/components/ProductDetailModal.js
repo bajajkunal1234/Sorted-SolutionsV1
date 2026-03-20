@@ -62,7 +62,6 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
 
     const tabs = [
         { id: 'details', label: 'Master Details', icon: Package },
-        { id: 'stock', label: 'Stock Movement', icon: History },
         { id: 'interactions', label: 'Interactions', icon: MessageSquare },
         { id: 'analysis', label: 'Analysis', icon: BarChart2 },
     ];
@@ -370,71 +369,6 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                         </div>
                     )}
 
-                    {/* ══ STOCK MOVEMENT TAB ══════════════════════════════════ */}
-                    {activeTab === 'stock' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                            {/* Stock Summary Cards */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
-                                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Current Stock</div>
-                                    <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--text-primary)' }}>
-                                        {formatStock(product.current_stock, product.unit_of_measure)}
-                                    </div>
-                                </div>
-                                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Stock Status</div>
-                                    <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: statusColor }}>{statusLabel}</div>
-                                </div>
-                            </div>
-
-                            {/* Stock Movement History */}
-                            <div style={{ backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                                <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <h4 style={{ margin: 0, fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Movement History</h4>
-                                    {loadingLogs && <RefreshCcw size={14} className="animate-spin" />}
-                                </div>
-                                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                                    {!loadingLogs && logs.length > 0 ? (
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-xs)' }}>
-                                            <thead style={{ backgroundColor: 'var(--bg-tertiary)', position: 'sticky', top: 0 }}>
-                                                <tr>
-                                                    <th style={{ padding: '8px', textAlign: 'left' }}>Date</th>
-                                                    <th style={{ padding: '8px', textAlign: 'left' }}>Type</th>
-                                                    <th style={{ padding: '8px', textAlign: 'center' }}>Change</th>
-                                                    <th style={{ padding: '8px', textAlign: 'center' }}>Balance</th>
-                                                    <th style={{ padding: '8px', textAlign: 'left' }}>Notes</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {logs.filter(l => l.type !== 'note' && l.type !== 'edit').map((log) => (
-                                                    <tr key={log.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                        <td style={{ padding: '8px' }}>
-                                                            {new Date(log.created_at).toLocaleDateString('en-GB')}
-                                                            <div style={{ opacity: 0.5, fontSize: '10px' }}>{new Date(log.created_at).toLocaleTimeString()}</div>
-                                                        </td>
-                                                        <td style={{ padding: '8px', textTransform: 'capitalize' }}>{log.type}</td>
-                                                        <td style={{ padding: '8px', textAlign: 'center', fontWeight: 600, color: log.quantity_changed > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                                                                {log.quantity_changed > 0 ? <ArrowUpRight size={12} /> : <ArrowDownLeft size={12} />}
-                                                                {Math.abs(log.quantity_changed)}
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ padding: '8px', textAlign: 'center' }}>{log.new_quantity}</td>
-                                                        <td style={{ padding: '8px', color: 'var(--text-secondary)' }}>{log.notes || '-'}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    ) : !loadingLogs ? (
-                                        <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                                            <History size={32} style={{ margin: '0 auto var(--spacing-sm)', opacity: 0.5 }} />
-                                            <p>No movement history found</p>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
                     {/* ══ INTERACTIONS TAB ════════════════════════════════════ */}
                     {activeTab === 'interactions' && (
