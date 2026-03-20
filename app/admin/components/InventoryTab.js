@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X } from 'lucide-react';
 import { inventoryAPI, inventoryCategoriesAPI, inventoryLogsAPI, printTemplatesAPI } from '@/lib/adminAPI';
 import { productCategories, stockStatuses } from '@/lib/data/inventoryData';
-import { filterProducts, sortProducts, getUniqueBrands } from '@/lib/utils/inventoryHelpers';
+import { filterProducts, sortProducts, getUniqueBrands, getStockStatus } from '@/lib/utils/inventoryHelpers';
 import InventoryTableView from './inventory/InventoryTableView';
 import InventoryCardView from './inventory/InventoryCardView';
 import InventoryKanbanView from './inventory/InventoryKanbanView';
@@ -106,29 +106,26 @@ function InventoryTab() {
         try {
             // Find current product to check for stock changes
             const currentProduct = products.find(p => p.id === updatedProduct.id);
-            const stockChanged = currentProduct && currentProduct.current_stock !== updatedProduct.current_stock;
 
             const result = await inventoryAPI.update(updatedProduct.id, updatedProduct);
 
-            // Create stock log if changed
-            if (stockChanged) {
-                try {
-                    await inventoryLogsAPI.create({
-                        inventory_id: result.id,
-                        type: 'adjustment',
-                        quantity_changed: updatedProduct.current_stock - currentProduct.current_stock,
-                        previous_quantity: currentProduct.current_stock,
-                        new_quantity: updatedProduct.current_stock,
-                        reference_type: 'manual',
-                        notes: 'Manual adjustment via detail modal'
-                    });
-                } catch (logErr) {
-                    console.error('Failed to create adjustment log:', logErr);
-                }
+            // Log an edit interaction
+            try {
+                await inventoryLogsAPI.create({
+                    inventory_id: result.id,
+                    type: 'edit',
+                    quantity_changed: 0,
+                    previous_quantity: currentProduct?.current_stock || 0,
+                    new_quantity: result.current_stock || 0,
+                    reference_type: 'manual',
+                    notes: 'Product details edited via admin'
+                });
+            } catch (logErr) {
+                console.error('Failed to create edit log:', logErr);
             }
 
             setProducts(prevProducts =>
-                prevProducts.map(p => p.id === result.id ? result : p)
+                prevProducts.map(p => p.id === result.id ? { ...result, currentStock: result.current_stock, minStockLevel: result.min_stock_level, salePrice: result.sale_price, purchasePrice: result.purchase_price, unitOfMeasure: result.unit_of_measure, hsnCode: result.hsn_code, stockStatus: getStockStatus(result.current_stock, result.min_stock_level, result.type === 'service') } : p)
             );
             setSelectedProduct(null);
         } catch (err) {
@@ -280,7 +277,6 @@ function InventoryTab() {
                         <option value="all">All Types</option>
                         <option value="product">Products</option>
                         <option value="service">Services</option>
-                        <option value="combo">Combos</option>
                     </select>
                 </div>
 
@@ -418,6 +414,7 @@ function InventoryTab() {
                     onSave={handleCreateProduct}
                     categories={categories}
                     termsTemplates={termsTemplates}
+                    existingProducts={products}
                 />
             )}
         </div>

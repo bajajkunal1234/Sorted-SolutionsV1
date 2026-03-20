@@ -2,18 +2,12 @@
 
 import { useState } from 'react';
 import { X, Upload, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
 
 
-function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] }) {
-    // Auto-generate SKU
-    const generateSKU = () => {
-        const timestamp = Date.now().toString().slice(-6);
-        return `SKU-${timestamp}`;
-    };
-
+function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [], existingProducts = [] }) {
     const [formData, setFormData] = useState({
         name: '',
-        sku: generateSKU(), // Auto-generated
         type: 'product',
         category: '',
         brand: '',
@@ -27,7 +21,6 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
             quantity: 0,
             date: new Date().toISOString().split('T')[0]
         },
-        minStockLevel: 10,
 
         // Service fields
         serviceTermsTemplate: '',
@@ -45,7 +38,8 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
 
     const [imagePreview, setImagePreview] = useState([]);
 
-
+    // Auto-generate SKU from type + existing products
+    const autoSKU = generateProductSKU(formData.type, existingProducts);
 
     const handleImageUpload = (e) => {
         const files = Array.from(e.target.files);
@@ -69,15 +63,14 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
 
         const newProduct = {
             name: formData.name,
-            sku: formData.sku,
+            sku: autoSKU,
             type: formData.type,
             category: formData.category,
             brand: formData.brand,
             description: formData.description,
-            unit_of_measure: formData.unitOfMeasure,
-            min_stock_level: parseInt(formData.minStockLevel) || 0,
-            opening_balance_qty: parseFloat(formData.openingBalance.quantity) || 0,
-            opening_balance_date: formData.openingBalance.date,
+            unit_of_measure: formData.type === 'service' ? null : formData.unitOfMeasure,
+            opening_balance_qty: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
+            opening_balance_date: formData.type === 'service' ? null : formData.openingBalance.date,
             current_stock: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
             sale_price: parseFloat(formData.salePrice) || 0,
             purchase_price: parseFloat(formData.purchasePrice) || 0,
@@ -91,198 +84,66 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
             created_at: new Date().toISOString()
         };
 
-        console.log('Processed Product for Supabase:', newProduct);
-
         if (onSave) {
             onSave(newProduct);
         }
         onClose();
     };
 
-    const showStockFields = formData.type === 'product' || formData.type === 'combo';
-    const showServiceFields = formData.type === 'service' || formData.type === 'combo';
+    const showStockFields = formData.type === 'product';
+    const showServiceFields = formData.type === 'service';
 
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px', maxHeight: '90vh', overflow: 'auto' }}>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-header">
-                        <h2 className="modal-title">Create New {formData.type === 'product' ? 'Product' : formData.type === 'service' ? 'Service' : 'Combo'}</h2>
+                        <h2 className="modal-title">Create New {formData.type === 'product' ? 'Product' : 'Service'}</h2>
                         <button type="button" className="btn-icon" onClick={onClose}>
                             <X size={20} />
                         </button>
                     </div>
 
                     <div className="modal-body">
-                        {/* Basic Information */}
+
+                        {/* ── 1. Images (FIRST) ───────────────────────────── */}
                         <div className="card mb-md">
-                            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Basic Information</h3>
-
-                            {/* Type Selection - FIRST */}
-                            <div className="form-group">
-                                <label className="form-label">Type *</label>
-                                <select
-                                    className="form-select"
-                                    value={formData.type}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                    required
-                                >
-                                    <option value="product">Product</option>
-                                    <option value="service">Service</option>
-                                    <option value="combo">Combo (Product + Service)</option>
-                                </select>
-                                <div style={{
-                                    marginTop: 'var(--spacing-xs)',
-                                    fontSize: 'var(--font-size-xs)',
-                                    color: 'var(--text-tertiary)'
-                                }}>
-                                    Select type first - form fields will adapt accordingly
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label">{formData.type === 'service' ? 'Service' : 'Product'} Name *</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    required
-                                    placeholder={formData.type === 'service' ? 'e.g., AC Installation Service' : 'e.g., Samsung Split AC 1.5 Ton'}
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label">SKU (Auto-generated) *</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.sku}
-                                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                    required
-                                    placeholder="e.g., SKU-123456"
-                                />
-                                <div style={{
-                                    marginTop: 'var(--spacing-xs)',
-                                    fontSize: 'var(--font-size-xs)',
-                                    color: 'var(--text-tertiary)'
-                                }}>
-                                    Auto-generated, but you can edit if needed
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                <div className="form-group">
-                                    <label className="form-label">Category</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={formData.category}
-                                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                        placeholder="Type to search or enter new"
-                                        list="category-suggestions"
-                                    />
-                                    <datalist id="category-suggestions">
-                                        {categories.map(cat => (
-                                            <option key={cat.id} value={cat.name} />
-                                        ))}
-                                    </datalist>
-                                    <div style={{
-                                        marginTop: 'var(--spacing-xs)',
-                                        fontSize: 'var(--font-size-xs)',
-                                        color: 'var(--text-tertiary)'
-                                    }}>
-                                        Type to search or enter new category
-                                    </div>
-                                </div>
-
-                                <div className="form-group">
-                                    <label className="form-label">Brand</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={formData.brand}
-                                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                                        placeholder="e.g., Samsung, LG, Voltas"
-                                        list="brand-suggestions"
-                                    />
-                                    <datalist id="brand-suggestions">
-                                        <option value="Samsung" />
-                                        <option value="LG" />
-                                        <option value="Voltas" />
-                                        <option value="Daikin" />
-                                        <option value="Hitachi" />
-                                        <option value="Blue Star" />
-                                        <option value="Carrier" />
-                                        <option value="Godrej" />
-                                        <option value="Whirlpool" />
-                                        <option value="Panasonic" />
-                                    </datalist>
-                                    <div style={{
-                                        marginTop: 'var(--spacing-xs)',
-                                        fontSize: 'var(--font-size-xs)',
-                                        color: 'var(--text-tertiary)'
-                                    }}>
-                                        Type to search or enter new brand
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label">Description</label>
-                                <textarea
-                                    className="form-textarea"
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    rows={3}
-                                    placeholder={formData.type === 'service' ? 'Service description...' : 'Product description...'}
-                                />
-                            </div>
-
-                            {/* Website Visibility Toggle */}
-                            <div className="form-group">
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.visibleOnWebsite}
-                                        onChange={(e) => setFormData({ ...formData, visibleOnWebsite: e.target.checked })}
-                                        style={{ width: '18px', height: '18px' }}
-                                    />
-                                    <span className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                        {formData.visibleOnWebsite ? <Eye size={16} /> : <EyeOff size={16} />}
-                                        Visible on Website
-                                    </span>
-                                </label>
-                                <div style={{
-                                    marginTop: 'var(--spacing-xs)',
-                                    fontSize: 'var(--font-size-xs)',
-                                    color: 'var(--text-tertiary)',
-                                    marginLeft: '26px'
-                                }}>
-                                    {formData.visibleOnWebsite
-                                        ? 'This item will be displayed on your website'
-                                        : 'This item will be hidden from your website'}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Images */}
-                        <div className="card mb-md">
-                            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>{formData.type === 'service' ? 'Service' : 'Product'} Images</h3>
+                            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>
+                                {formData.type === 'service' ? 'Service' : 'Product'} Images
+                            </h3>
 
                             <div className="form-group">
                                 <label className="form-label">Upload Images</label>
-                                <input
-                                    type="file"
-                                    className="form-input"
-                                    accept="image/*"
-                                    multiple
-                                    onChange={handleImageUpload}
-                                />
+                                <label style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 'var(--spacing-sm)',
+                                    padding: 'var(--spacing-md)',
+                                    border: '2px dashed var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    cursor: 'pointer',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    transition: 'border-color 0.2s'
+                                }}
+                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--color-primary)'}
+                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-primary)'}
+                                >
+                                    <Upload size={20} style={{ color: 'var(--text-tertiary)' }} />
+                                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                        Click to upload or drag &amp; drop images
+                                    </span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        onChange={handleImageUpload}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
                             </div>
 
                             {imagePreview.length > 0 && (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 'var(--spacing-sm)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
                                     {imagePreview.map((img, index) => (
                                         <div key={index} style={{ position: 'relative' }}>
                                             <img
@@ -318,40 +179,156 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                             )}
                         </div>
 
-                        {/* Unit & Stock - Only for Products and Combos */}
+                        {/* ── 2. Basic Information ─────────────────────────── */}
+                        <div className="card mb-md">
+                            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Basic Information</h3>
+
+                            {/* Type Selection */}
+                            <div className="form-group">
+                                <label className="form-label">Type *</label>
+                                <select
+                                    className="form-select"
+                                    value={formData.type}
+                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                    required
+                                >
+                                    <option value="product">Product</option>
+                                    <option value="service">Service</option>
+                                </select>
+                                <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                    Select type first — form fields will adapt accordingly
+                                </div>
+                            </div>
+
+                            {/* SKU — auto-generated, read-only */}
+                            <div className="form-group">
+                                <label className="form-label">SKU (Auto-generated)</label>
+                                <div style={{
+                                    padding: '8px 12px',
+                                    backgroundColor: 'var(--bg-tertiary)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontFamily: 'monospace',
+                                    fontSize: 'var(--font-size-sm)',
+                                    color: 'var(--text-secondary)',
+                                    letterSpacing: '0.05em'
+                                }}>
+                                    {autoSKU}
+                                </div>
+                                <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                    Automatically assigned on create
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">{formData.type === 'service' ? 'Service' : 'Product'} Name *</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    required
+                                    placeholder={formData.type === 'service' ? 'e.g., AC Installation Service' : 'e.g., Samsung Split AC 1.5 Ton'}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div className="form-group">
+                                    <label className="form-label">Category</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.category}
+                                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                        placeholder="Type to search or enter new"
+                                        list="category-suggestions"
+                                    />
+                                    <datalist id="category-suggestions">
+                                        {categories.map(cat => (
+                                            <option key={cat.id} value={cat.name} />
+                                        ))}
+                                    </datalist>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Brand</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.brand}
+                                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                                        placeholder="e.g., Samsung, LG, Voltas"
+                                        list="brand-suggestions"
+                                    />
+                                    <datalist id="brand-suggestions">
+                                        <option value="Samsung" />
+                                        <option value="LG" />
+                                        <option value="Voltas" />
+                                        <option value="Daikin" />
+                                        <option value="Hitachi" />
+                                        <option value="Blue Star" />
+                                        <option value="Carrier" />
+                                        <option value="Godrej" />
+                                        <option value="Whirlpool" />
+                                        <option value="Panasonic" />
+                                    </datalist>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Description</label>
+                                <textarea
+                                    className="form-textarea"
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    rows={3}
+                                    placeholder={formData.type === 'service' ? 'Service description...' : 'Product description...'}
+                                />
+                            </div>
+
+                            {/* Website Visibility Toggle */}
+                            <div className="form-group">
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.visibleOnWebsite}
+                                        onChange={(e) => setFormData({ ...formData, visibleOnWebsite: e.target.checked })}
+                                        style={{ width: '18px', height: '18px' }}
+                                    />
+                                    <span className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+                                        {formData.visibleOnWebsite ? <Eye size={16} /> : <EyeOff size={16} />}
+                                        Visible on Website
+                                    </span>
+                                </label>
+                                <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginLeft: '26px' }}>
+                                    {formData.visibleOnWebsite
+                                        ? 'This item will be displayed on your website'
+                                        : 'This item will be hidden from your website'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* ── 3. Unit & Stock — Products Only ─────────────── */}
                         {showStockFields && (
                             <div className="card mb-md">
-                                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Unit & Stock Information</h3>
+                                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Unit &amp; Opening Stock</h3>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Unit of Measure *</label>
-                                        <select
-                                            className="form-select"
-                                            value={formData.unitOfMeasure}
-                                            onChange={(e) => setFormData({ ...formData, unitOfMeasure: e.target.value })}
-                                            required={showStockFields}
-                                        >
-                                            <option value="pcs">Pieces (Pcs)</option>
-                                            <option value="kg">Kilograms (Kg)</option>
-                                            <option value="ltr">Liters (Ltr)</option>
-                                            <option value="mtr">Meters (Mtr)</option>
-                                            <option value="box">Box</option>
-                                            <option value="set">Set</option>
-                                            <option value="unit">Unit</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Minimum Stock Level</label>
-                                        <input
-                                            type="number"
-                                            className="form-input"
-                                            value={formData.minStockLevel}
-                                            onChange={(e) => setFormData({ ...formData, minStockLevel: parseInt(e.target.value) || 0 })}
-                                            min="0"
-                                        />
-                                    </div>
+                                <div className="form-group">
+                                    <label className="form-label">Unit of Measure *</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.unitOfMeasure}
+                                        onChange={(e) => setFormData({ ...formData, unitOfMeasure: e.target.value })}
+                                        required
+                                    >
+                                        <option value="pcs">Pieces (Pcs)</option>
+                                        <option value="kg">Kilograms (Kg)</option>
+                                        <option value="ltr">Liters (Ltr)</option>
+                                        <option value="mtr">Meters (Mtr)</option>
+                                        <option value="box">Box</option>
+                                        <option value="set">Set</option>
+                                        <option value="unit">Unit</option>
+                                    </select>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
@@ -386,13 +363,13 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                             </div>
                         )}
 
-                        {/* Service Terms & Conditions - Only for Services and Combos */}
+                        {/* ── 4. Service Terms — Services Only ─────────────── */}
                         {showServiceFields && (
                             <div className="card mb-md">
-                                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Service Terms & Conditions</h3>
+                                <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Service Terms &amp; Conditions</h3>
 
                                 <div className="form-group">
-                                    <label className="form-label">Terms & Conditions Template</label>
+                                    <label className="form-label">Terms &amp; Conditions Template</label>
                                     <select
                                         className="form-select"
                                         value={formData.serviceTermsTemplate}
@@ -404,42 +381,26 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                                                 <option key={template.id} value={template.id}>{template.name}</option>
                                             ))}
                                         </optgroup>
-                                        <optgroup label="Quotation Templates">
-                                            {termsTemplates.filter(t => t.type === 'quotation').map(template => (
-                                                <option key={template.id} value={template.id}>{template.name}</option>
-                                            ))}
-                                        </optgroup>
                                         <optgroup label="Service Templates">
                                             {termsTemplates.filter(t => t.type === 'service').map(template => (
                                                 <option key={template.id} value={template.id}>{template.name}</option>
                                             ))}
                                         </optgroup>
                                     </select>
-                                    <div style={{
-                                        marginTop: 'var(--spacing-xs)',
-                                        fontSize: 'var(--font-size-xs)',
-                                        color: 'var(--text-tertiary)'
-                                    }}>
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
                                         Manage templates in Reports → Print Setup
                                     </div>
                                 </div>
 
                                 {formData.serviceTermsTemplate && (
-                                    <div style={{
-                                        marginTop: 'var(--spacing-sm)',
-                                        padding: 'var(--spacing-sm)',
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        fontSize: 'var(--font-size-xs)',
-                                        color: 'var(--text-secondary)'
-                                    }}>
+                                    <div style={{ marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
                                         ✓ Template assigned: <strong>{termsTemplates.find(t => t.id === formData.serviceTermsTemplate)?.name}</strong>
                                     </div>
                                 )}
                             </div>
                         )}
 
-                        {/* GST Information */}
+                        {/* ── 5. GST Information ───────────────────────────── */}
                         <div className="card mb-md">
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>GST Information</h3>
 
@@ -477,7 +438,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
 
                                         <div className="form-group">
                                             <label className="form-label">
-                                                HSN Code {(formData.type === 'product' || formData.type === 'combo') && '*'}
+                                                HSN Code {formData.type === 'product' && '*'}
                                             </label>
                                             <input
                                                 type="text"
@@ -485,13 +446,13 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                                                 value={formData.hsnCode}
                                                 onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
                                                 placeholder="e.g., 8415"
-                                                required={formData.gstApplicable && (formData.type === 'product' || formData.type === 'combo')}
+                                                required={formData.gstApplicable && formData.type === 'product'}
                                             />
                                         </div>
 
                                         <div className="form-group">
                                             <label className="form-label">
-                                                SAC Code {(formData.type === 'service' || formData.type === 'combo') && '*'}
+                                                SAC Code {formData.type === 'service' && '*'}
                                             </label>
                                             <input
                                                 type="text"
@@ -499,7 +460,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                                                 value={formData.sacCode}
                                                 onChange={(e) => setFormData({ ...formData, sacCode: e.target.value })}
                                                 placeholder="e.g., 998519"
-                                                required={formData.gstApplicable && (formData.type === 'service' || formData.type === 'combo')}
+                                                required={formData.gstApplicable && formData.type === 'service'}
                                             />
                                         </div>
                                     </div>
@@ -507,7 +468,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                             )}
                         </div>
 
-                        {/* Pricing */}
+                        {/* ── 6. Pricing ───────────────────────────────────── */}
                         <div className="card mb-md">
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Pricing</h3>
 
@@ -550,7 +511,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                                     fontSize: 'var(--font-size-sm)'
                                 }}>
                                     <strong>Profit Margin:</strong> ₹{(parseFloat(formData.salePrice) - parseFloat(formData.purchasePrice)).toFixed(2)}
-                                    ({((parseFloat(formData.salePrice) - parseFloat(formData.purchasePrice)) / parseFloat(formData.purchasePrice) * 100).toFixed(2)}%)
+                                    {' '}({((parseFloat(formData.salePrice) - parseFloat(formData.purchasePrice)) / parseFloat(formData.purchasePrice) * 100).toFixed(2)}%)
                                 </div>
                             )}
                         </div>
@@ -562,7 +523,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [] 
                         </button>
                         <button type="submit" className="btn btn-primary">
                             <Plus size={16} />
-                            Create {formData.type === 'product' ? 'Product' : formData.type === 'service' ? 'Service' : 'Combo'}
+                            Create {formData.type === 'product' ? 'Product' : 'Service'}
                         </button>
                     </div>
                 </form>
