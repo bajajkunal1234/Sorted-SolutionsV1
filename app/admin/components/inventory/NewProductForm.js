@@ -37,6 +37,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
     });
 
     const [imagePreview, setImagePreview] = useState([]);
+    const [saving, setSaving] = useState(false);
 
     // Auto-generate SKU from type + existing products
     const autoSKU = generateProductSKU(formData.type, existingProducts);
@@ -58,16 +59,17 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
         setFormData({ ...formData, images: newImages });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        setSaving(true);
 
         const newProduct = {
             name: formData.name,
             sku: autoSKU,
             type: formData.type,
             category: formData.category,
-            brand: formData.brand,
-            description: formData.description,
+            brand: formData.brand || null,
+            description: formData.description || null,
             unit_of_measure: formData.type === 'service' ? null : formData.unitOfMeasure,
             opening_balance_qty: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
             opening_balance_date: formData.type === 'service' ? null : formData.openingBalance.date,
@@ -76,18 +78,25 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
             purchase_price: parseFloat(formData.purchasePrice) || 0,
             gst_applicable: formData.gstApplicable,
             gst_rate: parseFloat(formData.gstRate) || 0,
-            hsn_code: formData.hsnCode,
-            sac_code: formData.sacCode,
+            hsn_code: formData.hsnCode || null,
+            sac_code: formData.sacCode || null,
             visible_on_website: formData.visibleOnWebsite,
-            service_terms_template: formData.serviceTermsTemplate,
-            status: 'active',
-            created_at: new Date().toISOString()
+            service_terms_template: formData.serviceTermsTemplate || null,
+            status: 'active'
+            // Note: created_at and updated_at are auto-set by Supabase
         };
 
-        if (onSave) {
-            onSave(newProduct);
+        try {
+            if (onSave) {
+                await onSave(newProduct);
+            }
+            onClose();
+        } catch (err) {
+            console.error('Create product error:', err);
+            alert('Failed to create: ' + (err.message || 'Unknown error'));
+        } finally {
+            setSaving(false);
         }
-        onClose();
     };
 
     const showStockFields = formData.type === 'product';
@@ -521,9 +530,9 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                         <button type="button" className="btn btn-secondary" onClick={onClose}>
                             Cancel
                         </button>
-                        <button type="submit" className="btn btn-primary">
+                        <button type="submit" className="btn btn-primary" disabled={saving}>
                             <Plus size={16} />
-                            Create {formData.type === 'product' ? 'Product' : 'Service'}
+                            {saving ? 'Saving...' : `Create ${formData.type === 'product' ? 'Product' : 'Service'}`}
                         </button>
                     </div>
                 </form>
