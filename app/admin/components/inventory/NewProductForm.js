@@ -466,7 +466,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
 
                                 <div className="form-group">
-                                    <label className="form-label">Purchase Rate (₹) *</label>
+                                    <label className="form-label">Purchase Rate (₹)</label>
                                     <input
                                         type="number"
                                         className="form-input"
