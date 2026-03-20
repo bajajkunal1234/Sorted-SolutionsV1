@@ -6,7 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Package, DollarSign } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatusColor, getStockStatusLabel, formatStock } from '@/lib/utils/inventoryHelpers';
-import { productCategories } from '@/lib/data/inventoryData';
+
 
 // Sortable Product Card
 function SortableProductCard({ product, onProductClick }) {
@@ -97,9 +97,7 @@ function InventoryKanbanView({ products, onProductClick, onProductUpdate, catego
 
     // Group products by category
     const groupedProducts = products.reduce((acc, product) => {
-        const categoryId = product.category;
-        const category = (categories.length > 0 ? categories : productCategories).find(c => c.id === categoryId);
-        const categoryName = category?.name || 'Uncategorized';
+        const categoryName = product.category || 'Uncategorized';
 
         if (!acc[categoryName]) {
             acc[categoryName] = [];
@@ -117,7 +115,7 @@ function InventoryKanbanView({ products, onProductClick, onProductUpdate, catego
         const newCategoryName = over.id;
 
         // Find the category ID from the category name
-        const category = (categories.length > 0 ? categories : productCategories).find(c => c.name === newCategoryName);
+        const category = categories.find(c => c.name === newCategoryName);
         if (!category) return;
 
         // Update the product's category

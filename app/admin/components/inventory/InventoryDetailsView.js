@@ -3,12 +3,10 @@
 import { Package, DollarSign, TrendingUp, AlertCircle, Tag } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusColor, getStockStatusLabel, formatStock } from '@/lib/utils/inventoryHelpers';
-import { productCategories } from '@/lib/data/inventoryData';
 
 function InventoryDetailsView({ products, onProductClick, categories = [] }) {
     const getCategoryName = (categoryId) => {
-        const category = (categories.length > 0 ? categories : productCategories).find(c => c.id === categoryId);
-        return category?.name || categoryId;
+        return categories.find(c => c.name === categoryId || c.id === categoryId)?.name || categoryId;
     };
 
     return (

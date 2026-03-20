@@ -3,7 +3,6 @@ import { X, Package, BarChart2, MessageSquare, History, DollarSign, Edit2, Save,
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock } from '@/lib/utils/inventoryHelpers';
 import { inventoryLogsAPI, inventoryMovementAPI, inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
-import { productCategories } from '@/lib/data/inventoryData';
 
 function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories = [], brands = [] }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -97,7 +96,7 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
     const stockStatus = getStockStatus(product.current_stock, product.min_stock_level, product.type === 'service');
     const statusColor = getStockStatusColor(stockStatus);
     const statusLabel = getStockStatusLabel(stockStatus);
-    const categoryName = (categories.length > 0 ? categories : productCategories).find(c => c.id === product.category)?.name || product.category;
+    const categoryName = categories.find(c => c.name === product.category)?.name || product.category;
 
     const handleSave = () => {
         onUpdate(editedProduct);
