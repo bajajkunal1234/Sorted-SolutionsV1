@@ -30,9 +30,11 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
         hsnCode: '',
         sacCode: '',
 
-        // Pricing
-        salePrice: '',
-        purchasePrice: ''
+        // Pricing (4 prices)
+        purchasePrice: '',  // Purchase Rate / Cost
+        salePrice: '',      // Sale Price (standard)
+        dealerPrice: '',    // Dealer Price
+        retailPrice: ''     // Retail Price / MRP
     });
 
     const [imagePreview, setImagePreview] = useState([]);
@@ -73,16 +75,16 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
             opening_balance_qty: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
             opening_balance_date: formData.type === 'service' ? null : formData.openingBalance.date,
             current_stock: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
-            sale_price: parseFloat(formData.salePrice) || 0,
             purchase_price: parseFloat(formData.purchasePrice) || 0,
+            sale_price: parseFloat(formData.salePrice) || 0,
+            dealer_price: parseFloat(formData.dealerPrice) || 0,
+            retail_price: parseFloat(formData.retailPrice) || 0,
             gst_applicable: formData.gstApplicable,
             gst_rate: parseFloat(formData.gstRate) || 0,
             hsn_code: formData.hsnCode || null,
             sac_code: formData.sacCode || null,
-            visible_on_website: formData.visibleOnWebsite,
             service_terms_template: formData.serviceTermsTemplate || null,
             status: 'active'
-            // Note: created_at and updated_at are auto-set by Supabase
         };
 
         try {
@@ -462,6 +464,21 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Pricing</h3>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+
+                                <div className="form-group">
+                                    <label className="form-label">Purchase Rate (₹) *</label>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        value={formData.purchasePrice}
+                                        onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                    />
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Your cost / purchase cost</div>
+                                </div>
+
                                 <div className="form-group">
                                     <label className="form-label">Sale Price (₹) *</label>
                                     <input
@@ -474,33 +491,59 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                                         step="0.01"
                                         placeholder="0.00"
                                     />
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Standard sale price</div>
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">
-                                        {formData.type === 'service' ? 'Cost Price (₹)' : 'Purchase Price (₹)'}
-                                    </label>
+                                    <label className="form-label">Dealer Price (₹)</label>
                                     <input
                                         type="number"
                                         className="form-input"
-                                        value={formData.purchasePrice}
-                                        onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
+                                        value={formData.dealerPrice}
+                                        onChange={(e) => setFormData({ ...formData, dealerPrice: e.target.value })}
                                         min="0"
                                         step="0.01"
                                         placeholder="0.00"
                                     />
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Price for dealers / partners</div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Retail Price / MRP (₹)</label>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        value={formData.retailPrice}
+                                        onChange={(e) => setFormData({ ...formData, retailPrice: e.target.value })}
+                                        min="0"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                    />
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Maximum Retail Price</div>
                                 </div>
                             </div>
 
-                            {formData.salePrice && formData.purchasePrice && (
-                                <div style={{
-                                    padding: 'var(--spacing-sm)',
-                                    backgroundColor: 'var(--bg-secondary)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: 'var(--font-size-sm)'
-                                }}>
-                                    <strong>Profit Margin:</strong> ₹{(parseFloat(formData.salePrice) - parseFloat(formData.purchasePrice)).toFixed(2)}
-                                    {' '}({((parseFloat(formData.salePrice) - parseFloat(formData.purchasePrice)) / parseFloat(formData.purchasePrice) * 100).toFixed(2)}%)
+                            {/* Margin summary */}
+                            {formData.purchasePrice && (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)' }}>
+                                    {[
+                                        { label: 'Sale Margin', price: formData.salePrice },
+                                        { label: 'Dealer Margin', price: formData.dealerPrice },
+                                        { label: 'Retail Margin', price: formData.retailPrice }
+                                    ].map(({ label, price }) => {
+                                        const cost = parseFloat(formData.purchasePrice) || 0;
+                                        const p = parseFloat(price) || 0;
+                                        const margin = p - cost;
+                                        const pct = cost > 0 ? ((margin / cost) * 100).toFixed(1) : null;
+                                        return price ? (
+                                            <div key={label} style={{ textAlign: 'center' }}>
+                                                <div style={{ color: 'var(--text-tertiary)' }}>{label}</div>
+                                                <div style={{ fontWeight: 600, color: margin >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                                    ₹{margin.toFixed(2)} {pct ? `(${pct}%)` : ''}
+                                                </div>
+                                            </div>
+                                        ) : null;
+                                    })}
                                 </div>
                             )}
                         </div>

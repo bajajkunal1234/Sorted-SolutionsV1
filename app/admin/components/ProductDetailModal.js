@@ -311,42 +311,88 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                             {/* Pricing Information */}
                             <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                                 <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--text-primary)' }}>
-                                    Pricing Information
+                                    Pricing
                                 </h3>
                                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                     <div className="form-group">
-                                        <label className="form-label">Sale Price *</label>
+                                        <label className="form-label">Purchase Rate (₹)</label>
                                         <input
                                             type="number"
                                             className="form-input"
-                                            value={editedProduct.sale_price}
-                                            onChange={(e) => setEditedProduct({ ...editedProduct, sale_price: parseFloat(e.target.value) || 0 })}
-                                            disabled={!isEditing}
-                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Purchase Price</label>
-                                        <input
-                                            type="number"
-                                            className="form-input"
-                                            value={editedProduct.purchase_price}
+                                            value={editedProduct.purchase_price ?? ''}
                                             onChange={(e) => setEditedProduct({ ...editedProduct, purchase_price: parseFloat(e.target.value) || 0 })}
                                             disabled={!isEditing}
                                             placeholder="0.00"
                                             style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
                                         />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Your cost / purchase cost</div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Sale Price (₹) *</label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={editedProduct.sale_price ?? ''}
+                                            onChange={(e) => setEditedProduct({ ...editedProduct, sale_price: parseFloat(e.target.value) || 0 })}
+                                            disabled={!isEditing}
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                        />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Standard sale price</div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Dealer Price (₹)</label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={editedProduct.dealer_price ?? ''}
+                                            onChange={(e) => setEditedProduct({ ...editedProduct, dealer_price: parseFloat(e.target.value) || 0 })}
+                                            disabled={!isEditing}
+                                            placeholder="0.00"
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                        />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Price for dealers / partners</div>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Retail Price / MRP (₹)</label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={editedProduct.retail_price ?? ''}
+                                            onChange={(e) => setEditedProduct({ ...editedProduct, retail_price: parseFloat(e.target.value) || 0 })}
+                                            disabled={!isEditing}
+                                            placeholder="0.00"
+                                            style={{ backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                        />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>Maximum Retail Price</div>
                                     </div>
                                 </div>
 
-                                <div style={{ marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Profit Margin:</span>
-                                    <span style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, color: 'var(--color-success)' }}>
-                                        {formatCurrency((parseFloat(editedProduct.sale_price) || 0) - (parseFloat(editedProduct.purchase_price) || 0))}
-                                    </span>
+                                {/* Margin summary */}
+                                <div style={{ marginTop: 'var(--spacing-md)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-sm)' }}>
+                                    {[
+                                        { label: 'Sale Margin', price: editedProduct.sale_price },
+                                        { label: 'Dealer Margin', price: editedProduct.dealer_price },
+                                        { label: 'Retail Margin', price: editedProduct.retail_price }
+                                    ].map(({ label, price }) => {
+                                        const cost = parseFloat(editedProduct.purchase_price) || 0;
+                                        const p = parseFloat(price) || 0;
+                                        const margin = p - cost;
+                                        const pct = cost > 0 ? ((margin / cost) * 100).toFixed(1) : null;
+                                        return (
+                                            <div key={label} style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{label}</div>
+                                                <div style={{ fontWeight: 600, color: p > 0 ? (margin >= 0 ? 'var(--color-success)' : 'var(--color-danger)') : 'var(--text-tertiary)' }}>
+                                                    {p > 0 ? `₹${margin.toFixed(2)}${pct ? ` (${pct}%)` : ''}` : '—'}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
+
 
                             {/* GST Details */}
                             {product.gst_applicable && (
