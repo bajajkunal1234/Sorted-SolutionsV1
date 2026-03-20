@@ -10,6 +10,7 @@ import WebsiteSettings from './reports/WebsiteSettings';
 import PrintSetup from './reports/PrintSetup';
 import IncentivesManagement from './reports/IncentivesManagement';
 import FinancialReports from './reports/FinancialReports';
+import InventoryReports from './reports/InventoryReports';
 import NotificationCenter from './reports/NotificationCenter';
 import QRCodeManager from './admin/QRCodeManager';
 import RentalsTab from './reports/RentalsTab';
@@ -47,6 +48,7 @@ function ReportsTab() {
         { id: 'technicians', label: 'Technician Management', icon: Users, component: TechnicianManagement, color: '#3b82f6', description: 'Manage technician accounts, credentials and permissions' },
         { id: 'incentives', label: 'Incentives', icon: Award, component: IncentivesManagement, color: '#0ea5e9', description: 'Configure incentive programs' },
         { id: 'financial', label: 'Financial Reports', icon: TrendingUp, component: FinancialReports, color: '#a855f7', description: 'View financial analytics' },
+        { id: 'inventory-reports', label: 'Inventory Reports', icon: Package, component: InventoryReports, color: '#10b981', description: 'Analyse stock, valuation and product performance by category and brand' },
         { id: 'customer-app', label: 'Customer App', icon: Smartphone, component: CustomerAppSettings, color: '#ec4899', description: 'Manage customer app homepage banners' },
         { id: 'notifications', label: 'Notification Center', icon: Bell, component: NotificationCenter, color: '#f59e0b', description: 'Manage push, WhatsApp notifications, templates and triggers' },
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },

@@ -13,7 +13,6 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
         brand: '',
         description: '',
         images: [],
-        visibleOnWebsite: true,
 
         // Product fields
         unitOfMeasure: 'pcs',
@@ -243,7 +242,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                                 <div className="form-group">
-                                    <label className="form-label">Category</label>
+                                    <label className="form-label">Category *</label>
                                     <input
                                         type="text"
                                         className="form-input"
@@ -251,6 +250,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                                         onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                                         placeholder="Type to search or enter new"
                                         list="category-suggestions"
+                                        required
                                     />
                                     <datalist id="category-suggestions">
                                         {categories.map(cat => (
@@ -260,7 +260,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                                 </div>
 
                                 <div className="form-group">
-                                    <label className="form-label">Brand</label>
+                                    <label className="form-label">Brand *</label>
                                     <input
                                         type="text"
                                         className="form-input"
@@ -268,6 +268,7 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                                         onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
                                         placeholder="e.g., Samsung, LG, Voltas"
                                         list="brand-suggestions"
+                                        required
                                     />
                                     <datalist id="brand-suggestions">
                                         <option value="Samsung" />
