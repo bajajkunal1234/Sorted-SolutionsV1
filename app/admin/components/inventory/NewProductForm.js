@@ -295,27 +295,6 @@ function NewProductForm({ onClose, onSave, categories = [], termsTemplates = [],
                                     placeholder={formData.type === 'service' ? 'Service description...' : 'Product description...'}
                                 />
                             </div>
-
-                            {/* Website Visibility Toggle */}
-                            <div className="form-group">
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.visibleOnWebsite}
-                                        onChange={(e) => setFormData({ ...formData, visibleOnWebsite: e.target.checked })}
-                                        style={{ width: '18px', height: '18px' }}
-                                    />
-                                    <span className="form-label" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                        {formData.visibleOnWebsite ? <Eye size={16} /> : <EyeOff size={16} />}
-                                        Visible on Website
-                                    </span>
-                                </label>
-                                <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginLeft: '26px' }}>
-                                    {formData.visibleOnWebsite
-                                        ? 'This item will be displayed on your website'
-                                        : 'This item will be hidden from your website'}
-                                </div>
-                            </div>
                         </div>
 
                         {/* ── 3. Unit & Stock — Products Only ─────────────── */}
