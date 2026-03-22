@@ -415,64 +415,36 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
                             <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: 0, textAlign: 'center', padding: '8px 0' }}>No charges added. Click "Add Charge" for Visiting Charges, Service Charges, etc.</p>
                         )}
                         {charges.map((charge, idx) => (
-                            <div key={charge.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
-                                {/* Service selector dropdown */}
+                            <div key={charge.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
                                 <select
                                     className="form-input"
-                                    value={charge.serviceId || '__custom__'}
+                                    value={charge.serviceId || ''}
                                     onChange={e => {
-                                        const val = e.target.value;
-                                        if (val === '__custom__') {
-                                            setCharges(prev => prev.map((c, i) => i === idx ? { ...c, serviceId: null, name: '' } : c));
-                                        } else {
-                                            const svc = services.find(s => String(s.id) === val);
-                                            if (svc) {
-                                                setCharges(prev => prev.map((c, i) => i === idx ? {
-                                                    ...c,
-                                                    serviceId: svc.id,
-                                                    name: svc.name,
-                                                    taxRate: svc.gst_rate || svc.tax_rate || c.taxRate || 18
-                                                } : c));
-                                            }
+                                        const svc = services.find(s => String(s.id) === e.target.value);
+                                        if (svc) {
+                                            setCharges(prev => prev.map((c, i) => i === idx ? {
+                                                ...c,
+                                                serviceId: svc.id,
+                                                name: svc.name,
+                                                taxRate: svc.gst_rate || svc.tax_rate || 18
+                                            } : c));
                                         }
                                     }}
-                                    style={{ fontSize: '13px', padding: '6px 10px' }}
+                                    style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
                                 >
-                                    <option value="__custom__">— Select Service —</option>
+                                    <option value="">— Select Service —</option>
                                     {services.map(svc => (
                                         <option key={svc.id} value={String(svc.id)}>{svc.name}</option>
                                     ))}
                                 </select>
-                                {/* If no service selected, allow custom name */}
-                                {!charge.serviceId && (
-                                    <input
-                                        className="form-input"
-                                        placeholder="Custom charge name"
-                                        value={charge.name}
-                                        onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
-                                        style={{ fontSize: '13px', padding: '6px 10px', gridColumn: 'span 1' }}
-                                    />
-                                )}
                                 <input
                                     className="form-input"
                                     type="number"
                                     placeholder="Amount"
                                     value={charge.amount || ''}
                                     onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, amount: parseFloat(e.target.value) || 0 } : c))}
-                                    style={{ fontSize: '13px', padding: '6px 10px', textAlign: 'right' }}
+                                    style={{ width: '120px', fontSize: '13px', padding: '6px 10px', textAlign: 'right' }}
                                 />
-                                <select
-                                    className="form-input"
-                                    value={charge.taxRate}
-                                    onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, taxRate: Number(e.target.value) } : c))}
-                                    style={{ fontSize: '13px', padding: '6px 8px' }}
-                                >
-                                    <option value={0}>0% GST</option>
-                                    <option value={5}>5% GST</option>
-                                    <option value={12}>12% GST</option>
-                                    <option value={18}>18% GST</option>
-                                    <option value={28}>28% GST</option>
-                                </select>
                                 <button onClick={() => setCharges(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
                                     <Trash2 size={14} />
                                 </button>
