@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal } from 'lucide-react';
+import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, Edit2 } from 'lucide-react';
 import { accountsAPI, transactionsAPI, accountGroupsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
@@ -425,14 +425,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     const refreshGroups = async () => { try { const data = await accountGroupsAPI.getAll(); setGroups(data || []); } catch (err) { console.error(err); } };
 
-    const handleFormSave = async (data) => {
+    const handleFormSave = async (data, action) => {
         try {
             if (activeTab === 'accounts') {
                 if (selectedTransaction?.id) {
                     await accountsAPI.update(selectedTransaction.id, data);
                 } else {
                     const result = await accountsAPI.create(data);
-                    // If properties were filled in the new account form, create them now
                     if (result?.id && data.properties?.length > 0) {
                         const validProps = data.properties.filter(p => p.address?.trim());
                         await Promise.all(validProps.map(prop =>
@@ -447,7 +446,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                     city: prop.city || 'Mumbai',
                                     pincode: prop.pincode || '',
                                     property_type: prop.property_type || 'residential',
-                                    customer_id: result.id,   // links to the new account
+                                    customer_id: result.id,
                                     force_create: false
                                 })
                             }).then(r => r.json()).catch(e => console.error('Property save failed:', e))
@@ -465,8 +464,67 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             alert(`${tabConfig[activeTab].label} saved successfully!`);
             setActiveForm(null);
             setSelectedTransaction(null);
+
+            // Bug 5 fix: trigger print after save if action === 'print'
+            if (action === 'print' && data) {
+                setTimeout(() => handlePrintItem(data, activeTab), 300);
+            }
         } catch (err) { alert(`Failed to save: ${err.message}`); }
     };
+
+    // Bug 4 & 5: Print a formatted invoice/quotation
+    const handlePrintItem = (item, tab) => {
+        const ref = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+        const acct = item.account_name || '';
+        const date = item.date || '';
+        const amount = item.total_amount || item.amount || 0;
+        const tabLabel = tabConfig[tab]?.label || tab;
+        const items = Array.isArray(item.items) ? item.items : [];
+
+        const rows = items.map((it, i) => `
+            <tr>
+                <td style="padding:6px;border:1px solid #e2e8f0">${i + 1}</td>
+                <td style="padding:6px;border:1px solid #e2e8f0">${it.description || ''}</td>
+                <td style="padding:6px;border:1px solid #e2e8f0;text-align:center">${it.hsn || ''}</td>
+                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right">${it.qty || 1}</td>
+                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right">₹${(it.rate || 0).toLocaleString()}</td>
+                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right">${it.taxRate || 0}%</td>
+                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right;font-weight:600">₹${(it.total || 0).toLocaleString()}</td>
+            </tr>`).join('');
+
+        const html = `<!DOCTYPE html><html><head><title>${tabLabel} - ${ref}</title>
+        <style>body{font-family:Arial,sans-serif;padding:32px;color:#1e293b;max-width:900px;margin:0 auto}h1{font-size:22px;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f1f5f9;padding:8px;border:1px solid #e2e8f0;text-align:left;font-size:12px}td{font-size:12px}.total-section{margin-top:16px;text-align:right}.grand{font-size:20px;font-weight:700;color:#10b981}@media print{button{display:none}}</style>
+        </head><body>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+                <h1>${tabLabel}</h1>
+                <p style="margin:2px 0;font-size:13px;color:#64748b">Ref: <strong>${ref}</strong></p>
+                <p style="margin:2px 0;font-size:13px;color:#64748b">Date: ${date}</p>
+            </div>
+            <div style="text-align:right">
+                <p style="margin:2px 0;font-size:13px"><strong>${acct}</strong></p>
+            </div>
+        </div>
+        <table><thead><tr><th>#</th><th>Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Tax</th><th>Total</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">No items</td></tr>'}</tbody></table>
+        <div class="total-section"><p style="margin:4px 0;font-size:13px">Subtotal: ₹${(item.subtotal || 0).toLocaleString()}</p>${item.cgst > 0 ? `<p style="margin:4px 0;font-size:13px">CGST: ₹${item.cgst.toLocaleString()}</p><p style="margin:4px 0;font-size:13px">SGST: ₹${item.sgst.toLocaleString()}</p>` : ''}${item.igst > 0 ? `<p style="margin:4px 0;font-size:13px">IGST: ₹${item.igst.toLocaleString()}</p>` : ''}<p class="grand" style="margin-top:8px">Grand Total: ₹${amount.toLocaleString()}</p></div>
+        ${item.notes ? `<p style="margin-top:24px;font-size:12px;color:#64748b">Notes: ${item.notes}</p>` : ''}
+        <script>window.onload = () => window.print();<\/script></body></html>`;
+
+        const w = window.open('', '_blank');
+        if (w) { w.document.write(html); w.document.close(); }
+    };
+
+    // Bug 4: Share via WhatsApp
+    const handleShareItem = (item, tab) => {
+        const ref = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+        const amount = item.total_amount || item.amount || 0;
+        const acct = item.account_name || '';
+        const date = item.date || '';
+        const tabLabel = tabConfig[tab]?.label || tab;
+        const text = encodeURIComponent(`${tabLabel} ${ref}\nAccount: ${acct}\nDate: ${date}\nAmount: ₹${amount.toLocaleString()}`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    };
+
 
     const handleFormClose = () => { setActiveForm(null); setSelectedTransaction(null); };
 
@@ -618,6 +676,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                 <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(processedData)} />
                             </th>
                             {activeTxCols.map(col => <th key={col.id} style={{ ...thBase, textAlign: col.align }}>{col.label}</th>)}
+                            <th style={{ ...thBase, textAlign: 'center', width: '110px' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -663,6 +722,32 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                 default: return null;
                                             }
                                         })}
+                                        {/* Bug 4: Action buttons */}
+                                        <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                                                <button
+                                                    title="Edit"
+                                                    onClick={e => { e.stopPropagation(); handleTransactionClick(item); }}
+                                                    style={{ background: 'rgba(99,102,241,0.1)', border: 'none', borderRadius: '6px', color: '#6366f1', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                >
+                                                    <Edit2 size={13} />
+                                                </button>
+                                                <button
+                                                    title="Print"
+                                                    onClick={e => { e.stopPropagation(); handlePrintItem(item, activeTab); }}
+                                                    style={{ background: 'rgba(16,185,129,0.1)', border: 'none', borderRadius: '6px', color: '#10b981', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                >
+                                                    <Printer size={13} />
+                                                </button>
+                                                <button
+                                                    title="Share via WhatsApp"
+                                                    onClick={e => { e.stopPropagation(); handleShareItem(item, activeTab); }}
+                                                    style={{ background: 'rgba(245,158,11,0.1)', border: 'none', borderRadius: '6px', color: '#f59e0b', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                >
+                                                    <Share2 size={13} />
+                                                </button>
+                                            </div>
+                                        </td>
                                     </tr>
                                 ))}
                             </>

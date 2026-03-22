@@ -74,27 +74,17 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
 
     const totals = calculateTotals();
 
-    const handleAccountChange = async (accountId) => {
-        try {
-            setLoadingAccount(true);
-            const accounts = await accountsAPI.getAll();
-            const account = accounts.find(v => v.id === accountId);
-            if (account) {
-                setFormData({
-                    ...formData,
-                    account_id: account.id,
-                    account_name: account.name,
-                    accountGSTIN: account.gstin || '',
-                    accountState: account.address?.state || 'Maharashtra',
-                    property: null,
-                    billing_address: ''
-                });
-            }
-        } catch (err) {
-            console.error('Error selecting account:', err);
-        } finally {
-            setLoadingAccount(false);
-        }
+    const handleAccountChange = (account) => {
+        if (!account) return;
+        setFormData(prev => ({
+            ...prev,
+            account_id: account.id,
+            account_name: account.name,
+            accountGSTIN: account.gstin || '',
+            accountState: account.address?.state || account.state || 'Maharashtra',
+            property: null,
+            billing_address: ''
+        }));
     };
 
     const handleItemChange = (index, field, value) => {

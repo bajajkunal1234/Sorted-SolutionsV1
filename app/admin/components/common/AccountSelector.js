@@ -3,6 +3,7 @@ import { Plus, Loader2, User } from 'lucide-react';
 import { accountsAPI } from '@/lib/adminAPI';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
+// onChange receives the full account object (not just the id)
 function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', label = 'Account' }) {
     const [accounts, setAccounts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,7 +13,9 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
         const fetchAccounts = async () => {
             try {
                 setLoading(true);
-                const data = await accountsAPI.getAll({ type: accountType === 'all' ? null : accountType });
+                // accountsAPI.getAll() expects a plain string, not an object
+                const typeParam = accountType === 'all' ? '' : accountType;
+                const data = await accountsAPI.getAll(typeParam);
                 setAccounts(data || []);
             } catch (err) {
                 console.error('Error fetching accounts for selector:', err);
@@ -51,7 +54,7 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
         if (account === '__create_new__') {
             onCreateNew && onCreateNew();
         } else {
-            onChange(account.id);
+            onChange(account); // pass full account object
             setSearchTerm(account.name);
         }
     };

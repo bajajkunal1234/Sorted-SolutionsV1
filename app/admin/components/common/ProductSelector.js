@@ -1,6 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { Search, ChevronDown, Loader2, Package } from 'lucide-react';
-import { productsAPI } from '@/lib/adminAPI';
+import { useState, useEffect } from 'react';
+import { Loader2, Package } from 'lucide-react';
+import { inventoryAPI } from '@/lib/adminAPI';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 function ProductSelector({ value, onChange, label = 'Item/Product', onProductSelect }) {
@@ -8,20 +8,19 @@ function ProductSelector({ value, onChange, label = 'Item/Product', onProductSel
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Fetch products from API
+    // Fetch inventory items (products + services)
     useEffect(() => {
         const fetchProducts = async () => {
             try {
                 setLoading(true);
-                const data = await productsAPI.getAll();
+                const data = await inventoryAPI.getAll();
                 setProducts(data || []);
             } catch (err) {
-                console.error('Error fetching products for selector:', err);
+                console.error('Error fetching inventory for selector:', err);
             } finally {
                 setLoading(false);
             }
         };
-
         fetchProducts();
     }, []);
 
@@ -40,16 +39,15 @@ function ProductSelector({ value, onChange, label = 'Item/Product', onProductSel
         onChange(product.id);
         setSearchTerm(product.name);
 
-        // If onProductSelect callback is provided, pass full product details
         if (onProductSelect) {
             onProductSelect({
                 productId: product.id,
                 description: product.name,
-                hsn: product.hsn_code,
-                unit: product.unit,
-                rate: product.rate,
-                taxRate: product.tax_rate,
-                sku: product.sku
+                hsn: product.hsn_code || '',
+                unit: product.unit || 'Nos',
+                rate: product.sale_price || 0,
+                taxRate: product.tax_rate || 18,
+                sku: product.sku || ''
             });
         }
     };
@@ -57,11 +55,11 @@ function ProductSelector({ value, onChange, label = 'Item/Product', onProductSel
     return (
         <div style={{ position: 'relative' }}>
             <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                {label} * {loading && <Loader2 size={12} className="animate-spin" style={{ display: 'inline', marginLeft: '4px' }} />}
+                {label} {loading && <Loader2 size={12} className="animate-spin" style={{ display: 'inline', marginLeft: '4px' }} />}
             </label>
 
             <AutocompleteSearch
-                placeholder={`Search ${label}...`}
+                placeholder={`Search products & services...`}
                 value={searchTerm}
                 onChange={setSearchTerm}
                 suggestions={products}
@@ -74,33 +72,30 @@ function ProductSelector({ value, onChange, label = 'Item/Product', onProductSel
                             <div style={{
                                 padding: '6px',
                                 borderRadius: '6px',
-                                backgroundColor: 'var(--bg-secondary)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
+                                backgroundColor: prod.type === 'service' ? 'rgba(99,102,241,0.1)' : 'var(--bg-secondary)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>
-                                <Package size={14} style={{ color: 'var(--color-primary)' }} />
+                                <Package size={14} style={{ color: prod.type === 'service' ? '#6366f1' : 'var(--color-primary)' }} />
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                 <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{prod.name}</span>
                                 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                    {prod.sku && `${prod.sku} • `}HSN: {prod.hsn_code}
+                                    {prod.sku && `${prod.sku} • `}{prod.category && `${prod.category} • `}HSN: {prod.hsn_code || '—'}
                                 </span>
                             </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--color-primary)' }}>
-                                ₹{prod.rate?.toLocaleString() || 0}
+                                ₹{(prod.sale_price || 0).toLocaleString()}
                             </div>
                             <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                {prod.current_stock} in stock
+                                {prod.type === 'service' ? 'Service' : `${prod.current_stock ?? '—'} in stock`}
                             </div>
                         </div>
                     </div>
                 )}
             />
 
-            {/* Show selected product details */}
             {selectedProduct && (
                 <div style={{
                     marginTop: 'var(--spacing-xs)',
@@ -115,19 +110,19 @@ function ProductSelector({ value, onChange, label = 'Item/Product', onProductSel
                 }}>
                     <div>
                         <span style={{ color: 'var(--text-secondary)' }}>HSN Code</span>
-                        <div style={{ fontWeight: 600 }}>{selectedProduct.hsn_code}</div>
+                        <div style={{ fontWeight: 600 }}>{selectedProduct.hsn_code || '—'}</div>
                     </div>
                     <div>
                         <span style={{ color: 'var(--text-secondary)' }}>GST Rate</span>
-                        <div style={{ fontWeight: 600 }}>{selectedProduct.tax_rate}%</div>
+                        <div style={{ fontWeight: 600 }}>{selectedProduct.tax_rate || 18}%</div>
                     </div>
                     <div>
                         <span style={{ color: 'var(--text-secondary)' }}>Unit</span>
-                        <div style={{ fontWeight: 600 }}>{selectedProduct.unit}</div>
+                        <div style={{ fontWeight: 600 }}>{selectedProduct.unit || 'Nos'}</div>
                     </div>
                     <div>
-                        <span style={{ color: 'var(--text-secondary)' }}>Price</span>
-                        <div style={{ fontWeight: 600 }}>₹{selectedProduct.rate?.toLocaleString() || 0}</div>
+                        <span style={{ color: 'var(--text-secondary)' }}>Sale Price</span>
+                        <div style={{ fontWeight: 600 }}>₹{(selectedProduct.sale_price || 0).toLocaleString()}</div>
                     </div>
                 </div>
             )}

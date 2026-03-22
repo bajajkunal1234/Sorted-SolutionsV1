@@ -16,7 +16,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
         property: existingQuotation?.property || null,
         billing_address: existingQuotation?.billing_address || '',
         shipping_address: existingQuotation?.shipping_address || '',
-        quotation_number: existingQuotation?.quotation_number || `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        quote_number: existingQuotation?.quote_number || `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
         date: existingQuotation?.date || new Date().toISOString().split('T')[0],
         valid_until: existingQuotation?.valid_until || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         subject: existingQuotation?.subject || '',
@@ -79,28 +79,18 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
 
     const totals = calculateTotals();
 
-    const handleAccountChange = async (accountId) => {
-        try {
-            setLoadingAccount(true);
-            const accounts = await accountsAPI.getAll();
-            const account = accounts.find(c => c.id === accountId);
-            if (account) {
-                setFormData({
-                    ...formData,
-                    account_id: account.id,
-                    account_name: account.name,
-                    accountGSTIN: account.gstin || '',
-                    accountState: account.address?.state || 'Maharashtra',
-                    property: null,
-                    billing_address: '',
-                    shipping_address: ''
-                });
-            }
-        } catch (err) {
-            console.error('Error selecting account:', err);
-        } finally {
-            setLoadingAccount(false);
-        }
+    const handleAccountChange = (account) => {
+        if (!account) return;
+        setFormData(prev => ({
+            ...prev,
+            account_id: account.id,
+            account_name: account.name,
+            accountGSTIN: account.gstin || '',
+            accountState: account.address?.state || account.state || 'Maharashtra',
+            property: null,
+            billing_address: '',
+            shipping_address: ''
+        }));
     };
 
     const handleItemChange = (index, field, value) => {
@@ -226,7 +216,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
                             <input
                                 type="text"
                                 className="form-input"
-                                value={formData.quotation_number}
+                                value={formData.quote_number}
                                 readOnly
                                 style={{ width: '100%', backgroundColor: 'var(--bg-secondary)' }}
                             />
