@@ -28,6 +28,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
+    const [charges, setCharges] = useState(existingInvoice?.charges || []);
 
     const companyState = 'Maharashtra';
 
@@ -40,11 +41,13 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
         return taxableAmount + taxAmount;
     };
 
-    // Calculate invoice totals
+    // Calculate invoice totals (items + charges)
     const calculateTotals = () => {
-        const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        const itemsSubtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
         const totalDiscount = formData.items.reduce((sum, item) => sum + (item.discount || 0), 0);
-        const taxableAmount = subtotal - totalDiscount;
+        const itemsTaxable = itemsSubtotal - totalDiscount;
+        const chargesTotal = charges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+        const combinedTaxable = itemsTaxable + chargesTotal;
 
         const isInterState = formData.accountState !== companyState;
         let cgst = 0, sgst = 0, igst = 0;
@@ -52,24 +55,27 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
         formData.items.forEach(item => {
             const itemTaxable = (item.qty * item.rate) - (item.discount || 0);
             const taxAmount = (itemTaxable * (item.taxRate || 0)) / 100;
-
-            if (isInterState) {
-                igst += taxAmount;
-            } else {
-                cgst += taxAmount / 2;
-                sgst += taxAmount / 2;
-            }
+            if (isInterState) { igst += taxAmount; }
+            else { cgst += taxAmount / 2; sgst += taxAmount / 2; }
+        });
+        // Also apply GST on charges (using 18% default if no rate specified)
+        charges.forEach(c => {
+            const amt = Number(c.amount) || 0;
+            const rate = Number(c.taxRate) || 18;
+            const tax = (amt * rate) / 100;
+            if (isInterState) { igst += tax; }
+            else { cgst += tax / 2; sgst += tax / 2; }
         });
 
         const totalTax = cgst + sgst + igst;
-        const totalAmount = taxableAmount + totalTax;
+        const totalAmount = combinedTaxable + totalTax;
 
         return {
-            subtotal,
+            items_subtotal: itemsSubtotal,
+            subtotal: combinedTaxable,
             discount: totalDiscount,
-            cgst,
-            sgst,
-            igst,
+            charges_total: chargesTotal,
+            cgst, sgst, igst,
             total_tax: totalTax,
             total_amount: Math.round(totalAmount)
         };
@@ -135,6 +141,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
         const invoiceData = {
             ...formData,
             ...totals,
+            charges,
             status: action === 'draft' ? 'draft' : 'finalized'
         };
 
@@ -383,6 +390,57 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
                         </div>
                     </div>
 
+                    {/* Charges / Services Section */}
+                    <div style={{ marginBottom: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                            <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, margin: 0, color: 'var(--text-secondary)' }}>Additional Charges / Services</h4>
+                            <button
+                                type="button"
+                                onClick={() => setCharges(prev => [...prev, { id: Date.now(), name: '', amount: 0, taxRate: 18 }])}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', backgroundColor: '#6366f115', color: '#6366f1', border: '1px solid #6366f130', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                            >
+                                <Plus size={13} /> Add Charge
+                            </button>
+                        </div>
+                        {charges.length === 0 && (
+                            <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: 0, textAlign: 'center', padding: '8px 0' }}>No charges added. Click "Add Charge" for Visiting Charges, Service Charges, etc.</p>
+                        )}
+                        {charges.map((charge, idx) => (
+                            <div key={charge.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px auto', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                                <input
+                                    className="form-input"
+                                    placeholder="e.g. Visiting Charges, Service Charges"
+                                    value={charge.name}
+                                    onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
+                                    style={{ fontSize: '13px', padding: '6px 10px' }}
+                                />
+                                <input
+                                    className="form-input"
+                                    type="number"
+                                    placeholder="Amount"
+                                    value={charge.amount || ''}
+                                    onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, amount: parseFloat(e.target.value) || 0 } : c))}
+                                    style={{ fontSize: '13px', padding: '6px 10px', textAlign: 'right' }}
+                                />
+                                <select
+                                    className="form-input"
+                                    value={charge.taxRate}
+                                    onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, taxRate: Number(e.target.value) } : c))}
+                                    style={{ fontSize: '13px', padding: '6px 8px' }}
+                                >
+                                    <option value={0}>0% GST</option>
+                                    <option value={5}>5% GST</option>
+                                    <option value={12}>12% GST</option>
+                                    <option value={18}>18% GST</option>
+                                    <option value={28}>28% GST</option>
+                                </select>
+                                <button onClick={() => setCharges(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+
                     {/* Totals Section */}
                     <div style={{
                         backgroundColor: 'rgba(16, 185, 129, 0.05)',
@@ -394,14 +452,28 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
                         <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Totals</h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)', fontSize: 'var(--font-size-sm)' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                <span>Subtotal:</span>
-                                <span style={{ fontWeight: 600 }}>₹{totals.subtotal.toFixed(2)}</span>
+                                <span>Items Subtotal:</span>
+                                <span style={{ fontWeight: 600 }}>₹{(totals.items_subtotal || 0).toFixed(2)}</span>
                             </div>
                             {totals.discount > 0 && (
                                 <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ef4444' }}>
                                     <span>Discount:</span>
                                     <span style={{ fontWeight: 600 }}>-₹{totals.discount.toFixed(2)}</span>
                                 </div>
+                            )}
+                            {charges.length > 0 && (
+                                <>
+                                    {charges.map((c, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+                                            <span>{c.name || 'Charge'}:</span>
+                                            <span style={{ fontWeight: 600 }}>₹{(Number(c.amount) || 0).toFixed(2)}</span>
+                                        </div>
+                                    ))}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-primary)', paddingTop: '6px', marginTop: '2px' }}>
+                                        <span style={{ fontWeight: 600 }}>Subtotal (incl. charges):</span>
+                                        <span style={{ fontWeight: 700 }}>₹{(totals.subtotal || 0).toFixed(2)}</span>
+                                    </div>
+                                </>
                             )}
                             {totals.cgst > 0 && (
                                 <>

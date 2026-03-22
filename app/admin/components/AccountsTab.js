@@ -504,13 +504,38 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     }
                 }
             } else {
-                const type = tabToTypeMap[activeTab];
-                if (selectedTransaction?.id) await transactionsAPI.update(selectedTransaction.id, data, type);
-                else await transactionsAPI.create(data, type);
+                // Derive type from activeForm (not activeTab) to avoid table mismatch bugs
+                const formToTypeMap = {
+                    'sales-invoice': 'sales',
+                    'purchase-invoice': 'purchase',
+                    'quotation': 'quotation',
+                    'receipt-voucher': 'receipt',
+                    'payment-voucher': 'payment'
+                };
+                const type = formToTypeMap[activeForm] || tabToTypeMap[activeTab];
+
+                // Strip fields that don't exist on all transaction tables
+                const cleanData = { ...data };
+                delete cleanData.billing_address;
+                delete cleanData.shipping_address;
+
+                if (selectedTransaction?.id) await transactionsAPI.update(selectedTransaction.id, cleanData, type);
+                else await transactionsAPI.create(cleanData, type);
+
+                // Refresh the correct tab's data
+                const tabForType = Object.entries(formToTypeMap).find(([, v]) => v === type)?.[0];
+                const tabKey = { 'sales-invoice': 'sales', 'purchase-invoice': 'purchases', 'quotation': 'quotations', 'receipt-voucher': 'receipts', 'payment-voucher': 'payments' }[tabForType || activeForm] || activeTab;
+                const transRes2 = await transactionsAPI.getAll({ type });
+                switch (tabKey) {
+                    case 'sales': setSalesInvoices(transRes2 || []); break;
+                    case 'purchases': setPurchaseInvoices(transRes2 || []); break;
+                    case 'quotations': setQuotations(transRes2 || []); break;
+                    case 'receipts': setReceipts(transRes2 || []); break;
+                    case 'payments': setPayments(transRes2 || []); break;
+                }
             }
-            const [ledgerRes, transRes] = await Promise.all([accountsAPI.getAll(), activeTab !== 'accounts' ? transactionsAPI.getAll({ type: tabToTypeMap[activeTab] }) : Promise.resolve(null)]);
+            const ledgerRes = await accountsAPI.getAll();
             setLedgers(ledgerRes || []);
-            if (transRes) { switch (activeTab) { case 'sales': setSalesInvoices(transRes || []); break; case 'purchases': setPurchaseInvoices(transRes || []); break; case 'quotations': setQuotations(transRes || []); break; case 'receipts': setReceipts(transRes || []); break; case 'payments': setPayments(transRes || []); break; } }
             alert(`${tabConfig[activeTab].label} saved successfully!`);
             setActiveForm(null);
             setSelectedTransaction(null);
