@@ -151,6 +151,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
             ...formData,
             ...totals,
             charges,
+            __formType: 'sales',
             status: action === 'draft' ? 'draft' : 'finalized'
         };
 

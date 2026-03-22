@@ -504,7 +504,6 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     }
                 }
             } else {
-                // Derive type from activeForm (not activeTab) to avoid table mismatch bugs
                 const formToTypeMap = {
                     'sales-invoice': 'sales',
                     'purchase-invoice': 'purchase',
@@ -512,19 +511,30 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     'receipt-voucher': 'receipt',
                     'payment-voucher': 'payment'
                 };
-                const type = formToTypeMap[activeForm] || tabToTypeMap[activeTab];
+                // Priority: payload flag > activeForm state > activeTab state
+                const type = data.__formType || formToTypeMap[activeForm] || tabToTypeMap[activeTab];
 
-                // Strip fields that don't exist on all transaction tables
+                // Strip fields not in DB (internal flags, UI state, and invoice-specific GST columns for receipt/payment tables)
                 const cleanData = { ...data };
+                delete cleanData.__formType;
                 delete cleanData.billing_address;
                 delete cleanData.shipping_address;
+                delete cleanData.charges;
+                if (type === 'receipt' || type === 'payment') {
+                    delete cleanData.cgst;
+                    delete cleanData.sgst;
+                    delete cleanData.igst;
+                    delete cleanData.total_tax;
+                    delete cleanData.items_subtotal;
+                    delete cleanData.charges_total;
+                    delete cleanData.items;
+                }
 
                 if (selectedTransaction?.id) await transactionsAPI.update(selectedTransaction.id, cleanData, type);
                 else await transactionsAPI.create(cleanData, type);
 
-                // Refresh the correct tab's data
-                const tabForType = Object.entries(formToTypeMap).find(([, v]) => v === type)?.[0];
-                const tabKey = { 'sales-invoice': 'sales', 'purchase-invoice': 'purchases', 'quotation': 'quotations', 'receipt-voucher': 'receipts', 'payment-voucher': 'payments' }[tabForType || activeForm] || activeTab;
+                // Refresh correct tab
+                const tabKey = { sales: 'sales', purchase: 'purchases', quotation: 'quotations', receipt: 'receipts', payment: 'payments' }[type] || activeTab;
                 const transRes2 = await transactionsAPI.getAll({ type });
                 switch (tabKey) {
                     case 'sales': setSalesInvoices(transRes2 || []); break;
