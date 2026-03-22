@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, Edit2 } from 'lucide-react';
-import { accountsAPI, transactionsAPI, accountGroupsAPI } from '@/lib/adminAPI';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, Edit2, Shield, Package } from 'lucide-react';
+import { accountsAPI, transactionsAPI, accountGroupsAPI, amcAPI, rentalsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
 import AccountsKanbanView from './accounts/AccountsKanbanView';
@@ -16,6 +16,11 @@ import NewAccountForm from './accounts/NewAccountForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import TransactionsCardView from './accounts/TransactionsCardView';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
+import NewAMCForm from './reports/NewAMCForm';
+import NewRentalForm from './reports/NewRentalForm';
+import PrintAgreementModal from './reports/PrintAgreementModal';
+import RentalDetailsModal from './reports/RentalDetailsModal';
+import RentReceiptsModal from './reports/RentReceiptsModal';
 
 function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [activeTab, setActiveTab] = useState('accounts');
@@ -27,7 +32,19 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [quotations, setQuotations] = useState([]);
     const [receipts, setReceipts] = useState([]);
     const [payments, setPayments] = useState([]);
-    const [tabLoading, setTabLoading] = useState({ accounts: true, sales: false, purchases: false, quotations: false, receipts: false, payments: false });
+    const [amcSubscriptions, setAmcSubscriptions] = useState([]);
+    const [amcPlans, setAmcPlans] = useState([]);
+    const [rentalAgreements, setRentalAgreements] = useState([]);
+    const [rentalPlans, setRentalPlans] = useState([]);
+    const [showPrintAgreement, setShowPrintAgreement] = useState(false);
+    const [selectedAgreementItem, setSelectedAgreementItem] = useState(null);
+    const [selectedAgreementType, setSelectedAgreementType] = useState(null);
+    const [showRentalDetails, setShowRentalDetails] = useState(false);
+    const [selectedRentalForDetails, setSelectedRentalForDetails] = useState(null);
+    const [showRentReceipts, setShowRentReceipts] = useState(false);
+    const [selectedRentalForPayment, setSelectedRentalForPayment] = useState(null);
+    const printSettingsRef = useRef(null);
+    const [tabLoading, setTabLoading] = useState({ accounts: true, sales: false, purchases: false, quotations: false, receipts: false, payments: false, amc: false, rentals: false });
     const [error, setError] = useState(null);
 
     const tabToTypeMap = { sales: 'sales', purchases: 'purchase', quotations: 'quotation', receipts: 'receipt', payments: 'payment' };
@@ -104,6 +121,24 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
             { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+        ],
+        amc: [
+            { id: 'plan_name',       label: 'Plan',          align: 'left',   defaultOn: true },
+            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
+            { id: 'product',         label: 'Product',       align: 'left',   defaultOn: true },
+            { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true },
+            { id: 'end_date',        label: 'End',           align: 'center', defaultOn: true },
+            { id: 'amc_amount',      label: 'Amount',        align: 'right',  defaultOn: true },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true }
+        ],
+        rentals: [
+            { id: 'product_name',    label: 'Product',       align: 'left',   defaultOn: true },
+            { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
+            { id: 'monthly_rent',    label: 'Monthly Rent',  align: 'right',  defaultOn: true },
+            { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true },
+            { id: 'next_due',        label: 'Next Due',      align: 'center', defaultOn: true },
+            { id: 'security_deposit',label: 'Deposit',       align: 'right',  defaultOn: true },
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true }
         ]
     };
 
@@ -188,6 +223,14 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     const [ledgerData, groupData] = await Promise.all([accountsAPI.getAll(), accountGroupsAPI.getAll()]);
                     setLedgers(ledgerData || []);
                     setGroups(groupData || []);
+                } else if (activeTab === 'amc') {
+                    const [subscriptions, plans] = await Promise.all([amcAPI.getActive(), amcAPI.getPlans()]);
+                    setAmcSubscriptions(subscriptions || []);
+                    setAmcPlans(plans || []);
+                } else if (activeTab === 'rentals') {
+                    const [agreements, plans] = await Promise.all([rentalsAPI.getActive(), rentalsAPI.getPlans()]);
+                    setRentalAgreements(agreements || []);
+                    setRentalPlans(plans || []);
                 } else {
                     const type = tabToTypeMap[activeTab];
                     const data = await transactionsAPI.getAll({ type });
@@ -209,6 +252,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         fetchData();
     }, [activeTab]);
 
+    // Fetch print settings once on mount for use in print output
+    useEffect(() => {
+        printSettingsAPI.get().then(d => { if (d) printSettingsRef.current = d; }).catch(() => {});
+    }, []);
+
     useEffect(() => {
         if (customerToOpen && ledgers.length > 0) {
             const customerAccount = ledgers.find(l => l.name === customerToOpen.name || l.id === customerToOpen.id);
@@ -218,12 +266,14 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     }, [customerToOpen, ledgers, onCustomerOpened]);
 
     const tabConfig = {
-        accounts: { label: 'Accounts', searchPlaceholder: 'Search Ledgers...', createButtonText: 'Create Account', formType: 'new-account' },
-        sales: { label: 'Sales', searchPlaceholder: 'Search Sales Invoices...', createButtonText: 'Create Sales Invoice', formType: 'sales-invoice' },
-        purchases: { label: 'Purchases', searchPlaceholder: 'Search Purchase Invoices...', createButtonText: 'Create Purchase Invoice', formType: 'purchase-invoice' },
-        quotations: { label: 'Quotations', searchPlaceholder: 'Search Quotations...', createButtonText: 'Create Quotation', formType: 'quotation' },
-        receipts: { label: 'Receipts', searchPlaceholder: 'Search Receipts...', createButtonText: 'Create Receipt Voucher', formType: 'receipt-voucher' },
-        payments: { label: 'Payments', searchPlaceholder: 'Search Payments...', createButtonText: 'Create Payment Voucher', formType: 'payment-voucher' },
+        accounts:   { label: 'Accounts',   searchPlaceholder: 'Search Ledgers...',          createButtonText: 'Create Account',          formType: 'new-account' },
+        sales:      { label: 'Sales',       searchPlaceholder: 'Search Sales Invoices...',   createButtonText: 'Create Sales Invoice',     formType: 'sales-invoice' },
+        purchases:  { label: 'Purchases',   searchPlaceholder: 'Search Purchase Invoices...', createButtonText: 'Create Purchase Invoice',  formType: 'purchase-invoice' },
+        quotations: { label: 'Quotations',  searchPlaceholder: 'Search Quotations...',       createButtonText: 'Create Quotation',         formType: 'quotation' },
+        receipts:   { label: 'Receipts',    searchPlaceholder: 'Search Receipts...',         createButtonText: 'Create Receipt Voucher',   formType: 'receipt-voucher' },
+        payments:   { label: 'Payments',    searchPlaceholder: 'Search Payments...',         createButtonText: 'Create Payment Voucher',   formType: 'payment-voucher' },
+        amc:        { label: 'AMC',         searchPlaceholder: 'Search AMC Subscriptions...', createButtonText: 'New AMC Subscription',    formType: 'amc-subscription' },
+        rentals:    { label: 'Rentals',     searchPlaceholder: 'Search Rental Agreements...', createButtonText: 'New Rental Agreement',    formType: 'rental-agreement' },
     };
 
     const handleTabChange = (newTab) => {
@@ -472,7 +522,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         } catch (err) { alert(`Failed to save: ${err.message}`); }
     };
 
-    // Bug 4 & 5: Print a formatted invoice/quotation
+    // Bug 4 & 5: Print a formatted invoice/quotation with company info from Print Setup
     const handlePrintItem = (item, tab) => {
         const ref = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
         const acct = item.account_name || '';
@@ -480,6 +530,20 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         const amount = item.total_amount || item.amount || 0;
         const tabLabel = tabConfig[tab]?.label || tab;
         const items = Array.isArray(item.items) ? item.items : [];
+
+        // Pull print settings (from DB via Print Setup)
+        const ps = printSettingsRef.current;
+        const companyName = ps?.company_name || 'Your Company';
+        const companyAddress = ps?.company_address || '';
+        const companyPhone = ps?.company_phone || '';
+        const companyGstin = ps?.gstin || '';
+        const companyEmail = ps?.company_email || '';
+        const logoUrl = ps?.show_logo && ps?.logo_url ? ps.logo_url : null;
+
+        // Pick the right T&C based on tab
+        const termsMap = { sales: 'invoice_terms', purchases: 'invoice_terms', quotations: 'quotation_terms', rentals: 'rental_terms', amc: 'amc_terms' };
+        const termsKey = termsMap[tab] || 'invoice_terms';
+        const terms = Array.isArray(ps?.[termsKey]) ? ps[termsKey] : [];
 
         const rows = items.map((it, i) => `
             <tr>
@@ -492,22 +556,39 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 <td style="padding:6px;border:1px solid #e2e8f0;text-align:right;font-weight:600">₹${(it.total || 0).toLocaleString()}</td>
             </tr>`).join('');
 
+        const termsHtml = terms.length > 0 ? `
+            <div style="margin-top:32px;border-top:1px solid #e2e8f0;padding-top:16px">
+                <h3 style="font-size:13px;font-weight:700;margin-bottom:8px">Terms & Conditions</h3>
+                <ol style="margin:0;padding-left:20px;font-size:12px;color:#475569;line-height:1.6">
+                    ${terms.map(t => `<li>${t}</li>`).join('')}
+                </ol>
+            </div>` : '';
+
         const html = `<!DOCTYPE html><html><head><title>${tabLabel} - ${ref}</title>
         <style>body{font-family:Arial,sans-serif;padding:32px;color:#1e293b;max-width:900px;margin:0 auto}h1{font-size:22px;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f1f5f9;padding:8px;border:1px solid #e2e8f0;text-align:left;font-size:12px}td{font-size:12px}.total-section{margin-top:16px;text-align:right}.grand{font-size:20px;font-weight:700;color:#10b981}@media print{button{display:none}}</style>
         </head><body>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start">
-            <div>
-                <h1>${tabLabel}</h1>
-                <p style="margin:2px 0;font-size:13px;color:#64748b">Ref: <strong>${ref}</strong></p>
-                <p style="margin:2px 0;font-size:13px;color:#64748b">Date: ${date}</p>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+            <div style="display:flex;align-items:center;gap:12px">
+                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="height:50px;width:auto;object-fit:contain">` : ''}
+                <div>
+                    <h1 style="margin:0 0 4px">${companyName}</h1>
+                    ${companyAddress ? `<p style="margin:2px 0;font-size:12px;color:#64748b">${companyAddress}</p>` : ''}
+                    ${companyPhone ? `<p style="margin:2px 0;font-size:12px;color:#64748b">Ph: ${companyPhone}</p>` : ''}
+                    ${companyEmail ? `<p style="margin:2px 0;font-size:12px;color:#64748b">${companyEmail}</p>` : ''}
+                    ${companyGstin ? `<p style="margin:2px 0;font-size:12px;color:#64748b">GSTIN: ${companyGstin}</p>` : ''}
+                </div>
             </div>
             <div style="text-align:right">
-                <p style="margin:2px 0;font-size:13px"><strong>${acct}</strong></p>
+                <h2 style="margin:0 0 8px;font-size:18px;color:#6366f1">${tabLabel}</h2>
+                <p style="margin:2px 0;font-size:13px;color:#64748b">Ref: <strong>${ref}</strong></p>
+                <p style="margin:2px 0;font-size:13px;color:#64748b">Date: ${date}</p>
+                <p style="margin:4px 0;font-size:13px"><strong>${acct}</strong></p>
             </div>
         </div>
         <table><thead><tr><th>#</th><th>Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Tax</th><th>Total</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">No items</td></tr>'}</tbody></table>
         <div class="total-section"><p style="margin:4px 0;font-size:13px">Subtotal: ₹${(item.subtotal || 0).toLocaleString()}</p>${item.cgst > 0 ? `<p style="margin:4px 0;font-size:13px">CGST: ₹${item.cgst.toLocaleString()}</p><p style="margin:4px 0;font-size:13px">SGST: ₹${item.sgst.toLocaleString()}</p>` : ''}${item.igst > 0 ? `<p style="margin:4px 0;font-size:13px">IGST: ₹${item.igst.toLocaleString()}</p>` : ''}<p class="grand" style="margin-top:8px">Grand Total: ₹${amount.toLocaleString()}</p></div>
         ${item.notes ? `<p style="margin-top:24px;font-size:12px;color:#64748b">Notes: ${item.notes}</p>` : ''}
+        ${termsHtml}
         <script>window.onload = () => window.print();<\/script></body></html>`;
 
         const w = window.open('', '_blank');
@@ -649,6 +730,133 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                         </table>
                         );
                     })()}
+                </div>
+            );
+        }
+
+        // AMC Subscriptions tab
+        if (activeTab === 'amc') {
+            const amcFiltered = amcSubscriptions.filter(a =>
+                !searchTerm || (a.plan_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (a.accounts?.name || a.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            const totalAMC = amcSubscriptions.length;
+            const monthlyRev = amcSubscriptions.reduce((s, a) => s + (Number(a.amc_amount || 0) / 12), 0);
+            const soonExpiring = amcSubscriptions.filter(a => {
+                if (!a.end_date) return false;
+                const d = new Date(a.end_date), now = new Date(), next = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+                return d <= next && d >= now;
+            }).length;
+            const activeCols = (tabColumns.amc || []).filter(c => (visibleColumns.amc || new Set()).has(c.id));
+            return (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
+                        {[{ label: 'Active AMCs', val: totalAMC, color: '#8b5cf6' }, { label: 'Monthly Revenue', val: `₹${Math.round(monthlyRev).toLocaleString()}`, color: '#10b981' }, { label: 'Expiring Soon', val: soonExpiring, color: '#f59e0b' }].map(s => (
+                            <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.label}</div><div style={{ fontSize: '18px', fontWeight: 700, color: s.color }}>{s.val}</div></div>
+                                <Shield size={18} style={{ color: s.color, opacity: 0.4 }} />
+                            </div>
+                        ))}
+                    </div>
+                    <div style={{ flex: 1, overflow: 'auto' }}>
+                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                {activeCols.map(c => <th key={c.id} style={{ padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
+                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
+                            </tr></thead>
+                            <tbody>
+                                {amcFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No AMC subscriptions found.</td></tr> :
+                                amcFiltered.map(amc => {
+                                    const isExpiring = amc.end_date && new Date(amc.end_date) <= new Date(Date.now() + 30*24*60*60*1000);
+                                    return (
+                                        <tr key={amc.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                            {activeCols.map(col => {
+                                                const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
+                                                switch (col.id) {
+                                                    case 'plan_name':    return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{amc.plan_name || amc.amc_plans?.name || '—'}</td>;
+                                                    case 'account_name': return <td key={col.id} style={td}>{amc.accounts?.name || amc.customer_name || '—'}</td>;
+                                                    case 'product':      return <td key={col.id} style={{ ...td, color: 'var(--text-secondary)' }}>{amc.product_brand} {amc.product_model}</td>;
+                                                    case 'start_date':   return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{amc.start_date ? new Date(amc.start_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'end_date':     return <td key={col.id} style={{ ...td, textAlign: 'center', color: isExpiring ? '#f59e0b' : 'inherit', fontWeight: isExpiring ? 700 : 400 }}>{amc.end_date ? new Date(amc.end_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'amc_amount':   return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(amc.amc_amount) || 0).toLocaleString()}</td>;
+                                                    case 'status':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(amc.status === 'active' ? 'Paid' : amc.status)}</td>;
+                                                    default: return null;
+                                                }
+                                            })}
+                                            <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                    <button onClick={() => { setSelectedAgreementItem(amc); setSelectedAgreementType('amc'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /> Print</button>
+                                                    <button onClick={() => alert(`Schedule next service for ${amc.accounts?.name || 'Customer'}`)} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Schedule</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        // Rentals tab
+        if (activeTab === 'rentals') {
+            const rentFiltered = rentalAgreements.filter(r =>
+                !searchTerm || (r.product_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (r.accounts?.name || r.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+            );
+            const totalRentals = rentalAgreements.length;
+            const monthlyIncome = rentalAgreements.reduce((s, r) => s + (Number(r.monthly_rent || 0)), 0);
+            const overdue = rentalAgreements.filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
+            const activeCols = (tabColumns.rentals || []).filter(c => (visibleColumns.rentals || new Set()).has(c.id));
+            return (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
+                        {[{ label: 'Active Rentals', val: totalRentals, color: '#10b981' }, { label: 'Monthly Income', val: `₹${monthlyIncome.toLocaleString()}`, color: '#3b82f6' }, { label: 'Overdue', val: overdue, color: '#ef4444' }].map(s => (
+                            <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.label}</div><div style={{ fontSize: '18px', fontWeight: 700, color: s.color }}>{s.val}</div></div>
+                                <Package size={18} style={{ color: s.color, opacity: 0.4 }} />
+                            </div>
+                        ))}
+                    </div>
+                    <div style={{ flex: 1, overflow: 'auto' }}>
+                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                {activeCols.map(c => <th key={c.id} style={{ padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
+                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
+                            </tr></thead>
+                            <tbody>
+                                {rentFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No rental agreements found.</td></tr> :
+                                rentFiltered.map(rental => {
+                                    const isOverdue = rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date();
+                                    return (
+                                        <tr key={rental.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                            {activeCols.map(col => {
+                                                const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
+                                                switch (col.id) {
+                                                    case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.product_name || rental.rental_plans?.product_name || '—'}</td>;
+                                                    case 'account_name':     return <td key={col.id} style={td}>{rental.accounts?.name || rental.customer_name || '—'}</td>;
+                                                    case 'monthly_rent':     return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(rental.monthly_rent) || 0).toLocaleString()}</td>;
+                                                    case 'start_date':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{rental.start_date ? new Date(rental.start_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'next_due':         return <td key={col.id} style={{ ...td, textAlign: 'center', color: isOverdue ? '#ef4444' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>{rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'security_deposit': return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace' }}>₹{(Number(rental.security_deposit) || 0).toLocaleString()}</td>;
+                                                    case 'status':           return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(rental.status === 'active' ? 'Paid' : rental.status)}</td>;
+                                                    default: return null;
+                                                }
+                                            })}
+                                            <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                    <button onClick={() => { setSelectedRentalForPayment({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name, monthlyRent: Number(rental.monthly_rent), securityDeposit: Number(rental.security_deposit) }); setShowRentReceipts(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Receipts</button>
+                                                    <button onClick={() => { setSelectedRentalForDetails({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name }); setShowRentalDetails(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#3b82f615', color: '#3b82f6', cursor: 'pointer', fontSize: '11px' }}>Details</button>
+                                                    <button onClick={() => { setSelectedAgreementItem({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name }); setSelectedAgreementType('rental'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             );
         }
@@ -966,6 +1174,130 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             {activeForm === 'receipt-voucher' && <ReceiptVoucherForm existingReceipt={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
             {activeForm === 'payment-voucher' && <PaymentVoucherForm existingPayment={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
             {activeForm === 'new-account' && <NewAccountForm onSave={handleFormSave} onClose={handleFormClose} groups={groups} onGroupCreated={refreshGroups} />}
+
+            {/* AMC Subscription Form */}
+            {activeForm === 'amc-subscription' && (
+                <NewAMCForm
+                    plans={amcPlans}
+                    onClose={handleFormClose}
+                    onSave={async (data) => {
+                        try {
+                            const payload = {
+                                account_id: data.customerId,
+                                plan_id: data.planId,
+                                plan_name: data.planName || amcPlans.find(p => p.id === data.planId)?.name || '',
+                                product_brand: data.productBrand,
+                                product_model: data.productModel,
+                                serial_number: data.serialNumber,
+                                start_date: data.startDate,
+                                end_date: data.endDate,
+                                amc_amount: data.amcAmount,
+                                payment_status: data.paymentStatus,
+                                auto_renew: data.autoRenew,
+                                notes: data.notes,
+                                status: 'active'
+                            };
+                            const res = await amcAPI.createActive(payload);
+                            const [subs, plans] = await Promise.all([amcAPI.getActive(), amcAPI.getPlans()]);
+                            setAmcSubscriptions(subs || []);
+                            setAmcPlans(plans || []);
+                            return { ...payload, id: res?.id, accounts: { name: data.customerName || 'Customer' } };
+                        } catch (err) {
+                            console.error('AMC creation failed:', err);
+                            alert('Failed to create AMC subscription: ' + (err.message || ''));
+                        }
+                    }}
+                />
+            )}
+
+            {/* Rental Agreement Form */}
+            {activeForm === 'rental-agreement' && (
+                <NewRentalForm
+                    plans={rentalPlans}
+                    onClose={handleFormClose}
+                    onSave={async (rentalData) => {
+                        try {
+                            const rentsPaidInit = rentalData.monthlyRent > 0 ? Math.floor((rentalData.rentAdvance || 0) / rentalData.monthlyRent) : 0;
+                            const nextDueDate = new Date(rentalData.startDate);
+                            nextDueDate.setMonth(nextDueDate.getMonth() + rentsPaidInit);
+                            let totalRents = 0;
+                            if (rentalData.tenure?.unit?.includes('month')) totalRents = rentalData.tenure.duration;
+                            else if (rentalData.tenure?.unit?.includes('year')) totalRents = rentalData.tenure.duration * 12;
+                            const payload = {
+                                customer_id: rentalData.customerId,
+                                customer_name: rentalData.customerName || '',
+                                plan_id: rentalData.planId,
+                                product_name: rentalData.productName || '',
+                                start_date: rentalData.startDate,
+                                end_date: rentalData.tenure?.endDate,
+                                monthly_rent: rentalData.monthlyRent,
+                                security_deposit: rentalData.securityDeposit,
+                                setup_fee: rentalData.setupFee,
+                                status: 'active',
+                                serial_number: rentalData.serialNumber,
+                                notes: rentalData.notes,
+                                deposit_paid: rentalData.depositPaid || false,
+                                deposit_amount: rentalData.depositAmount || 0,
+                                rent_advance: rentalData.rentAdvance || 0,
+                                rents_paid: rentsPaidInit,
+                                rents_remaining: Math.max(0, totalRents - rentsPaidInit),
+                                next_rent_due_date: nextDueDate.toISOString().split('T')[0],
+                                tenure: { duration: rentalData.tenure?.duration, unit: rentalData.tenure?.unit }
+                            };
+                            const res = await rentalsAPI.createActive(payload);
+                            const [agreements, plans] = await Promise.all([rentalsAPI.getActive(), rentalsAPI.getPlans()]);
+                            setRentalAgreements(agreements || []);
+                            setRentalPlans(plans || []);
+                            return { ...payload, id: res?.id, accounts: { name: payload.customer_name } };
+                        } catch (err) {
+                            console.error('Rental creation failed:', err);
+                            alert('Failed to create rental agreement: ' + (err.message || ''));
+                        }
+                    }}
+                    onNewCustomer={() => alert('Please create a customer in the Accounts tab first.')}
+                />
+            )}
+
+            {/* Agreement Print Modal */}
+            {showPrintAgreement && selectedAgreementItem && (
+                <PrintAgreementModal
+                    type={selectedAgreementType}
+                    data={selectedAgreementItem}
+                    onClose={() => { setShowPrintAgreement(false); setSelectedAgreementItem(null); }}
+                />
+            )}
+
+            {/* Rental Details Modal */}
+            {showRentalDetails && selectedRentalForDetails && (
+                <RentalDetailsModal
+                    rental={selectedRentalForDetails}
+                    onClose={() => { setShowRentalDetails(false); setSelectedRentalForDetails(null); }}
+                />
+            )}
+
+            {/* Rent Receipts Modal */}
+            {showRentReceipts && selectedRentalForPayment && (
+                <RentReceiptsModal
+                    rental={selectedRentalForPayment}
+                    onClose={() => { setShowRentReceipts(false); setSelectedRentalForPayment(null); }}
+                    onSave={async (paymentData) => {
+                        try {
+                            await rentalsAPI.updateActive(paymentData.rentalId, {
+                                rent_receipts: paymentData.rent_receipts,
+                                rents_paid: paymentData.rents_paid,
+                                rents_remaining: paymentData.rents_remaining,
+                                next_rent_due_date: paymentData.next_rent_due_date || null
+                            });
+                            const [agreements] = await Promise.all([rentalsAPI.getActive()]);
+                            setRentalAgreements(agreements || []);
+                            setShowRentReceipts(false);
+                            setSelectedRentalForPayment(null);
+                        } catch (err) {
+                            alert('Failed to save receipts: ' + err.message);
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 }

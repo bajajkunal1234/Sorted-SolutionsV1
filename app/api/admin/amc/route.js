@@ -20,10 +20,10 @@ export async function GET(request) {
         } else if (type === 'active') {
             let query = supabase
                 .from('active_amcs')
-                .select('*, amc_plans(name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')
+                .select('*, amc_plans(name), accounts(name, phone, gstin), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')
                 .order('created_at', { ascending: false })
 
-            if (customerId) query = query.eq('customer_id', customerId)
+            if (customerId) query = query.eq('account_id', customerId)
             if (status) query = query.eq('status', status)
 
             const { data, error } = await query
@@ -46,9 +46,16 @@ export async function POST(request) {
 
         const tableName = type === 'plan' ? 'amc_plans' : 'active_amcs'
 
+        // For active AMC inserts: map customer_id → account_id (actual FK column)
+        let insertBody = { ...body };
+        if (type === 'amc' && insertBody.customer_id !== undefined && insertBody.account_id === undefined) {
+            insertBody.account_id = insertBody.customer_id;
+            delete insertBody.customer_id;
+        }
+
         const { data, error } = await supabase
             .from(tableName)
-            .insert([body])
+            .insert([insertBody])
             .select()
             .single()
 

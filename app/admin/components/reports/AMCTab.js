@@ -516,6 +516,7 @@ function AMCTab() {
                             const payload = {
                                 customer_id: data.customerId,
                                 plan_id: data.planId,
+                                plan_name: data.planName || plans.find(p => p.id === data.planId)?.name || '',
                                 product_brand: data.productBrand,
                                 product_model: data.productModel,
                                 serial_number: data.serialNumber,
