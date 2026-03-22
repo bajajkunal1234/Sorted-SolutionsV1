@@ -103,7 +103,7 @@ export async function POST(request) {
             '__formType', 'billing_address', 'shipping_address',
             'charges_total', 'items_subtotal', 'charges',
             'technician', 'terms', 'accountGSTIN', 'accountState',
-            'property', 'account_name', 'discount', 'subtotal'
+            'property'
         ];
         universalStrip.forEach(f => delete payload[f]);
 
