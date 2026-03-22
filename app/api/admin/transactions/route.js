@@ -97,20 +97,24 @@ export async function POST(request) {
 
         const tableName = tableMap[type];
 
-        // Strip UI-only / computed fields that are never DB columns
-        const payload = { ...body };
-        const universalStrip = [
-            '__formType', 'billing_address', 'shipping_address',
-            'charges_total', 'items_subtotal', 'charges',
-            'technician', 'terms', 'accountGSTIN', 'accountState',
-            'property'
-        ];
-        universalStrip.forEach(f => delete payload[f]);
+        // ── Definitive per-table column allowlists (derived from actual schema) ──
+        // Only columns that actually exist in each table are kept.
+        const tableColumns = {
+            sales:    ['invoice_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','job_id'],
+            purchase: ['invoice_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','job_id'],
+            quotation:['quote_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
+            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
+            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
+        };
 
-        // Strip invoice-only columns that don't exist on receipt/payment voucher tables
-        if (type === 'receipt' || type === 'payment') {
-            const invoiceOnlyFields = ['cgst', 'sgst', 'igst', 'total_tax', 'items', 'invoice_number', 'quote_number', 'discount', 'subtotal'];
-            invoiceOnlyFields.forEach(f => delete payload[f]);
+        const allowedCols = tableColumns[type];
+        const payload = {};
+        if (allowedCols) {
+            allowedCols.forEach(col => { if (body[col] !== undefined) payload[col] = body[col]; });
+        } else {
+            // Unknown type — fall through with minimal strip
+            Object.assign(payload, body);
+            delete payload.__formType;
         }
 
         const { data, error } = await supabase

@@ -1,0 +1,44 @@
+{
+  "sales_invoices": {
+    "columns": [
+      "id",
+      "invoice_number",
+      "reference",
+      "account_id",
+      "account_name",
+      "date",
+      "items",
+      "billing_address",
+      "shipping_address",
+      "subtotal",
+      "discount",
+      "cgst",
+      "sgst",
+      "igst",
+      "total_tax",
+      "total_amount",
+      "status",
+      "notes",
+      "terms",
+      "created_at",
+      "updated_at",
+      "job_id"
+    ]
+  },
+  "purchase_invoices": {
+    "empty": true,
+    "probe": "null value in column \"invoice_number\" of relation \"purchase_invoices\" violates not-null constraint"
+  },
+  "quotations": {
+    "empty": true,
+    "probe": "null value in column \"quote_number\" of relation \"quotations\" violates not-null constraint"
+  },
+  "receipt_vouchers": {
+    "empty": true,
+    "probe": "null value in column \"receipt_number\" of relation \"receipt_vouchers\" violates not-null constraint"
+  },
+  "payment_vouchers": {
+    "empty": true,
+    "probe": "null value in column \"payment_number\" of relation \"payment_vouchers\" violates not-null constraint"
+  }
+}
