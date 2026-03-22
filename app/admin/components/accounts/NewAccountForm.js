@@ -508,6 +508,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             ifsc_code: formData.ifscCode,
             branch: formData.branch,
             tax_rate: parseFloat(formData.taxRate) || 0,
+            tax_type: formData.gstGroupType || formData.taxType || '',
+            gst_ledger_nature: formData.gstLedgerNature || '',
             acquisition_source: formData.acquisitionSource,
             referred_by: formData.referredBy,
             status: initialData?.status || 'active',
@@ -1163,6 +1165,68 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             />
                                         </div>
                                     )}
+
+                                    {/* GST Ledger Properties — shown for Duties & Taxes type groups */}
+                                    {(() => {
+                                        const selectedGroup = groups.find(g => g.id === formData.under);
+                                        const groupName = (selectedGroup?.name || selectedGroup?.label || '').toLowerCase();
+                                        const parentName = (selectedGroup?.parent_name || selectedGroup?.parent_label || '').toLowerCase();
+                                        const isDutiesTax = groupName.includes('duties') || groupName.includes('tax') || parentName.includes('duties') || parentName.includes('tax');
+                                        if (!isDutiesTax) return null;
+                                        return (
+                                            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-md)' }}>
+                                                <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700, marginBottom: 'var(--spacing-sm)', color: '#6366f1' }}>GST Ledger Properties</h4>
+                                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-sm)' }}>
+                                                    <div className="form-group">
+                                                        <label className="form-label">GST Group Type</label>
+                                                        <select
+                                                            className="form-select"
+                                                            value={formData.gstGroupType || ''}
+                                                            onChange={(e) => setFormData({ ...formData, gstGroupType: e.target.value })}
+                                                        >
+                                                            <option value="">-- Select --</option>
+                                                            <option value="CGST">CGST (Central GST)</option>
+                                                            <option value="SGST">SGST (State GST)</option>
+                                                            <option value="IGST">IGST (Integrated GST)</option>
+                                                            <option value="UTGST">UTGST (Union Territory GST)</option>
+                                                            <option value="CESS">GST Cess</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label className="form-label">GST Rate (%)</label>
+                                                        <select
+                                                            className="form-select"
+                                                            value={formData.taxRate || 0}
+                                                            onChange={(e) => setFormData({ ...formData, taxRate: parseFloat(e.target.value) })}
+                                                        >
+                                                            <option value={0}>0% (Exempt)</option>
+                                                            <option value={0.1}>0.1%</option>
+                                                            <option value={0.25}>0.25%</option>
+                                                            <option value={1.5}>1.5%</option>
+                                                            <option value={3}>3%</option>
+                                                            <option value={5}>5%</option>
+                                                            <option value={6}>6%</option>
+                                                            <option value={12}>12%</option>
+                                                            <option value={18}>18%</option>
+                                                            <option value={28}>28%</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="form-group">
+                                                        <label className="form-label">GST Ledger Nature</label>
+                                                        <select
+                                                            className="form-select"
+                                                            value={formData.gstLedgerNature || 'output'}
+                                                            onChange={(e) => setFormData({ ...formData, gstLedgerNature: e.target.value })}
+                                                        >
+                                                            <option value="output">Output Tax (Liability)</option>
+                                                            <option value="input">Input Tax Credit (Asset)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
                                     {/* Acquisition Fields */}
                                     {(showField('acquisitionSource') || showField('referredBy')) && (
                                         <div style={{

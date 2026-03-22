@@ -92,8 +92,10 @@ export async function POST(request) {
             body.sku = `${prefix}${maxNum + 1}`
         }
 
-        // ── Remove source column to conform to new schema ──────────────
+        // ── Remove columns that don't exist in the DB schema ──────────────
         delete body.source;
+        delete body.accountImage;      // UI-only field (mapped to image_url if needed)
+        delete body.gst_ledger_nature; // not a DB column yet; stored in notes/tax_type if needed
 
         const { data, error } = await supabase
             .from('accounts')
