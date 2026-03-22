@@ -532,27 +532,38 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
                 if (selectedTransaction?.id) await transactionsAPI.update(selectedTransaction.id, cleanData, type);
                 else await transactionsAPI.create(cleanData, type);
-
-                // Refresh correct tab
-                const tabKey = { sales: 'sales', purchase: 'purchases', quotation: 'quotations', receipt: 'receipts', payment: 'payments' }[type] || activeTab;
-                const transRes2 = await transactionsAPI.getAll({ type });
-                switch (tabKey) {
-                    case 'sales': setSalesInvoices(transRes2 || []); break;
-                    case 'purchases': setPurchaseInvoices(transRes2 || []); break;
-                    case 'quotations': setQuotations(transRes2 || []); break;
-                    case 'receipts': setReceipts(transRes2 || []); break;
-                    case 'payments': setPayments(transRes2 || []); break;
-                }
             }
-            const ledgerRes = await accountsAPI.getAll();
-            setLedgers(ledgerRes || []);
-            alert(`${tabConfig[activeTab].label} saved successfully!`);
+
+            // ✅ Save succeeded — close form and notify user immediately
+            alert(`${tabConfig[activeTab]?.label || 'Record'} saved successfully!`);
             setActiveForm(null);
             setSelectedTransaction(null);
 
-            // Bug 5 fix: trigger print after save if action === 'print'
+            // Trigger print if requested
             if (action === 'print' && data) {
                 setTimeout(() => handlePrintItem(data, activeTab), 300);
+            }
+
+            // Refresh data in the background — errors here don't matter for the user
+            try {
+                const type2 = data?.__formType || tabToTypeMap[activeTab];
+                const tabKey = { sales: 'sales', purchase: 'purchases', quotation: 'quotations', receipt: 'receipts', payment: 'payments' }[type2] || activeTab;
+                const [transRes2, ledgerRes] = await Promise.all([
+                    type2 && !['amc', 'rentals', 'accounts'].includes(tabKey) ? transactionsAPI.getAll({ type: type2 }) : Promise.resolve(null),
+                    accountsAPI.getAll()
+                ]);
+                if (ledgerRes) setLedgers(ledgerRes);
+                if (transRes2) {
+                    switch (tabKey) {
+                        case 'sales': setSalesInvoices(transRes2); break;
+                        case 'purchases': setPurchaseInvoices(transRes2); break;
+                        case 'quotations': setQuotations(transRes2); break;
+                        case 'receipts': setReceipts(transRes2); break;
+                        case 'payments': setPayments(transRes2); break;
+                    }
+                }
+            } catch (refreshErr) {
+                console.warn('Post-save data refresh failed (save was successful):', refreshErr.message);
             }
         } catch (err) { alert(`Failed to save: ${err.message}`); }
     };

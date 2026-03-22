@@ -97,9 +97,21 @@ export async function POST(request) {
 
         const tableName = tableMap[type];
 
+        // Strip internal routing flags from all payloads
+        const payload = { ...body };
+        delete payload.__formType;
+        delete payload.billing_address;
+        delete payload.shipping_address;
+
+        // Strip invoice-only columns that don't exist on receipt/payment voucher tables
+        if (type === 'receipt' || type === 'payment') {
+            const invoiceOnlyFields = ['cgst', 'sgst', 'igst', 'total_tax', 'items_subtotal', 'charges_total', 'charges', 'items', 'invoice_number', 'quote_number'];
+            invoiceOnlyFields.forEach(f => delete payload[f]);
+        }
+
         const { data, error } = await supabase
             .from(tableName)
-            .insert([body])
+            .insert([payload])
             .select()
             .single()
 
