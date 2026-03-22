@@ -99,7 +99,12 @@ export async function POST(request) {
 
         // Strip UI-only / computed fields that are never DB columns
         const payload = { ...body };
-        const universalStrip = ['__formType', 'billing_address', 'shipping_address', 'charges_total', 'items_subtotal', 'charges'];
+        const universalStrip = [
+            '__formType', 'billing_address', 'shipping_address',
+            'charges_total', 'items_subtotal', 'charges',
+            'technician', 'terms', 'accountGSTIN', 'accountState',
+            'property', 'account_name', 'discount', 'subtotal'
+        ];
         universalStrip.forEach(f => delete payload[f]);
 
         // Strip invoice-only columns that don't exist on receipt/payment voucher tables

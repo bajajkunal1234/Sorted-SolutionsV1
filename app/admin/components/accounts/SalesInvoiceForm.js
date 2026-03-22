@@ -263,12 +263,12 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
                         marginBottom: 'var(--spacing-lg)',
                         border: '1px solid var(--border-primary)',
                         borderRadius: 'var(--radius-md)',
-                        overflow: 'hidden'
+                        overflow: 'visible'
                     }}>
                         <div style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
                             <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>Items & Services</h4>
                         </div>
-                        <div style={{ overflowX: 'auto' }}>
+                        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                 <thead>
                                     <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
