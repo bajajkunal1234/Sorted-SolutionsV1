@@ -5,7 +5,7 @@ import { Plus, Trash2, X, Loader2 } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
-import { accountsAPI } from '@/lib/adminAPI';
+import { accountsAPI, inventoryAPI } from '@/lib/adminAPI';
 
 function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) {
     const [formData, setFormData] = useState({
@@ -29,6 +29,15 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
     const [charges, setCharges] = useState(existingInvoice?.charges || []);
+    const [services, setServices] = useState([]);
+
+    // Fetch services from inventory
+    useEffect(() => {
+        inventoryAPI.getAll().then(data => {
+            const svcList = (data || []).filter(p => p.type === 'service' || p.product_type === 'service');
+            setServices(svcList);
+        }).catch(() => {});
+    }, []);
 
     const companyState = 'Maharashtra';
 
@@ -406,14 +415,44 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
                             <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: 0, textAlign: 'center', padding: '8px 0' }}>No charges added. Click "Add Charge" for Visiting Charges, Service Charges, etc.</p>
                         )}
                         {charges.map((charge, idx) => (
-                            <div key={charge.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 100px auto', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
-                                <input
+                            <div key={charge.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                                {/* Service selector dropdown */}
+                                <select
                                     className="form-input"
-                                    placeholder="e.g. Visiting Charges, Service Charges"
-                                    value={charge.name}
-                                    onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
+                                    value={charge.serviceId || '__custom__'}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (val === '__custom__') {
+                                            setCharges(prev => prev.map((c, i) => i === idx ? { ...c, serviceId: null, name: '' } : c));
+                                        } else {
+                                            const svc = services.find(s => String(s.id) === val);
+                                            if (svc) {
+                                                setCharges(prev => prev.map((c, i) => i === idx ? {
+                                                    ...c,
+                                                    serviceId: svc.id,
+                                                    name: svc.name,
+                                                    taxRate: svc.gst_rate || svc.tax_rate || c.taxRate || 18
+                                                } : c));
+                                            }
+                                        }
+                                    }}
                                     style={{ fontSize: '13px', padding: '6px 10px' }}
-                                />
+                                >
+                                    <option value="__custom__">— Select Service —</option>
+                                    {services.map(svc => (
+                                        <option key={svc.id} value={String(svc.id)}>{svc.name}</option>
+                                    ))}
+                                </select>
+                                {/* If no service selected, allow custom name */}
+                                {!charge.serviceId && (
+                                    <input
+                                        className="form-input"
+                                        placeholder="Custom charge name"
+                                        value={charge.name}
+                                        onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))}
+                                        style={{ fontSize: '13px', padding: '6px 10px', gridColumn: 'span 1' }}
+                                    />
+                                )}
                                 <input
                                     className="form-input"
                                     type="number"
