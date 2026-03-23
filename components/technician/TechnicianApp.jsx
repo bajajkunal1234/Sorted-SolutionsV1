@@ -18,7 +18,13 @@ function TechnicianApp() {
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedJob, setSelectedJob] = useState(null);
-    const [darkMode, setDarkMode] = useState(true);
+    const [darkMode, setDarkMode] = useState(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('techDarkMode');
+            return saved === null ? true : saved === 'true';
+        }
+        return true;
+    });
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [leaveStartDate, setLeaveStartDate] = useState('');
     const [leaveEndDate, setLeaveEndDate] = useState('');
@@ -131,7 +137,6 @@ function TechnicianApp() {
                     filter: `technician_id=eq.${technicianId}`
                 },
                 (payload) => {
-                    console.log('Real-time job update for technician:', payload);
                     fetchJobs();
                 }
             )
@@ -212,10 +217,13 @@ function TechnicianApp() {
         if (groupBy === 'status') {
             key = job.status;
         } else if (groupBy === 'due-date') {
-            const timeLeft = getTimeLeft(job.dueDate);
-            if (timeLeft.urgent) key = 'Urgent';
-            else if (new Date(job.dueDate).toDateString() === new Date().toDateString()) key = 'Today';
-            else key = 'Later';
+            if (!job.dueDate) { key = 'No Date'; }
+            else {
+                const timeLeft = getTimeLeft(job.dueDate);
+                if (timeLeft.urgent) key = 'Urgent';
+                else if (new Date(job.dueDate).toDateString() === new Date().toDateString()) key = 'Today';
+                else key = 'Later';
+            }
         } else if (groupBy === 'warranty') {
             key = job.product?.warranty?.status === 'in-warranty' ? 'In Warranty' : 'Out of Warranty';
         } else if (groupBy === 'priority') {
@@ -307,13 +315,17 @@ function TechnicianApp() {
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
                     className="form-input"
-                    style={{ width: '90px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }}
+                    style={{ width: '110px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }}
                 >
                     <option value="all">All</option>
                     <option value="open">Open</option>
-                    <option value="confirmed">Confirm</option>
-                    <option value="in-progress">Progress</option>
-                    <option value="completed">Done</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="repair">Repair</option>
+                    <option value="spare-part-needed">Spare Part</option>
+                    <option value="quotation-sent">Quotation Sent</option>
+                    <option value="completed">Completed</option>
+                    <option value="closed">Closed</option>
                 </select>
             </div>
 
@@ -650,10 +662,6 @@ function TechnicianApp() {
                     }}>
                         {technicianData?.name ? technicianData.name.split(' ').map(n => n[0]).join('') : 'T'}
                     </div>
-                    <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}>
-                        <User size={14} />
-                        Change Photo
-                    </button>
                 </div>
 
                 {/* Profile Details */}
@@ -722,8 +730,10 @@ function TechnicianApp() {
                     </div>
                     <button
                         onClick={() => {
-                            setDarkMode(!darkMode);
-                            if (!darkMode) {
+                            const next = !darkMode;
+                            setDarkMode(next);
+                            localStorage.setItem('techDarkMode', String(next));
+                            if (next) {
                                 document.documentElement.setAttribute('data-theme', 'dark');
                             } else {
                                 document.documentElement.removeAttribute('data-theme');

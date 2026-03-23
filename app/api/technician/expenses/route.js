@@ -70,6 +70,7 @@ export async function POST(request) {
             .from('expenses')
             .insert({
                 ...expenseData,
+                status: 'pending',
                 date: expenseData.date || new Date().toISOString().split('T')[0],
                 created_at: new Date().toISOString()
             })
