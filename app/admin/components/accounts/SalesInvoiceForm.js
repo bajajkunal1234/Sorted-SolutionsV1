@@ -5,7 +5,7 @@ import { Plus, Trash2, X, Loader2 } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
-import { accountsAPI, inventoryAPI } from '@/lib/adminAPI';
+import { accountsAPI, inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
 
 function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) {
     const [formData, setFormData] = useState({
@@ -42,12 +42,17 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
     const [loadingAccount, setLoadingAccount] = useState(false);
     const [charges, setCharges] = useState(initialCharges);
     const [services, setServices] = useState([]);
+    const [productLinks, setProductLinks] = useState([]);
 
-    // Fetch services from inventory
+    // Fetch services and product-links from inventory
     useEffect(() => {
-        inventoryAPI.getAll().then(data => {
+        Promise.all([
+            inventoryAPI.getAll(),
+            productLinksAPI.getAll().catch(() => [])
+        ]).then(([data, links]) => {
             const svcList = (data || []).filter(p => p.type === 'service' || p.product_type === 'service');
             setServices(svcList);
+            setProductLinks(links || []);
         }).catch(() => {});
     }, []);
 
@@ -332,6 +337,20 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
                                                             };
                                                             newItems[index].total = calculateItemTotal(newItems[index]);
                                                             setFormData({ ...formData, items: newItems });
+                                                            // Auto-add linked service charge
+                                                            const link = productLinks.find(l => l.product?.id === productDetails.productId && l.auto_add);
+                                                            if (link?.service) {
+                                                                const alreadyAdded = charges.some(c => c.serviceId === link.service.id);
+                                                                if (!alreadyAdded) {
+                                                                    setCharges(prev => [...prev, {
+                                                                        id: Date.now(),
+                                                                        serviceId: link.service.id,
+                                                                        name: link.service.name,
+                                                                        amount: link.service.sale_price || 0,
+                                                                        taxRate: link.service.gst_rate || 18
+                                                                    }]);
+                                                                }
+                                                            }
                                                         }}
                                                     />
                                                 </div>

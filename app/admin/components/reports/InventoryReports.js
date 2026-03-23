@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Package, Tag, BarChart2, TrendingUp, TrendingDown, Filter, RefreshCcw, Search, List, Printer, Share2, ExternalLink, X } from 'lucide-react';
+import { Package, Tag, BarChart2, TrendingUp, TrendingDown, Filter, RefreshCcw, Search, List, Printer, Share2, ExternalLink, X, Link2 } from 'lucide-react';
 import { inventoryAPI, inventoryCategoriesAPI } from '@/lib/adminAPI';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor } from '@/lib/utils/inventoryHelpers';
 import ProductDetailModal from '../ProductDetailModal';
+import ComboProductsLinking from './ComboProductsLinking';
 
 const fmt = (n) => `₹${(Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -57,6 +58,7 @@ function InventoryReports() {
         { id: 'stock-status', name: 'Stock Status', icon: TrendingUp, color: '#3b82f6' },
         { id: 'valuation', name: 'Valuation', icon: TrendingDown, color: '#ec4899' },
         { id: 'price-lists', name: 'Price Lists', icon: List, color: '#8b5cf6' },
+        { id: 'combo-links', name: 'Combo Products Linking', icon: Link2, color: '#6366f1' },
     ];
 
     const brands = [...new Set(inventory.map(p => p.brand).filter(Boolean))].sort();
@@ -318,6 +320,9 @@ function InventoryReports() {
                     </div>
                 ) : (
                     <>
+                        {/* ── COMBO LINKS ── */}
+                        {activeReport === 'combo-links' && <ComboProductsLinking />}
+
                         {/* ── OVERVIEW ── */}
                         {activeReport === 'overview' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
