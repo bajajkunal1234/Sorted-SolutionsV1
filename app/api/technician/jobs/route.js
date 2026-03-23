@@ -87,9 +87,16 @@ export async function GET(request) {
             };
         };
 
+        const enrichPropertyFromAccount = (storedProp, accountProps) => {
+            if (!storedProp || !Array.isArray(accountProps)) return storedProp;
+            const match = accountProps.find(p => p.id && storedProp.id && String(p.id) === String(storedProp.id));
+            return match ? { ...storedProp, ...match } : storedProp;
+        };
+
         const transformedJobs = jobs.map(job => {
-            const propData = resolveProperty(job.property);
             const customerObj = job.customer || {};
+            const enrichedProp = enrichPropertyFromAccount(job.property, customerObj.properties);
+            const propData = resolveProperty(enrichedProp);
             
             return {
                 id: job.id,

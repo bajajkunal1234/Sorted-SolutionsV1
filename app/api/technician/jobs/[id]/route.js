@@ -71,8 +71,20 @@ export async function GET(request, { params }) {
             };
         };
 
-        const propData = resolveProperty(job.property);
         const customerObj = job.customer || {};
+
+        // Try to enrich property data from customer.properties (full account data) by ID match
+        // This recovers flat_number/building_name that may have been dropped when job.property was saved
+        const enrichPropertyFromAccount = (storedProp, accountProps) => {
+            if (!storedProp || !Array.isArray(accountProps)) return storedProp;
+            const match = accountProps.find(p => p.id && storedProp.id && String(p.id) === String(storedProp.id));
+            if (!match) return storedProp;
+            // Merge: account data has full flat_number, building_name, locality, pincode
+            return { ...storedProp, ...match };
+        };
+
+        const enrichedProp = enrichPropertyFromAccount(job.property, customerObj.properties);
+        const propData = resolveProperty(enrichedProp);
 
         // Also resolve notes if it originated as a booking request
         let bookingData = {};

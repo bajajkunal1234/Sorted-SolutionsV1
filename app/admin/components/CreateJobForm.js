@@ -312,7 +312,12 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     .map((p, index) => ({
                         id: p.id || `ledger-${customer.id}-${index}`, // STABLE ID
                         property_name: p.name || p.label || 'Home',
+                        flat_number: p.flat_number || '',
+                        building_name: p.building_name || '',
                         address: p.address,
+                        locality: p.locality || '',
+                        pincode: p.pincode || '',
+                        city: p.city || '',
                         contactPerson: p.contactPerson || '',
                         contactPhone: p.contactPhone || '',
                         _source: 'ledger'
