@@ -622,18 +622,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
             {/* Document Generation Forms */}
             {activeForm === 'calculator' && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={() => setActiveForm(null)}>
-                    <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '660px', maxHeight: '90vh' }}>
-                        <RepairCalculator
-                            job={editedJob}
-                            onClose={() => setActiveForm(null)}
-                            onCreateQuotation={(items) => {
-                                setCalculatorItems(items);
-                                setActiveForm('quotation');
-                            }}
-                        />
-                    </div>
-                </div>
+                <RepairCalculator
+                    job={editedJob}
+                    onClose={() => setActiveForm(null)}
+                    onCreateQuotation={(items) => {
+                        setCalculatorItems(items);
+                        setActiveForm('quotation');
+                    }}
+                />
             )}
             {activeForm === 'quotation' && (
                 <QuotationForm 

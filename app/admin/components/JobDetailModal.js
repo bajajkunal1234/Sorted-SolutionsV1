@@ -719,18 +719,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
             {/* Document Generation Forms overlaid over the modal */}
             {activeForm === 'calculator' && (
-                <div className="modal-overlay" onClick={() => setActiveForm(null)} style={{ zIndex: 1100 }}>
-                    <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '680px', margin: '20px', maxHeight: '90vh' }}>
-                        <RepairCalculator
-                            job={editedJob}
-                            onClose={() => setActiveForm(null)}
-                            onCreateQuotation={(items) => {
-                                setCalculatorItems(items);
-                                setActiveForm('quotation');
-                            }}
-                        />
-                    </div>
-                </div>
+                <RepairCalculator
+                    job={editedJob}
+                    onClose={() => setActiveForm(null)}
+                    onCreateQuotation={(items) => {
+                        setCalculatorItems(items);
+                        setActiveForm('quotation');
+                    }}
+                />
             )}
             {activeForm === 'quotation' && (
                 <QuotationForm 

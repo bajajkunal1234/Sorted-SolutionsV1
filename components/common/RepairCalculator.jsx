@@ -1,306 +1,301 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
-import { Calculator, Plus, Trash2, Search, Send, FileText, X, ChevronDown, AlertTriangle, Package, Wrench, MessageSquare } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, MessageSquare, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine } from 'lucide-react';
 import { inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
 
-// ── Helper ──────────────────────────────────────────────────────────────────
-const calcTotals = (items) => {
-    const subtotal = items.reduce((s, i) => s + i.qty * i.rate, 0);
-    const gst = items.reduce((s, i) => s + (i.qty * i.rate * (i.taxRate || 18)) / 100, 0);
-    return { subtotal, gst, total: subtotal + gst };
-};
-
-const newRow = (overrides = {}) => ({
-    _id: Date.now() + Math.random(),
-    inventoryId: null,
-    name: '',
-    type: 'product', // 'product' | 'service'
-    qty: 1,
-    rate: 0,
-    taxRate: 18,
-    isManual: false,
-    ...overrides,
-});
-
-// ── Sub-component: Item Row ──────────────────────────────────────────────────
-function ItemRow({ item, inventory, onUpdate, onRemove, productLinks }) {
-    const [search, setSearch] = useState(item.name);
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-
-    const filtered = search.length > 0
-        ? inventory.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 10)
-        : [];
-
-    useEffect(() => {
-        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    const selectInventoryItem = (inv) => {
-        setSearch(inv.name);
-        setOpen(false);
-        const updated = {
-            inventoryId: inv.id,
-            name: inv.name,
-            type: inv.category?.toLowerCase() === 'service' ? 'service' : 'product',
-            rate: inv.sale_price || 0,
-            taxRate: inv.tax_rate || 18,
-            isManual: false,
-        };
-        onUpdate(updated);
-
-        // Auto-add linked service if product has one and auto_add is on
-        if (updated.type === 'product' && productLinks?.length) {
-            const link = productLinks.find(l => l.product_id === inv.id && l.auto_add);
-            if (link?.service) {
-                // We signal the parent to add the linked service row
-                onUpdate({ ...updated, _linkedService: link.service });
-            }
-        }
-    };
-
-    const amount = item.qty * item.rate;
-
-    return (
-        <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 60px 90px 80px 32px', gap: '6px', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--border-primary)' }}>
-            {/* Type icon */}
-            <div title={item.type === 'service' ? 'Service' : 'Product'} style={{ textAlign: 'center', color: item.type === 'service' ? '#8b5cf6' : '#3b82f6' }}>
-                {item.type === 'service' ? <Wrench size={14} /> : <Package size={14} />}
-            </div>
-
-            {/* Name / search */}
-            <div ref={ref} style={{ position: 'relative' }}>
-                {item.isManual ? (
-                    <input
-                        className="form-input"
-                        value={item.name}
-                        onChange={e => onUpdate({ name: e.target.value })}
-                        placeholder="Item description"
-                        style={{ padding: '5px 8px', fontSize: '13px', width: '100%' }}
-                    />
-                ) : (
-                    <>
-                        <div style={{ position: 'relative' }}>
-                            <Search size={12} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                            <input
-                                className="form-input"
-                                value={search}
-                                onChange={e => { setSearch(e.target.value); setOpen(true); onUpdate({ name: e.target.value, inventoryId: null }); }}
-                                onFocus={() => setOpen(true)}
-                                placeholder="Search inventory..."
-                                style={{ padding: '5px 8px 5px 26px', fontSize: '13px', width: '100%' }}
-                            />
-                        </div>
-                        {open && filtered.length > 0 && (
-                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 999, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', boxShadow: '0 8px 24px rgba(0,0,0,0.15)', maxHeight: '200px', overflow: 'auto' }}>
-                                {filtered.map(inv => (
-                                    <div key={inv.id} onMouseDown={() => selectInventoryItem(inv)} style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', borderBottom: '1px solid var(--border-primary)' }}
-                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                    >
-                                        <span>{inv.name}</span>
-                                        <span style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>₹{inv.sale_price?.toLocaleString('en-IN') || '0'}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </>
-                )}
-            </div>
-
-            {/* Qty */}
-            <input type="number" value={item.qty} min="1" onChange={e => onUpdate({ qty: Math.max(1, parseInt(e.target.value) || 1) })}
-                className="form-input" style={{ padding: '5px 6px', fontSize: '13px', textAlign: 'center' }} />
-
-            {/* Rate */}
-            <input type="number" value={item.rate} min="0" step="0.01" onChange={e => onUpdate({ rate: parseFloat(e.target.value) || 0 })}
-                className="form-input" style={{ padding: '5px 6px', fontSize: '13px', textAlign: 'right' }} />
-
-            {/* Amount */}
-            <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: 600 }}>₹{amount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</div>
-
-            {/* Remove */}
-            <button onClick={onRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex', justifyContent: 'center' }}>
-                <Trash2 size={14} color="#ef4444" />
-            </button>
-        </div>
-    );
-}
-
-// ── Main Component ───────────────────────────────────────────────────────────
-export default function RepairCalculator({ job, onCreateQuotation, onClose, applianceType }) {
-    const [items, setItems] = useState([]);
+export default function RepairCalculator({ job, onCreateQuotation, onClose }) {
     const [inventory, setInventory] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
-    const [warrantyWarning] = useState(job?.product?.warranty?.status === 'in-warranty' || job?.warranty_status === 'in-warranty');
     const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [filter, setFilter] = useState('all'); // 'all' | 'product' | 'service'
+    const [basket, setBasket] = useState([]); // { ...inventoryItem, qty }
+    const [basketOpen, setBasketOpen] = useState(false);
+    const [showManual, setShowManual] = useState(false);
+    const [manualItem, setManualItem] = useState({ name: '', rate: '', type: 'product' });
+
+    const warrantyWarning = job?.product?.warranty?.status === 'in-warranty' || job?.warranty_status === 'in-warranty';
 
     useEffect(() => {
-        Promise.all([inventoryAPI.getAll(), productLinksAPI.getAll()])
+        Promise.all([inventoryAPI.getAll(), productLinksAPI.getAll().catch(() => [])])
             .then(([inv, links]) => {
                 setInventory(inv || []);
                 setProductLinks(links || []);
-
-                // Pre-populate service charge based on appliance type via product-links
-                const defaultItems = [];
-
-                // If there are product-links with auto_add for this appliance type, suggest them
-                // Otherwise start with one empty row
-                defaultItems.push(newRow({ type: 'service', name: 'Service Charge', rate: 500, isManual: true }));
-                setItems(defaultItems);
-            })
-            .catch(() => {
-                setItems([newRow({ type: 'service', name: 'Service Charge', rate: 500, isManual: true })]);
             })
             .finally(() => setLoading(false));
     }, []);
 
-    const updateItem = (idx, changes) => {
-        setItems(prev => {
-            const next = prev.map((item, i) => i === idx ? { ...item, ...changes } : item);
-            // If a linked service was auto-added, append it
-            if (changes._linkedService) {
-                const svc = changes._linkedService;
-                const alreadyExists = next.some(it => it.inventoryId === svc.id);
-                if (!alreadyExists) {
-                    return [...next, newRow({ inventoryId: svc.id, name: svc.name, type: 'service', rate: svc.sale_price || 0, taxRate: svc.tax_rate || 18, isManual: false })];
-                }
+    // ── Basket helpers ──────────────────────────────────────────────────────
+    const addToBasket = (item) => {
+        setBasket(prev => {
+            const exists = prev.find(b => b.id === item.id);
+            if (exists) return prev.map(b => b.id === item.id ? { ...b, qty: b.qty + 1 } : b);
+            
+            const added = [{ ...item, qty: 1 }];
+            // Auto-link service if product has one
+            const link = productLinks.find(l => l.product_id === item.id && l.auto_add && l.service);
+            const alreadyLinked = link && prev.some(b => b.id === link.service.id);
+            if (link && !alreadyLinked) {
+                added.push({ ...link.service, id: link.service.id, name: link.service.name, sale_price: link.service.sale_price || 0, tax_rate: link.service.tax_rate || 18, itemType: 'service', qty: 1, autoLinked: true });
             }
-            return next;
+            return [...prev, ...added];
         });
     };
 
-    const addRow = (type = 'product', manual = false) => {
-        setItems(prev => [...prev, newRow({ type, isManual: manual })]);
+    const changeQty = (id, delta) => {
+        setBasket(prev => prev
+            .map(b => b.id === id ? { ...b, qty: b.qty + delta } : b)
+            .filter(b => b.qty > 0)
+        );
     };
 
-    const removeRow = (idx) => {
-        setItems(prev => prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev);
+    const removeFromBasket = (id) => setBasket(prev => prev.filter(b => b.id !== id));
+
+    const addManual = () => {
+        if (!manualItem.name.trim() || !manualItem.rate) return;
+        const id = `manual-${Date.now()}`;
+        setBasket(prev => [...prev, { id, name: manualItem.name, sale_price: parseFloat(manualItem.rate), tax_rate: 18, itemType: manualItem.type, qty: 1, isManual: true }]);
+        setManualItem({ name: '', rate: '', type: 'product' });
+        setShowManual(false);
     };
 
-    const { subtotal, gst, total } = calcTotals(items);
+    // ── Totals ──────────────────────────────────────────────────────────────
+    const subtotal = basket.reduce((s, b) => s + b.qty * (b.sale_price || 0), 0);
+    const gst = basket.reduce((s, b) => s + b.qty * (b.sale_price || 0) * (b.tax_rate || 18) / 100, 0);
+    const total = subtotal + gst;
+    const itemCount = basket.reduce((s, b) => s + b.qty, 0);
 
+    // ── Filtered Items ──────────────────────────────────────────────────────
+    const visible = inventory.filter(item => {
+        const matchSearch = !search || item.name.toLowerCase().includes(search.toLowerCase());
+        const isService = item.type === 'service' || item.product_type === 'service';
+        const matchFilter = filter === 'all' || (filter === 'service' ? isService : !isService);
+        return matchSearch && matchFilter;
+    });
+
+    // ── Actions ─────────────────────────────────────────────────────────────
     const handleWhatsApp = () => {
-        const customer = job?.customer || {};
-        const phone = customer.mobile || customer.phone || '';
-        if (!phone) { alert('No customer phone number on file'); return; }
-
-        const lines = items.map((it, i) => `${i + 1}. ${it.name} × ${it.qty} = ₹${(it.qty * it.rate).toLocaleString('en-IN')}`).join('\n');
-        const text = `*Repair Estimate*\nJob: ${job?.job_number || job?.id || ''}\nCustomer: ${customer.name || job?.customer_name || ''}\n\n${lines}\n\nSubtotal: ₹${subtotal.toLocaleString('en-IN')}\nGST: ₹${gst.toFixed(0)}\n*Total: ₹${total.toLocaleString('en-IN')}*\n\nPlease confirm to proceed.`;
+        const phone = job?.customer?.mobile || job?.customer?.phone || '';
+        if (!phone) { alert('No customer phone number found'); return; }
+        const lines = basket.map((b, i) => `${i + 1}. ${b.name} × ${b.qty} = ₹${(b.qty * b.sale_price).toLocaleString('en-IN')}`).join('\n');
+        const text = `*Repair Estimate*\nJob: ${job?.job_number || ''}\n\n${lines}\n\nSubtotal: ₹${subtotal.toLocaleString('en-IN')}\nGST: ₹${Math.round(gst).toLocaleString('en-IN')}\n*Total: ₹${Math.round(total).toLocaleString('en-IN')}*\n\nPlease confirm to proceed.`;
         window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleCreateQuotation = () => {
-        const quotationItems = items.filter(it => it.name).map(it => ({
-            productId: it.inventoryId || null,
-            description: it.name,
-            qty: it.qty,
-            rate: it.rate,
-            taxRate: it.taxRate,
-            amount: it.qty * it.rate,
-            isManual: it.isManual,
+        const items = basket.map(b => ({
+            productId: b.isManual ? null : b.id,
+            description: b.name,
+            type: (b.itemType === 'service' || b.type === 'service' || b.product_type === 'service') ? 'service' : 'product',
+            qty: b.qty,
+            rate: b.sale_price || 0,
+            taxRate: b.tax_rate || 18,
         }));
-        onCreateQuotation(quotationItems);
+        onCreateQuotation(items);
     };
 
-    if (loading) return (
-        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            Loading inventory...
-        </div>
-    );
+    // ── Styles ───────────────────────────────────────────────────────────────
+    const pillStyle = (active) => ({
+        padding: '6px 14px', border: 'none', borderRadius: '9999px', cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+        backgroundColor: active ? 'var(--color-primary)' : 'var(--bg-secondary)',
+        color: active ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s'
+    });
 
     return (
-        <div style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: '85vh' }}>
-            {/* Header */}
-            <div style={{ padding: '14px 16px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Calculator size={18} color="#8b5cf6" />
-                    <span style={{ fontWeight: 700, fontSize: '15px' }}>Repair Estimate Calculator</span>
-                    {job?.job_number && <span style={{ fontSize: '12px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '9999px' }}>#{job.job_number}</span>}
+        <div style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
+
+            {/* ── TOP BAR ── */}
+            <div style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', padding: '10px 14px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px', fontWeight: 700 }}>🧮 Estimate</span>
+                        {job?.job_number && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '9999px' }}>#{job.job_number}</span>}
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-secondary)' }}><X size={22} /></button>
                 </div>
-                {onClose && <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}><X size={18} /></button>}
+
+                {/* Search */}
+                <div style={{ position: 'relative', marginBottom: '8px' }}>
+                    <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', pointerEvents: 'none' }} />
+                    <input
+                        className="form-input"
+                        value={search}
+                        onChange={e => setSearch(e.target.value)}
+                        placeholder="Search spare parts & services..."
+                        style={{ paddingLeft: '32px', width: '100%', fontSize: '14px', padding: '10px 10px 10px 32px' }}
+                        autoFocus
+                    />
+                </div>
+
+                {/* Filter pills */}
+                <div style={{ display: 'flex', gap: '6px' }}>
+                    <button style={pillStyle(filter === 'all')} onClick={() => setFilter('all')}>All</button>
+                    <button style={pillStyle(filter === 'product')} onClick={() => setFilter('product')}><Package size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Parts</button>
+                    <button style={pillStyle(filter === 'service')} onClick={() => setFilter('service')}><Wrench size={11} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Services</button>
+                </div>
             </div>
 
-            {/* Warranty warning */}
+            {/* ── WARRANTY BANNER ── */}
             {warrantyWarning && (
-                <div style={{ padding: '8px 16px', backgroundColor: '#fef3c7', borderBottom: '1px solid #fde68a', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#92400e' }}>
-                    <AlertTriangle size={14} />
-                    <strong>Under Warranty</strong> — verify before charging for spare parts
+                <div style={{ padding: '8px 14px', backgroundColor: '#fef3c7', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#92400e', flexShrink: 0 }}>
+                    <AlertTriangle size={13} /><strong>Under Warranty</strong> — verify before charging for parts
                 </div>
             )}
 
-            {/* Items */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px' }}>
-                {/* Column headers */}
-                <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 60px 90px 80px 32px', gap: '6px', padding: '0 0 6px', borderBottom: '2px solid var(--border-primary)', marginBottom: '4px' }}>
-                    <div />
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Item / Product</div>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'center', textTransform: 'uppercase' }}>Qty</div>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right', textTransform: 'uppercase' }}>Rate (₹)</div>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textAlign: 'right', textTransform: 'uppercase' }}>Amount</div>
-                    <div />
-                </div>
+            {/* ── ITEM CARDS GRID ── */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 10px', paddingBottom: basket.length > 0 ? '90px' : '10px' }}>
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading inventory...</div>
+                ) : (
+                    <>
+                        {visible.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                                No items found. Use Manual Entry below.
+                            </div>
+                        )}
 
-                {items.map((item, idx) => (
-                    <ItemRow
-                        key={item._id}
-                        item={item}
-                        inventory={inventory}
-                        productLinks={productLinks}
-                        onUpdate={(changes) => updateItem(idx, changes)}
-                        onRemove={() => removeRow(idx)}
-                    />
-                ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+                            {visible.map(item => {
+                                const isService = item.type === 'service' || item.product_type === 'service';
+                                const inBasket = basket.find(b => b.id === item.id);
+                                const qty = inBasket?.qty || 0;
 
-                {/* Add row buttons */}
-                <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-                    <button onClick={() => addRow('product', false)} className="btn btn-secondary" style={{ fontSize: '12px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Plus size={12} /><Package size={12} /> Add Spare Part
-                    </button>
-                    <button onClick={() => addRow('service', false)} className="btn btn-secondary" style={{ fontSize: '12px', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Plus size={12} /><Wrench size={12} /> Add Service
-                    </button>
-                    <button onClick={() => addRow('product', true)} style={{ fontSize: '12px', padding: '5px 12px', border: '1px dashed var(--border-primary)', background: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Plus size={12} /> Manual Entry
-                    </button>
-                </div>
+                                return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => addToBasket({ ...item, itemType: isService ? 'service' : 'product' })}
+                                        style={{
+                                            backgroundColor: qty > 0 ? (isService ? 'rgba(139,92,246,0.12)' : 'rgba(59,130,246,0.1)') : 'var(--bg-elevated)',
+                                            border: `2px solid ${qty > 0 ? (isService ? '#8b5cf6' : '#3b82f6') : 'var(--border-primary)'}`,
+                                            borderRadius: '12px',
+                                            padding: '12px',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s',
+                                            position: 'relative',
+                                            userSelect: 'none',
+                                            WebkitTapHighlightColor: 'transparent',
+                                        }}
+                                    >
+                                        {/* Type badge */}
+                                        <div style={{ position: 'absolute', top: '8px', right: '8px', color: isService ? '#8b5cf6' : '#3b82f6' }}>
+                                            {isService ? <Wrench size={12} /> : <Package size={12} />}
+                                        </div>
+
+                                        {/* Qty badge when added */}
+                                        {qty > 0 && (
+                                            <div style={{ position: 'absolute', top: '-8px', left: '-8px', width: '22px', height: '22px', borderRadius: '50%', backgroundColor: isService ? '#8b5cf6' : '#3b82f6', color: '#fff', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                {qty}
+                                            </div>
+                                        )}
+
+                                        <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '6px', lineHeight: '1.3', paddingRight: '16px' }}>{item.name}</div>
+                                        <div style={{ fontSize: '15px', fontWeight: 700, color: isService ? '#8b5cf6' : '#3b82f6' }}>₹{(item.sale_price || 0).toLocaleString('en-IN')}</div>
+                                        {item.tax_rate && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>+{item.tax_rate}% GST</div>}
+
+                                        {/* Qty controls if already in basket */}
+                                        {qty > 0 && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }} onClick={e => e.stopPropagation()}>
+                                                <button onClick={() => changeQty(item.id, -1)} style={{ width: '26px', height: '26px', borderRadius: '50%', border: 'none', backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={13} /></button>
+                                                <span style={{ fontWeight: 700, minWidth: '20px', textAlign: 'center', fontSize: '14px' }}>{qty}</span>
+                                                <button onClick={() => changeQty(item.id, 1)} style={{ width: '26px', height: '26px', borderRadius: '50%', border: 'none', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={13} /></button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Manual Entry */}
+                        <div style={{ marginTop: '12px', borderRadius: '12px', border: '1px dashed var(--border-primary)', overflow: 'hidden' }}>
+                            <button
+                                onClick={() => setShowManual(p => !p)}
+                                style={{ width: '100%', padding: '12px 14px', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '13px', fontWeight: 600 }}
+                            >
+                                <PenLine size={14} /> Add Item Not in Inventory
+                                {showManual ? <ChevronUp size={14} style={{ marginLeft: 'auto' }} /> : <ChevronDown size={14} style={{ marginLeft: 'auto' }} />}
+                            </button>
+                            {showManual && (
+                                <div style={{ padding: '0 12px 12px', display: 'grid', gap: '8px' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px' }}>
+                                        <input className="form-input" placeholder="Item / Service name" value={manualItem.name} onChange={e => setManualItem(p => ({ ...p, name: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
+                                        <select value={manualItem.type} onChange={e => setManualItem(p => ({ ...p, type: e.target.value }))} className="form-input" style={{ fontSize: '13px', padding: '10px' }}>
+                                            <option value="product">Part</option>
+                                            <option value="service">Service</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', alignItems: 'center' }}>
+                                        <input className="form-input" type="number" placeholder="Price (₹)" value={manualItem.rate} onChange={e => setManualItem(p => ({ ...p, rate: e.target.value }))} style={{ fontSize: '14px', padding: '10px' }} />
+                                        <button onClick={addManual} style={{ padding: '10px 18px', backgroundColor: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 700, fontSize: '14px' }}>+ Add</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
             </div>
 
-            {/* Totals */}
-            <div style={{ padding: '12px 16px', backgroundColor: 'rgba(139,92,246,0.06)', borderTop: '1px solid var(--border-primary)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>Subtotal</span>
-                    <span style={{ fontWeight: 600 }}>₹{subtotal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '8px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>GST</span>
-                    <span style={{ fontWeight: 600 }}>₹{gst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '8px', borderTop: '1px solid var(--border-primary)' }}>
-                    <span style={{ fontWeight: 700, fontSize: '15px' }}>Total Estimate</span>
-                    <span style={{ fontWeight: 700, fontSize: '18px', color: '#8b5cf6' }}>₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
-                </div>
-            </div>
+            {/* ── STICKY BASKET ── */}
+            {basket.length > 0 && (
+                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1300, backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-primary)', boxShadow: '0 -4px 20px rgba(0,0,0,0.2)' }}>
+                    {/* Basket items (expandable) */}
+                    {basketOpen && (
+                        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border-primary)', maxHeight: '40vh', overflowY: 'auto' }}>
+                            {basket.map(b => (
+                                <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--border-primary)' }}>
+                                    <div style={{ flex: 1, fontSize: '13px', fontWeight: 500 }}>
+                                        {b.name}
+                                        {b.autoLinked && <span style={{ fontSize: '10px', color: '#8b5cf6', marginLeft: '4px' }}>auto-linked</span>}
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <button onClick={() => changeQty(b.id, -1)} style={{ width: '24px', height: '24px', borderRadius: '50%', border: 'none', backgroundColor: 'var(--bg-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Minus size={11} /></button>
+                                        <span style={{ fontWeight: 700, fontSize: '13px', minWidth: '18px', textAlign: 'center' }}>{b.qty}</span>
+                                        <button onClick={() => changeQty(b.id, 1)} style={{ width: '24px', height: '24px', borderRadius: '50%', border: 'none', backgroundColor: 'var(--bg-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Plus size={11} /></button>
+                                    </div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, minWidth: '60px', textAlign: 'right' }}>₹{(b.qty * b.sale_price).toLocaleString('en-IN')}</div>
+                                    <button onClick={() => removeFromBasket(b.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-tertiary)' }}><X size={14} /></button>
+                                </div>
+                            ))}
+                            <div style={{ paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    <span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                    <span>GST</span><span>₹{Math.round(gst).toLocaleString('en-IN')}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
-            {/* Action Buttons */}
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border-primary)', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button
-                    onClick={handleWhatsApp}
-                    style={{ flex: '1', padding: '10px', backgroundColor: '#25D366', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', minWidth: '140px' }}
-                >
-                    <MessageSquare size={15} /> Share Estimate
-                </button>
-                <button
-                    onClick={handleCreateQuotation}
-                    disabled={items.every(it => !it.name)}
-                    style={{ flex: '2', padding: '10px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 700, fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', minWidth: '160px', opacity: items.every(it => !it.name) ? 0.5 : 1 }}
-                >
-                    <FileText size={15} /> Customer Approved → Create Quotation
-                </button>
-            </div>
+                    {/* Basket summary bar */}
+                    <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button
+                            onClick={() => setBasketOpen(p => !p)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', flex: 1, textAlign: 'left', padding: 0 }}
+                        >
+                            <div style={{ position: 'relative', display: 'inline-flex' }}>
+                                <ShoppingCart size={22} color="var(--color-primary)" />
+                                <span style={{ position: 'absolute', top: '-6px', right: '-8px', width: '16px', height: '16px', backgroundColor: '#ef4444', color: '#fff', borderRadius: '50%', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{itemCount}</span>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1 }}>{basketOpen ? 'Hide items' : `${itemCount} item${itemCount > 1 ? 's' : ''}`}</div>
+                                <div style={{ fontSize: '17px', fontWeight: 800, color: '#8b5cf6', lineHeight: 1.2 }}>₹{Math.round(total).toLocaleString('en-IN')}</div>
+                            </div>
+                            <div style={{ marginLeft: 'auto', color: 'var(--text-tertiary)' }}>{basketOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}</div>
+                        </button>
+
+                        <button onClick={handleWhatsApp} style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Share estimate on WhatsApp">
+                            <MessageSquare size={18} />
+                        </button>
+                        <button
+                            onClick={handleCreateQuotation}
+                            style={{ padding: '10px 16px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}
+                        >
+                            <FileText size={15} /> Create Quotation
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
