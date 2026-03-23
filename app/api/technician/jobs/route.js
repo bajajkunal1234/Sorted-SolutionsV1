@@ -44,14 +44,20 @@ export async function GET(request) {
         // job.property is a JSONB blob stored on the job row (from CreateJobForm)
         const resolveProperty = (prop) => {
             if (!prop) return {};
-            // Structured address: { property_name, address: { line1, locality, pincode, city } }
+            // Structured address: { property_name, address: { apartment, line1, line2, locality, pincode, city } }
             if (prop.address && typeof prop.address === 'object') {
+                const parts = [
+                    prop.address.apartment || prop.address.flat || '',
+                    prop.address.building || prop.address.line2 || '',
+                    prop.address.line1 || prop.address.street || '',
+                ].filter(Boolean);
                 return {
-                    address: prop.address.line1 || '',
+                    address: parts.join(', '),
                     locality: prop.address.locality || '',
                     city: prop.address.city || '',
-                    latitude: prop.latitude || null,
-                    longitude: prop.longitude || null,
+                    pincode: prop.address.pincode || '',
+                    latitude: prop.latitude || prop.address.latitude || null,
+                    longitude: prop.longitude || prop.address.longitude || null,
                 };
             }
             // Flat string address: { name, address: "string" }
@@ -59,6 +65,7 @@ export async function GET(request) {
                 address: typeof prop.address === 'string' ? prop.address : '',
                 locality: prop.locality || '',
                 city: prop.city || '',
+                pincode: prop.pincode || '',
                 latitude: prop.latitude || null,
                 longitude: prop.longitude || null,
             };

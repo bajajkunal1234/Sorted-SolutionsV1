@@ -398,15 +398,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         <a href={`tel:${editedJob.mobile}`} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                        <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px' }} />
-                                        <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.4 }}>
-                                            {editedJob.address}
-                                            {editedJob.locality && <span>, {editedJob.locality}</span>}
-                                            <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(editedJob.address)}`} 
-                                               target="_blank" rel="noreferrer"
-                                               onClick={handleMapClick}
-                                               style={{ display: 'block', marginTop: '4px', color: '#3b82f6', fontSize: '12px', textDecoration: 'none' }}>
-                                                Open in Maps
+                                        <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                                        <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.5 }}>
+                                            {editedJob.address && (
+                                                <div style={{ fontWeight: 500 }}>{editedJob.address}</div>
+                                            )}
+                                            {(editedJob.locality || editedJob.city) && (
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                                    {[editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')}
+                                                </div>
+                                            )}
+                                            {!editedJob.address && !editedJob.locality && (
+                                                <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
+                                            )}
+                                            <a
+                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`}
+                                                target="_blank" rel="noreferrer"
+                                                onClick={handleMapClick}
+                                                style={{ display: 'inline-block', marginTop: '4px', color: '#3b82f6', fontSize: '12px', textDecoration: 'none' }}
+                                            >
+                                                Open in Maps →
                                             </a>
                                         </div>
                                     </div>
@@ -427,7 +438,27 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Thumbnail */}
+                                {(editedJob.thumbnail || editedJob._raw_property?.thumbnail || editedJob._raw_property?.images?.[0]) && (
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <img
+                                            src={editedJob.thumbnail || editedJob._raw_property?.thumbnail || editedJob._raw_property?.images?.[0]}
+                                            alt="Appliance"
+                                            style={{ width: '100%', maxHeight: '180px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border-primary)' }}
+                                        />
+                                    </div>
+                                )}
+
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                    {/* Job Name / Description */}
+                                    {(editedJob.description || editedJob.job_number) && (
+                                        <div style={{ gridColumn: '1 / -1' }}>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Job Name</div>
+                                            <div style={{ fontWeight: 600, fontSize: '15px' }}>{editedJob.description || `Job #${editedJob.job_number}`}</div>
+                                        </div>
+                                    )}
+
                                     <div>
                                         <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Category</div>
                                         <div style={{ fontWeight: 500 }}>{editedJob.product?.type || editedJob.issueCategory || 'N/A'}</div>
@@ -442,6 +473,27 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                             <div style={{ fontWeight: 500 }}>{editedJob.product.name}</div>
                                         </div>
                                     )}
+
+                                    {/* Warranty Status */}
+                                    <div>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '4px' }}>Warranty</div>
+                                        {(() => {
+                                            const w = editedJob.product?.warranty || editedJob.warranty_status || '';
+                                            const inWarranty = w && !w.toLowerCase().includes('out') && !w.toLowerCase().includes('no');
+                                            return (
+                                                <div style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                    padding: '3px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
+                                                    backgroundColor: inWarranty ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.12)',
+                                                    color: inWarranty ? '#10b981' : '#ef4444',
+                                                    border: `1px solid ${inWarranty ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`
+                                                }}>
+                                                    {inWarranty ? '✓ In Warranty' : (w || 'Out of Warranty')}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+
                                     <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
                                         <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Reported Issue</div>
                                         <div style={{ fontWeight: 500, color: '#ef4444' }}>{editedJob.defect || 'Not specified'}</div>

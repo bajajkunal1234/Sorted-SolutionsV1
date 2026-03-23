@@ -29,18 +29,26 @@ export async function GET(request, { params }) {
         const resolveProperty = (prop) => {
             if (!prop) return {};
             if (prop.address && typeof prop.address === 'object') {
+                // Build full street address from all parts
+                const parts = [
+                    prop.address.apartment || prop.address.flat || '',
+                    prop.address.building || prop.address.line2 || '',
+                    prop.address.line1 || prop.address.street || '',
+                ].filter(Boolean);
                 return {
-                    address: prop.address.line1 || '',
+                    address: parts.join(', '),
                     locality: prop.address.locality || '',
                     city: prop.address.city || '',
-                    latitude: prop.latitude || null,
-                    longitude: prop.longitude || null,
+                    pincode: prop.address.pincode || '',
+                    latitude: prop.latitude || prop.address.latitude || null,
+                    longitude: prop.longitude || prop.address.longitude || null,
                 };
             }
             return {
                 address: typeof prop.address === 'string' ? prop.address : '',
                 locality: prop.locality || '',
                 city: prop.city || '',
+                pincode: prop.pincode || '',
                 latitude: prop.latitude || null,
                 longitude: prop.longitude || null,
             };
@@ -60,7 +68,7 @@ export async function GET(request, { params }) {
         const bookingAddr = rawAddr.locality ? `${rawAddr.apartment || ''}, ${rawAddr.street || ''}, ${rawAddr.locality}, ${rawAddr.city}`.replace(/^, /, '') : null;
         
         const jobAddress = propData.address ? 
-            `${propData.address}, ${propData.locality || ''}` : 
+            [propData.address, propData.locality, propData.city].filter(Boolean).join(', ') : 
             (bookingAddr || 'No address');
 
         // Transform data
