@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield } from 'lucide-react';
@@ -335,7 +335,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         </h2>
                         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                             Job #: {editedJob.job_number || editedJob.id.split('-')[0]} 
-                            <span style={{ margin: '0 8px' }}>ΓÇó</span>
+                            <span style={{ margin: '0 8px' }}>&bull;</span>
                             <span style={{
                                 color: editedJob.status === 'completed' ? '#10b981' : 
                                        editedJob.status === 'cancelled' ? '#ef4444' : '#f59e0b',
@@ -417,7 +417,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 onClick={handleMapClick}
                                                 style={{ display: 'inline-block', marginTop: '4px', color: '#3b82f6', fontSize: '12px', textDecoration: 'none' }}
                                             >
-                                                Open in Maps ΓåÆ
+                                                Open in Maps &rsaquo;
                                             </a>
                                         </div>
                                     </div>

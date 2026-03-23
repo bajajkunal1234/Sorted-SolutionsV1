@@ -44,7 +44,7 @@ export async function GET(request) {
         // job.property is a JSONB blob stored on the job row (from CreateJobForm)
         const resolveProperty = (prop) => {
             if (!prop) return {};
-            // Structured address: { property_name, address: { apartment, line1, line2, locality, pincode, city } }
+            // PropertyForm format: { address: { line1, locality, city, pincode } }
             if (prop.address && typeof prop.address === 'object') {
                 const parts = [
                     prop.address.apartment || prop.address.flat || '',
@@ -60,7 +60,23 @@ export async function GET(request) {
                     longitude: prop.longitude || prop.address.longitude || null,
                 };
             }
-            // Flat string address: { name, address: "string" }
+            // NewAccountForm format: flat top-level fields flat_number, building_name, address (street)
+            if (prop.flat_number || prop.building_name) {
+                const parts = [
+                    prop.flat_number || '',
+                    prop.building_name || '',
+                    prop.address || '',
+                ].filter(Boolean);
+                return {
+                    address: parts.join(', '),
+                    locality: prop.locality || '',
+                    city: prop.city || '',
+                    pincode: prop.pincode || '',
+                    latitude: prop.latitude || null,
+                    longitude: prop.longitude || null,
+                };
+            }
+            // Flat string address
             return {
                 address: typeof prop.address === 'string' ? prop.address : '',
                 locality: prop.locality || '',

@@ -29,7 +29,7 @@ export async function GET(request, { params }) {
         const resolveProperty = (prop) => {
             if (!prop) return {};
             if (prop.address && typeof prop.address === 'object') {
-                // Build full street address from all parts
+                // PropertyForm format: { address: { line1, locality, city, pincode } }
                 const parts = [
                     prop.address.apartment || prop.address.flat || '',
                     prop.address.building || prop.address.line2 || '',
@@ -44,6 +44,23 @@ export async function GET(request, { params }) {
                     longitude: prop.longitude || prop.address.longitude || null,
                 };
             }
+            // NewAccountForm format: flat top-level fields flat_number, building_name, address (street)
+            if (prop.flat_number || prop.building_name) {
+                const parts = [
+                    prop.flat_number || '',
+                    prop.building_name || '',
+                    prop.address || '',
+                ].filter(Boolean);
+                return {
+                    address: parts.join(', '),
+                    locality: prop.locality || '',
+                    city: prop.city || '',
+                    pincode: prop.pincode || '',
+                    latitude: prop.latitude || null,
+                    longitude: prop.longitude || null,
+                };
+            }
+            // Flat string address
             return {
                 address: typeof prop.address === 'string' ? prop.address : '',
                 locality: prop.locality || '',
