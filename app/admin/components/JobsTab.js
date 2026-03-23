@@ -14,6 +14,7 @@ import BookingReviewModal from './jobs/BookingReviewModal';
 import { jobsAPI } from '@/lib/adminAPI';
 import { filterJobs, sortJobs, groupJobsBy } from '@/lib/utils/helpers';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+import RepairCalculator from '@/components/common/RepairCalculator';
 
 function JobsTab({ jobToOpen, onJobOpened }) {
     const [jobs, setJobs] = useState([]);
@@ -21,6 +22,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     const [error, setError] = useState(null);
     const [viewType, setViewType] = useState('kanban');
     const [selectedJob, setSelectedJob] = useState(null);
+    const [calculatorJob, setCalculatorJob] = useState(null);
     const [showCreateForm, setShowCreateForm] = useState(false);
 
     // Booking Review Modal State
@@ -273,7 +275,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                                         <SortableContext items={groupJobsList.map(j => j.id)} strategy={verticalListSortingStrategy} id={groupName}>
                                             <div className="kanban-cards">
                                                 {groupJobsList.map(job => (
-                                                    <JobCard key={job.id} job={job} onClick={() => handleJobClick(job)} />
+                                                    <JobCard key={job.id} job={job} onClick={() => handleJobClick(job)} onCalculate={(j) => setCalculatorJob(j)} />
                                                 ))}
                                             </div>
                                         </SortableContext>
@@ -306,6 +308,17 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                 />
             )}
             {showCreateForm && <CreateJobForm onClose={() => setShowCreateForm(false)} onCreate={handleCreateJob} />}
+            {calculatorJob && (
+                <RepairCalculator
+                    job={calculatorJob}
+                    onClose={() => setCalculatorJob(null)}
+                    onCreateQuotation={(items) => {
+                        const jobForDetail = calculatorJob;
+                        setCalculatorJob(null);
+                        setSelectedJob({ ...jobForDetail, _calculatorItems: items });
+                    }}
+                />
+            )}
         </div>
     );
 }
