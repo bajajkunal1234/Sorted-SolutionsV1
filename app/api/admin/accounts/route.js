@@ -96,6 +96,7 @@ export async function POST(request) {
         delete body.source;
         delete body.accountImage;      // UI-only field (mapped to image_url if needed)
         delete body.gst_ledger_nature; // not a DB column yet; stored in notes/tax_type if needed
+        delete body.tax_type;
 
         const { data, error } = await supabase
             .from('accounts')
@@ -198,6 +199,9 @@ export async function PUT(request) {
         const body = await request.json()
         const { id, ...updates } = body
         delete updates.source;
+        delete updates.accountImage;
+        delete updates.gst_ledger_nature;
+        delete updates.tax_type;
 
         // Fetch the current state BEFORE updating so we can diff it
         const { data: before } = await supabase
