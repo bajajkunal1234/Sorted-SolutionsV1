@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
+import RepairCalculator from '@/components/common/RepairCalculator';
 import { logInteraction, logNavigation } from '@/lib/interactions';
 
 function TechnicianApp() {
@@ -18,6 +19,7 @@ function TechnicianApp() {
     const [filterStatus, setFilterStatus] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedJob, setSelectedJob] = useState(null);
+    const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
     const [darkMode, setDarkMode] = useState(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('techDarkMode');
@@ -444,12 +446,14 @@ function TechnicianApp() {
                                         >
                                             {/* Header */}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-xs)' }}>
-                                                <div>
-                                                    <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: '2px' }}>
-                                                        {job.customerName}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontSize: '17px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>
+                                                        {job.product?.type || job.issueCategory || 'Service Job'}
+                                                        {job.product?.name ? <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--text-secondary)' }}> — {job.product.name}</span> : null}
                                                     </div>
-                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                        {job.product?.brand || 'Unknown'} {job.product?.model || ''}
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                                        {job.customerName}
+                                                        {(job.product?.brand && job.product.brand !== 'Unknown') ? <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}> · {job.product.brand}</span> : null}
                                                     </div>
                                                 </div>
                                                 <div style={{
@@ -475,7 +479,7 @@ function TechnicianApp() {
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                     <MapPin size={12} color="var(--text-secondary)" />
                                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                        {job.locality || 'No location'} {job.distance ? `(${job.distance} km)` : ''}
+                                                        {job.locality || job.city || job.address || 'No location'}
                                                     </span>
                                                 </div>
                                             </div>
@@ -491,7 +495,7 @@ function TechnicianApp() {
                                                 fontWeight: 600,
                                                 marginBottom: 'var(--spacing-xs)'
                                             }}>
-                                                {job.stage ? job.stage.replace('-', ' ').toUpperCase() : 'UNKNOWN'}
+                                                {job.status ? job.status.replace(/-/g, ' ').toUpperCase() : 'OPEN'}
                                             </div>
 
                                             {/* Defect */}
@@ -507,6 +511,27 @@ function TechnicianApp() {
                                                 "{job.defect || 'No defect specified'}"
                                             </div>
 
+                                            {/* Quick Action Buttons */}
+                                            <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }} onClick={e => e.stopPropagation()}>
+                                                <button onClick={() => setCalculatorJob(job)} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
+                                                    🧮 Estimate
+                                                </button>
+                                                {job.mobile ? (
+                                                    <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}>
+                                                        📞 Call
+                                                    </a>
+                                                ) : null}
+                                                {(job.location?.lat && job.location?.lng) ? (
+                                                    <a href={`https://www.google.com/maps?q=${job.location.lat},${job.location.lng}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}>
+                                                        📍 Map
+                                                    </a>
+                                                ) : (job.locality || job.city || job.address) ? (
+                                                    <a href={`https://www.google.com/maps/search/${encodeURIComponent([job.address, job.locality, job.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}>
+                                                        📍 Map
+                                                    </a>
+                                                ) : null}
+                                            </div>
+
                                         </div>
                                     );
                                 })}
@@ -515,6 +540,16 @@ function TechnicianApp() {
                     ))
                 )}
             </div>
+        {calculatorJob && (
+            <RepairCalculator
+                job={calculatorJob}
+                onClose={() => setCalculatorJob(null)}
+                onCreateQuotation={(items) => {
+                    setCalculatorJob(null);
+                    setSelectedJob({ ...calculatorJob, _calculatorItems: items });
+                }}
+            />
+        )}
         </>
     );
 

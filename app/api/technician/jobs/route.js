@@ -70,12 +70,13 @@ export async function GET(request) {
             
             return {
                 id: job.id,
+                job_number: job.job_number,
                 customerId: job.customer_id,
                 customerName: job.customer_name || customerObj.name,
-                mobile: customerObj.phone || customerObj.mobile,
+                mobile: customerObj.phone || customerObj.mobile || job.customer_phone || '',
                 email: customerObj.email,
                 address: propData.address || job.description,
-                locality: propData.locality || '',
+                locality: propData.locality || propData.city || '',
                 city: propData.city || '',
                 location: {
                     lat: propData.latitude,
@@ -93,7 +94,7 @@ export async function GET(request) {
                 priority: job.priority || 'normal',
                 status: job.status || 'open',
                 assignedTo: job.technician_id,
-                assignedAt: job.created_at, // Map to createdAt if missing
+                assignedAt: job.created_at,
                 dueDate: job.scheduled_date || job.due_date,
                 confirmedVisitTime: job.scheduled_time || job.confirmed_visit_time,
                 startedAt: job.started_at,
