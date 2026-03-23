@@ -7,13 +7,15 @@ import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { logInteraction } from '@/lib/interactions';
+import RepairCalculator from '@/components/common/RepairCalculator';
 
 export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
     const [editedJob, setEditedJob] = useState(job);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice'
+    const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice' | 'calculator'
+    const [calculatorItems, setCalculatorItems] = useState(null);
     const [isAddingNote, setIsAddingNote] = useState(false);
 
     // Fetch fresh job and interactions on mount
@@ -598,8 +600,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     <FilePlus size={18} color="#10b981" /> Documents & Billing
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
-                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => setActiveForm('quotation')}>
-                                        <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation
+                                    <button
+                                        className="btn"
+                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
+                                        onClick={() => setActiveForm('calculator')}
+                                    >
+                                        🧮 Calculate Repair Estimate
+                                    </button>
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => { setCalculatorItems(null); setActiveForm('quotation'); }}>
+                                        <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation (Blank)
                                     </button>
                                     <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => setActiveForm('sales-invoice')}>
                                         <CheckCircle size={18} style={{ marginRight: '8px' }} /> Create Sales Voucher
@@ -612,11 +621,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             </div>
 
             {/* Document Generation Forms */}
+            {activeForm === 'calculator' && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }} onClick={() => setActiveForm(null)}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '660px', maxHeight: '90vh' }}>
+                        <RepairCalculator
+                            job={editedJob}
+                            onClose={() => setActiveForm(null)}
+                            onCreateQuotation={(items) => {
+                                setCalculatorItems(items);
+                                setActiveForm('quotation');
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
             {activeForm === 'quotation' && (
                 <QuotationForm 
-                    onClose={() => setActiveForm(null)}
+                    onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
                     onSave={handleFormSave}
                     defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
+                    prefillItems={calculatorItems}
                 />
             )}
             {activeForm === 'sales-invoice' && (

@@ -8,6 +8,7 @@ import LogNoteItem from './LogNoteItem';
 import SalesInvoiceForm from './accounts/SalesInvoiceForm';
 import QuotationForm from './accounts/QuotationForm';
 import { jobsAPI, interactionsAPI } from '@/lib/adminAPI';
+import RepairCalculator from '@/components/common/RepairCalculator';
 
 function JobDetailModal({ job, onClose, onUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -16,7 +17,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [newNote, setNewNote] = useState({ description: '', files: [] });
-    const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice'
+    const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice' | 'calculator'
+    const [calculatorItems, setCalculatorItems] = useState(null); // pre-filled items from calculator
 
     const [technicians, setTechnicians] = useState([]);
     const [rentals, setRentals] = useState([]);
@@ -676,8 +678,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     <Tag size={18} color="#10b981" /> Documents & Billing
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
-                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => setActiveForm('quotation')}>
-                                        <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation
+                                    <button
+                                        className="btn"
+                                        style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px' }}
+                                        onClick={() => setActiveForm('calculator')}
+                                    >
+                                        🧮 Calculate Repair Estimate
+                                    </button>
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => { setCalculatorItems(null); setActiveForm('quotation'); }}>
+                                        <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation (Blank)
                                     </button>
                                     <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => setActiveForm('sales-invoice')}>
                                         <CheckSquare size={18} style={{ marginRight: '8px' }} /> Create Sales Voucher
@@ -709,14 +718,29 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             </div>
 
             {/* Document Generation Forms overlaid over the modal */}
+            {activeForm === 'calculator' && (
+                <div className="modal-overlay" onClick={() => setActiveForm(null)} style={{ zIndex: 1100 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ width: '100%', maxWidth: '680px', margin: '20px', maxHeight: '90vh' }}>
+                        <RepairCalculator
+                            job={editedJob}
+                            onClose={() => setActiveForm(null)}
+                            onCreateQuotation={(items) => {
+                                setCalculatorItems(items);
+                                setActiveForm('quotation');
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
             {activeForm === 'quotation' && (
                 <QuotationForm 
-                    onClose={() => setActiveForm(null)}
+                    onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
                     onSave={(data) => {
-                        console.log('Saved Quotation:', data);
                         setActiveForm(null);
+                        setCalculatorItems(null);
                     }}
                     defaultAccount={job.customer_id ? { id: job.customer_id } : null}
+                    prefillItems={calculatorItems}
                 />
             )}
             {activeForm === 'sales-invoice' && (

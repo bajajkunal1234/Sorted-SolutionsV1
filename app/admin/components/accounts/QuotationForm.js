@@ -7,7 +7,47 @@ import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import { accountsAPI, inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
 
-function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
+function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems }) {
+    // Build initial items from prefillItems (from RepairCalculator) or existingQuotation or blank
+    const buildInitialItems = () => {
+        if (existingQuotation?.items) return existingQuotation.items.filter(i => !i.isCharge);
+        if (prefillItems?.length) {
+            return prefillItems
+                .filter(it => it.type !== 'service' && it.description)
+                .map((it, idx) => ({
+                    id: idx + 1,
+                    productId: it.productId || '',
+                    description: it.description,
+                    hsn: '',
+                    qty: it.qty || 1,
+                    rate: it.rate || 0,
+                    discount: 0,
+                    taxRate: it.taxRate || 18,
+                    total: it.qty * it.rate
+                }));
+        }
+        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }];
+    };
+
+    const buildInitialCharges = () => {
+        if (existingQuotation?.items) {
+            return existingQuotation.items.filter(i => i.isCharge).map(i => ({
+                id: i.id, serviceId: i.productId, name: i.description, amount: i.rate, taxRate: i.taxRate
+            }));
+        }
+        if (prefillItems?.length) {
+            return prefillItems
+                .filter(it => it.type === 'service' && it.description)
+                .map((it, idx) => ({
+                    id: Date.now() + idx,
+                    serviceId: it.productId || null,
+                    name: it.description,
+                    amount: it.rate || 0,
+                    taxRate: it.taxRate || 18
+                }));
+        }
+        return [];
+    };
     const [formData, setFormData] = useState({
         account_id: existingQuotation?.account_id || defaultAccount?.id || null,
         account_name: existingQuotation?.account_name || defaultAccount?.name || '',
@@ -20,29 +60,15 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
         date: existingQuotation?.date || new Date().toISOString().split('T')[0],
         valid_until: existingQuotation?.valid_until || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         subject: existingQuotation?.subject || '',
-        items: existingQuotation?.items ? existingQuotation.items.filter(i => !i.isCharge) : [
-            { id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }
-        ],
+        items: buildInitialItems(),
         notes: existingQuotation?.notes || '',
         terms: existingQuotation?.terms || 'Quotation valid for 30 days.\nPrices subject to change without notice.\nPayment terms: 50% advance, 50% on completion.',
         showTax: existingQuotation?.showTax !== undefined ? existingQuotation.showTax : true
     });
 
-    const initialCharges = existingQuotation?.items 
-        ? existingQuotation.items
-            .filter(i => i.isCharge)
-            .map(i => ({
-                id: i.id,
-                serviceId: i.productId,
-                name: i.description,
-                amount: i.rate,
-                taxRate: i.taxRate
-            }))
-        : [];
-
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
-    const [charges, setCharges] = useState(initialCharges);
+    const [charges, setCharges] = useState(buildInitialCharges);
     const [services, setServices] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
 
