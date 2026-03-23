@@ -448,12 +448,12 @@ function TechnicianApp() {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-xs)' }}>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontSize: '17px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>
-                                                        {job.product?.type || job.issueCategory || 'Service Job'}
-                                                        {job.product?.name ? <span style={{ fontWeight: 400, fontSize: '13px', color: 'var(--text-secondary)' }}> — {job.product.name}</span> : null}
+                                                        {job.description || job.product?.type || job.issueCategory || 'Service Job'}
                                                     </div>
                                                     <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
                                                         {job.customerName}
                                                         {(job.product?.brand && job.product.brand !== 'Unknown') ? <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}> · {job.product.brand}</span> : null}
+                                                        {job.description && job.product?.type ? <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}> · {job.product.type}</span> : null}
                                                     </div>
                                                 </div>
                                                 <div style={{
