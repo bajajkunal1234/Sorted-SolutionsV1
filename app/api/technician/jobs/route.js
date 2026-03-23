@@ -82,9 +82,12 @@ export async function GET(request) {
                 customerName: job.customer_name || customerObj.name,
                 mobile: customerObj.phone || customerObj.mobile || job.customer_phone || '',
                 email: customerObj.email,
-                address: propData.address || job.description,
+                address: propData.address || '',
                 locality: propData.locality || propData.city || '',
                 city: propData.city || '',
+                pincode: propData.pincode || '',
+                description: job.description || '',
+                thumbnail: job.thumbnail || null,
                 location: {
                     lat: propData.latitude,
                     lng: propData.longitude

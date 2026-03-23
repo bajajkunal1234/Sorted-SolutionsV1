@@ -106,6 +106,8 @@ export async function GET(request, { params }) {
             createdAt: job.created_at,
             notes: typeof job.notes === 'string' && !job.notes.startsWith('{') ? job.notes : job.description_notes,
             internalNotes: job.internal_notes,
+            description: job.description || '',
+            thumbnail: job.thumbnail || null,
             rental_id: job.rental_id || null,
             rental: job.rental || null,
             amc_id: job.amc_id || null,

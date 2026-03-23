@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, Edit2, Save } from 'lucide-react';
+import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
@@ -17,8 +17,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice' | 'calculator'
     const [calculatorItems, setCalculatorItems] = useState(null);
     const [isAddingNote, setIsAddingNote] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
-    const [draftJob, setDraftJob] = useState(null); // holds editable copy while isEditing
 
     // Fetch fresh job and interactions on mount
     useEffect(() => {
@@ -80,7 +78,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     status: newStatus,
                     updated_by_name: techName,
                     source: 'Technician App',
-                    _changeLog: [`Status changed: ${editedJob.status} → ${newStatus}`]
+                    _changeLog: [`Status changed: ${editedJob.status} ΓåÆ ${newStatus}`]
                 })
             });
 
@@ -287,7 +285,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             await transactionsAPI.create(data, type);
             
             const docName = activeForm === 'quotation' ? 'Quotation' : 'Sales Voucher';
-            const logDesc = `Generated ${docName} for ₹${data.total_amount || 0}`;
+            const logDesc = `Generated ${docName} for Γé╣${data.total_amount || 0}`;
             await handleAddNote({
                 description: logDesc,
                 category: activeForm === 'quotation' ? 'communication' : 'sales',
@@ -299,68 +297,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         } catch (err) {
             alert(`Failed to create document: ${err.message}`);
         }
-    };
-
-    const handleSaveEdit = async () => {
-        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-        setLoading(true);
-        setError(null);
-        try {
-            const payload = {
-                issue: draftJob.defect,
-                notes: draftJob.notes,
-                brand: draftJob.product?.brand,
-                model: draftJob.product?.model,
-                warranty_status: draftJob.product?.warranty,
-                scheduled_date: draftJob.dueDate,
-                scheduled_time: draftJob.confirmedVisitTime,
-                updated_by_name: techName,
-                source: 'Technician App',
-                _changeLog: ['Job details updated by technician'],
-            };
-            // Strip undefined keys
-            Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
-
-            const res = await fetch(`/api/technician/jobs/${job.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to save changes');
-
-            // Log interaction
-            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'job-edited',
-                    message: `Job details updated by ${techName}`,
-                    user_name: techName,
-                    source: 'Technician App',
-                }),
-            });
-
-            setEditedJob(prev => ({ ...prev, ...draftJob }));
-            setIsEditing(false);
-            setDraftJob(null);
-            if (onJobUpdate) onJobUpdate({ ...editedJob, ...draftJob });
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const startEditing = () => {
-        setDraftJob(JSON.parse(JSON.stringify(editedJob))); // deep clone
-        setIsEditing(true);
-    };
-
-    const cancelEditing = () => {
-        setDraftJob(null);
-        setIsEditing(false);
-        setError(null);
     };
 
     const handleMapClick = () => {
@@ -399,7 +335,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         </h2>
                         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                             Job #: {editedJob.job_number || editedJob.id.split('-')[0]} 
-                            <span style={{ margin: '0 8px' }}>•</span>
+                            <span style={{ margin: '0 8px' }}>ΓÇó</span>
                             <span style={{
                                 color: editedJob.status === 'completed' ? '#10b981' : 
                                        editedJob.status === 'cancelled' ? '#ef4444' : '#f59e0b',
@@ -481,7 +417,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 onClick={handleMapClick}
                                                 style={{ display: 'inline-block', marginTop: '4px', color: '#3b82f6', fontSize: '12px', textDecoration: 'none' }}
                                             >
-                                                Open in Maps →
+                                                Open in Maps ΓåÆ
                                             </a>
                                         </div>
                                     </div>
@@ -490,32 +426,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
                             {/* Appliance Card */}
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                {/* Appliance Details header row with Edit/Save/Cancel buttons */}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Appliance Details</h3>
-                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        {editedJob.priority && !isEditing && (
-                                            <div style={{
-                                                padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
-                                                backgroundColor: editedJob.priority === 'urgent' ? '#fee2e2' : editedJob.priority === 'high' ? '#ffedd5' : 'var(--bg-elevated)',
-                                                color: editedJob.priority === 'urgent' ? '#ef4444' : editedJob.priority === 'high' ? '#f59e0b' : 'var(--text-secondary)'
-                                            }}>
-                                                {editedJob.priority}
-                                            </div>
-                                        )}
-                                        {isEditing ? (
-                                            <>
-                                                <button onClick={cancelEditing} style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid var(--border-primary)', backgroundColor: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer' }}>Cancel</button>
-                                                <button onClick={handleSaveEdit} disabled={loading} style={{ padding: '5px 14px', fontSize: '12px', fontWeight: 700, borderRadius: '8px', border: 'none', backgroundColor: '#3b82f6', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Save size={13} /> {loading ? 'Saving…' : 'Save'}
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <button onClick={startEditing} style={{ padding: '5px 12px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid #3b82f6', backgroundColor: 'transparent', color: '#3b82f6', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                <Edit2 size={13} /> Edit
-                                            </button>
-                                        )}
-                                    </div>
+                                    {editedJob.priority && (
+                                        <div style={{
+                                            padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase',
+                                            backgroundColor: editedJob.priority === 'urgent' ? '#fee2e2' : editedJob.priority === 'high' ? '#ffedd5' : 'var(--bg-elevated)',
+                                            color: editedJob.priority === 'urgent' ? '#ef4444' : editedJob.priority === 'high' ? '#f59e0b' : 'var(--text-secondary)'
+                                        }}>
+                                            {editedJob.priority}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Thumbnail */}
@@ -544,37 +465,30 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     </div>
                                     <div>
                                         <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Brand</div>
-                                        {isEditing ? (
-                                            <input value={draftJob.product?.brand || ''} onChange={e => setDraftJob(prev => ({ ...prev, product: { ...prev.product, brand: e.target.value } }))} style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }} placeholder="Brand" />
-                                        ) : (
-                                            <div style={{ fontWeight: 500 }}>{editedJob.product?.brand || 'N/A'}</div>
-                                        )}
+                                        <div style={{ fontWeight: 500 }}>{editedJob.product?.brand || 'N/A'}</div>
                                     </div>
-                                    {(editedJob.product?.name || isEditing) && (
+                                    {editedJob.product?.name && (
                                         <div>
                                             <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Model / Item</div>
-                                            {isEditing ? (
-                                                <input value={draftJob.product?.model || draftJob.product?.name || ''} onChange={e => setDraftJob(prev => ({ ...prev, product: { ...prev.product, model: e.target.value, name: e.target.value } }))} style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }} placeholder="Model" />
-                                            ) : (
-                                                <div style={{ fontWeight: 500 }}>{editedJob.product.name}</div>
-                                            )}
+                                            <div style={{ fontWeight: 500 }}>{editedJob.product.name}</div>
                                         </div>
                                     )}
 
                                     {/* Warranty Status */}
                                     <div>
                                         <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginBottom: '4px' }}>Warranty</div>
-                                        {isEditing ? (
-                                            <select value={draftJob.product?.warranty || 'Out of Warranty'} onChange={e => setDraftJob(prev => ({ ...prev, product: { ...prev.product, warranty: e.target.value } }))} style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }}>
-                                                <option>In Warranty</option>
-                                                <option>Out of Warranty</option>
-                                            </select>
-                                        ) : (() => {
+                                        {(() => {
                                             const w = editedJob.product?.warranty || editedJob.warranty_status || '';
                                             const inWarranty = w && !w.toLowerCase().includes('out') && !w.toLowerCase().includes('no');
                                             return (
-                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 700, backgroundColor: inWarranty ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.12)', color: inWarranty ? '#10b981' : '#ef4444', border: `1px solid ${inWarranty ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}` }}>
-                                                    {inWarranty ? '✓ In Warranty' : (w || 'Out of Warranty')}
+                                                <div style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                                    padding: '3px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
+                                                    backgroundColor: inWarranty ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.12)',
+                                                    color: inWarranty ? '#10b981' : '#ef4444',
+                                                    border: `1px solid ${inWarranty ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`
+                                                }}>
+                                                    {inWarranty ? 'Γ£ô In Warranty' : (w || 'Out of Warranty')}
                                                 </div>
                                             );
                                         })()}
@@ -582,54 +496,38 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
                                     <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
                                         <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Reported Issue</div>
-                                        {isEditing ? (
-                                            <input value={draftJob.defect || ''} onChange={e => setDraftJob(prev => ({ ...prev, defect: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }} placeholder="Describe the issue" />
-                                        ) : (
-                                            <div style={{ fontWeight: 500, color: '#ef4444' }}>{editedJob.defect || 'Not specified'}</div>
-                                        )}
-                                        {isEditing ? (
-                                            <>
-                                                <div style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '8px' }}>Additional Notes</div>
-                                                <textarea value={draftJob.notes || ''} onChange={e => setDraftJob(prev => ({ ...prev, notes: e.target.value }))} rows={3} style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px', resize: 'vertical', marginTop: '4px' }} placeholder="Any additional notes…" />
-                                            </>
-                                        ) : editedJob.notes ? (
+                                        <div style={{ fontWeight: 500, color: '#ef4444' }}>{editedJob.defect || 'Not specified'}</div>
+                                        {editedJob.notes && (
                                             <div style={{ marginTop: '4px', fontSize: '13px', color: 'var(--text-primary)', fontStyle: 'italic', backgroundColor: 'var(--bg-elevated)', padding: '8px', borderRadius: '6px' }}>
                                                 "{editedJob.notes}"
                                             </div>
-                                        ) : null}
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Scheduling Card — always shown, editable */}
-                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Clock size={16} color="var(--text-secondary)" /> Scheduling
-                                </h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
-                                    <div>
-                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Preferred Date</div>
-                                        {isEditing ? (
-                                            <input type="date" value={draftJob.dueDate ? draftJob.dueDate.split('T')[0] : ''} onChange={e => setDraftJob(prev => ({ ...prev, dueDate: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }} />
-                                        ) : (
-                                            <div style={{ fontWeight: 500 }}>{editedJob.dueDate ? new Date(editedJob.dueDate).toLocaleDateString() : '—'}</div>
+                            {/* Scheduling Card */}
+                            {(editedJob.dueDate || editedJob.confirmedVisitTime) && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Clock size={16} color="var(--text-secondary)" /> Scheduling
+                                    </h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
+                                        {editedJob.dueDate && (
+                                            <div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Preferred Date</div>
+                                                <div style={{ fontWeight: 500 }}>{new Date(editedJob.dueDate).toLocaleDateString()}</div>
+                                            </div>
                                         )}
-                                    </div>
-                                    <div>
-                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Time Slot</div>
-                                        {isEditing ? (
-                                            <select value={draftJob.confirmedVisitTime || ''} onChange={e => setDraftJob(prev => ({ ...prev, confirmedVisitTime: e.target.value }))} style={{ width: '100%', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: '13px' }}>
-                                                <option value="">Select slot</option>
-                                                <option>Morning (8am–12pm)</option>
-                                                <option>Afternoon (12pm–4pm)</option>
-                                                <option>Evening (4pm–8pm)</option>
-                                            </select>
-                                        ) : (
-                                            <div style={{ fontWeight: 500 }}>{editedJob.confirmedVisitTime || '—'}</div>
+                                        {editedJob.confirmedVisitTime && (
+                                            <div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Time Slot</div>
+                                                <div style={{ fontWeight: 500 }}>{editedJob.confirmedVisitTime}</div>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Linked Agreement Card */}
                             {editedJob.rental_id && editedJob.rental && (
@@ -759,7 +657,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
                                         onClick={() => setActiveForm('calculator')}
                                     >
-                                        🧮 Calculate Repair Estimate
+                                        ≡ƒº« Calculate Repair Estimate
                                     </button>
                                     <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => { setCalculatorItems(null); setActiveForm('quotation'); }}>
                                         <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation (Blank)
