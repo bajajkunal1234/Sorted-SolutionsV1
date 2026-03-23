@@ -18,7 +18,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
         shipping_address: existingInvoice?.shipping_address || '',
         invoice_number: existingInvoice?.invoice_number || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
         date: existingInvoice?.date || new Date().toISOString().split('T')[0],
-        items: existingInvoice?.items || [
+        items: existingInvoice?.items ? existingInvoice.items.filter(i => !i.isCharge) : [
             { id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }
         ],
         notes: existingInvoice?.notes || '',
@@ -26,9 +26,21 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
         technician: existingInvoice?.technician || ''
     });
 
+    const initialCharges = existingInvoice?.items 
+        ? existingInvoice.items
+            .filter(i => i.isCharge)
+            .map(i => ({
+                id: i.id,
+                serviceId: i.productId,
+                name: i.description,
+                amount: i.rate,
+                taxRate: i.taxRate
+            }))
+        : [];
+
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
-    const [charges, setCharges] = useState(existingInvoice?.charges || []);
+    const [charges, setCharges] = useState(initialCharges);
     const [services, setServices] = useState([]);
 
     // Fetch services from inventory
@@ -147,10 +159,25 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
             return;
         }
 
+        const combinedItems = [
+            ...formData.items.map(item => ({ ...item, isCharge: false })),
+            ...charges.map(c => ({
+                id: c.id,
+                isCharge: true,
+                productId: c.serviceId || '',
+                description: c.name,
+                qty: 1,
+                rate: c.amount,
+                discount: 0,
+                taxRate: c.taxRate,
+                total: c.amount * (1 + (c.taxRate || 0) / 100)
+            }))
+        ];
+
         const invoiceData = {
             ...formData,
+            items: combinedItems,
             ...totals,
-            charges,
             __formType: 'sales',
             status: action === 'draft' ? 'draft' : 'finalized'
         };

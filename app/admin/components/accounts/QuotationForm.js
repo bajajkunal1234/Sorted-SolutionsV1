@@ -5,7 +5,7 @@ import { Plus, Trash2, X, Loader2 } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
-import { accountsAPI } from '@/lib/adminAPI';
+import { accountsAPI, inventoryAPI } from '@/lib/adminAPI';
 
 function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
     const [formData, setFormData] = useState({
@@ -20,7 +20,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
         date: existingQuotation?.date || new Date().toISOString().split('T')[0],
         valid_until: existingQuotation?.valid_until || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         subject: existingQuotation?.subject || '',
-        items: existingQuotation?.items || [
+        items: existingQuotation?.items ? existingQuotation.items.filter(i => !i.isCharge) : [
             { id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }
         ],
         notes: existingQuotation?.notes || '',
@@ -28,8 +28,30 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
         showTax: existingQuotation?.showTax !== undefined ? existingQuotation.showTax : true
     });
 
+    const initialCharges = existingQuotation?.items 
+        ? existingQuotation.items
+            .filter(i => i.isCharge)
+            .map(i => ({
+                id: i.id,
+                serviceId: i.productId,
+                name: i.description,
+                amount: i.rate,
+                taxRate: i.taxRate
+            }))
+        : [];
+
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
+    const [charges, setCharges] = useState(initialCharges);
+    const [services, setServices] = useState([]);
+
+    // Fetch services from inventory
+    useEffect(() => {
+        inventoryAPI.getAll().then(data => {
+            const svcList = (data || []).filter(p => p.type === 'service' || p.product_type === 'service');
+            setServices(svcList);
+        }).catch(() => {});
+    }, []);
 
     const companyState = 'Maharashtra';
 
@@ -42,9 +64,11 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
     };
 
     const calculateTotals = () => {
-        const subtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+        const itemsSubtotal = formData.items.reduce((sum, item) => sum + (item.qty * item.rate), 0);
         const totalDiscount = formData.items.reduce((sum, item) => sum + (item.discount || 0), 0);
-        const taxableAmount = subtotal - totalDiscount;
+        const itemsTaxable = itemsSubtotal - totalDiscount;
+        const chargesTotal = charges.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+        const combinedTaxable = itemsTaxable + chargesTotal;
 
         const isInterState = formData.accountState !== companyState;
         let cgst = 0, sgst = 0, igst = 0;
@@ -61,19 +85,26 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
                     sgst += taxAmount / 2;
                 }
             });
+            charges.forEach(c => {
+                const amt = Number(c.amount) || 0;
+                const rate = Number(c.taxRate) || 18;
+                const tax = (amt * rate) / 100;
+                if (isInterState) { igst += tax; }
+                else { cgst += tax / 2; sgst += tax / 2; }
+            });
         }
 
         const totalTax = cgst + sgst + igst;
-        const totalAmount = taxableAmount + totalTax;
+        const totalAmount = combinedTaxable + totalTax;
 
         return {
-            subtotal,
+            items_subtotal: itemsSubtotal,
+            subtotal: combinedTaxable,
             discount: totalDiscount,
-            cgst,
-            sgst,
-            igst,
+            charges_total: chargesTotal,
+            cgst, sgst, igst,
             total_tax: totalTax,
-            total_amount: Math.round(totalAmount)
+            total_amount: totalAmount
         };
     };
 
@@ -133,8 +164,24 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
             return;
         }
 
+        const combinedItems = [
+            ...formData.items.map(item => ({ ...item, isCharge: false })),
+            ...charges.map(c => ({
+                id: c.id,
+                isCharge: true,
+                productId: c.serviceId || '',
+                description: c.name,
+                qty: 1,
+                rate: c.amount,
+                discount: 0,
+                taxRate: c.taxRate,
+                total: formData.showTax ? c.amount * (1 + (c.taxRate || 0) / 100) : c.amount
+            }))
+        ];
+
         const quotationData = {
             ...formData,
+            items: combinedItems,
             ...totals,
             __formType: 'quotation',
             status: action === 'draft' ? 'draft' : 'sent'
@@ -416,6 +463,59 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
                                 Add Item
                             </button>
                         </div>
+                    </div>
+
+                    {/* Charges / Services Section */}
+                    <div style={{ marginBottom: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: 'var(--spacing-md)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                            <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, margin: 0, color: 'var(--text-secondary)' }}>Additional Charges / Services</h4>
+                            <button
+                                type="button"
+                                onClick={() => setCharges(prev => [...prev, { id: Date.now(), name: '', amount: 0, taxRate: 18 }])}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', backgroundColor: '#6366f115', color: '#6366f1', border: '1px solid #6366f130', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                            >
+                                <Plus size={13} /> Add Charge
+                            </button>
+                        </div>
+                        {charges.length === 0 && (
+                            <p style={{ fontSize: '12px', color: 'var(--text-tertiary)', margin: 0, textAlign: 'center', padding: '8px 0' }}>No charges added. Click "Add Charge" for Visiting Charges, Service Charges, etc.</p>
+                        )}
+                        {charges.map((charge, idx) => (
+                            <div key={charge.id} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                                <select
+                                    className="form-input"
+                                    value={charge.serviceId || ''}
+                                    onChange={e => {
+                                        const svc = services.find(s => String(s.id) === e.target.value);
+                                        if (svc) {
+                                            setCharges(prev => prev.map((c, i) => i === idx ? {
+                                                ...c,
+                                                serviceId: svc.id,
+                                                name: svc.name,
+                                                taxRate: svc.gst_rate || svc.tax_rate || 18
+                                            } : c));
+                                        }
+                                    }}
+                                    style={{ flex: 1, fontSize: '13px', padding: '6px 10px' }}
+                                >
+                                    <option value="">— Select Service —</option>
+                                    {services.map(svc => (
+                                        <option key={svc.id} value={String(svc.id)}>{svc.name}</option>
+                                    ))}
+                                </select>
+                                <input
+                                    className="form-input"
+                                    type="number"
+                                    placeholder="Amount"
+                                    value={charge.amount || ''}
+                                    onChange={e => setCharges(prev => prev.map((c, i) => i === idx ? { ...c, amount: parseFloat(e.target.value) || 0 } : c))}
+                                    style={{ width: '120px', fontSize: '13px', padding: '6px 10px', textAlign: 'right' }}
+                                />
+                                <button onClick={() => setCharges(prev => prev.filter((_, i) => i !== idx))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
+                        ))}
                     </div>
 
                     {/* Totals Section */}

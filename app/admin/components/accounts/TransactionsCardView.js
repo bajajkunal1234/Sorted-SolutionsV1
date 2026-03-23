@@ -88,7 +88,7 @@ function GroupHeader({ label }) {
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
-function TransactionsCardView({ items, activeTab, groupBy, onItemClick }) {
+function TransactionsCardView({ items, activeTab, groupBy, onItemClick, onDelete }) {
     const accent = TAB_ACCENT[activeTab] || TAB_ACCENT.sales;
     const isVoucherTab = activeTab === 'receipts' || activeTab === 'payments';
 
@@ -189,6 +189,12 @@ function TransactionsCardView({ items, activeTab, groupBy, onItemClick }) {
                                         </div>
                                     </div>
                                     {!isVoucherTab && item.status && <StatusBadge status={item.status} />}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onDelete?.(item); }}
+                                        style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', padding: '6px', marginLeft: 'auto', cursor: 'pointer', display: 'flex' }}
+                                    >
+                                        <Trash2 size={13} />
+                                    </button>
                                 </div>
 
                                 {/* Account name row */}

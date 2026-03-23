@@ -927,7 +927,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
         if (txViewType === 'card') return (
             <div style={{ flex: 1, overflow: 'auto' }}>
-                <TransactionsCardView items={processedData} activeTab={activeTab} groupBy={txGroupBy} onItemClick={handleTransactionClick} />
+                <TransactionsCardView 
+                    items={processedData} 
+                    activeTab={activeTab} 
+                    groupBy={txGroupBy} 
+                    onItemClick={handleTransactionClick} 
+                    onDelete={(item) => handleDeleteTransaction(item, activeTab)}
+                />
             </div>
         );
 
@@ -1013,6 +1019,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                     style={{ background: 'rgba(245,158,11,0.1)', border: 'none', borderRadius: '6px', color: '#f59e0b', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                                                 >
                                                     <Share2 size={13} />
+                                                 </button>
+                                                <button
+                                                    title="Delete"
+                                                    onClick={e => { e.stopPropagation(); handleDeleteTransaction(item, activeTab); }}
+                                                    style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                >
+                                                    <Trash2 size={13} />
                                                 </button>
                                             </div>
                                         </td>
