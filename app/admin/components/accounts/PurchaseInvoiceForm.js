@@ -134,6 +134,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
         const purchaseData = {
             ...formData,
             ...totals,
+            __formType: 'purchase',
             status: action === 'draft' ? 'draft' : 'finalized'
         };
 

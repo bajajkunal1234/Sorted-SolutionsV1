@@ -101,8 +101,8 @@ export async function POST(request) {
         // Only columns that actually exist in each table are kept.
         const tableColumns = {
             sales:    ['invoice_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','job_id'],
-            purchase: ['invoice_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','job_id'],
-            quotation:['quote_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
+            purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
+            quotation:['quote_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','subject','job_id'],
             receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
             payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
         };

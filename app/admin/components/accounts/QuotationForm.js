@@ -136,6 +136,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount }) {
         const quotationData = {
             ...formData,
             ...totals,
+            __formType: 'quotation',
             status: action === 'draft' ? 'draft' : 'sent'
         };
 

@@ -652,6 +652,20 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         window.open(`https://wa.me/?text=${text}`, '_blank');
     };
 
+    const handleDeleteTransaction = async (item, tab) => {
+        const ref = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+        if (!window.confirm(`Delete ${ref}? This cannot be undone.`)) return;
+        const type = tabToTypeMap[tab];
+        try {
+            await transactionsAPI.delete(item.id, type);
+            // Remove from local state
+            const setters = { sales: setSalesInvoices, purchases: setPurchaseInvoices, quotations: setQuotations, receipts: setReceipts, payments: setPayments };
+            const setter = setters[tab];
+            if (setter) setter(prev => prev.filter(r => r.id !== item.id));
+        } catch (err) {
+            alert('Failed to delete: ' + err.message);
+        }
+    };
 
     const handleFormClose = () => { setActiveForm(null); setSelectedTransaction(null); };
 
