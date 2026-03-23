@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export async function GET(request) {
     try {
@@ -42,7 +43,18 @@ export async function PATCH(request) {
             .select()
             .single()
 
-        if (error) throw error
+        if (error) throw error;
+
+        // Log the approval/rejection as an interaction
+        logInteractionServer({
+            type: `expense-${status}`,
+            category: 'expense',
+            performedByName: 'Admin',
+            description: `Expense ${status}: ₹${data.amount} (${data.category})${admin_notes ? ' — Note: ' + admin_notes : ''}`,
+            metadata: { expense_id: id, status, admin_notes: admin_notes || null },
+            source: 'Admin',
+        });
+
         return NextResponse.json({ success: true, expense: data })
     } catch (err) {
         return NextResponse.json({ error: err.message }, { status: 500 })

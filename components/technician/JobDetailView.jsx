@@ -634,7 +634,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             {activeForm === 'quotation' && (
                 <QuotationForm 
                     onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
-                    onSave={handleFormSave}
+                    onSave={(data) => {
+                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${data?.quote_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                        }).catch(() => {});
+                        setActiveForm(null); setCalculatorItems(null);
+                    }}
                     defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
                     prefillItems={calculatorItems}
                 />
@@ -642,7 +648,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             {activeForm === 'sales-invoice' && (
                 <SalesInvoiceForm 
                     onClose={() => setActiveForm(null)}
-                    onSave={handleFormSave}
+                    onSave={(data) => {
+                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${data?.invoice_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                        }).catch(() => {});
+                        setActiveForm(null);
+                    }}
                     defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
                 />
             )}

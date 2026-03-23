@@ -732,6 +732,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 <QuotationForm 
                     onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
                     onSave={(data) => {
+                        // Log quotation creation to job interactions timeline
+                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${data?.quote_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Admin', customer_id: editedJob.customer_id || null })
+                        }).catch(() => {});
                         setActiveForm(null);
                         setCalculatorItems(null);
                     }}
@@ -743,7 +748,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 <SalesInvoiceForm 
                     onClose={() => setActiveForm(null)}
                     onSave={(data) => {
-                        console.log('Saved Invoice:', data);
+                        // Log invoice creation to job interactions timeline
+                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${data?.invoice_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Admin', customer_id: editedJob.customer_id || null })
+                        }).catch(() => {});
                         setActiveForm(null);
                     }}
                     defaultAccount={job.customer_id ? { id: job.customer_id } : null}
