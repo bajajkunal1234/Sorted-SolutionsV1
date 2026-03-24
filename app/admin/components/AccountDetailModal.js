@@ -21,51 +21,57 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [editedAccount, setEditedAccount] = useState({
         ...account,
         // Ensure all fields exist with defaults
-        contactPerson: account.contactPerson || '',
+        contactPerson: account.contactPerson || account.contact_person || '',
         mobile: account.mobile || '',
         email: account.email || '',
-        mailingName: account.mailingName || '',
-        customerDescription: account.customerDescription || account.mailingAddress || '',
-        accountImage: account.accountImage || null,
+        mailingName: account.mailingName || account.mailing_name || '',
+        customerDescription: account.customerDescription || account.mailingAddress || account.mailing_address || '',
+        accountImage: account.accountImage || account.image_url || null,
 
         // GST fields
         gstRegistration: account.gstRegistration || false,
         gstin: account.gstin || '',
         pan: account.pan || '',
-        stateName: account.stateName || '',
+        stateName: account.stateName || account.state_name || '',
         country: account.country || 'India',
 
         // Credit fields
-        creditLimit: account.creditLimit || 0,
-        creditPeriod: account.creditPeriod || 0,
-        priceLevel: account.priceLevel || 'default',
+        creditLimit: account.creditLimit || account.credit_limit || 0,
+        creditPeriod: account.creditPeriod || account.credit_period || 0,
+        priceLevel: account.priceLevel || account.price_level || 'default',
 
         // Bank fields
-        accountNumber: account.accountNumber || '',
-        bankName: account.bankName || '',
+        accountNumber: account.accountNumber || account.account_number || '',
+        bankName: account.bankName || account.bank_name || '',
         branch: account.branch || '',
-        ifscCode: account.ifscCode || '',
-        micrCode: account.micrCode || '',
-        accountType: account.accountType || 'savings',
+        ifscCode: account.ifscCode || account.ifsc_code || '',
+        micrCode: account.micrCode || account.micr_code || '',
+        accountType: account.accountType || account.account_type || 'savings',
+        enableChequePrinting: account.enableChequePrinting || account.enable_cheque_printing || false,
 
         // Tax fields
-        taxRate: account.taxRate || 0,
-        roundingMethod: account.roundingMethod || 'normal',
+        taxRate: account.taxRate || account.tax_rate || 0,
+        roundingMethod: account.roundingMethod || account.rounding_method || 'normal',
 
         // Fixed Asset fields
-        assetCategory: account.assetCategory || '',
-        purchaseDate: account.purchaseDate || '',
-        purchaseValue: account.purchaseValue || 0,
-        depreciationMethod: account.depreciationMethod || 'slm',
-        depreciationRate: account.depreciationRate || 0,
+        assetCategory: account.assetCategory || account.asset_category || '',
+        purchaseDate: account.purchaseDate || account.purchase_date || '',
+        purchaseValue: account.purchaseValue || account.purchase_value || 0,
+        depreciationMethod: account.depreciationMethod || account.depreciation_method || 'slm',
+        depreciationRate: account.depreciationRate || account.depreciation_rate || 0,
+        usefulLife: account.usefulLife || account.useful_life || 0,
 
         // Opening Balance
-        openingBalance: account.openingBalance || 0,
-        balanceType: account.balanceType || 'dr',
-        asOnDate: account.asOnDate || new Date().toISOString().split('T')[0],
+        openingBalance: account.openingBalance || account.opening_balance || 0,
+        balanceType: account.balanceType || account.balance_type || 'dr',
+        asOnDate: account.asOnDate || account.as_on_date || new Date().toISOString().split('T')[0],
 
         // Currency
-        currency: account.currency || 'INR'
+        currency: account.currency || 'INR',
+
+        // Acquisition Details
+        acquisitionSource: account.acquisitionSource || account.acquisition_source || '',
+        referredBy: account.referredBy || account.referred_by || '',
     });
 
     const [errors, setErrors] = useState({});
@@ -170,8 +176,64 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
         const payloadToSave = {
             ...editedAccount,
-            mailingAddress: editedAccount.customerDescription
+            contact_person: editedAccount.contactPerson,
+            mailing_name: editedAccount.mailingName,
+            mailing_address: editedAccount.customerDescription, // Or mailingAddress
+            state_name: editedAccount.stateName,
+            credit_limit: editedAccount.creditLimit,
+            credit_period: editedAccount.creditPeriod,
+            price_level: editedAccount.priceLevel,
+            account_number: editedAccount.accountNumber,
+            bank_name: editedAccount.bankName,
+            ifsc_code: editedAccount.ifscCode,
+            micr_code: editedAccount.micrCode,
+            account_type: editedAccount.accountType,
+            enable_cheque_printing: editedAccount.enableChequePrinting,
+            tax_rate: editedAccount.taxRate,
+            rounding_method: editedAccount.roundingMethod,
+            asset_category: editedAccount.assetCategory,
+            purchase_date: editedAccount.purchaseDate,
+            purchase_value: editedAccount.purchaseValue,
+            depreciation_method: editedAccount.depreciationMethod,
+            depreciation_rate: editedAccount.depreciationRate,
+            useful_life: editedAccount.usefulLife,
+            opening_balance: editedAccount.openingBalance,
+            balance_type: editedAccount.balanceType,
+            as_on_date: editedAccount.asOnDate,
+            acquisition_source: editedAccount.acquisitionSource,
+            referred_by: editedAccount.referredBy,
         };
+
+        // Remove camelCase keys to avoid Supabase errors on non-existent columns
+        delete payloadToSave.contactPerson;
+        delete payloadToSave.mailingName;
+        delete payloadToSave.customerDescription;
+        delete payloadToSave.mailingAddress;
+        delete payloadToSave.stateName;
+        delete payloadToSave.creditLimit;
+        delete payloadToSave.creditPeriod;
+        delete payloadToSave.priceLevel;
+        delete payloadToSave.accountNumber;
+        delete payloadToSave.bankName;
+        delete payloadToSave.ifscCode;
+        delete payloadToSave.micrCode;
+        delete payloadToSave.accountType;
+        delete payloadToSave.enableChequePrinting;
+        delete payloadToSave.taxRate;
+        delete payloadToSave.roundingMethod;
+        delete payloadToSave.assetCategory;
+        delete payloadToSave.purchaseDate;
+        delete payloadToSave.purchaseValue;
+        delete payloadToSave.depreciationMethod;
+        delete payloadToSave.depreciationRate;
+        delete payloadToSave.usefulLife;
+        delete payloadToSave.openingBalance;
+        delete payloadToSave.balanceType;
+        delete payloadToSave.asOnDate;
+        delete payloadToSave.acquisitionSource;
+        delete payloadToSave.referredBy;
+        delete payloadToSave.accountImage;
+        delete payloadToSave.gstRegistration;
 
         onUpdate(payloadToSave);
         setIsEditing(false);
