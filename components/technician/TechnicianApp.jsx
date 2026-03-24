@@ -16,8 +16,13 @@ function TechnicianApp() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [groupBy, setGroupBy] = useState('status');
+    const [sortBy, setSortBy] = useState('dueDate');
+    const [sortOrder, setSortOrder] = useState('asc');
     const [filterStatus, setFilterStatus] = useState('all');
+    const [filterPriority, setFilterPriority] = useState('all');
+    const [filterLocality, setFilterLocality] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [saveStatus, setSaveStatus] = useState(null); // 'saving' | 'saved' | 'error'
     const [selectedJob, setSelectedJob] = useState(null);
     const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
     const [darkMode, setDarkMode] = useState(() => {
@@ -68,6 +73,29 @@ function TechnicianApp() {
             router.push('/technician/login');
         }
     }, [router]);
+
+    // Load saved view preferences from Supabase after technicianId is ready
+    useEffect(() => {
+        if (!technicianId) return;
+        const loadView = async () => {
+            try {
+                const res = await fetch(`/api/technician/job-views?technicianId=${technicianId}`);
+                const json = await res.json();
+                if (json.success && json.data) {
+                    const v = json.data;
+                    if (v.groupBy) setGroupBy(v.groupBy);
+                    if (v.sortBy) setSortBy(v.sortBy);
+                    if (v.sortOrder) setSortOrder(v.sortOrder);
+                    if (v.filterStatus) setFilterStatus(v.filterStatus);
+                    if (v.filterPriority) setFilterPriority(v.filterPriority);
+                    if (v.filterLocality) setFilterLocality(v.filterLocality);
+                }
+            } catch (err) {
+                console.warn('Could not load saved view:', err);
+            }
+        };
+        loadView();
+    }, [technicianId]);
 
     // Fetch jobs and incentives when technician ID is available
     useEffect(() => {
@@ -205,36 +233,116 @@ function TechnicianApp() {
             (job.customerName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             (job.product?.brand?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             (job.product?.type?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-            (job.locality?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+            (job.locality?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (job.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
 
-        const matchesFilter = filterStatus === 'all' || job.status === filterStatus;
+        const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
+        const matchesPriority = filterPriority === 'all' || (job.priority || 'normal') === filterPriority;
+        const matchesLocality = filterLocality === 'all' ||
+            (job.locality || '').toLowerCase() === filterLocality.toLowerCase();
 
-        return matchesSearch && matchesFilter;
+        return matchesSearch && matchesStatus && matchesPriority && matchesLocality;
     });
 
-    // Group jobs
+    // Sort jobs
+    const sortedJobs = [...filteredJobs].sort((a, b) => {
+        let aVal, bVal;
+        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+        switch (sortBy) {
+            case 'dueDate':
+                aVal = new Date(a.dueDate || a.scheduled_date || 0);
+                bVal = new Date(b.dueDate || b.scheduled_date || 0);
+                break;
+            case 'createdAt':
+                aVal = new Date(a.created_at || a.createdAt || 0);
+                bVal = new Date(b.created_at || b.createdAt || 0);
+                break;
+            case 'customer':
+                aVal = (a.customerName || '').toLowerCase();
+                bVal = (b.customerName || '').toLowerCase();
+                break;
+            case 'priority':
+                aVal = priorityOrder[a.priority] ?? 2;
+                bVal = priorityOrder[b.priority] ?? 2;
+                break;
+            case 'locality':
+                aVal = (a.locality || '').toLowerCase();
+                bVal = (b.locality || '').toLowerCase();
+                break;
+            default:
+                return 0;
+        }
+        if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    // Group sorted jobs
     const groupedJobs = {};
-    filteredJobs.forEach(job => {
+    sortedJobs.forEach(job => {
         let key;
         if (groupBy === 'status') {
-            key = job.status;
+            key = job.status ? job.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
         } else if (groupBy === 'due-date') {
             if (!job.dueDate) { key = 'No Date'; }
             else {
-                const timeLeft = getTimeLeft(job.dueDate);
-                if (timeLeft.urgent) key = 'Urgent';
-                else if (new Date(job.dueDate).toDateString() === new Date().toDateString()) key = 'Today';
-                else key = 'Later';
+                const d = new Date(job.dueDate);
+                d.setHours(0, 0, 0, 0);
+                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+                if (d < today) key = 'Overdue';
+                else if (d.getTime() === today.getTime()) key = 'Today';
+                else if (d.getTime() === tomorrow.getTime()) key = 'Tomorrow';
+                else key = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
             }
+        } else if (groupBy === 'priority') {
+            const pMap = { urgent: '🔴 Urgent', high: '🟡 High', normal: '🟢 Normal', low: '⚪ Low' };
+            key = pMap[job.priority] || '🟢 Normal';
+        } else if (groupBy === 'locality') {
+            key = job.locality || job.city || 'Unknown Area';
+        } else if (groupBy === 'customer') {
+            key = job.customerName || 'Walk-in';
         } else if (groupBy === 'warranty') {
             key = job.product?.warranty?.status === 'in-warranty' ? 'In Warranty' : 'Out of Warranty';
-        } else if (groupBy === 'priority') {
-            key = job.priority;
+        } else {
+            key = 'All Jobs';
         }
 
         if (!groupedJobs[key]) groupedJobs[key] = [];
         groupedJobs[key].push(job);
     });
+
+    // Unique locality options from loaded jobs
+    const localityOptions = [...new Set(jobs.map(j => j.locality || j.city).filter(Boolean))].sort();
+
+    // Save view handler
+    const handleSaveView = async () => {
+        if (!technicianId) return;
+        setSaveStatus('saving');
+        const view = { groupBy, sortBy, sortOrder, filterStatus, filterPriority, filterLocality };
+        try {
+            const res = await fetch('/api/technician/job-views', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ technicianId, view }),
+            });
+            const json = await res.json();
+            setSaveStatus(json.success ? 'saved' : 'error');
+            setTimeout(() => setSaveStatus(null), 2500);
+        } catch {
+            setSaveStatus('error');
+            setTimeout(() => setSaveStatus(null), 3000);
+        }
+    };
+
+    const handleResetView = () => {
+        setGroupBy('status');
+        setSortBy('dueDate');
+        setSortOrder('asc');
+        setFilterStatus('all');
+        setFilterPriority('all');
+        setFilterLocality('all');
+    };
 
     const handleCallCustomer = (mobile, customerName = 'Customer', jobId = null, customerId = null) => {
         logInteraction({
@@ -285,96 +393,108 @@ function TechnicianApp() {
     // Jobs Tab Content
     const renderJobsTab = () => (
         <>
-            {/* Compact Filters - Single Row */}
+            {/* ── Filter / Control Bar ── */}
             <div style={{
-                padding: 'var(--spacing-sm)',
+                padding: '8px 10px',
                 backgroundColor: 'var(--bg-elevated)',
                 borderBottom: '1px solid var(--border-primary)',
                 display: 'flex',
-                gap: 'var(--spacing-xs)',
-                overflowX: 'auto'
+                gap: '6px',
+                flexWrap: 'wrap',
+                alignItems: 'center',
             }}>
+                {/* Search */}
                 <input
                     type="text"
-                    placeholder="Search..."
+                    placeholder="Search jobs..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="form-input"
-                    style={{ flex: 1, minWidth: '120px', padding: '6px 10px', fontSize: 'var(--font-size-sm)' }}
+                    style={{ flex: 1, minWidth: '140px', padding: '6px 10px', fontSize: '13px' }}
                 />
-                <select
-                    value={groupBy}
-                    onChange={(e) => setGroupBy(e.target.value)}
-                    className="form-input"
-                    style={{ width: '90px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }}
-                >
-                    <option value="status">Status</option>
-                    <option value="due-date">Due</option>
-                    <option value="warranty">Warranty</option>
-                    <option value="priority">Priority</option>
+
+                {/* Group By */}
+                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
+                    <option value="status">Group: Status</option>
+                    <option value="due-date">Group: Due Date</option>
+                    <option value="priority">Group: Priority</option>
+                    <option value="locality">Group: Locality</option>
+                    <option value="customer">Group: Customer</option>
+                    <option value="warranty">Group: Warranty</option>
                 </select>
-                <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="form-input"
-                    style={{ width: '110px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }}
-                >
-                    <option value="all">All</option>
+
+                {/* Sort By */}
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
+                    <option value="dueDate">Sort: Due Date</option>
+                    <option value="createdAt">Sort: Created At</option>
+                    <option value="customer">Sort: Customer</option>
+                    <option value="priority">Sort: Priority</option>
+                    <option value="locality">Sort: Locality</option>
+                </select>
+
+                {/* Asc/Desc toggle */}
+                <button onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')} className="form-input" style={{ fontSize: '11px', padding: '6px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    {sortOrder === 'asc' ? '↑ Asc' : '↓ Desc'}
+                </button>
+
+                {/* Status Filter */}
+                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
+                    <option value="all">All Status</option>
                     <option value="open">Open</option>
                     <option value="confirmed">Confirmed</option>
                     <option value="in-progress">In Progress</option>
                     <option value="repair">Repair</option>
-                    <option value="spare-part-needed">Spare Part</option>
+                    <option value="spare-part-needed">Spare Part Needed</option>
+                    <option value="part-repairing">Part Repairing</option>
                     <option value="quotation-sent">Quotation Sent</option>
                     <option value="completed">Completed</option>
                     <option value="closed">Closed</option>
                 </select>
-            </div>
 
-            {/* Summary Cards */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 'var(--spacing-xs)',
-                padding: 'var(--spacing-sm)',
-                backgroundColor: 'var(--bg-secondary)'
-            }}>
-                <div style={{
-                    padding: 'var(--spacing-xs)',
-                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                    borderRadius: 'var(--radius-md)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>URGENT</div>
-                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: '#ef4444' }}>
-                        {jobs.filter(j => j.priority === 'urgent').length}
-                    </div>
-                </div>
-                <div style={{
-                    padding: 'var(--spacing-xs)',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    borderRadius: 'var(--radius-md)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>TODAY</div>
-                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: '#3b82f6' }}>
-                        {jobs.filter(j => new Date(j.dueDate).toDateString() === new Date().toDateString()).length}
-                    </div>
-                </div>
-                <div style={{
-                    padding: 'var(--spacing-xs)',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    borderRadius: 'var(--radius-md)',
-                    textAlign: 'center'
-                }}>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>PENDING</div>
-                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: '#f59e0b' }}>
-                        {jobs.filter(j => j.status === 'open' || j.status === 'confirmed').length}
-                    </div>
-                </div>
+                {/* Priority Filter */}
+                <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
+                    <option value="all">All Priority</option>
+                    <option value="urgent">🔴 Urgent</option>
+                    <option value="high">🟡 High</option>
+                    <option value="normal">🟢 Normal</option>
+                    <option value="low">⚪ Low</option>
+                </select>
+
+                {/* Locality Filter */}
+                {localityOptions.length > 0 && (
+                    <select value={filterLocality} onChange={(e) => setFilterLocality(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
+                        <option value="all">All Areas</option>
+                        {localityOptions.map(loc => (
+                            <option key={loc} value={loc}>{loc}</option>
+                        ))}
+                    </select>
+                )}
+
+                {/* Save View */}
+                <button
+                    onClick={handleSaveView}
+                    disabled={saveStatus === 'saving'}
+                    style={{
+                        fontSize: '11px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
+                        border: '1px solid',
+                        borderColor: saveStatus === 'saved' ? '#10b981' : saveStatus === 'error' ? '#ef4444' : '#6366f1',
+                        backgroundColor: saveStatus === 'saved' ? 'rgba(16,185,129,0.1)' : saveStatus === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(99,102,241,0.1)',
+                        color: saveStatus === 'saved' ? '#10b981' : saveStatus === 'error' ? '#ef4444' : '#818cf8',
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    {saveStatus === 'saving' ? '...' : saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'error' ? 'Error' : '💾 Save View'}
+                </button>
+
+                {/* Reset */}
+                <button onClick={handleResetView} className="form-input" style={{ fontSize: '11px', padding: '6px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    Reset
+                </button>
+
+                {/* Count */}
+                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                    {sortedJobs.length}/{jobs.length}
+                </span>
             </div>
 
             {/* Jobs List */}
