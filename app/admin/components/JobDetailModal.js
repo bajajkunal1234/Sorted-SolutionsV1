@@ -33,14 +33,20 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             if (!job?.id) return;
             try {
                 setLoading(true);
-                const [freshJob, techRes, intRes, jobIntRes] = await Promise.all([
+                const [freshJob, techRes, intRes, jobIntRes, quotaRes] = await Promise.all([
                     jobsAPI.getById(job.id),
                     fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] })),
                     // Global interactions table filtered by job_id
                     fetch(`/api/admin/interactions?job_id=${job.id}&_t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({ data: [] })),
                     // Legacy job_interactions table
-                    fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] }))
+                    fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] })),
+                    // Existing quotation
+                    fetch(`/api/admin/transactions?type=quotation&job_id=${job.id}`).then(r => r.json()).catch(() => ({ data: [] }))
                 ]);
+                
+                if (quotaRes?.success && quotaRes.data?.length > 0) {
+                    setSavedQuotation(quotaRes.data[0]);
+                }
                 
                 if (freshJob) {
                     // Fetch related rentals and AMCs for this customer
@@ -735,9 +741,22 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 <QuotationForm 
                     onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
                     onSave={async (data) => {
-                        // 1. Save quotation in local state
-                        setSavedQuotation(data);
-                        // 2. Auto-update job status → quotation-sent
+                        // 1. Save quotation to DB properly
+                        const type = 'quotation';
+                        let savedData = data;
+                        try {
+                            const saveRes = await fetch(`/api/admin/transactions?type=${type}`, {
+                                method: data.id ? 'PUT' : 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ...data, job_id: editedJob.id })
+                            });
+                            const saveJson = await saveRes.json();
+                            if (saveJson.success) savedData = saveJson.data;
+                        } catch (e) { console.error('Failed to save quotation to DB', e); }
+
+                        // 2. Save quotation in local state
+                        setSavedQuotation(savedData);
+                        // 3. Auto-update job status → quotation-sent
                         try {
                             await fetch(`/api/admin/jobs`, {
                                 method: 'PUT',
@@ -746,12 +765,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             });
                             setEditedJob(prev => ({ ...prev, status: 'quotation-sent' }));
                         } catch (e) { console.error('Status update failed', e); }
-                        // 3. Log to interactions
+                        // 4. Log to interactions
                         fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${data?.quote_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Admin', customer_id: editedJob.customer_id || null })
+                            body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Admin', customer_id: editedJob.customer_id || null })
                         }).catch(() => {});
-                        // 4. Close form and show WhatsApp popup
+                        // 5. Close form and show WhatsApp popup
                         setActiveForm(null);
                         setCalculatorItems(null);
                         setShowWhatsappPopup(true);
@@ -764,11 +783,23 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             {activeForm === 'sales-invoice' && (
                 <SalesInvoiceForm 
                     onClose={() => setActiveForm(null)}
-                    onSave={(data) => {
-                        // Log invoice creation to job interactions timeline
+                    onSave={async (data) => {
+                        // 1. Save sales invoice to DB
+                        let savedData = data;
+                        try {
+                            const saveRes = await fetch(`/api/admin/transactions?type=sales`, {
+                                method: data.id ? 'PUT' : 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ ...data, job_id: editedJob.id })
+                            });
+                            const saveJson = await saveRes.json();
+                            if (saveJson.success) savedData = saveJson.data;
+                        } catch (e) { console.error('Failed to save sales invoice to DB', e); }
+
+                        // 2. Log invoice creation to job interactions timeline
                         fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${data?.invoice_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Admin', customer_id: editedJob.customer_id || null })
+                            body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Admin', customer_id: editedJob.customer_id || null })
                         }).catch(() => {});
                         setActiveForm(null);
                     }}

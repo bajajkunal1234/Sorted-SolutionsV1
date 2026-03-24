@@ -37,6 +37,7 @@ export async function GET(request) {
         const accountId = searchParams.get('account_id')
         const startDate = searchParams.get('start_date')
         const endDate = searchParams.get('end_date')
+        const jobId = searchParams.get('job_id')
 
         if (!type) {
             return NextResponse.json({ success: false, error: 'Missing type' }, { status: 400 });
@@ -73,6 +74,7 @@ export async function GET(request) {
         if (accountId) query = query.eq('account_id', accountId)
         if (startDate) query = query.gte('date', startDate)
         if (endDate) query = query.lte('date', endDate)
+        if (jobId) query = query.eq('job_id', jobId)
 
         const { data, error } = await query
 

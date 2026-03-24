@@ -27,14 +27,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             if (!job?.id) return;
             try {
                 // Fetch fresh job + both interaction sources simultaneously
-                const [jobRes, intRes, jobIntRes] = await Promise.all([
+                const [jobRes, intRes, jobIntRes, quotaRes] = await Promise.all([
                     fetch(`/api/technician/jobs/${job.id}`),
                     fetch(`/api/admin/interactions?job_id=${job.id}`),
                     fetch(`/api/technician/jobs/${job.id}/interactions`),
+                    fetch(`/api/admin/transactions?type=quotation&job_id=${job.id}`)
                 ]);
                 const jobData = await jobRes.json();
                 const intData = await intRes.json().catch(() => ({ data: [] }));
                 const jobIntData = await jobIntRes.json().catch(() => ({ data: [] }));
+                
+                try {
+                    const quotaData = await quotaRes.json();
+                    if (quotaData.success && quotaData.data?.length > 0) {
+                        setSavedQuotation(quotaData.data[0]);
+                    }
+                } catch (e) { console.error('Failed to load quotation', e); }
 
                 if (jobData.success) {
                     // Merge and sort both interaction sources
@@ -691,7 +699,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     <QuotationForm 
                         onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
                         onSave={async (data) => {
-                            setSavedQuotation(data);
+                            // 1. Save quotation to DB properly
+                            const type = 'quotation';
+                            let savedData = data;
+                            try {
+                                const saveRes = await fetch(`/api/admin/transactions?type=${type}`, {
+                                    method: data.id ? 'PUT' : 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ ...data, job_id: editedJob.id })
+                                });
+                                const saveJson = await saveRes.json();
+                                if (saveJson.success) savedData = saveJson.data;
+                            } catch (e) {
+                                console.error('Failed to save quotation to DB', e);
+                            }
+                            
+                            setSavedQuotation(savedData);
                             // Auto-update job status to quotation-sent
                             try {
                                 await fetch(`/api/admin/jobs`, {
@@ -704,7 +727,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             } catch (e) { console.error('Status update failed', e); }
                             fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${data?.quote_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                                body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
                             }).catch(() => {});
                             setActiveForm(null); setCalculatorItems(null);
                             setShowWhatsappPopup(true);
@@ -717,10 +740,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 {activeForm === 'sales-invoice' && (
                     <SalesInvoiceForm 
                         onClose={() => setActiveForm(null)}
-                        onSave={(data) => {
+                        onSave={async (data) => {
+                            // 1. Save sales invoice to DB
+                            let savedData = data;
+                            try {
+                                const saveRes = await fetch(`/api/admin/transactions?type=sales`, {
+                                    method: data.id ? 'PUT' : 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ ...data, job_id: editedJob.id })
+                                });
+                                const saveJson = await saveRes.json();
+                                if (saveJson.success) savedData = saveJson.data;
+                            } catch (e) { console.error('Failed to save sales invoice', e); }
+                            
                             fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${data?.invoice_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                                body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
                             }).catch(() => {});
                             setActiveForm(null);
                         }}
