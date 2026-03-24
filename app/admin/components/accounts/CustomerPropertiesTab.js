@@ -126,6 +126,32 @@ function CustomerPropertiesTab({ customerId }) {
         }
     };
 
+    const handleLinkExisting = async () => {
+        if (!duplicate?.id) return;
+        setSubmitting(true);
+        try {
+            const res = await fetch('/api/admin/properties/link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customer_id: customerId, property_id: duplicate.id })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setDuplicate(null);
+                setIsAdding(false);
+                setNewProperty({ flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' });
+                await fetchProperties();
+            } else {
+                alert(data.error || 'Failed to link property');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Something went wrong linking the property.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 className="animate-spin" style={{ margin: '0 auto' }} /> Loading properties...</div>;
 
     return (
@@ -240,17 +266,37 @@ function CustomerPropertiesTab({ customerId }) {
                             <option value="commercial">Commercial</option>
                         </select>
                     </div>
-                    {/* Duplicate warning */}
                     {duplicate && (
                         <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
                             <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b', marginBottom: 4 }}>⚠️ This property already exists</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 8 }}>
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)', marginBottom: 10 }}>
                                 {[duplicate.flat_number, duplicate.building_name, duplicate.address].filter(Boolean).join(', ')}<br />
                                 {[duplicate.locality, duplicate.city, duplicate.pincode].filter(Boolean).join(', ')}
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn btn-primary" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => { setDuplicate(null); setIsAdding(false); fetchProperties(); }}>OK, noted</button>
-                                <button className="btn btn-secondary" style={{ fontSize: 12, padding: '6px 10px' }} onClick={() => handleAddProperty(true)}>Create new anyway</button>
+                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ fontSize: 12, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 5 }}
+                                    onClick={handleLinkExisting}
+                                    disabled={submitting}
+                                >
+                                    🔗 Link to this customer
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: 12, padding: '6px 10px' }}
+                                    onClick={() => handleAddProperty(true)}
+                                    disabled={submitting}
+                                >
+                                    Create new anyway
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: 12, padding: '6px 10px' }}
+                                    onClick={() => { setDuplicate(null); setIsAdding(false); fetchProperties(); }}
+                                >
+                                    Cancel
+                                </button>
                             </div>
                         </div>
                     )}
