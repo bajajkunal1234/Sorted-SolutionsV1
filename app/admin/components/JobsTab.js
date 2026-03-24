@@ -238,7 +238,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
 
             {/* ── Row 1: Title + Search ── */}
             <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>Jobs</span>
+                <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Jobs</span>
                 <JobsSearchPanel
                     searchTerm={searchTerm} onSearchChange={setSearchTerm}
                     groupBy={groupBy} onGroupByChange={setGroupBy}
