@@ -8,6 +8,7 @@ import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { logInteraction, logNavigation } from '@/lib/interactions';
+import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -18,11 +19,9 @@ function TechnicianApp() {
     const [groupBy, setGroupBy] = useState('status');
     const [sortBy, setSortBy] = useState('dueDate');
     const [sortOrder, setSortOrder] = useState('asc');
-    const [filterStatus, setFilterStatus] = useState('all');
-    const [filterPriority, setFilterPriority] = useState('all');
-    const [filterLocality, setFilterLocality] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [saveStatus, setSaveStatus] = useState(null); // 'saving' | 'saved' | 'error'
+    const [activeTags, setActiveTags] = useState([]);
+    const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
     const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
     const [darkMode, setDarkMode] = useState(() => {
@@ -83,12 +82,10 @@ function TechnicianApp() {
                 const json = await res.json();
                 if (json.success && json.data) {
                     const v = json.data;
-                    if (v.groupBy) setGroupBy(v.groupBy);
-                    if (v.sortBy) setSortBy(v.sortBy);
-                    if (v.sortOrder) setSortOrder(v.sortOrder);
-                    if (v.filterStatus) setFilterStatus(v.filterStatus);
-                    if (v.filterPriority) setFilterPriority(v.filterPriority);
-                    if (v.filterLocality) setFilterLocality(v.filterLocality);
+                    if (v.groupBy)    setGroupBy(v.groupBy);
+                    if (v.sortBy)     setSortBy(v.sortBy);
+                    if (v.sortOrder)  setSortOrder(v.sortOrder);
+                    if (v.activeTags) setActiveTags(v.activeTags);
                 }
             } catch (err) {
                 console.warn('Could not load saved view:', err);
@@ -104,7 +101,7 @@ function TechnicianApp() {
         const fetchJobs = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`/api/technician/jobs?technicianId=${technicianId}&status=${filterStatus}`);
+                const response = await fetch(`/api/technician/jobs?technicianId=${technicianId}`);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch jobs');
@@ -175,7 +172,7 @@ function TechnicianApp() {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [technicianId, filterStatus]);
+    }, [technicianId]);
 
     // Logout handler
     const handleLogout = () => {
@@ -227,7 +224,7 @@ function TechnicianApp() {
         return badges[priority] || badges.normal;
     };
 
-    // Filter and group jobs
+    // Apply tag-based filters (mirrors admin applyTags logic)
     const filteredJobs = jobs.filter(job => {
         const matchesSearch = !searchTerm ||
             (job.customerName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -235,13 +232,50 @@ function TechnicianApp() {
             (job.product?.type?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             (job.locality?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             (job.description?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+        if (!matchesSearch) return false;
 
-        const matchesStatus = filterStatus === 'all' || job.status === filterStatus;
-        const matchesPriority = filterPriority === 'all' || (job.priority || 'normal') === filterPriority;
-        const matchesLocality = filterLocality === 'all' ||
-            (job.locality || '').toLowerCase() === filterLocality.toLowerCase();
-
-        return matchesSearch && matchesStatus && matchesPriority && matchesLocality;
+        for (const tag of activeTags) {
+            if (tag.type === 'preset') {
+                const f = tag.filter;
+                if (f._preset === 'dueToday') {
+                    const d = new Date(job.dueDate);
+                    if (d.toDateString() !== new Date().toDateString()) return false;
+                } else if (f._preset === 'overdue') {
+                    const d = new Date(job.dueDate); d.setHours(0,0,0,0);
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    if (!(d < today)) return false;
+                } else {
+                    if (f.status   && job.status !== f.status) return false;
+                    if (f.priority && (job.priority || 'normal') !== f.priority) return false;
+                }
+            } else if (tag.type === 'custom' && tag.conditions) {
+                for (const cond of tag.conditions) {
+                    let fieldVal = '';
+                    switch (cond.field) {
+                        case 'status':      fieldVal = job.status || ''; break;
+                        case 'priority':    fieldVal = job.priority || 'normal'; break;
+                        case 'locality':    fieldVal = job.locality || ''; break;
+                        case 'customer':    fieldVal = job.customerName || ''; break;
+                        case 'dueDate':     fieldVal = job.dueDate || ''; break;
+                        case 'createdDate': fieldVal = job.created_at || ''; break;
+                        default: fieldVal = '';
+                    }
+                    const v = cond.value.toLowerCase();
+                    const fv = (fieldVal || '').toLowerCase();
+                    let passes = true;
+                    switch (cond.operator) {
+                        case 'is':           passes = fv === v; break;
+                        case 'is_not':       passes = fv !== v; break;
+                        case 'contains':     passes = fv.includes(v); break;
+                        case 'not_contains': passes = !fv.includes(v); break;
+                        case 'before':       passes = !!fieldVal && new Date(fieldVal) < new Date(cond.value); break;
+                        case 'after':        passes = !!fieldVal && new Date(fieldVal) > new Date(cond.value); break;
+                    }
+                    if (!passes) return false;
+                }
+            }
+        }
+        return true;
     });
 
     // Sort jobs
@@ -319,7 +353,7 @@ function TechnicianApp() {
     const handleSaveView = async () => {
         if (!technicianId) return;
         setSaveStatus('saving');
-        const view = { groupBy, sortBy, sortOrder, filterStatus, filterPriority, filterLocality };
+        const view = { groupBy, sortBy, sortOrder, activeTags };
         try {
             const res = await fetch('/api/technician/job-views', {
                 method: 'POST',
@@ -339,9 +373,8 @@ function TechnicianApp() {
         setGroupBy('status');
         setSortBy('dueDate');
         setSortOrder('asc');
-        setFilterStatus('all');
-        setFilterPriority('all');
-        setFilterLocality('all');
+        setActiveTags([]);
+        setSearchTerm('');
     };
 
     const handleCallCustomer = (mobile, customerName = 'Customer', jobId = null, customerId = null) => {
@@ -393,108 +426,47 @@ function TechnicianApp() {
     // Jobs Tab Content
     const renderJobsTab = () => (
         <>
-            {/* ── Filter / Control Bar ── */}
+            {/* ── Search Panel ── */}
             <div style={{
                 padding: '8px 10px',
                 backgroundColor: 'var(--bg-elevated)',
                 borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-                alignItems: 'center',
             }}>
-                {/* Search */}
-                <input
-                    type="text"
-                    placeholder="Search jobs..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="form-input"
-                    style={{ flex: 1, minWidth: '140px', padding: '6px 10px', fontSize: '13px' }}
+                <JobsSearchPanel
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    groupBy={groupBy}
+                    onGroupByChange={setGroupBy}
+                    sortBy={sortBy}
+                    onSortByChange={setSortBy}
+                    sortOrder={sortOrder}
+                    onSortOrderChange={setSortOrder}
+                    activeTags={activeTags}
+                    onAddTag={(tag) => setActiveTags(prev => [...prev.filter(t => t.id !== tag.id), tag])}
+                    onRemoveTag={(id) => setActiveTags(prev => prev.filter(t => t.id !== id))}
+                    onSaveView={handleSaveView}
+                    saveStatus={saveStatus}
+                    onResetView={handleResetView}
+                    showAssignee={false}
+                    groupByOptions={[
+                        { value: 'status',   label: 'Status' },
+                        { value: 'due-date', label: 'Due Date' },
+                        { value: 'priority', label: 'Priority' },
+                        { value: 'locality', label: 'Locality' },
+                        { value: 'customer', label: 'Customer' },
+                        { value: 'warranty', label: 'Warranty' },
+                    ]}
+                    sortByOptions={[
+                        { value: 'dueDate',   label: 'Due Date' },
+                        { value: 'createdAt', label: 'Creation Date' },
+                        { value: 'customer',  label: 'Customer' },
+                        { value: 'priority',  label: 'Priority' },
+                        { value: 'locality',  label: 'Locality' },
+                    ]}
                 />
-
-                {/* Group By */}
-                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
-                    <option value="status">Group: Status</option>
-                    <option value="due-date">Group: Due Date</option>
-                    <option value="priority">Group: Priority</option>
-                    <option value="locality">Group: Locality</option>
-                    <option value="customer">Group: Customer</option>
-                    <option value="warranty">Group: Warranty</option>
-                </select>
-
-                {/* Sort By */}
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
-                    <option value="dueDate">Sort: Due Date</option>
-                    <option value="createdAt">Sort: Created At</option>
-                    <option value="customer">Sort: Customer</option>
-                    <option value="priority">Sort: Priority</option>
-                    <option value="locality">Sort: Locality</option>
-                </select>
-
-                {/* Asc/Desc toggle */}
-                <button onClick={() => setSortOrder(o => o === 'asc' ? 'desc' : 'asc')} className="form-input" style={{ fontSize: '11px', padding: '6px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    {sortOrder === 'asc' ? '↑ Asc' : '↓ Desc'}
-                </button>
-
-                {/* Status Filter */}
-                <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
-                    <option value="all">All Status</option>
-                    <option value="open">Open</option>
-                    <option value="confirmed">Confirmed</option>
-                    <option value="in-progress">In Progress</option>
-                    <option value="repair">Repair</option>
-                    <option value="spare-part-needed">Spare Part Needed</option>
-                    <option value="part-repairing">Part Repairing</option>
-                    <option value="quotation-sent">Quotation Sent</option>
-                    <option value="completed">Completed</option>
-                    <option value="closed">Closed</option>
-                </select>
-
-                {/* Priority Filter */}
-                <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
-                    <option value="all">All Priority</option>
-                    <option value="urgent">🔴 Urgent</option>
-                    <option value="high">🟡 High</option>
-                    <option value="normal">🟢 Normal</option>
-                    <option value="low">⚪ Low</option>
-                </select>
-
-                {/* Locality Filter */}
-                {localityOptions.length > 0 && (
-                    <select value={filterLocality} onChange={(e) => setFilterLocality(e.target.value)} className="form-input" style={{ fontSize: '12px', padding: '6px 8px' }}>
-                        <option value="all">All Areas</option>
-                        {localityOptions.map(loc => (
-                            <option key={loc} value={loc}>{loc}</option>
-                        ))}
-                    </select>
-                )}
-
-                {/* Save View */}
-                <button
-                    onClick={handleSaveView}
-                    disabled={saveStatus === 'saving'}
-                    style={{
-                        fontSize: '11px', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer',
-                        border: '1px solid',
-                        borderColor: saveStatus === 'saved' ? '#10b981' : saveStatus === 'error' ? '#ef4444' : '#6366f1',
-                        backgroundColor: saveStatus === 'saved' ? 'rgba(16,185,129,0.1)' : saveStatus === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(99,102,241,0.1)',
-                        color: saveStatus === 'saved' ? '#10b981' : saveStatus === 'error' ? '#ef4444' : '#818cf8',
-                        whiteSpace: 'nowrap',
-                    }}
-                >
-                    {saveStatus === 'saving' ? '...' : saveStatus === 'saved' ? '✓ Saved' : saveStatus === 'error' ? 'Error' : '💾 Save View'}
-                </button>
-
-                {/* Reset */}
-                <button onClick={handleResetView} className="form-input" style={{ fontSize: '11px', padding: '6px 8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    Reset
-                </button>
-
-                {/* Count */}
-                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
-                    {sortedJobs.length}/{jobs.length}
-                </span>
+                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', textAlign: 'right' }}>
+                    {sortedJobs.length} / {jobs.length} jobs
+                </div>
             </div>
 
             {/* Jobs List */}
