@@ -2,43 +2,37 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
 /**
- * GET  /api/admin/job-views?key=admin_jobs_view
- * POST /api/admin/job-views  { key, view }
+ * GET  /api/admin/job-views?key=admin_jobs_views
+ * POST /api/admin/job-views  { key, views }   ← full array of named views
  *
- * Stores & retrieves saved job-tab view preferences.
- * Uses the website_settings table (key/value JSONB store) so
- * no schema migration is needed.
- *
- * Key naming conventions:
- *   admin_jobs_view          → shared admin view
- *   tech_jobs_view_<techId>  → per-technician view
+ * Stores an array of named view configs in website_settings.
+ * Schema example:
+ * [
+ *   { id: "v1", name: "Urgent First", isDefault: true,
+ *     config: { groupBy, sortBy, sortOrder, activeTags } },
+ *   ...
+ * ]
  */
 
-export async function GET(request) {
+const KEY = 'admin_jobs_views'
+
+export async function GET() {
     try {
-        const { searchParams } = new URL(request.url)
-        const key = searchParams.get('key')
-
-        if (!key) {
-            return NextResponse.json({ success: false, error: 'key is required' }, { status: 400 })
-        }
-
         const supabase = createServerSupabase()
         const { data, error } = await supabase
             .from('website_settings')
             .select('value')
-            .eq('key', key)
+            .eq('key', KEY)
             .single()
 
         if (error && error.code === 'PGRST116') {
-            // Not found — return null, not an error
-            return NextResponse.json({ success: true, data: null })
+            return NextResponse.json({ success: true, data: [] })
         }
         if (error) throw error
 
-        return NextResponse.json({ success: true, data: data?.value ?? null })
+        return NextResponse.json({ success: true, data: data?.value ?? [] })
     } catch (error) {
-        console.error('[job-views GET]', error)
+        console.error('[admin job-views GET]', error)
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
@@ -46,10 +40,10 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { key, view } = body
+        const { views } = body   // full updated array
 
-        if (!key || !view) {
-            return NextResponse.json({ success: false, error: 'key and view are required' }, { status: 400 })
+        if (!Array.isArray(views)) {
+            return NextResponse.json({ success: false, error: 'views must be an array' }, { status: 400 })
         }
 
         const supabase = createServerSupabase()
@@ -57,9 +51,9 @@ export async function POST(request) {
             .from('website_settings')
             .upsert(
                 {
-                    key,
-                    value: view,
-                    description: `Saved Jobs Tab view for key: ${key}`,
+                    key: KEY,
+                    value: views,
+                    description: 'Admin saved jobs-tab views',
                     updated_at: new Date().toISOString()
                 },
                 { onConflict: 'key' }
@@ -68,10 +62,9 @@ export async function POST(request) {
             .single()
 
         if (error) throw error
-
         return NextResponse.json({ success: true, data })
     } catch (error) {
-        console.error('[job-views POST]', error)
+        console.error('[admin job-views POST]', error)
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }

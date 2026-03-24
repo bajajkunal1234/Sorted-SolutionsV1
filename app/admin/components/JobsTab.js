@@ -16,22 +16,17 @@ import { sortJobs, groupJobsBy } from '@/lib/utils/helpers';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 
-// ─── Default view ────────────────────────────────────────────────
-const DEFAULT_VIEW = {
-    viewType: 'kanban',
-    groupBy: 'status',
-    sortBy: 'dueDate',
-    sortOrder: 'asc',
-    activeTags: [],
-};
+// ─── Helpers ──────────────────────────────────────────────────────
+const VIEWS_API = '/api/admin/job-views';
 
-const VIEW_KEY = 'admin_jobs_view';
+const DEFAULTS = { viewType: 'kanban', groupBy: 'status', sortBy: 'dueDate', sortOrder: 'asc', activeTags: [] };
 
-// ─── Apply tag-based filters to a job list ───────────────────────
+/** Generate a random short id */
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+/** Apply tag-based filters + search to job list */
 function applyTags(jobs, tags, searchTerm) {
     let result = [...jobs];
-
-    // Search term
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
         result = result.filter(j =>
@@ -42,22 +37,16 @@ function applyTags(jobs, tags, searchTerm) {
             (j.locality || j.property?.address?.locality || '').toLowerCase().includes(term)
         );
     }
-
-    // Tag-based filters
     for (const tag of tags) {
         if (tag.type === 'preset') {
             const f = tag.filter;
             if (f._preset === 'dueToday') {
-                result = result.filter(j => {
-                    const d = new Date(j.scheduled_date || j.dueDate);
-                    return d.toDateString() === new Date().toDateString();
-                });
+                result = result.filter(j => new Date(j.scheduled_date || j.dueDate).toDateString() === new Date().toDateString());
             } else if (f._preset === 'overdue') {
                 result = result.filter(j => {
-                    const d = new Date(j.scheduled_date || j.dueDate);
+                    const d = new Date(j.scheduled_date || j.dueDate); d.setHours(0, 0, 0, 0);
                     const today = new Date(); today.setHours(0, 0, 0, 0);
-                    const dd = new Date(d); dd.setHours(0, 0, 0, 0);
-                    return dd < today;
+                    return d < today;
                 });
             } else {
                 if (f.status)   result = result.filter(j => j.status === f.status);
@@ -66,37 +55,34 @@ function applyTags(jobs, tags, searchTerm) {
         } else if (tag.type === 'custom' && tag.conditions) {
             for (const cond of tag.conditions) {
                 result = result.filter(j => {
-                    let fieldVal = '';
+                    let fv = '';
                     switch (cond.field) {
-                        case 'status':      fieldVal = j.status || ''; break;
-                        case 'priority':    fieldVal = j.priority || 'normal'; break;
-                        case 'locality':    fieldVal = j.locality || j.property?.address?.locality || ''; break;
-                        case 'customer':    fieldVal = j.customer?.name || ''; break;
-                        case 'assignee':    fieldVal = j.technician?.name || j.assignedToName || ''; break;
-                        case 'dueDate':     fieldVal = j.scheduled_date || j.dueDate || ''; break;
-                        case 'createdDate': fieldVal = j.created_at || ''; break;
-                        default: fieldVal = '';
+                        case 'status':      fv = j.status || ''; break;
+                        case 'priority':    fv = j.priority || 'normal'; break;
+                        case 'locality':    fv = j.locality || j.property?.address?.locality || ''; break;
+                        case 'customer':    fv = j.customer?.name || ''; break;
+                        case 'assignee':    fv = j.technician?.name || j.assignedToName || ''; break;
+                        case 'dueDate':     fv = j.scheduled_date || j.dueDate || ''; break;
+                        case 'createdDate': fv = j.created_at || ''; break;
                     }
-                    const v = cond.value.toLowerCase();
-                    const fv = (fieldVal || '').toLowerCase();
+                    const v = cond.value.toLowerCase(), val = (fv || '').toLowerCase();
                     switch (cond.operator) {
-                        case 'is':           return fv === v;
-                        case 'is_not':       return fv !== v;
-                        case 'contains':     return fv.includes(v);
-                        case 'not_contains': return !fv.includes(v);
-                        case 'before':       return fieldVal && new Date(fieldVal) < new Date(cond.value);
-                        case 'after':        return fieldVal && new Date(fieldVal) > new Date(cond.value);
+                        case 'is':           return val === v;
+                        case 'is_not':       return val !== v;
+                        case 'contains':     return val.includes(v);
+                        case 'not_contains': return !val.includes(v);
+                        case 'before':       return fv && new Date(fv) < new Date(cond.value);
+                        case 'after':        return fv && new Date(fv) > new Date(cond.value);
                         default:             return true;
                     }
                 });
             }
         }
     }
-
     return result;
 }
 
-// ─── Component ───────────────────────────────────────────────────
+// ─── Component ────────────────────────────────────────────────────
 function JobsTab({ jobToOpen, onJobOpened }) {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -107,36 +93,89 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     const [reviewBooking, setReviewBooking] = useState(null);
     const [saveStatus, setSaveStatus] = useState(null);
 
-    // View state
-    const [viewType, setViewType] = useState(DEFAULT_VIEW.viewType);
-    const [groupBy, setGroupBy] = useState(DEFAULT_VIEW.groupBy);
-    const [sortBy, setSortBy] = useState(DEFAULT_VIEW.sortBy);
-    const [sortOrder, setSortOrder] = useState(DEFAULT_VIEW.sortOrder);
+    // Active view state
+    const [viewType, setViewType] = useState(DEFAULTS.viewType);
+    const [groupBy, setGroupBy] = useState(DEFAULTS.groupBy);
+    const [sortBy, setSortBy] = useState(DEFAULTS.sortBy);
+    const [sortOrder, setSortOrder] = useState(DEFAULTS.sortOrder);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTags, setActiveTags] = useState([]);
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-    );
+    // Named saved views
+    const [savedViews, setSavedViews] = useState([]);
 
-    // ── Load saved view from Supabase ─────────────────────────────
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+    // ── Load saved views from Supabase on mount ───────────────────
     useEffect(() => {
         const load = async () => {
             try {
-                const res = await fetch(`/api/admin/job-views?key=${VIEW_KEY}`);
+                const res = await fetch(VIEWS_API);
                 const json = await res.json();
-                if (json.success && json.data) {
-                    const v = json.data;
-                    if (v.viewType)    setViewType(v.viewType);
-                    if (v.groupBy)     setGroupBy(v.groupBy);
-                    if (v.sortBy)      setSortBy(v.sortBy);
-                    if (v.sortOrder)   setSortOrder(v.sortOrder);
-                    if (v.activeTags)  setActiveTags(v.activeTags);
+                if (json.success && Array.isArray(json.data)) {
+                    setSavedViews(json.data);
+                    // auto-apply default view
+                    const def = json.data.find(v => v.isDefault);
+                    if (def) applyViewConfig(def.config);
                 }
             } catch { /* silently fail */ }
         };
         load();
     }, []);
+
+    const applyViewConfig = (config) => {
+        if (!config) return;
+        if (config.viewType)   setViewType(config.viewType);
+        if (config.groupBy)    setGroupBy(config.groupBy);
+        if (config.sortBy)     setSortBy(config.sortBy);
+        if (config.sortOrder)  setSortOrder(config.sortOrder);
+        if (config.activeTags) setActiveTags(config.activeTags);
+    };
+
+    // ── Save helpers ──────────────────────────────────────────────
+    const persistViews = async (views) => {
+        setSavedViews(views);
+        try {
+            await fetch(VIEWS_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ views }),
+            });
+        } catch (e) { console.error('persist views failed', e); }
+    };
+
+    const handleSaveNamedView = async (name) => {
+        setSaveStatus('saving');
+        const config = { viewType, groupBy, sortBy, sortOrder, activeTags };
+        const existing = savedViews.find(v => v.name.toLowerCase() === name.toLowerCase());
+        let updated;
+        if (existing) {
+            // overwrite same-name view
+            updated = savedViews.map(v => v.name.toLowerCase() === name.toLowerCase() ? { ...v, config } : v);
+        } else {
+            const isFirst = savedViews.length === 0;
+            updated = [...savedViews, { id: uid(), name, isDefault: isFirst, config }];
+        }
+        await persistViews(updated);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(null), 2000);
+    };
+
+    const handleApplyView = (view) => applyViewConfig(view.config);
+
+    const handleDeleteView = async (id) => {
+        const updated = savedViews.filter(v => v.id !== id);
+        // if we deleted the default, make the first one default
+        if (savedViews.find(v => v.id === id)?.isDefault && updated.length > 0) {
+            updated[0] = { ...updated[0], isDefault: true };
+        }
+        await persistViews(updated);
+    };
+
+    const handleSetDefaultView = async (id) => {
+        const updated = savedViews.map(v => ({ ...v, isDefault: v.id === id }));
+        await persistViews(updated);
+    };
 
     // ── Fetch jobs ────────────────────────────────────────────────
     const fetchJobs = useCallback(async () => {
@@ -146,7 +185,6 @@ function JobsTab({ jobToOpen, onJobOpened }) {
             setJobs(data || []);
             setError(null);
         } catch (err) {
-            console.error('Error:', err);
             setError('Failed to load jobs.');
         } finally {
             setLoading(false);
@@ -155,7 +193,6 @@ function JobsTab({ jobToOpen, onJobOpened }) {
 
     useEffect(() => { fetchJobs(); }, [fetchJobs]);
 
-    // ── Open job from notification ────────────────────────────────
     useEffect(() => {
         if (jobToOpen && jobs.length > 0) {
             const j = jobs.find(j => j.id === jobToOpen.id);
@@ -164,7 +201,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
         }
     }, [jobToOpen, jobs, onJobOpened]);
 
-    // ── Processing pipeline ───────────────────────────────────────
+    // ── Processing ────────────────────────────────────────────────
     const processedJobs = useMemo(() => {
         const filtered = applyTags(jobs, activeTags, searchTerm);
         return sortJobs(filtered, sortBy, sortOrder);
@@ -176,110 +213,53 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     const handleAddTag = (tag) => setActiveTags(prev => [...prev.filter(t => t.id !== tag.id), tag]);
     const handleRemoveTag = (id) => setActiveTags(prev => prev.filter(t => t.id !== id));
 
-    // ── Save / Reset ──────────────────────────────────────────────
-    const handleSaveView = async () => {
-        setSaveStatus('saving');
-        const view = { viewType, groupBy, sortBy, sortOrder, activeTags };
-        try {
-            const res = await fetch('/api/admin/job-views', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: VIEW_KEY, view }),
-            });
-            const json = await res.json();
-            setSaveStatus(json.success ? 'saved' : 'error');
-            setTimeout(() => setSaveStatus(null), 2500);
-        } catch {
-            setSaveStatus('error');
-            setTimeout(() => setSaveStatus(null), 3000);
-        }
-    };
-
     const handleResetView = () => {
-        setViewType(DEFAULT_VIEW.viewType);
-        setGroupBy(DEFAULT_VIEW.groupBy);
-        setSortBy(DEFAULT_VIEW.sortBy);
-        setSortOrder(DEFAULT_VIEW.sortOrder);
-        setActiveTags([]);
-        setSearchTerm('');
+        setViewType(DEFAULTS.viewType); setGroupBy(DEFAULTS.groupBy);
+        setSortBy(DEFAULTS.sortBy); setSortOrder(DEFAULTS.sortOrder);
+        setActiveTags([]); setSearchTerm('');
     };
 
     // ── Drag & Drop ───────────────────────────────────────────────
     const handleDragEnd = async ({ active, over }) => {
         if (!over) return;
-        const jobId = active.id;
-        const newStatus = over.id;
         const prev = [...jobs];
-        setJobs(j => j.map(jj => jj.id === jobId ? { ...jj, status: newStatus } : jj));
-        try { await jobsAPI.update(jobId, { status: newStatus }); }
+        setJobs(j => j.map(jj => jj.id === active.id ? { ...jj, status: over.id } : jj));
+        try { await jobsAPI.update(active.id, { status: over.id }); }
         catch { setJobs(prev); alert('Failed to update job status.'); }
     };
 
     // ── CRUD ──────────────────────────────────────────────────────
-    const handleCreateJob = async (newJob) => {
-        try { await jobsAPI.create(newJob); await fetchJobs(); setShowCreateForm(false); }
-        catch { alert('Failed to create job.'); }
-    };
-
-    const handleUpdateJob = async (updatedJob) => {
-        if (updatedJob === 'deleted') { await fetchJobs(); setSelectedJob(null); return; }
-        try { await jobsAPI.update(updatedJob.id, updatedJob); await fetchJobs(); setSelectedJob(null); }
-        catch { alert('Failed to update job.'); }
-    };
-
-    const handleJobClick = (job) => {
-        if (job.status === 'booking_request') setReviewBooking(job);
-        else setSelectedJob(job);
-    };
+    const handleCreateJob   = async (newJob) => { try { await jobsAPI.create(newJob); await fetchJobs(); setShowCreateForm(false); } catch { alert('Failed to create job.'); } };
+    const handleUpdateJob   = async (updated) => { if (updated === 'deleted') { await fetchJobs(); setSelectedJob(null); return; } try { await jobsAPI.update(updated.id, updated); await fetchJobs(); setSelectedJob(null); } catch { alert('Failed to update job.'); } };
+    const handleJobClick    = (job) => { if (job.status === 'booking_request') setReviewBooking(job); else setSelectedJob(job); };
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
 
             {/* ── Top Bar ── */}
-            <div style={{
-                padding: '8px 12px',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap',
-            }}>
-                {/* View Type Buttons */}
+            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+
+                {/* View Type */}
                 <div style={{ display: 'flex', gap: '4px' }}>
-                    {[
-                        { type: 'kanban', Icon: Columns },
-                        { type: 'card',   Icon: Grid },
-                        { type: 'table',  Icon: TableIcon },
-                        { type: 'list',   Icon: List },
-                    ].map(({ type, Icon }) => (
-                        <button
-                            key={type}
-                            onClick={() => setViewType(type)}
-                            title={type.charAt(0).toUpperCase() + type.slice(1)}
-                            style={{
-                                padding: '6px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px',
-                                backgroundColor: viewType === type ? '#6366f1' : '#1e293b',
-                                color: viewType === type ? 'white' : '#94a3b8',
-                                display: 'flex', cursor: 'pointer', transition: 'all 0.15s',
-                            }}
-                        >
+                    {[{ type: 'kanban', Icon: Columns }, { type: 'card', Icon: Grid }, { type: 'table', Icon: TableIcon }, { type: 'list', Icon: List }].map(({ type, Icon }) => (
+                        <button key={type} onClick={() => setViewType(type)} title={type} style={{ padding: '6px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : '#1e293b', color: viewType === type ? 'white' : '#94a3b8', display: 'flex', cursor: 'pointer', transition: 'all 0.15s' }}>
                             <Icon size={15} />
                         </button>
                     ))}
                 </div>
 
-                {/* Search Panel — takes remaining space */}
+                {/* Search Panel */}
                 <JobsSearchPanel
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    groupBy={groupBy}
-                    onGroupByChange={setGroupBy}
-                    sortBy={sortBy}
-                    onSortByChange={setSortBy}
-                    sortOrder={sortOrder}
-                    onSortOrderChange={setSortOrder}
-                    activeTags={activeTags}
-                    onAddTag={handleAddTag}
-                    onRemoveTag={handleRemoveTag}
-                    onSaveView={handleSaveView}
+                    searchTerm={searchTerm} onSearchChange={setSearchTerm}
+                    groupBy={groupBy} onGroupByChange={setGroupBy}
+                    sortBy={sortBy} onSortByChange={setSortBy}
+                    sortOrder={sortOrder} onSortOrderChange={setSortOrder}
+                    activeTags={activeTags} onAddTag={handleAddTag} onRemoveTag={handleRemoveTag}
+                    savedViews={savedViews}
+                    onSaveNamedView={handleSaveNamedView}
+                    onApplyView={handleApplyView}
+                    onDeleteView={handleDeleteView}
+                    onSetDefaultView={handleSetDefaultView}
                     saveStatus={saveStatus}
                     onResetView={handleResetView}
                     showAssignee={true}
@@ -287,9 +267,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
 
                 {/* Count + Create */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                        {processedJobs.length}/{jobs.length}
-                    </span>
+                    <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>{processedJobs.length}/{jobs.length}</span>
                     <button className="btn btn-primary" onClick={() => setShowCreateForm(true)} style={{ padding: '6px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Plus size={14} /> Create
                     </button>
@@ -303,7 +281,6 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                 {!loading && !error && (
                     <>
                         {viewType === 'card' && <JobsCardView jobs={processedJobs} onJobClick={handleJobClick} />}
-
                         {viewType === 'kanban' && (
                             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                                 <div className="kanban-container">
@@ -317,7 +294,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                                                 <SortableContext items={groupJobsList.map(j => j.id)} strategy={verticalListSortingStrategy} id={groupName}>
                                                     <div className="kanban-cards">
                                                         {groupJobsList.map(job => (
-                                                            <JobCard key={job.id} job={job} onClick={() => handleJobClick(job)} onCalculate={(j) => setCalculatorJob(j)} />
+                                                            <JobCard key={job.id} job={job} onClick={() => handleJobClick(job)} onCalculate={j => setCalculatorJob(j)} />
                                                         ))}
                                                     </div>
                                                 </SortableContext>
@@ -327,7 +304,6 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                                 </div>
                             </DndContext>
                         )}
-
                         {viewType === 'table' && <JobsTableView jobs={processedJobs} onJobClick={handleJobClick} />}
                         {viewType === 'list'  && <JobsListView  jobs={processedJobs} onJobClick={handleJobClick} />}
                     </>
@@ -338,13 +314,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
             {reviewBooking && <BookingReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} onConverted={async () => { setReviewBooking(null); await fetchJobs(); }} onDismissed={async () => { setReviewBooking(null); await fetchJobs(); }} />}
             {selectedJob   && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} onUpdate={handleUpdateJob} />}
             {showCreateForm && <CreateJobForm onClose={() => setShowCreateForm(false)} onCreate={handleCreateJob} />}
-            {calculatorJob && (
-                <RepairCalculator
-                    job={calculatorJob}
-                    onClose={() => setCalculatorJob(null)}
-                    onCreateQuotation={(items) => { const j = calculatorJob; setCalculatorJob(null); setSelectedJob({ ...j, _calculatorItems: items }); }}
-                />
-            )}
+            {calculatorJob && <RepairCalculator job={calculatorJob} onClose={() => setCalculatorJob(null)} onCreateQuotation={(items) => { const j = calculatorJob; setCalculatorJob(null); setSelectedJob({ ...j, _calculatorItems: items }); }} />}
         </div>
     );
 }

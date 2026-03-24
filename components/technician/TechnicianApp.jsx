@@ -21,6 +21,7 @@ function TechnicianApp() {
     const [sortOrder, setSortOrder] = useState('asc');
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTags, setActiveTags] = useState([]);
+    const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
     const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
@@ -73,26 +74,32 @@ function TechnicianApp() {
         }
     }, [router]);
 
-    // Load saved view preferences from Supabase after technicianId is ready
+    // Load saved views from Supabase after technicianId is ready
     useEffect(() => {
         if (!technicianId) return;
-        const loadView = async () => {
+        const loadViews = async () => {
             try {
                 const res = await fetch(`/api/technician/job-views?technicianId=${technicianId}`);
                 const json = await res.json();
-                if (json.success && json.data) {
-                    const v = json.data;
-                    if (v.groupBy)    setGroupBy(v.groupBy);
-                    if (v.sortBy)     setSortBy(v.sortBy);
-                    if (v.sortOrder)  setSortOrder(v.sortOrder);
-                    if (v.activeTags) setActiveTags(v.activeTags);
+                if (json.success && Array.isArray(json.data)) {
+                    setSavedViews(json.data);
+                    const def = json.data.find(v => v.isDefault);
+                    if (def) applyViewConfig(def.config);
                 }
             } catch (err) {
-                console.warn('Could not load saved view:', err);
+                console.warn('Could not load saved views:', err);
             }
         };
-        loadView();
+        loadViews();
     }, [technicianId]);
+
+    const applyViewConfig = (config) => {
+        if (!config) return;
+        if (config.groupBy)    setGroupBy(config.groupBy);
+        if (config.sortBy)     setSortBy(config.sortBy);
+        if (config.sortOrder)  setSortOrder(config.sortOrder);
+        if (config.activeTags) setActiveTags(config.activeTags);
+    };
 
     // Fetch jobs and incentives when technician ID is available
     useEffect(() => {
@@ -346,27 +353,48 @@ function TechnicianApp() {
         groupedJobs[key].push(job);
     });
 
-    // Unique locality options from loaded jobs
-    const localityOptions = [...new Set(jobs.map(j => j.locality || j.city).filter(Boolean))].sort();
+    // ── Named View Helpers ────────────────────────────────────────
+    const uid = () => Math.random().toString(36).slice(2, 9);
 
-    // Save view handler
-    const handleSaveView = async () => {
-        if (!technicianId) return;
-        setSaveStatus('saving');
-        const view = { groupBy, sortBy, sortOrder, activeTags };
+    const persistViews = async (views) => {
+        setSavedViews(views);
         try {
-            const res = await fetch('/api/technician/job-views', {
+            await fetch('/api/technician/job-views', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ technicianId, view }),
+                body: JSON.stringify({ technicianId, views }),
             });
-            const json = await res.json();
-            setSaveStatus(json.success ? 'saved' : 'error');
-            setTimeout(() => setSaveStatus(null), 2500);
-        } catch {
-            setSaveStatus('error');
-            setTimeout(() => setSaveStatus(null), 3000);
+        } catch (e) { console.error('persist views failed', e); }
+    };
+
+    const handleSaveNamedView = async (name) => {
+        setSaveStatus('saving');
+        const config = { groupBy, sortBy, sortOrder, activeTags };
+        const existing = savedViews.find(v => v.name.toLowerCase() === name.toLowerCase());
+        let updated;
+        if (existing) {
+            updated = savedViews.map(v => v.name.toLowerCase() === name.toLowerCase() ? { ...v, config } : v);
+        } else {
+            const isFirst = savedViews.length === 0;
+            updated = [...savedViews, { id: uid(), name, isDefault: isFirst, config }];
         }
+        await persistViews(updated);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(null), 2000);
+    };
+
+    const handleApplyView = (view) => applyViewConfig(view.config);
+
+    const handleDeleteView = async (id) => {
+        const updated = savedViews.filter(v => v.id !== id);
+        if (savedViews.find(v => v.id === id)?.isDefault && updated.length > 0) {
+            updated[0] = { ...updated[0], isDefault: true };
+        }
+        await persistViews(updated);
+    };
+
+    const handleSetDefaultView = async (id) => {
+        await persistViews(savedViews.map(v => ({ ...v, isDefault: v.id === id })));
     };
 
     const handleResetView = () => {
@@ -444,7 +472,11 @@ function TechnicianApp() {
                     activeTags={activeTags}
                     onAddTag={(tag) => setActiveTags(prev => [...prev.filter(t => t.id !== tag.id), tag])}
                     onRemoveTag={(id) => setActiveTags(prev => prev.filter(t => t.id !== id))}
-                    onSaveView={handleSaveView}
+                    savedViews={savedViews}
+                    onSaveNamedView={handleSaveNamedView}
+                    onApplyView={handleApplyView}
+                    onDeleteView={handleDeleteView}
+                    onSetDefaultView={handleSetDefaultView}
                     saveStatus={saveStatus}
                     onResetView={handleResetView}
                     showAssignee={false}
@@ -464,8 +496,31 @@ function TechnicianApp() {
                         { value: 'locality',  label: 'Locality' },
                     ]}
                 />
-                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px', textAlign: 'right' }}>
-                    {sortedJobs.length} / {jobs.length} jobs
+                {/* Count + Refresh */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '5px' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                        {sortedJobs.length} / {jobs.length} jobs
+                    </span>
+                    <button
+                        onClick={() => {
+                            // Re-trigger the fetchJobs inside the useEffect by refreshing all jobs
+                            setLoading(true);
+                            fetch(`/api/technician/jobs?technicianId=${technicianId}`)
+                                .then(r => r.json())
+                                .then(d => { setJobs(d.jobs || []); setError(null); })
+                                .catch(() => setError('Failed to refresh.'))
+                                .finally(() => setLoading(false));
+                        }}
+                        title="Refresh jobs"
+                        style={{
+                            padding: '3px 8px', fontSize: '11px', cursor: 'pointer',
+                            border: '1px solid var(--border-primary)', borderRadius: '5px',
+                            backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                        }}
+                    >
+                        ↻ Refresh
+                    </button>
                 </div>
             </div>
 

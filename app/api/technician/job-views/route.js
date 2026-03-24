@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server'
 
 /**
  * GET  /api/technician/job-views?technicianId=xxx
- * POST /api/technician/job-views  { technicianId, view }
+ * POST /api/technician/job-views  { technicianId, views }
+ *
+ * Stores an array of named view configs per technician.
  */
 
 export async function GET(request) {
@@ -15,7 +17,7 @@ export async function GET(request) {
             return NextResponse.json({ success: false, error: 'technicianId is required' }, { status: 400 })
         }
 
-        const key = `tech_jobs_view_${technicianId}`
+        const key = `tech_jobs_views_${technicianId}`
         const supabase = createServerSupabase()
         const { data, error } = await supabase
             .from('website_settings')
@@ -24,11 +26,11 @@ export async function GET(request) {
             .single()
 
         if (error && error.code === 'PGRST116') {
-            return NextResponse.json({ success: true, data: null })
+            return NextResponse.json({ success: true, data: [] })
         }
         if (error) throw error
 
-        return NextResponse.json({ success: true, data: data?.value ?? null })
+        return NextResponse.json({ success: true, data: data?.value ?? [] })
     } catch (error) {
         console.error('[tech job-views GET]', error)
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -38,21 +40,21 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { technicianId, view } = body
+        const { technicianId, views } = body
 
-        if (!technicianId || !view) {
-            return NextResponse.json({ success: false, error: 'technicianId and view are required' }, { status: 400 })
+        if (!technicianId || !Array.isArray(views)) {
+            return NextResponse.json({ success: false, error: 'technicianId and views array are required' }, { status: 400 })
         }
 
-        const key = `tech_jobs_view_${technicianId}`
+        const key = `tech_jobs_views_${technicianId}`
         const supabase = createServerSupabase()
         const { data, error } = await supabase
             .from('website_settings')
             .upsert(
                 {
                     key,
-                    value: view,
-                    description: `Saved Jobs Tab view for technician: ${technicianId}`,
+                    value: views,
+                    description: `Saved Jobs Tab views for technician: ${technicianId}`,
                     updated_at: new Date().toISOString()
                 },
                 { onConflict: 'key' }
@@ -61,7 +63,6 @@ export async function POST(request) {
             .single()
 
         if (error) throw error
-
         return NextResponse.json({ success: true, data })
     } catch (error) {
         console.error('[tech job-views POST]', error)
