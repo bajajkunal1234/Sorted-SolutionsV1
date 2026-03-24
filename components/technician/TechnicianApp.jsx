@@ -1142,8 +1142,7 @@ function TechnicianApp() {
                         setJobs(prevJobs =>
                             prevJobs.map(j => j.id === updatedJob.id ? { ...j, ...updatedJob } : j)
                         );
-                        // Close the modal
-                        setSelectedJob(null);
+                        // Do not close the modal here to allow WhatsApp popup or manual exit
                         // Optionally refetch jobs to ensure data consistency
                         setTimeout(() => {
                             if (technicianId) {
