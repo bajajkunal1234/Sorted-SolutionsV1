@@ -461,6 +461,16 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             if (!mobileValidation.isValid) {
                 validationErrors.mobile = mobileValidation.error;
             }
+        } else if (showField('mobile') || formData.under === 'customer-accounts' || formData.under === 'sundry-debtors' || groups.find(g => g.id === formData.under)?.name?.toLowerCase().includes('customer')) {
+            validationErrors.mobile = 'Mobile Number is required';
+        }
+
+        if (showField('customerDescription') && !formData.customerDescription?.trim()) {
+            validationErrors.customerDescription = 'Customer Description is required';
+        }
+
+        if (showField('acquisitionSource') && !formData.acquisitionSource) {
+            validationErrors.acquisitionSource = 'Acquisition Source is required';
         }
 
         if (duplicateWarning) {

@@ -649,6 +649,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         // Brand and Issue might be optional or "Other" could be used, but let's keep required for now
         if (!formData.brand) newErrors.brand = 'Brand is required';
         if (!formData.issue) newErrors.issue = 'Issue is required';
+        if (!formData.dueDate) newErrors.dueDate = 'Scheduled Date is required';
+        if (!formData.assignedTo) newErrors.assignedTo = 'Assigned Technician is required';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
