@@ -1147,7 +1147,7 @@ function TechnicianApp() {
                         // Optionally refetch jobs to ensure data consistency
                         setTimeout(() => {
                             if (technicianId) {
-                                fetch(`/api/technician/jobs?technicianId=${technicianId}&status=${filterStatus}`)
+                                fetch(`/api/technician/jobs?technicianId=${technicianId}`)
                                     .then(res => res.json())
                                     .then(data => setJobs(data.jobs || []))
                                     .catch(err => console.error('Error refreshing jobs:', err));
