@@ -236,19 +236,9 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
 
-            {/* ── Top Bar ── */}
-            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-
-                {/* View Type */}
-                <div style={{ display: 'flex', gap: '4px' }}>
-                    {[{ type: 'kanban', Icon: Columns }, { type: 'card', Icon: Grid }, { type: 'table', Icon: TableIcon }, { type: 'list', Icon: List }].map(({ type, Icon }) => (
-                        <button key={type} onClick={() => setViewType(type)} title={type} style={{ padding: '6px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : '#1e293b', color: viewType === type ? 'white' : '#94a3b8', display: 'flex', cursor: 'pointer', transition: 'all 0.15s' }}>
-                            <Icon size={15} />
-                        </button>
-                    ))}
-                </div>
-
-                {/* Search Panel */}
+            {/* ── Row 1: Title + Search ── */}
+            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', flexShrink: 0 }}>Jobs</span>
                 <JobsSearchPanel
                     searchTerm={searchTerm} onSearchChange={setSearchTerm}
                     groupBy={groupBy} onGroupByChange={setGroupBy}
@@ -264,14 +254,38 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                     onResetView={handleResetView}
                     showAssignee={true}
                 />
+            </div>
 
-                {/* Count + Create */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-                    <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>{processedJobs.length}/{jobs.length}</span>
-                    <button className="btn btn-primary" onClick={() => setShowCreateForm(true)} style={{ padding: '6px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Plus size={14} /> Create
-                    </button>
+            {/* ── Row 2: View Types + Refresh + Count + Create ── */}
+            <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* View Type toggles */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    {[{ type: 'kanban', Icon: Columns, label: 'Kanban' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }].map(({ type, Icon, label }) => (
+                        <button key={type} onClick={() => setViewType(type)} title={label}
+                            style={{ padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : 'transparent', color: viewType === type ? 'white' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
+                            <Icon size={13} />{label}
+                        </button>
+                    ))}
                 </div>
+
+                <div style={{ flex: 1 }} />
+
+                {/* Refresh + Count */}
+                <button
+                    onClick={fetchJobs}
+                    title="Refresh jobs"
+                    style={{ padding: '4px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                    ↻ Refresh
+                </button>
+                <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                    {processedJobs.length} / {jobs.length} jobs
+                </span>
+
+                {/* Create */}
+                <button className="btn btn-primary" onClick={() => setShowCreateForm(true)} style={{ padding: '6px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    <Plus size={14} /> Create
+                </button>
             </div>
 
             {/* ── Content ── */}
