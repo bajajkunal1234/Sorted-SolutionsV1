@@ -676,64 +676,66 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             </div>
 
             {/* Document Generation Forms */}
-            {activeForm === 'calculator' && (
-                <RepairCalculator
-                    job={editedJob}
-                    onClose={() => setActiveForm(null)}
-                    onCreateQuotation={(items) => {
-                        setCalculatorItems(items);
-                        setActiveForm('quotation');
-                    }}
-                />
-            )}
-            {activeForm === 'quotation' && (
-                <QuotationForm 
-                    onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
-                    onSave={async (data) => {
-                        setSavedQuotation(data);
-                        // Auto-update job status to quotation-sent
-                        try {
-                            await fetch(`/api/admin/jobs`, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: editedJob.id, status: 'quotation-sent' })
-                            });
-                            setEditedJob(prev => ({ ...prev, status: 'quotation-sent' }));
-                            if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation-sent' });
-                        } catch (e) { console.error('Status update failed', e); }
-                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${data?.quote_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
-                        }).catch(() => {});
-                        setActiveForm(null); setCalculatorItems(null);
-                        setShowWhatsappPopup(true);
-                    }}
-                    defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
-                    prefillItems={calculatorItems}
-                    existingQuotation={savedQuotation}
-                />
-            )}
-            {activeForm === 'sales-invoice' && (
-                <SalesInvoiceForm 
-                    onClose={() => setActiveForm(null)}
-                    onSave={(data) => {
-                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${data?.invoice_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
-                        }).catch(() => {});
-                        setActiveForm(null);
-                    }}
-                    defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
-                    prefillItems={savedQuotation?.items || calculatorItems}
-                />
-            )}
-            {showWhatsappPopup && (
-                <QuotationWhatsAppPopup
-                    quotation={savedQuotation}
-                    job={{ id: editedJob.id, job_number: editedJob.job_number, customer_name: editedJob.customerName, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone }}
-                    onClose={() => setShowWhatsappPopup(false)}
-                />
-            )}
+            <div onClick={e => e.stopPropagation()}>
+                {activeForm === 'calculator' && (
+                    <RepairCalculator
+                        job={editedJob}
+                        onClose={() => setActiveForm(null)}
+                        onCreateQuotation={(items) => {
+                            setCalculatorItems(items);
+                            setActiveForm('quotation');
+                        }}
+                    />
+                )}
+                {activeForm === 'quotation' && (
+                    <QuotationForm 
+                        onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
+                        onSave={async (data) => {
+                            setSavedQuotation(data);
+                            // Auto-update job status to quotation-sent
+                            try {
+                                await fetch(`/api/admin/jobs`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: editedJob.id, status: 'quotation-sent' })
+                                });
+                                setEditedJob(prev => ({ ...prev, status: 'quotation-sent' }));
+                                if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation-sent' });
+                            } catch (e) { console.error('Status update failed', e); }
+                            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${data?.quote_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                            }).catch(() => {});
+                            setActiveForm(null); setCalculatorItems(null);
+                            setShowWhatsappPopup(true);
+                        }}
+                        defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
+                        prefillItems={calculatorItems}
+                        existingQuotation={savedQuotation}
+                    />
+                )}
+                {activeForm === 'sales-invoice' && (
+                    <SalesInvoiceForm 
+                        onClose={() => setActiveForm(null)}
+                        onSave={(data) => {
+                            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${data?.invoice_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                            }).catch(() => {});
+                            setActiveForm(null);
+                        }}
+                        defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
+                        prefillItems={savedQuotation?.items || calculatorItems}
+                    />
+                )}
+                {showWhatsappPopup && (
+                    <QuotationWhatsAppPopup
+                        quotation={savedQuotation}
+                        job={{ id: editedJob.id, job_number: editedJob.job_number, customer_name: editedJob.customerName, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone }}
+                        onClose={() => setShowWhatsappPopup(false)}
+                    />
+                )}
+            </div>
         </div>
     );
 }
