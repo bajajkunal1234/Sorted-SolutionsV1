@@ -71,7 +71,9 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
     };
 
     return (
-        <div style={{
+        <div 
+            onClick={e => e.stopPropagation()}
+            style={{
             position: 'fixed', inset: 0,
             backgroundColor: 'rgba(0,0,0,0.7)',
             backdropFilter: 'blur(4px)',

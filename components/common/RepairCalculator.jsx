@@ -103,7 +103,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onClose }) {
     });
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
+        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: 1200, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
 
             {/* ── TOP BAR ── */}
             <div style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', padding: '10px 14px', flexShrink: 0 }}>

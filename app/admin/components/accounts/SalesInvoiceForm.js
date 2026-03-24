@@ -222,7 +222,9 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
     };
 
     return (
-        <div style={{
+        <div 
+            onClick={e => e.stopPropagation()}
+            style={{
             position: 'fixed',
             top: 0,
             left: 0,
