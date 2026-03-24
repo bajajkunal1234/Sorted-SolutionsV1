@@ -24,21 +24,45 @@ function JobCard({ job, onClick, onCalculate }) {
     // Safe accessors for Supabase data
     const property = job.property || {};
     const technicianName = job.technician?.name || job.technician_name || 'Unassigned';
-    const jobType = job.category || job.subcategory || job.appliance || job.description || job.job_number || 'Service Job';
-    const jobSubtype = job.subcategory && job.subcategory !== jobType ? job.subcategory : null;
+    // Job name: prefer description (admin-entered), then category, then appliance
+    const jobName = job.description || job.category || job.subcategory || job.appliance || job.job_number || 'Service Job';
+    const jobType = job.category || job.appliance || job.subcategory || '';
     const customerName = job.customer_name || job.customer?.name || '';
     const customerPhone = job.customer?.phone || job.customer?.mobile || job.customer_phone || '';
     const dueDate = job.scheduled_date || job.dueDate;
 
-    // Location: try multiple sources
-    const propAddress = property.address || {};
-    const locality = (typeof propAddress === 'object' ? propAddress.locality : null)
-        || getLocalityFromAddress(property.address)
-        || (typeof propAddress === 'string' ? propAddress : '')
-        || property.locality
-        || property.city
-        || '';
-    const mapQuery = locality || customerName;
+    // Resolve full address from all possible property formats
+    const resolveFullAddress = (prop, customerAccount) => {
+        if (!prop) return { street: '', locality: '' };
+
+        // Try to enrich from customer.properties by ID
+        let enriched = prop;
+        const accountProps = customerAccount?.properties;
+        if (Array.isArray(accountProps) && prop.id) {
+            const match = accountProps.find(p => String(p.id) === String(prop.id));
+            if (match) enriched = { ...prop, ...match };
+        }
+
+        // NewAccountForm format: flat_number, building_name, address (street)
+        if (enriched.flat_number || enriched.building_name) {
+            const street = [enriched.flat_number, enriched.building_name, enriched.address].filter(Boolean).join(', ');
+            return { street, locality: enriched.locality || enriched.city || '' };
+        }
+        // PropertyForm format: address: { line1, locality, city }
+        if (enriched.address && typeof enriched.address === 'object') {
+            const addr = enriched.address;
+            const street = [addr.apartment, addr.building, addr.line2, addr.line1].filter(Boolean).join(', ');
+            return { street: street || '', locality: addr.locality || addr.city || '' };
+        }
+        // Flat string
+        return {
+            street: typeof enriched.address === 'string' ? enriched.address : '',
+            locality: enriched.locality || enriched.city || ''
+        };
+    };
+
+    const { street: fullStreet, locality } = resolveFullAddress(property, job.customer);
+    const mapQuery = fullStreet || locality || customerName;
     const hasCoords = property.latitude && property.longitude;
 
     const overdue = isOverdue(dueDate);
@@ -103,10 +127,10 @@ function JobCard({ job, onClick, onCalculate }) {
                 />
             )}
 
-            {/* Job Name (Category as primary title) */}
+            {/* Job Name (description as primary title) */}
             <h4 className="job-card-title" style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px' }}>
-                {jobType}
-                {jobSubtype && <span style={{ fontWeight: 400, fontSize: '12px', color: 'var(--text-secondary)' }}> — {jobSubtype}</span>}
+                {jobName}
+                {jobType && jobType !== jobName ? <span style={{ fontWeight: 400, fontSize: '12px', color: 'var(--text-secondary)' }}> &mdash; {jobType}</span> : null}
             </h4>
 
             {/* Customer Name */}
@@ -118,9 +142,12 @@ function JobCard({ job, onClick, onCalculate }) {
 
             {/* Info */}
             <div className="job-card-info">
-                <div className="job-card-info-item">
-                    <MapPin size={14} />
-                    <span>{locality || 'No location'}</span>
+                <div className="job-card-info-item" style={{ alignItems: 'flex-start' }}>
+                    <MapPin size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
+                    <span>
+                        {fullStreet && <>{fullStreet}{locality && <><br /><span style={{ fontSize: '11px', opacity: 0.75 }}>{locality}</span></>}</>}
+                        {!fullStreet && (locality || 'No location')}
+                    </span>
                 </div>
 
                 <div className="job-card-info-item">
