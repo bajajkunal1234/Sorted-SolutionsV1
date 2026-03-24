@@ -9,6 +9,7 @@ import SalesInvoiceForm from './accounts/SalesInvoiceForm';
 import QuotationForm from './accounts/QuotationForm';
 import { jobsAPI, interactionsAPI } from '@/lib/adminAPI';
 import RepairCalculator from '@/components/common/RepairCalculator';
+import QuotationWhatsAppPopup from '@/components/common/QuotationWhatsAppPopup';
 
 function JobDetailModal({ job, onClose, onUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -19,6 +20,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [newNote, setNewNote] = useState({ description: '', files: [] });
     const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice' | 'calculator'
     const [calculatorItems, setCalculatorItems] = useState(null); // pre-filled items from calculator
+    const [savedQuotation, setSavedQuotation] = useState(null); // last saved quotation for this session
+    const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
 
     const [technicians, setTechnicians] = useState([]);
     const [rentals, setRentals] = useState([]);
@@ -685,8 +688,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     >
                                         🧮 Calculate Repair Estimate
                                     </button>
-                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-primary)' }} onClick={() => { setCalculatorItems(null); setActiveForm('quotation'); }}>
-                                        <FileText size={18} style={{ marginRight: '8px' }} /> Create Quotation (Blank)
+                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: savedQuotation ? 'rgba(139,92,246,0.15)' : 'var(--bg-secondary)', color: savedQuotation ? '#8b5cf6' : 'var(--text-primary)', border: savedQuotation ? '1px solid rgba(139,92,246,0.4)' : '1px solid var(--border-primary)' }} onClick={() => { setActiveForm('quotation'); }}>
+                                        <FileText size={18} style={{ marginRight: '8px' }} /> {savedQuotation ? '✏️ Edit Quotation' : 'Create Quotation (Blank)'}
                                     </button>
                                     <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => setActiveForm('sales-invoice')}>
                                         <CheckSquare size={18} style={{ marginRight: '8px' }} /> Create Sales Voucher
@@ -731,17 +734,31 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             {activeForm === 'quotation' && (
                 <QuotationForm 
                     onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
-                    onSave={(data) => {
-                        // Log quotation creation to job interactions timeline
+                    onSave={async (data) => {
+                        // 1. Save quotation in local state
+                        setSavedQuotation(data);
+                        // 2. Auto-update job status → quotation-sent
+                        try {
+                            await fetch(`/api/admin/jobs`, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: editedJob.id, status: 'quotation-sent' })
+                            });
+                            setEditedJob(prev => ({ ...prev, status: 'quotation-sent' }));
+                        } catch (e) { console.error('Status update failed', e); }
+                        // 3. Log to interactions
                         fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                             method: 'POST', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${data?.quote_number || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Admin', customer_id: editedJob.customer_id || null })
                         }).catch(() => {});
+                        // 4. Close form and show WhatsApp popup
                         setActiveForm(null);
                         setCalculatorItems(null);
+                        setShowWhatsappPopup(true);
                     }}
                     defaultAccount={job.customer_id ? { id: job.customer_id } : null}
                     prefillItems={calculatorItems}
+                    existingQuotation={savedQuotation}
                 />
             )}
             {activeForm === 'sales-invoice' && (
@@ -756,6 +773,14 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         setActiveForm(null);
                     }}
                     defaultAccount={job.customer_id ? { id: job.customer_id } : null}
+                    prefillItems={savedQuotation?.items || calculatorItems}
+                />
+            )}
+            {showWhatsappPopup && (
+                <QuotationWhatsAppPopup
+                    quotation={savedQuotation}
+                    job={{ ...editedJob, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone || editedJob.customer_phone }}
+                    onClose={() => setShowWhatsappPopup(false)}
                 />
             )}
         </div>

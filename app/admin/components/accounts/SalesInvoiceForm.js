@@ -7,7 +7,47 @@ import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import { accountsAPI, inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
 
-function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) {
+function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, prefillItems }) {
+    const buildInitialItems = () => {
+        if (existingInvoice?.items) return existingInvoice.items.filter(i => !i.isCharge);
+        if (prefillItems?.length) {
+            return prefillItems
+                .filter(it => !it.isCharge && it.description)
+                .map((it, idx) => ({
+                    id: idx + 1,
+                    productId: it.productId || '',
+                    description: it.description,
+                    hsn: it.hsn || '',
+                    qty: it.qty || 1,
+                    rate: it.rate || 0,
+                    discount: it.discount || 0,
+                    taxRate: it.taxRate || 18,
+                    total: (it.qty || 1) * (it.rate || 0)
+                }));
+        }
+        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }];
+    };
+
+    const buildInitialCharges = () => {
+        if (existingInvoice?.items) {
+            return existingInvoice.items.filter(i => i.isCharge).map(i => ({
+                id: i.id, serviceId: i.productId, name: i.description, amount: i.rate, taxRate: i.taxRate
+            }));
+        }
+        if (prefillItems?.length) {
+            return prefillItems
+                .filter(it => it.isCharge && it.description)
+                .map((it, idx) => ({
+                    id: Date.now() + idx,
+                    serviceId: it.productId || null,
+                    name: it.description,
+                    amount: it.rate || 0,
+                    taxRate: it.taxRate || 18
+                }));
+        }
+        return [];
+    };
+
     const [formData, setFormData] = useState({
         account_id: existingInvoice?.account_id || defaultAccount?.id || null,
         account_name: existingInvoice?.account_name || defaultAccount?.name || '',
@@ -18,29 +58,15 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount }) 
         shipping_address: existingInvoice?.shipping_address || '',
         invoice_number: existingInvoice?.invoice_number || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
         date: existingInvoice?.date || new Date().toISOString().split('T')[0],
-        items: existingInvoice?.items ? existingInvoice.items.filter(i => !i.isCharge) : [
-            { id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }
-        ],
+        items: buildInitialItems(),
         notes: existingInvoice?.notes || '',
         terms: existingInvoice?.terms || 'Payment due within 30 days.\nLate payments subject to 2% monthly interest.',
         technician: existingInvoice?.technician || ''
     });
 
-    const initialCharges = existingInvoice?.items 
-        ? existingInvoice.items
-            .filter(i => i.isCharge)
-            .map(i => ({
-                id: i.id,
-                serviceId: i.productId,
-                name: i.description,
-                amount: i.rate,
-                taxRate: i.taxRate
-            }))
-        : [];
-
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
-    const [charges, setCharges] = useState(initialCharges);
+    const [charges, setCharges] = useState(buildInitialCharges);
     const [services, setServices] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
 
