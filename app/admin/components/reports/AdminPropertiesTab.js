@@ -119,7 +119,13 @@ export default function AdminPropertiesTab() {
 
     const filtered = properties.filter(p => {
         const q = search.toLowerCase()
-        return !q || (p.address || '').toLowerCase().includes(q) || (p.locality || '').toLowerCase().includes(q) || (p.city || '').toLowerCase().includes(q) || (p.pincode || '').includes(q)
+        return !q ||
+            (p.flat_number || '').toLowerCase().includes(q) ||
+            (p.building_name || '').toLowerCase().includes(q) ||
+            (p.address || '').toLowerCase().includes(q) ||
+            (p.locality || '').toLowerCase().includes(q) ||
+            (p.city || '').toLowerCase().includes(q) ||
+            (p.pincode || '').includes(q)
     })
 
     const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'
