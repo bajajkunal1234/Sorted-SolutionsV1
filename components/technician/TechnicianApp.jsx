@@ -525,7 +525,7 @@ function TechnicianApp() {
             </div>
 
             {/* Jobs List */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-sm)' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-sm)', paddingBottom: '70px' }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
                         <div style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--spacing-sm)' }}>
