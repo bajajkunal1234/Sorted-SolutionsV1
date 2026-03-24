@@ -28,7 +28,8 @@ export async function POST(request) {
         const { data, error } = await supabase
             .from('customer_properties')
             .insert({
-                customer_id,
+                account_id: customer_id,   // admin account ID — avoids FK on customers table
+                customer_id: null,          // not a customer-app customer
                 property_id,
                 linked_at: new Date().toISOString(),
                 is_active: true,
@@ -36,7 +37,25 @@ export async function POST(request) {
             })
             .select()
             .single()
-        if (error) throw error
+
+        if (error) {
+            // Fallback: some schemas may still require customer_id — try both
+            console.error('account_id insert failed:', error.message, '— trying fallback')
+            const { data: fallback, error: fallbackError } = await supabase
+                .from('customer_properties')
+                .insert({
+                    customer_id,
+                    account_id: customer_id,
+                    property_id,
+                    linked_at: new Date().toISOString(),
+                    is_active: true,
+                    notes: notes || null,
+                })
+                .select()
+                .single()
+            if (fallbackError) throw fallbackError
+            return NextResponse.json({ success: true, data: fallback })
+        }
 
         // Fetch names for logging
         const { data: customer } = await supabase.from('customers').select('name, full_name').eq('id', customer_id).single()
