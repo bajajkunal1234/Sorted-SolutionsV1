@@ -626,9 +626,7 @@ function TechnicianApp() {
                                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
                                                     <MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
                                                     <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                                        {job.address
-                                                            ? <>{job.address}{(job.locality || job.city) ? <><br /><span style={{ color: 'var(--text-tertiary)' }}>{[job.locality, job.city].filter(Boolean).join(', ')}</span></> : null}</>
-                                                            : (job.locality || job.city || 'No location')}
+                                                        {job.locality || job.city || 'No location'}
                                                     </span>
                                                 </div>
                                             </div>

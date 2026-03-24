@@ -61,8 +61,8 @@ function JobCard({ job, onClick, onCalculate }) {
         };
     };
 
-    const { street: fullStreet, locality } = resolveFullAddress(property, job.customer);
-    const mapQuery = fullStreet || locality || customerName;
+    const { locality } = resolveFullAddress(property, job.customer);
+    const mapQuery = locality || customerName;
     const hasCoords = property.latitude && property.longitude;
 
     const overdue = isOverdue(dueDate);
@@ -142,12 +142,9 @@ function JobCard({ job, onClick, onCalculate }) {
 
             {/* Info */}
             <div className="job-card-info">
-                <div className="job-card-info-item" style={{ alignItems: 'flex-start' }}>
-                    <MapPin size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
-                    <span>
-                        {fullStreet && <>{fullStreet}{locality && <><br /><span style={{ fontSize: '11px', opacity: 0.75 }}>{locality}</span></>}</>}
-                        {!fullStreet && (locality || 'No location')}
-                    </span>
+                <div className="job-card-info-item">
+                    <MapPin size={14} style={{ flexShrink: 0 }} />
+                    <span>{locality || 'No location'}</span>
                 </div>
 
                 <div className="job-card-info-item">
