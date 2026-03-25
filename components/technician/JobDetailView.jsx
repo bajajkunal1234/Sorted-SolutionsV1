@@ -137,15 +137,34 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             if (note.attachments && note.attachments.length > 0) {
                 for (const att of note.attachments) {
                     if (att.file) {
-                        const formData = new FormData();
-                        formData.append('file', att.file);
-                        const uploadRes = await fetch('/api/upload', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const uploadData = await uploadRes.json();
-                        if (uploadData.success) {
-                            uploadedUrls.push(uploadData.url);
+                        try {
+                            const formData = new FormData();
+                            const safeFileName = att.file.name ? att.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
+                            const finalFileName = safeFileName || 'upload.jpg';
+                            formData.append('file', att.file, finalFileName);
+                            const uploadRes = await fetch('/api/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            if (!uploadRes.ok) {
+                                console.error('Upload failed with status:', uploadRes.status);
+                                const text = await uploadRes.text();
+                                console.error('Error text:', text);
+                                continue; // Skip to next instead of failing note
+                            }
+                            
+                            const uploadData = await uploadRes.json();
+                            if (uploadData.success) {
+                                uploadedUrls.push(uploadData.url);
+                            } else {
+                                console.error('Upload false success:', uploadData.error);
+                            }
+                        } catch (uploadErr) {
+                            console.error('Error during fetch or json parse of /api/upload:', uploadErr);
+                            // We do not throw here, so the note still saves without the broken image
+                            // But we show a soft alert to the tech
+                            alert('Warning: Image attachment failed to upload. The note will be saved without it. (Error: ' + uploadErr.message + ')');
                         }
                     } else if (att.url && !att.url.startsWith('blob:')) {
                         // Already uploaded URL
@@ -211,15 +230,28 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             if (editedNote.attachments && editedNote.attachments.length > 0) {
                 for (const att of editedNote.attachments) {
                     if (att.file) {
-                        const formData = new FormData();
-                        formData.append('file', att.file);
-                        const uploadRes = await fetch('/api/upload', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        const uploadData = await uploadRes.json();
-                        if (uploadData.success) {
-                            uploadedUrls.push(uploadData.url);
+                        try {
+                            const formData = new FormData();
+                            const safeFileName = att.file.name ? att.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
+                            const finalFileName = safeFileName || 'upload.jpg';
+                            formData.append('file', att.file, finalFileName);
+                            const uploadRes = await fetch('/api/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+                            
+                            if (!uploadRes.ok) {
+                                console.error('Upload failed with status in edit:', uploadRes.status);
+                                continue;
+                            }
+                            
+                            const uploadData = await uploadRes.json();
+                            if (uploadData.success) {
+                                uploadedUrls.push(uploadData.url);
+                            }
+                        } catch (uploadErr) {
+                            console.error('Edit upload error:', uploadErr);
+                            alert('Warning: Image failed to upload. The note edit will continue without new images. (Error: ' + uploadErr.message + ')');
                         }
                     } else if (att.url && !att.url.startsWith('blob:')) {
                         uploadedUrls.push(att.url);
