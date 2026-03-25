@@ -14,8 +14,8 @@ function TechnicianApp() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('jobs');
     const [viewMode, setViewMode] = useState(() => {
-        if (typeof window !== 'undefined') return localStorage.getItem('techViewMode') || 'card';
-        return 'card';
+        if (typeof window !== 'undefined') return localStorage.getItem('techViewMode') || 'kanban';
+        return 'kanban';
     });
     
     useEffect(() => {
@@ -518,9 +518,6 @@ function TechnicianApp() {
                         </button>
                         <button onClick={() => setViewMode('kanban')} title="Kanban View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'kanban' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'kanban' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'kanban' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                             <Columns size={16} />
-                        </button>
-                        <button onClick={() => setViewMode('detail')} title="Detail View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'detail' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'detail' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'detail' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-                            <Maximize size={16} />
                         </button>
                     </div>
 
