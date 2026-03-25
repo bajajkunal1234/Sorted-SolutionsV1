@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import RepairCalculator from '@/components/common/RepairCalculator';
@@ -13,6 +13,15 @@ import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 function TechnicianApp() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('jobs');
+    const [viewMode, setViewMode] = useState(() => {
+        if (typeof window !== 'undefined') return localStorage.getItem('techViewMode') || 'card';
+        return 'card';
+    });
+    
+    useEffect(() => {
+        if (typeof window !== 'undefined') localStorage.setItem('techViewMode', viewMode);
+    }, [viewMode]);
+
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -497,30 +506,48 @@ function TechnicianApp() {
                     ]}
                 />
                 {/* Count + Refresh */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', marginTop: '5px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                        {sortedJobs.length} / {jobs.length} jobs
-                    </span>
-                    <button
-                        onClick={() => {
-                            // Re-trigger the fetchJobs inside the useEffect by refreshing all jobs
-                            setLoading(true);
-                            fetch(`/api/technician/jobs?technicianId=${technicianId}`)
-                                .then(r => r.json())
-                                .then(d => { setJobs(d.jobs || []); setError(null); })
-                                .catch(() => setError('Failed to refresh.'))
-                                .finally(() => setLoading(false));
-                        }}
-                        title="Refresh jobs"
-                        style={{
-                            padding: '3px 8px', fontSize: '11px', cursor: 'pointer',
-                            border: '1px solid var(--border-primary)', borderRadius: '5px',
-                            backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)',
-                            display: 'flex', alignItems: 'center', gap: '4px',
-                        }}
-                    >
-                        ↻ Refresh
-                    </button>
+                {/* View Options + Count + Refresh */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+                    
+                    <div style={{ display: 'flex', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', padding: '2px', border: '1px solid var(--border-primary)' }}>
+                        <button onClick={() => setViewMode('card')} title="Card View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'card' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'card' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'card' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <LayoutGrid size={16} />
+                        </button>
+                        <button onClick={() => setViewMode('list')} title="List View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'list' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'list' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <List size={16} />
+                        </button>
+                        <button onClick={() => setViewMode('kanban')} title="Kanban View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'kanban' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'kanban' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'kanban' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <Columns size={16} />
+                        </button>
+                        <button onClick={() => setViewMode('detail')} title="Detail View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'detail' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'detail' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'detail' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <Maximize size={16} />
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                            {sortedJobs.length} / {jobs.length} jobs
+                        </span>
+                        <button
+                            onClick={() => {
+                                setLoading(true);
+                                fetch(`/api/technician/jobs?technicianId=${technicianId}`)
+                                    .then(r => r.json())
+                                    .then(d => { setJobs(d.jobs || []); setError(null); })
+                                    .catch(() => setError('Failed to refresh.'))
+                                    .finally(() => setLoading(false));
+                            }}
+                            title="Refresh jobs"
+                            style={{
+                                padding: '3px 8px', fontSize: '11px', cursor: 'pointer',
+                                border: '1px solid var(--border-primary)', borderRadius: '5px',
+                                backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                            }}
+                        >
+                            ↻ Refresh
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -557,134 +584,122 @@ function TechnicianApp() {
                         No jobs found
                     </div>
                 ) : (
-                    Object.keys(groupedJobs).map(groupKey => (
-                        <div key={groupKey} style={{ marginBottom: 'var(--spacing-md)' }}>
-                            <h3 style={{
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: 600,
-                                marginBottom: 'var(--spacing-xs)',
-                                color: 'var(--text-secondary)',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.05em'
-                            }}>
-                                {groupKey} ({groupedJobs[groupKey].length})
-                            </h3>
-
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                {groupedJobs[groupKey].map(job => {
-                                    const timeLeft = getTimeLeft(job.dueDate);
-                                    const priority = getPriorityBadge(job.priority);
-
-                                    return (
-                                        <div
-                                            key={job.id}
-                                            style={{
-                                                backgroundColor: 'var(--bg-elevated)',
-                                                border: `2px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`,
-                                                borderRadius: 'var(--radius-lg)',
-                                                padding: 'var(--spacing-sm)',
-                                                cursor: 'pointer',
-                                                transition: 'all var(--transition-normal)',
-                                                boxShadow: timeLeft.urgent ? '0 0 0 2px rgba(239, 68, 68, 0.1)' : 'none'
-                                            }}
-                                            onClick={() => handleOpenJob(job)}
-                                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                                        >
-                                            {/* Header */}
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 'var(--spacing-xs)' }}>
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ fontSize: '17px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>
-                                                        {job.description || job.product?.type || job.issueCategory || 'Service Job'}
+                    viewMode === 'kanban' ? (
+                        <div style={{ display: 'flex', gap: '16px', height: '100%', overflowX: 'auto', paddingBottom: '16px', alignItems: 'flex-start' }}>
+                            {Object.keys(groupedJobs).map(groupKey => (
+                                <div key={groupKey} style={{ minWidth: '320px', width: '320px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-primary)', maxHeight: '100%' }}>
+                                    <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                        {groupKey} 
+                                        <span style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', color: 'var(--text-primary)' }}>
+                                            {groupedJobs[groupKey].length}
+                                        </span>
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto', paddingRight: '4px', flex: 1 }}>
+                                        {groupedJobs[groupKey].map(job => {
+                                            const timeLeft = getTimeLeft(job.dueDate);
+                                            const priority = getPriorityBadge(job.priority);
+                                            
+                                            // Kanban uses standard card view layout inside columns
+                                            return (
+                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: timeLeft.urgent ? '0 0 0 2px rgba(239, 68, 68, 0.1)' : 'none' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>{job.description || job.product?.type || job.issueCategory || 'Service Job'}</div>
+                                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{job.customerName}{(job.product?.brand && job.product.brand !== 'Unknown') ? ` · ${job.product.brand}` : ''}</div>
+                                                        </div>
+                                                        <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{priority.text}</div>
                                                     </div>
-                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                                        {job.customerName}
-                                                        {(job.product?.brand && job.product.brand !== 'Unknown') ? <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}> · {job.product.brand}</span> : null}
-                                                        {job.description && job.product?.type ? <span style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}> · {job.product.type}</span> : null}
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '11px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.locality || job.city || 'No location'}</span></div>
                                                     </div>
                                                 </div>
-                                                <div style={{
-                                                    padding: '2px 6px',
-                                                    backgroundColor: priority.color + '20',
-                                                    color: priority.color,
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    fontSize: '10px',
-                                                    fontWeight: 600
-                                                }}>
-                                                    {priority.text}
-                                                </div>
-                                            </div>
-
-                                            {/* Info Grid */}
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                    <Clock size={12} color={timeLeft.color} />
-                                                    <span style={{ fontSize: 'var(--font-size-xs)', color: timeLeft.color, fontWeight: 600 }}>
-                                                        {timeLeft.text}
-                                                    </span>
-                                                </div>
-                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
-                                                    <MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
-                                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-                                                        {job.locality || job.city || 'No location'}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Stage Badge */}
-                                            <div style={{
-                                                display: 'inline-block',
-                                                padding: '2px 8px',
-                                                backgroundColor: getStatusColor(job.status) + '20',
-                                                color: getStatusColor(job.status),
-                                                borderRadius: 'var(--radius-full)',
-                                                fontSize: '10px',
-                                                fontWeight: 600,
-                                                marginBottom: 'var(--spacing-xs)'
-                                            }}>
-                                                {job.status ? job.status.replace(/-/g, ' ').toUpperCase() : 'OPEN'}
-                                            </div>
-
-                                            {/* Defect */}
-                                            <div style={{
-                                                fontSize: 'var(--font-size-xs)',
-                                                color: 'var(--text-secondary)',
-                                                marginBottom: 'var(--spacing-xs)',
-                                                fontStyle: 'italic',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                whiteSpace: 'nowrap'
-                                            }}>
-                                                "{job.defect || 'No defect specified'}"
-                                            </div>
-
-                                            {/* Quick Action Buttons */}
-                                            <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }} onClick={e => e.stopPropagation()}>
-                                                <button onClick={() => setCalculatorJob(job)} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
-                                                    🧮 Estimate
-                                                </button>
-                                                {job.mobile ? (
-                                                    <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}>
-                                                        📞 Call
-                                                    </a>
-                                                ) : null}
-                                                {(job.location?.lat && job.location?.lng) ? (
-                                                    <a href={`https://www.google.com/maps?q=${job.location.lat},${job.location.lng}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}>
-                                                        📍 Map
-                                                    </a>
-                                                ) : (job.locality || job.city || job.address) ? (
-                                                    <a href={`https://www.google.com/maps/search/${encodeURIComponent([job.address, job.locality, job.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', textDecoration: 'none' }}>
-                                                        📍 Map
-                                                    </a>
-                                                ) : null}
-                                            </div>
-
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                            {Object.keys(groupedJobs).map(groupKey => (
+                                <div key={groupKey}>
+                                    <h3 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid var(--border-primary)', paddingBottom: '6px' }}>
+                                        {groupKey} ({groupedJobs[groupKey].length})
+                                    </h3>
+                                    <div style={{ 
+                                        display: viewMode === 'list' ? 'flex' : 'grid', 
+                                        flexDirection: 'column',
+                                        gridTemplateColumns: viewMode === 'detail' ? 'repeat(auto-fill, minmax(350px, 1fr))' : 'repeat(auto-fill, minmax(300px, 1fr))', 
+                                        gap: viewMode === 'list' ? '8px' : '16px' 
+                                    }}>
+                                        {groupedJobs[groupKey].map(job => {
+                                            const timeLeft = getTimeLeft(job.dueDate);
+                                            const priority = getPriorityBadge(job.priority);
+                                            const isDetail = viewMode === 'detail';
+                                            
+                                            // LIST MODE RENDERER
+                                            if (viewMode === 'list') {
+                                                return (
+                                                    <div key={job.id} onClick={() => handleOpenJob(job)} style={{ backgroundColor: 'var(--bg-elevated)', border: `1px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-md)', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', transition: 'all 0.2s', boxShadow: timeLeft.urgent ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : 'none' }}>
+                                                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                                            <div style={{ display: 'inline-block', padding: '3px 8px', backgroundColor: getStatusColor(job.status) + '20', color: getStatusColor(job.status), borderRadius: '6px', fontSize: '11px', fontWeight: 600, width: '90px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                {job.status ? job.status.replace(/-/g, ' ').toUpperCase() : 'OPEN'}
+                                                            </div>
+                                                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                                    {job.customerName} <span style={{ color: 'var(--text-tertiary)', fontWeight: 400 }}>· {job.description || job.product?.type || 'Service'}</span>
+                                                                </div>
+                                                            </div>
+                                                            {job.locality && (
+                                                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <MapPin size={12} /> {job.locality}
+                                                                </div>
+                                                            )}
+                                                            <div style={{ fontSize: '12px', color: timeLeft.color, fontWeight: 600, width: '80px', display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end' }}>
+                                                                <Clock size={12} /> {timeLeft.text}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            
+                                            // CARD & DETAIL MODE RENDERER
+                                            return (
+                                                <div key={job.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `2px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: isDetail ? '16px' : '12px', cursor: 'pointer', transition: 'all var(--transition-normal)', boxShadow: timeLeft.urgent ? '0 0 0 2px rgba(239, 68, 68, 0.1)' : 'none', display: 'flex', flexDirection: 'column' }} onClick={() => handleOpenJob(job)} onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ fontSize: isDetail ? '18px' : '16px', fontWeight: 700, marginBottom: '2px', lineHeight: 1.2 }}>{job.description || job.product?.type || job.issueCategory || 'Service Job'}</div>
+                                                            <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                                                {job.customerName}{(job.product?.brand && job.product.brand !== 'Unknown') ? <span style={{ color: 'var(--text-tertiary)' }}> · {job.product.brand}</span> : null}{job.description && job.product?.type ? <span style={{ color: 'var(--text-tertiary)' }}> · {job.product.type}</span> : null}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{priority.text}</div>
+                                                    </div>
+
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '12px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{job.locality || job.city || job.address || 'No location'}</span></div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: isDetail ? 'wrap' : 'nowrap' }}>
+                                                        <div style={{ padding: '2px 8px', backgroundColor: getStatusColor(job.status) + '20', color: getStatusColor(job.status), borderRadius: '12px', fontSize: '10px', fontWeight: 600, flexShrink: 0 }}>{job.status ? job.status.replace(/-/g, ' ').toUpperCase() : 'OPEN'}</div>
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic', flex: 1, whiteSpace: isDetail ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>"{job.defect || 'No defect specified'}"</div>
+                                                    </div>
+
+                                                    <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
+                                                        <button onClick={() => setCalculatorJob(job)} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>🧮 Estimate</button>
+                                                        {job.mobile ? <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📞 Call</a> : null}
+                                                        {(job.location?.lat && job.location?.lng) ? <a href={`https://www.google.com/maps?q=${job.location.lat},${job.location.lng}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : (job.locality || job.city || job.address) ? <a href={`https://www.google.com/maps/search/${encodeURIComponent([job.address, job.locality, job.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : null}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )
                 )}
             </div>
         {calculatorJob && (
