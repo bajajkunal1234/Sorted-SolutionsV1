@@ -216,7 +216,7 @@ function JobDetailSheet({ job, onClose, onCancel }) {
 
     // Tracking State
     const [techLocation, setTechLocation] = useState(null);
-    const [custLocation] = useState(job?.location ? [job.location.lat, job.location.lng] : null);
+    const [custLocation] = useState(job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng] : null);
 
     useEffect(() => {
         let channel;

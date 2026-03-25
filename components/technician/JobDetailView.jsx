@@ -26,7 +26,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     // Tracking State
     const [isTracking, setIsTracking] = useState(job?.status === 'in-progress');
     const [techLocation, setTechLocation] = useState(null);
-    const [custLocation, setCustLocation] = useState(job?.location ? [job.location.lat, job.location.lng] : null);
+    const [custLocation, setCustLocation] = useState(job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng] : null);
 
     // Live Tracking Broadcaster
     useEffect(() => {
@@ -769,9 +769,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     disabled={loading}
                                     style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
                                 >
-                                    <option value="assigned">Assigned / Open</option>
+                                    <option value="booking_request">Booking Request</option>
+                                    <option value="assigned">Assigned</option>
                                     <option value="in-progress">In Progress</option>
-                                    <option value="spare-part-needed">Spare Part Needed</option>
                                     <option value="quotation-sent">Quotation Sent</option>
                                     <option value="completed">Completed</option>
                                     <option value="cancelled">Cancelled</option>

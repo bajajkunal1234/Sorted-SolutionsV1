@@ -680,11 +680,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             onChange={(e) => setEditedJob({ ...editedJob, status: e.target.value })}
                                             style={{ backgroundColor: 'var(--bg-elevated)' }}
                                         >
-                                            <option value="pending">Pending</option>
                                             <option value="booking_request">Booking Request</option>
                                             <option value="assigned">Assigned</option>
                                             <option value="in-progress">In Progress</option>
-                                            <option value="spare-part-needed">Spare Part Needed</option>
                                             <option value="quotation-sent">Quotation Sent</option>
                                             <option value="completed">Completed</option>
                                             <option value="cancelled">Cancelled</option>
