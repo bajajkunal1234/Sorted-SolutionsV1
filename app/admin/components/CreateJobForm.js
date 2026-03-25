@@ -836,7 +836,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 className="form-select"
                                 value={formData.customer?.id || ''}
                                 onChange={(e) => handleCustomerChange(e.target.value)}
-                                style={{ flex: 1 }}
+                                onBlur={() => { if (!formData.customer) setErrors(prev => ({ ...prev, customer: 'Customer is required' })); else setErrors(prev => { const e = {...prev}; delete e.customer; return e; }); }}
+                                style={{ flex: 1, borderColor: errors.customer ? 'var(--color-danger)' : undefined }}
                             >
                                 <option value="">{loadingStates.customers ? 'Loading customers...' : 'Select customer...'}</option>
                                 {customers.map(customer => (
@@ -906,8 +907,9 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 className="form-select"
                                 value={formData.property?.id || ''}
                                 onChange={(e) => handlePropertyChange(e.target.value)}
+                                onBlur={() => { if (!formData.property) setErrors(prev => ({ ...prev, property: 'Property is required' })); else setErrors(prev => { const e = {...prev}; delete e.property; return e; }); }}
                                 disabled={!formData.customer}
-                                style={{ flex: 1 }}
+                                style={{ flex: 1, borderColor: errors.property ? 'var(--color-danger)' : undefined }}
                             >
                                 <option value="">
                                     {!formData.customer ? 'Select customer first' : (loadingStates.properties ? 'Loading addresses...' : 'Select property...')}
@@ -986,7 +988,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     className="form-select"
                                     value={formData.product?.id || ''}
                                     onChange={(e) => handleProductChange(e.target.value)}
-                                    style={{ flex: 1 }}
+                                    onBlur={() => { if (!formData.product) setErrors(prev => ({ ...prev, product: 'Appliance is required' })); else setErrors(prev => { const e = {...prev}; delete e.product; return e; }); }}
+                                    style={{ flex: 1, borderColor: errors.product ? 'var(--color-danger)' : undefined }}
                                 >
                                     <option value="">{loadingStates.websiteSettings ? 'Loading appliances...' : 'Select appliance...'}</option>
                                     {allProducts.map(cat => (
@@ -1058,7 +1061,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     className="form-select"
                                     value={formData.brand?.id || ''}
                                     onChange={(e) => handleBrandChange(e.target.value)}
-                                    style={{ flex: 1 }}
+                                    onBlur={() => { if (!formData.brand) setErrors(prev => ({ ...prev, brand: 'Brand is required' })); else setErrors(prev => { const e = {...prev}; delete e.brand; return e; }); }}
+                                    style={{ flex: 1, borderColor: errors.brand ? 'var(--color-danger)' : undefined }}
                                 >
                                     <option value="">{loadingStates.brands ? 'Loading brands...' : 'Select brand...'}</option>
                                     {brands.map(brand => (
@@ -1143,7 +1147,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 className="form-select"
                                 value={formData.issue?.id || ''}
                                 onChange={(e) => handleIssueChange(e.target.value)}
-                                style={{ flex: 1 }}
+                                onBlur={() => { if (!formData.issue) setErrors(prev => ({ ...prev, issue: 'Issue is required' })); else setErrors(prev => { const e = {...prev}; delete e.issue; return e; }); }}
+                                style={{ flex: 1, borderColor: errors.issue ? 'var(--color-danger)' : undefined }}
                             >
                                 <option value="">{loadingStates.websiteSettings ? 'Loading issues...' : (formData.product ? 'Select issue...' : 'Select appliance first')}</option>
                                 {issues.filter(i => !formData.product || i.categoryId === formData.product.id).map(issue => (
@@ -1251,23 +1256,27 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                         {/* 10. Due Date */}
                         <div className="form-group">
-                            <label className="form-label">Scheduled Date</label>
+                            <label className="form-label">Scheduled Date *</label>
                             <input
                                 type="datetime-local"
                                 className="form-input custom-date-picker"
                                 value={formData.dueDate}
                                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                style={{ colorScheme: 'dark' }}
+                                onBlur={() => { if (!formData.dueDate) setErrors(prev => ({ ...prev, dueDate: 'Scheduled Date is required' })); else setErrors(prev => { const e = {...prev}; delete e.dueDate; return e; }); }}
+                                style={{ colorScheme: 'dark', borderColor: errors.dueDate ? 'var(--color-danger)' : undefined }}
                             />
+                            {errors.dueDate && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.dueDate}</span>}
                         </div>
 
                         {/* 11. Assign Technician */}
                         <div className="form-group">
-                            <label className="form-label">Assign Technician</label>
+                            <label className="form-label">Assign Technician *</label>
                             <select
                                 className="form-select"
                                 value={formData.assignedTo}
                                 onChange={(e) => handleTechnicianChange(e.target.value)}
+                                onBlur={() => { if (!formData.assignedTo) setErrors(prev => ({ ...prev, assignedTo: 'Technician is required' })); else setErrors(prev => { const e = {...prev}; delete e.assignedTo; return e; }); }}
+                                style={{ borderColor: errors.assignedTo ? 'var(--color-danger)' : undefined }}
                             >
                                 <option value="">{loadingStates.technicians ? 'Loading technicians...' : 'Unassigned'}</option>
                                 {technicians
@@ -1281,6 +1290,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     </option>
                                 ))}
                             </select>
+                            {errors.assignedTo && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.assignedTo}</span>}
                         </div>
                     </div>
                 </div >

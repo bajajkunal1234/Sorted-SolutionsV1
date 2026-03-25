@@ -824,15 +824,19 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             )}
                                             {showField('mobile') && (
                                                 <div className="form-group">
-                                                    <label className="form-label">Mobile Number</label>
+                                                    <label className="form-label">Mobile Number *</label>
                                                     <input
                                                         type="tel"
                                                         className="form-input"
                                                         value={formData.mobile}
                                                         onChange={(e) => handleMobileChange(e.target.value)}
+                                                        onBlur={() => {
+                                                            if (!formData.mobile.trim()) setErrors(prev => ({ ...prev, mobile: 'Mobile Number is required' }));
+                                                        }}
                                                         placeholder="+91 98765 43210"
                                                         pattern="[0-9+\s\(\)\-]*"
                                                         title="Please enter a valid 10-digit mobile number"
+                                                        style={{ borderColor: errors.mobile ? '#ef4444' : undefined }}
                                                     />
                                                     {errors.mobile && (
                                                         <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
@@ -1164,15 +1168,19 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                     {/* Customer Description */}
                                     {showField('customerDescription') && (
                                         <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
-                                            <label className="form-label">Customer Description</label>
+                                            <label className="form-label">Customer Description *</label>
                                             <textarea
                                                 className="form-input"
                                                 value={formData.customerDescription || ''}
                                                 onChange={(e) => setFormData({ ...formData, customerDescription: e.target.value })}
+                                                onBlur={() => { if (!formData.customerDescription?.trim()) setErrors(prev => ({ ...prev, customerDescription: 'Customer Description is required' })); else setErrors(prev => { const e = {...prev}; delete e.customerDescription; return e; }); }}
                                                 rows="3"
                                                 placeholder="Specific notes or context about this customer..."
-                                                style={{ resize: 'vertical' }}
+                                                style={{ resize: 'vertical', borderColor: errors.customerDescription ? '#ef4444' : undefined }}
                                             />
+                                            {errors.customerDescription && (
+                                                <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.customerDescription}</span>
+                                            )}
                                         </div>
                                     )}
 
@@ -1252,11 +1260,13 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                             <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                                 {showField('acquisitionSource') && (
                                                     <div className="form-group">
-                                                        <label className="form-label">Acquisition Source</label>
+                                                        <label className="form-label">Acquisition Source *</label>
                                                         <select
                                                             className="form-select"
                                                             value={formData.acquisitionSource}
                                                             onChange={(e) => setFormData({ ...formData, acquisitionSource: e.target.value })}
+                                                            onBlur={() => { if (!formData.acquisitionSource) setErrors(prev => ({ ...prev, acquisitionSource: 'Acquisition Source is required' })); else setErrors(prev => { const e = {...prev}; delete e.acquisitionSource; return e; }); }}
+                                                            style={{ borderColor: errors.acquisitionSource ? '#ef4444' : undefined }}
                                                         >
                                                             <option value="">-- Select Source --</option>
                                                             <option value="direct">Direct / Walk-in</option>
@@ -1266,6 +1276,9 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                             <option value="website">Website Organic</option>
                                                             <option value="other">Other</option>
                                                         </select>
+                                                        {errors.acquisitionSource && (
+                                                            <span style={{ color: '#ef4444', fontSize: 'var(--font-size-xs)' }}>{errors.acquisitionSource}</span>
+                                                        )}
                                                     </div>
                                                 )}
                                                 {showField('referredBy') && (
