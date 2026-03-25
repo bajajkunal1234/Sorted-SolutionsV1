@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { MessageSquare, Paperclip, X, Edit2, Save, Clock, FileText, DollarSign, Package, Briefcase, Loader2 } from 'lucide-react';
+import imageCompression from 'browser-image-compression';
 import SalesInvoiceForm from '../accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
 import QuotationForm from '../accounts/QuotationForm';
@@ -171,8 +172,32 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
     };
 
     // Handle file change
-    const handleFileChange = (e) => {
-        setAttachments(Array.from(e.target.files));
+    const handleFileChange = async (e) => {
+        const files = Array.from(e.target.files);
+        
+        const processedFiles = await Promise.all(
+            files.map(async (file) => {
+                if (file.type.startsWith('image/') && !file.type.includes('svg')) {
+                    try {
+                        const options = {
+                            maxSizeMB: 1, // Compress to max ~1MB per image
+                            maxWidthOrHeight: 1600, // Max dimension
+                            useWebWorker: true,
+                        };
+                        const compressedFile = await imageCompression(file, options);
+                        // browser-image-compression returns a Blob, we should ensure it has a name
+                        compressedFile.name = file.name || `image_${Date.now()}.jpg`;
+                        return compressedFile;
+                    } catch (error) {
+                        console.error('Image compression failed:', error);
+                        return file; // Fallback to original
+                    }
+                }
+                return file;
+            })
+        );
+        
+        setAttachments(processedFiles);
     };
 
     // Remove attachment
