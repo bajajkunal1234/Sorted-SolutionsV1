@@ -216,7 +216,27 @@ function JobDetailSheet({ job, onClose, onCancel }) {
 
     // Tracking State
     const [techLocation, setTechLocation] = useState(null);
-    const [custLocation] = useState(job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng] : null);
+    const [custLocation, setCustLocation] = useState(job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng] : null);
+
+    // Geocoding Fallback for Customer Location
+    useEffect(() => {
+        const addressString = job?.address || job?.locality || (job?.customer?.address && typeof job.customer.address === 'string' ? job.customer.address : '');
+        if (!custLocation && addressString) {
+            const query = encodeURIComponent(addressString);
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        setCustLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+                    } else {
+                        setCustLocation([19.0760, 72.8777]); // Mumbai fallback
+                    }
+                })
+                .catch(() => setCustLocation([19.0760, 72.8777]));
+        } else if (!custLocation) {
+            setCustLocation([19.0760, 72.8777]); // Mumbai fallback
+        }
+    }, [job?.address, job?.locality, custLocation]);
 
     useEffect(() => {
         let channel;

@@ -64,6 +64,26 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         };
     }, [editedJob?.status, editedJob?.id]);
 
+    // Geocoding Fallback for Customer Location
+    useEffect(() => {
+        const addressString = editedJob?.address || editedJob?.locality || (editedJob?.customer?.address && typeof editedJob.customer.address === 'string' ? editedJob.customer.address : '');
+        if (!custLocation && addressString) {
+            const query = encodeURIComponent(addressString);
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        setCustLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+                    } else {
+                        setCustLocation([19.0760, 72.8777]); // Mumbai fallback
+                    }
+                })
+                .catch(() => setCustLocation([19.0760, 72.8777]));
+        } else if (!custLocation) {
+            setCustLocation([19.0760, 72.8777]); // Mumbai fallback
+        }
+    }, [editedJob?.address, editedJob?.locality, custLocation]);
+
     // Fetch fresh job and interactions on mount
     useEffect(() => {
         const fetchFreshData = async () => {
