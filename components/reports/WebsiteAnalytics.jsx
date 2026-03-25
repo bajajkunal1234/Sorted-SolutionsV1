@@ -10,7 +10,7 @@ import {
 
 // ─── Status colour map ─────────────────────────────────────────────────────────
 const STATUS_COLORS = {
-    pending: '#f59e0b', confirmed: '#3b82f6', 'in-progress': '#8b5cf6',
+    booking_request: '#f59e0b', 'in-progress': '#8b5cf6',
     completed: '#10b981', cancelled: '#ef4444', new: '#06b6d4',
 }
 const CHANNEL_COLORS = ['#4285f4', '#34a853', '#fbbc04', '#ea4335', '#9c27b0', '#00bcd4', '#ff5722', '#607d8b']

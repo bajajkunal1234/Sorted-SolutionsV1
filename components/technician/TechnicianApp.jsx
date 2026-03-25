@@ -41,6 +41,17 @@ function TechnicianApp() {
         }
         return true;
     });
+
+    // Apply dark mode theme class initially and on change
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            if (darkMode) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            } else {
+                document.documentElement.removeAttribute('data-theme');
+            }
+        }
+    }, [darkMode]);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [leaveStartDate, setLeaveStartDate] = useState('');
     const [leaveEndDate, setLeaveEndDate] = useState('');
@@ -203,6 +214,7 @@ function TechnicianApp() {
 
     // Calculate time left to due
     const getTimeLeft = (dueDate) => {
+        if (!dueDate) return { text: 'No Due Date', color: '#6b7280', urgent: false };
         const now = new Date();
         const due = new Date(dueDate);
         const diff = due - now;
@@ -219,7 +231,7 @@ function TechnicianApp() {
     const getStatusColor = (status) => {
         const colors = {
             'open': '#3b82f6',
-            'confirmed': '#06b6d4',
+            'assigned': '#06b6d4',
             'in-progress': '#f59e0b',
             'quotation-sent': '#8b5cf6',
             'repair': '#f97316',
@@ -641,7 +653,7 @@ function TechnicianApp() {
                                                     <div key={job.id} onClick={() => handleOpenJob(job)} style={{ backgroundColor: 'var(--bg-elevated)', border: `1px solid ${timeLeft.urgent ? '#ef4444' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-md)', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', transition: 'all 0.2s', boxShadow: timeLeft.urgent ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : 'none' }}>
                                                         <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '16px' }}>
                                                             <div style={{ display: 'inline-block', padding: '3px 8px', backgroundColor: getStatusColor(job.status) + '20', color: getStatusColor(job.status), borderRadius: '6px', fontSize: '11px', fontWeight: 600, width: '90px', textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                                {job.status ? job.status.replace(/-/g, ' ').toUpperCase() : 'OPEN'}
+                                                                {job.status ? job.status.replace(/[-_]/g, ' ').toUpperCase() : 'OPEN'}
                                                             </div>
                                                             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                                                                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -680,7 +692,7 @@ function TechnicianApp() {
                                                     </div>
 
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: isDetail ? 'wrap' : 'nowrap' }}>
-                                                        <div style={{ padding: '2px 8px', backgroundColor: getStatusColor(job.status) + '20', color: getStatusColor(job.status), borderRadius: '12px', fontSize: '10px', fontWeight: 600, flexShrink: 0 }}>{job.status ? job.status.replace(/-/g, ' ').toUpperCase() : 'OPEN'}</div>
+                                                        <div style={{ padding: '2px 8px', backgroundColor: getStatusColor(job.status) + '20', color: getStatusColor(job.status), borderRadius: '12px', fontSize: '10px', fontWeight: 600, flexShrink: 0 }}>{job.status ? job.status.replace(/[-_]/g, ' ').toUpperCase() : 'OPEN'}</div>
                                                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic', flex: 1, whiteSpace: isDetail ? 'normal' : 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>"{job.defect || 'No defect specified'}"</div>
                                                     </div>
 

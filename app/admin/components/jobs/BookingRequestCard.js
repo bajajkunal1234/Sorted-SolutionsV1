@@ -82,7 +82,7 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
             // Update the existing booking_request row in-place
             await jobsAPI.update(booking.id, {
                 ...jobData,
-                status: jobData.technician_id ? 'assigned' : 'pending',
+                status: jobData.technician_id ? 'assigned' : 'booking_request',
             });
             onConverted(booking.id);
         } catch (err) {

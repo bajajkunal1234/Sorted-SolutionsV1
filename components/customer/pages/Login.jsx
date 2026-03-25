@@ -206,7 +206,7 @@ export default function Login() {
         setError('')
         if (!name.trim()) return setError('Enter your full name.')
         if (username.trim().length < 3) return setError('Username must be at least 3 characters.')
-        if (newPassword.length < 6) return setError('Password must be at least 6 characters.')
+        if (!/^(?=.*[A-Z])(?=.*\d).{6,}$/.test(newPassword)) return setError('Password must be at least 6 characters, contain 1 uppercase letter and 1 number.')
         if (newPassword !== confirmPassword) return setError('Passwords do not match.')
         setLoading(true)
         try {

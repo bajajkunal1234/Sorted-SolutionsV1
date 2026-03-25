@@ -176,7 +176,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                 preferred_date: form.preferredDate,
                 preferred_time_slot: form.preferredTime,
                 image_url: imageUrl,
-                status: 'pending',
+                status: 'booking_request',
             }
 
             const res = await fetch('/api/customer/jobs', {

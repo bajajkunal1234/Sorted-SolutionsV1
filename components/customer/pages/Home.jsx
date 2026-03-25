@@ -219,9 +219,9 @@ function MediaCarousel({ media }) {
 }
 
 // ── Feed Card ───────────────────────────────────────────────────
-function FeedCard({ post, onLike }) {
+function FeedCard({ post, onLike, initialLiked }) {
     const router = useRouter()
-    const [liked, setLiked] = useState(false)
+    const [liked, setLiked] = useState(initialLiked || false)
     const [likes, setLikes] = useState(post.likes_count || 0)
     const [pop, setPop] = useState(false)
     const type = TYPE_CONFIG[post.post_type] || TYPE_CONFIG.tip
@@ -313,12 +313,17 @@ export default function HomePage() {
     const bannerTimer = useRef(null)
     const [posts, setPosts] = useState([])
     const [feedLoading, setFeedLoading] = useState(true)
+    const [likedPosts, setLikedPosts] = useState(new Set())
+    const [isBannerHovered, setIsBannerHovered] = useState(false)
 
     useEffect(() => {
         const hour = new Date().getHours()
         setGreeting(hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening')
 
         try {
+            const cachedLikes = JSON.parse(localStorage.getItem('customer_liked_posts') || '[]')
+            setLikedPosts(new Set(cachedLikes))
+            
             const cData = localStorage.getItem('customerData')
             if (cData) setCustomerName(JSON.parse(cData).name?.split(' ')[0] || 'there')
         } catch {}
@@ -340,12 +345,19 @@ export default function HomePage() {
 
     useEffect(() => {
         if (banners.length <= 1) return
+        if (isBannerHovered) return
+
         bannerTimer.current = setInterval(() => setBannerIndex(i => (i + 1) % banners.length), 5000)
         return () => clearInterval(bannerTimer.current)
-    }, [banners.length])
+    }, [banners.length, isBannerHovered])
 
     const handleLike = async (postId) => {
         try {
+            const newLiked = new Set(likedPosts)
+            newLiked.add(postId)
+            setLikedPosts(newLiked)
+            localStorage.setItem('customer_liked_posts', JSON.stringify(Array.from(newLiked)))
+
             await fetch('/api/customer/feed', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -365,7 +377,13 @@ export default function HomePage() {
             {/* Banner Carousel */}
             {banners.length > 0 && (
                 <div style={{ padding: '0 20px 20px' }}>
-                    <div style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', width: '100%', aspectRatio: '16/6' }}>
+                    <div 
+                        onMouseEnter={() => setIsBannerHovered(true)}
+                        onMouseLeave={() => setIsBannerHovered(false)}
+                        onTouchStart={() => setIsBannerHovered(true)}
+                        onTouchEnd={() => setIsBannerHovered(false)}
+                        style={{ position: 'relative', borderRadius: 20, overflow: 'hidden', width: '100%', aspectRatio: '16/6' }}
+                    >
                         <div style={{ display: 'flex', width: `${banners.length * 100}%`, height: '100%', transition: 'transform 0.5s ease-in-out', transform: `translateX(-${bannerIndex * (100 / banners.length)}%)` }}>
                             {banners.map(banner => (
                                 <div key={banner.id} onClick={() => banner.targetUrl && router.push(banner.targetUrl)}
@@ -410,7 +428,7 @@ export default function HomePage() {
                         <div style={{ fontSize: 14, color: '#475569' }}>Tips, offers & highlights will appear here.</div>
                     </div>
                 ) : (
-                    posts.map(post => <FeedCard key={post.id} post={post} onLike={handleLike} />)
+                    posts.map(post => <FeedCard key={post.id} post={post} onLike={handleLike} initialLiked={likedPosts.has(post.id)} />)
                 )}
             </div>
         </div>

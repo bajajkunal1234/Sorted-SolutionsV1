@@ -121,7 +121,7 @@ export async function POST(request) {
         });
 
         // Fire notification trigger (fire-and-forget)
-        fireNotification('job_created_admin', {
+        fireNotification('assigned', {
             job_id: String(data.id),
             customer_id: body.customer_id ? String(body.customer_id) : undefined,
             customer_name: data.customer_name || undefined,
@@ -251,14 +251,9 @@ export async function PUT(request) {
         }
 
         // Fire notification trigger for relevant status changes (fire-and-forget)
-        const statusEventMap = {
-            assigned: 'job_assigned',
-            in_progress: 'job_started',
-            completed: 'job_completed',
-            cancelled: 'job_cancelled',
-        };
-        const notifEvent = statusEventMap[updates.status];
-        if (notifEvent) {
+        // Since event types now exactly map to status strings, just use updates.status
+        const notifEvent = updates.status;
+        if (notifEvent && ['booking_request', 'assigned', 'in-progress', 'quotation-sent', 'completed', 'cancelled'].includes(notifEvent)) {
             fireNotification(notifEvent, {
                 job_id: String(id),
                 customer_id: data.customer_id ? String(data.customer_id) : undefined,

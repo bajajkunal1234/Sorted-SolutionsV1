@@ -5,7 +5,7 @@ import { Search, ChevronDown, X, Filter, Layers, ArrowUpDown, Plus, Trash2, Book
 
 // ─── Field definitions ────────────────────────────────────────────────────────
 const FILTER_FIELDS = [
-    { key: 'status',      label: 'Status',        type: 'select', options: ['pending','assigned','confirmed','in-progress','repair','part-repairing','spare-part-needed','quotation-sent','completed','cancelled','closed','booking_request'] },
+    { key: 'status',      label: 'Status',        type: 'select', options: ['assigned','in-progress','quotation-sent','completed','cancelled','booking_request'] },
     { key: 'priority',    label: 'Priority',      type: 'select', options: ['urgent','high','normal','low'] },
     { key: 'locality',    label: 'Locality',      type: 'text' },
     { key: 'customer',    label: 'Customer',      type: 'text' },
@@ -56,9 +56,12 @@ const PRESET_FILTERS = [
     { id: 'urgent',    label: '🔴 Urgent',      filter: { priority: 'urgent' } },
     { id: 'today',     label: '📅 Due Today',   filter: { _preset: 'dueToday' } },
     { id: 'overdue',   label: '⚠️ Overdue',     filter: { _preset: 'overdue' } },
-    { id: 'pending',   label: '⏳ Pending',      filter: { status: 'pending' } },
+    { id: 'booking_request',   label: '🔔 Booking Request',      filter: { status: 'booking_request' } },
+    { id: 'assigned',  label: '👤 Assigned',    filter: { status: 'assigned' } },
     { id: 'inprog',    label: '🔧 In Progress', filter: { status: 'in-progress' } },
+    { id: 'quotation', label: '📄 Quotation Sent', filter: { status: 'quotation-sent' } },
     { id: 'completed', label: '✅ Completed',   filter: { status: 'completed' } },
+    { id: 'cancelled', label: '❌ Cancelled',   filter: { status: 'cancelled' } },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

@@ -124,7 +124,7 @@ export default function Appliances() {
           </div>
           <h3 style={{ fontSize: 18, color: '#f8fafc', fontWeight: 700, margin: '0 0 8px 0' }}>No Appliances Yet</h3>
           <p style={{ color: '#94a3b8', fontSize: 14, margin: '0 0 24px 0', lineHeight: 1.5 }}>Track warranties, health scores, and book repairs magically.</p>
-          <button onClick={() => setShowAddModal(true)} style={{ background: '#f8fafc', color: '#0f172a', border: 'none', padding: '12px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={() => setShowAddModal(true)} style={{ background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', color: '#ffffff', border: 'none', padding: '14px 28px', borderRadius: 14, fontSize: 14, fontWeight: 700, cursor: 'pointer', boxShadow: '0 6px 16px rgba(139,92,246,0.3)' }}>
             Add Your First Appliance
           </button>
         </div>

@@ -677,7 +677,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                 // Details
                 description: formData.jobName,
-                status: existingJob?.status === 'booking_request' ? 'pending' : (existingJob?.status || 'pending'),
+                status: existingJob ? existingJob.status : 'booking_request',
                 priority: 'normal',
 
                 category: formData.product?.name || 'General',
@@ -696,7 +696,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             };
 
             // If technician is assigned, set status to assigned
-            if (jobData.technician_id && jobData.status === 'pending') {
+            if (jobData.technician_id && jobData.status === 'booking_request') {
                 jobData.status = 'assigned';
             }
 

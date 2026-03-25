@@ -9,6 +9,8 @@ import { transactionsAPI } from '@/lib/adminAPI';
 import { logInteraction } from '@/lib/interactions';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import QuotationWhatsAppPopup from '@/components/common/QuotationWhatsAppPopup';
+import LiveMap from '@/components/common/LiveMap';
+import { supabase } from '@/lib/supabase';
 
 export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -20,6 +22,47 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [savedQuotation, setSavedQuotation] = useState(null);
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
+
+    // Tracking State
+    const [isTracking, setIsTracking] = useState(job?.status === 'in-progress');
+    const [techLocation, setTechLocation] = useState(null);
+    const [custLocation, setCustLocation] = useState(job?.location ? [job.location.lat, job.location.lng] : null);
+
+    // Live Tracking Broadcaster
+    useEffect(() => {
+        let watchId;
+        let channel;
+
+        if (editedJob?.status === 'in-progress') {
+            setIsTracking(true);
+            channel = supabase.channel(`tracking:job_${editedJob.id}`, {
+                config: { broadcast: { self: true, ack: false } }
+            });
+            channel.subscribe();
+
+            watchId = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const loc = [pos.coords.latitude, pos.coords.longitude];
+                    setTechLocation(loc);
+                    channel.send({
+                        type: 'broadcast',
+                        event: 'location_update',
+                        payload: { latitude: loc[0], longitude: loc[1], timestamp: new Date().toISOString() }
+                    });
+                },
+                (err) => console.error('GPS Watch Error:', err),
+                { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+            );
+        } else {
+            setIsTracking(false);
+            setTechLocation(null);
+        }
+
+        return () => {
+            if (watchId) navigator.geolocation.clearWatch(watchId);
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [editedJob?.status, editedJob?.id]);
 
     // Fetch fresh job and interactions on mount
     useEffect(() => {
@@ -72,6 +115,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
+        { id: 'map', label: 'Map', icon: MapPin },
         { id: 'interactions', label: 'Interactions', icon: Clock },
         { id: 'actions', label: 'Actions', icon: CheckSquare }
     ];
@@ -427,6 +471,51 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     {error && (
                         <div style={{ padding: '12px', backgroundColor: '#fee2e2', color: '#ef4444', borderRadius: '8px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <AlertCircle size={18} /> {error}
+                        </div>
+                    )}
+
+                    {activeTab === 'map' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <MapPin size={18} color="#3b82f6" /> Live Location Tracking
+                                </h3>
+                                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: 1.5 }}>
+                                    Sharing your live location allows the customer to track your arrival in real-time.
+                                </p>
+
+                                {editedJob.status === 'assigned' && (
+                                    <button 
+                                        className="btn btn-primary" 
+                                        style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                                        onClick={async () => {
+                                            if (!navigator.geolocation) return alert('GPS not supported on this device');
+                                            navigator.geolocation.getCurrentPosition(async () => {
+                                                await handleSaveStatus('in-progress');
+                                            }, (err) => alert('Please enable GPS permissions to Start Job.'));
+                                        }}
+                                        disabled={loading}
+                                    >
+                                        🚀 Start Job & Share Location
+                                    </button>
+                                )}
+
+                                {editedJob.status === 'in-progress' && (
+                                    <div style={{ padding: '16px', backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', textAlign: 'center' }}>
+                                        <div style={{ color: '#10b981', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                                            <span style={{ width: '8px', height: '8px', backgroundColor: '#10b981', borderRadius: '50%', animation: 'pulse 2s infinite' }}></span>
+                                            Location Sharing Active
+                                        </div>
+                                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                            The customer can safely track your arrival. Tracking will stop automatically once you complete this job or send a quotation.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="card" style={{ overflow: 'hidden', height: '350px', backgroundColor: '#e5e7eb', zIndex: 0 }}>
+                                <LiveMap technicianLocation={techLocation} customerLocation={custLocation} />
+                            </div>
                         </div>
                     )}
 

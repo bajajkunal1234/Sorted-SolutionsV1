@@ -259,7 +259,7 @@ export async function POST(request) {
                 scheduled_time: preferred_time_slot,
                 notes: JSON.stringify(bookingData), // full context as JSONB
                 priority: 'normal',
-                status: 'pending',
+                status: 'booking_request',
                 created_at: new Date().toISOString()
             })
             .select()
@@ -284,7 +284,7 @@ export async function POST(request) {
                         scheduled_time: preferred_time_slot,
                         notes: JSON.stringify(bookingData),
                         priority: 'normal',
-                        status: 'pending',
+                        status: 'booking_request',
                         created_at: new Date().toISOString()
                     })
                     .select()

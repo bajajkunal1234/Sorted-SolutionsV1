@@ -352,9 +352,8 @@ function PropertyManagerModal({ onClose }) {
                     <div>
                         <label style={S.label}>Pincode *</label>
                         <input
-                            style={{ ...S.input, opacity: 0.7, background: 'rgba(0,0,0,0.2)' }}
+                            style={S.input}
                             value={form.pincode}
-                            disabled={false}
                             onChange={e => setForm(p => ({...p, pincode: e.target.value}))}
                             placeholder="e.g. 400001"
                         />
@@ -593,9 +592,7 @@ export default function ProfilePage() {
                 setSaveMsg(d.error || 'Unable to save right now')
             }
         } catch {
-            setSaveMsg('Saved locally ✓')
-            setCustomer(prev => ({ ...prev, name: editForm.name, email: editForm.email }))
-            localStorage.setItem('customerName', editForm.name)
+            setSaveMsg('Unable to save right now. Check your internet connection.')
             setTimeout(() => { setSaveMsg(''); setModal(null) }, 1200)
         } finally {
             setSaving(false)
@@ -743,10 +740,10 @@ export default function ProfilePage() {
             {modal === 'payment' && (
                 <Modal title="Payment Methods" onClose={() => setModal(null)}>
                     <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                        <CreditCard size={48} color="#8b5cf6" style={{ marginBottom: 16, opacity: 0.4 }} />
-                        <h3 style={{ color: '#f8fafc', fontWeight: 700, margin: '0 0 8px 0' }}>Payments via Technician</h3>
-                        <p style={{ color: '#64748b', fontSize: 14, lineHeight: 1.6 }}>
-                            Currently all payments are collected by our technician at the time of service. Online payment options coming soon.
+                        <CreditCard size={48} color="#10b981" style={{ marginBottom: 16, opacity: 0.8 }} />
+                        <h3 style={{ color: '#f8fafc', fontWeight: 700, margin: '0 0 8px 0' }}>Secure Online Payments</h3>
+                        <p style={{ color: '#cbd5e1', fontSize: 14, lineHeight: 1.6 }}>
+                            You can now pay for your completed services instantly via UPI, Cards, or Netbanking securely using Razorpay. Look for the "Pay Online" button on your completed service requests.
                         </p>
                     </div>
                     <button onClick={() => setModal(null)} style={{

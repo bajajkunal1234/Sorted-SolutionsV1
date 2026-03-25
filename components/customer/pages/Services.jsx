@@ -8,19 +8,16 @@ import {
     Eye, TrendingUp
 } from 'lucide-react'
 import BookServiceModal from '../modals/BookServiceModal'
+import LiveMap from '@/components/common/LiveMap'
+import { supabase } from '@/lib/supabase'
 
 // ── Status configuration ────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-    pending: {
-        color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)',
-        icon: Clock, label: 'Pending', step: 0,
-        desc: 'Your request has been received and is being reviewed.'
-    },
     booking_request: {
         color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)',
         icon: Clock, label: 'Booking Requested', step: 0,
-        desc: 'Your booking request is under review.'
+        desc: 'Your request has been received and is being reviewed.'
     },
     assigned: {
         color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.25)',
@@ -65,7 +62,7 @@ const JOURNEY_STEPS = [
 // ── Sub-components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.booking_request
     const Icon = cfg.icon
     return (
         <div style={{
@@ -80,7 +77,7 @@ function StatusBadge({ status }) {
 }
 
 function JourneyBar({ status }) {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.booking_request
     const currentStep = cfg.step ?? 0
     if (status === 'cancelled') return null
 
@@ -131,7 +128,7 @@ function JourneyBar({ status }) {
 }
 
 function JobCard({ job, onClick }) {
-    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending
+    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.booking_request
     const Icon = cfg.icon
     const hasQuotation = job.status === 'quotation-sent'
 
@@ -158,7 +155,7 @@ function JobCard({ job, onClick }) {
             )}
 
             {/* Top row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || 'Service Request'}
@@ -214,8 +211,27 @@ function JobCard({ job, onClick }) {
 }
 
 function JobDetailSheet({ job, onClose, onCancel }) {
-    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending
+    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.booking_request
     const Icon = cfg.icon
+
+    // Tracking State
+    const [techLocation, setTechLocation] = useState(null);
+    const [custLocation] = useState(job?.location ? [job.location.lat, job.location.lng] : null);
+
+    useEffect(() => {
+        let channel;
+        if (job?.status === 'in-progress') {
+            channel = supabase.channel(`tracking:job_${job.id}`);
+            channel.on('broadcast', { event: 'location_update' }, (payload) => {
+                if (payload.payload) {
+                    setTechLocation([payload.payload.latitude, payload.payload.longitude]);
+                }
+            }).subscribe();
+        }
+        return () => {
+            if (channel) supabase.removeChannel(channel);
+        };
+    }, [job?.status, job?.id]);
 
     return (
         <>
@@ -316,6 +332,56 @@ function JobDetailSheet({ job, onClose, onCancel }) {
                                 }}>
                                     ✓ Approve Estimate
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Payment CTA for Completed Jobs */}
+                    {job.status === 'completed' && (
+                        <div style={{
+                            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                            borderRadius: 14, padding: '16px', marginBottom: 16
+                        }}>
+                            <div style={{ fontSize: 13, color: '#a7f3d0', lineHeight: 1.6, marginBottom: 12 }}>
+                                Your service is complete. You can now pay securely online.
+                            </div>
+                            <button
+                                onClick={() => {
+                                    import('@/lib/razorpayClient').then((m) => {
+                                        m.initiateRazorpayPayment({
+                                            amount: 500, // Fixed placeholder for beta
+                                            receiptId: job.id,
+                                            onSuccess: () => alert('Payment successful! Your technician has been notified.'),
+                                        })
+                                    })
+                                }}
+                                style={{
+                                    width: '100%', padding: '10px 14px', borderRadius: 10,
+                                    background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
+                                    textAlign: 'center', fontSize: 13, color: '#fff', fontWeight: 700, cursor: 'pointer',
+                                    boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
+                                }}
+                            >
+                                Pay Online
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Live Tracking Map */}
+                    {job.status === 'in-progress' && (
+                        <div style={{
+                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                            borderRadius: 14, overflow: 'hidden', marginBottom: 16
+                        }}>
+                            <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <MapPin size={16} color="#38bdf8" />
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Live Technician Tracking</div>
+                            </div>
+                            <div style={{ height: '260px', width: '100%', position: 'relative', zIndex: 0, background: '#1e293b' }}>
+                                <LiveMap technicianLocation={techLocation} customerLocation={custLocation} />
+                            </div>
+                            <div style={{ padding: '12px 16px', background: 'rgba(56,189,248,0.05)', fontSize: 12, color: '#bae6fd', textAlign: 'center' }}>
+                                The technician is on their way and sharing their live location.
                             </div>
                         </div>
                     )}
@@ -435,7 +501,7 @@ export default function ServicesPage() {
             const data = await res.json()
             const all = data.jobs || []
 
-            const activeStatuses = ['pending', 'booking_request', 'assigned', 'in-progress', 'spare-part-needed', 'quotation-sent']
+            const activeStatuses = ['booking_request', 'assigned', 'in-progress', 'spare-part-needed', 'quotation-sent']
             const pastStatuses = ['completed', 'cancelled']
 
             if (filterStatus === 'all') setJobs(all)
