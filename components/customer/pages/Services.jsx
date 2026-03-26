@@ -264,7 +264,7 @@ function JobDetailSheet({ job, onClose, onCancel }) {
                 background: 'linear-gradient(180deg, #1a2332 0%, #0f172a 100%)',
                 borderTop: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '28px 28px 0 0',
-                padding: '0 0 env(safe-area-inset-bottom)',
+                padding: '0 0 calc(80px + env(safe-area-inset-bottom))',
                 zIndex: 201, maxHeight: '92vh', overflowY: 'auto',
                 boxShadow: '0 -20px 60px rgba(0,0,0,0.6)'
             }}>

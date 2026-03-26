@@ -181,7 +181,7 @@ export default function ExpensesList({ technicianId }) {
                         <div style={{ fontSize: 'var(--font-size-sm)', marginTop: 'var(--spacing-xs)' }}>Click "Add" to submit your first expense</div>
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)', paddingBottom: '80px' }}>
+                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
                         {expenses.map(expense => {
                             const cat = getCatInfo(expense.category);
                             return (

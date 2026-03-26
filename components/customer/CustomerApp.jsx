@@ -82,7 +82,7 @@ export default function CustomerApp() {
             {/* Scrollable content area */}
             <div style={{
                 flex: 1, overflowY: 'auto', overflowX: 'hidden',
-                paddingBottom: NAV_HEIGHT, position: 'relative', zIndex: 10,
+                paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', position: 'relative', zIndex: 10,
                 WebkitOverflowScrolling: 'touch',
             }}>
                 {renderTab(activeTab)}

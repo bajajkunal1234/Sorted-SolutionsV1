@@ -560,8 +560,7 @@ function TechnicianApp() {
                 </div>
             </div>
 
-            {/* Jobs List */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-sm)', paddingBottom: '70px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-sm)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
                         <div style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--spacing-sm)' }}>
@@ -833,7 +832,7 @@ function TechnicianApp() {
 
     // Settings Tab Content
     const renderSettingsTab = () => (
-        <div style={{ padding: 'var(--spacing-md)', overflow: 'auto', paddingBottom: '80px' }}>
+        <div style={{ padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', overflowY: 'auto', flex: 1 }}>
             <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                 <Settings size={24} color="#3b82f6" />
                 Settings & Profile
