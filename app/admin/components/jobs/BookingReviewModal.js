@@ -141,10 +141,15 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         mailing_address: fullAddress,
         billing_address: fullAddress,
         shipping_address: fullAddress,
+        acquisitionSource: 'website',
         properties: [{
             id: Date.now(),
             name: 'Home',
-            address: fullAddress,
+            address: addr.street || fullAddress,
+            flat_number: addr.flat_number || addr.apartment || '',
+            building_name: addr.building_name || addr.building || '',
+            locality: addr.locality || '',
+            pincode: addr.zip || addr.pincode || '',
             contactPerson: cust.name || '',
             contactPhone: cust.phone || ''
         }]

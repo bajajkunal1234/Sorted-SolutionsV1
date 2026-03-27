@@ -536,7 +536,21 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
         // Add properties if applicable
         if (showField('properties')) {
-            account.properties = properties.filter(p => p.name.trim() !== '' || p.address.trim() !== '');
+            // Validate property fields if any part of a property is filled
+            const invalidProp = properties.find(p => {
+                const isNotEmpty = p.name.trim() || p.address.trim() || p.flat_number?.trim() || p.building_name?.trim() || p.locality?.trim() || p.pincode?.trim();
+                if (isNotEmpty) {
+                    return !p.address?.trim() || !p.flat_number?.trim() || !p.building_name?.trim() || !p.locality?.trim() || !p.pincode?.trim();
+                }
+                return false;
+            });
+
+            if (invalidProp) {
+                setErrors(prev => ({ ...prev, properties: 'Please fill all mandatory property fields (Flat/Wing, Building Name, Street Address/Area, Locality, Pincode) for the added properties.' }));
+                return;
+            }
+
+            account.properties = properties.filter(p => p.name.trim() !== '' || p.address.trim() !== '' || p.flat_number?.trim() || p.building_name?.trim());
         }
 
         if (onSave) {
@@ -959,6 +973,11 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     Add Property
                                                 </button>
                                             </div>
+                                            {errors.properties && (
+                                                <div style={{ color: '#ef4444', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-md)', padding: 'var(--spacing-sm)', backgroundColor: '#fef2f2', borderRadius: 'var(--radius-sm)', border: '1px solid #fecaca' }}>
+                                                    {errors.properties}
+                                                </div>
+                                            )}
 
                                             {properties.map((property, index) => (
                                                 <div
@@ -1014,7 +1033,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                                            <label className="form-label">Flat / Wing</label>
+                                                            <label className="form-label">Flat / Wing *</label>
                                                             <input
                                                                 type="text"
                                                                 className="form-input"
@@ -1024,7 +1043,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                             />
                                                         </div>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                                            <label className="form-label">Building Name</label>
+                                                            <label className="form-label">Building Name *</label>
                                                             <input
                                                                 type="text"
                                                                 className="form-input"
@@ -1048,7 +1067,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                                            <label className="form-label">Locality</label>
+                                                            <label className="form-label">Locality *</label>
                                                             <select
                                                                 className="form-select"
                                                                 value={property.locality}
@@ -1063,7 +1082,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                             </select>
                                                         </div>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
-                                                            <label className="form-label">Pincode</label>
+                                                            <label className="form-label">Pincode *</label>
                                                             <input
                                                                 type="text"
                                                                 className="form-input"
