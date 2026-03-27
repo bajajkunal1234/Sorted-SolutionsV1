@@ -1,13 +1,25 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Users, Plus, Edit2, Power, Save, X, Eye, EyeOff, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw } from 'lucide-react';
+import { Users, Plus, Edit2, Power, Save, X, Eye, EyeOff, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin } from 'lucide-react';
 import { techniciansAPI, websiteSettingsAPI, accountsAPI, accountGroupsAPI } from '@/lib/adminAPI';
+import dynamic from 'next/dynamic';
+
+const TechnicianLiveMap = dynamic(() => import('./TechnicianLiveMap'), {
+    ssr: false,
+    loading: () => <div style={{ height: 480, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 14 }}>🗺️ Loading fleet map...</div>
+});
 
 const CATEGORY_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#6b7280','#f97316','#06b6d4'];
 
 function TechnicianManagement() {
-    const [activeTab, setActiveTab] = useState('credentials'); // 'credentials' | 'expenses'
+    const [activeTab, setActiveTab] = useState('credentials'); // 'credentials' | 'expenses' | 'livefleet'
+
+    // ─── Fleet map state ─────────────────────────────────────────────────────
+    const [activeJobs, setActiveJobs] = useState([]);
+    const [fleetLoading, setFleetLoading] = useState(false);
+    const [geocodeStatus, setGeocodeStatus] = useState(null); // null | 'running' | { succeeded, failed, processed }
+    const [geocodeCount, setGeocodeCount] = useState(null);
 
     // ─── Credentials state ───────────────────────────────────────────────────
     const [technicians, setTechnicians] = useState([]);
@@ -48,8 +60,43 @@ function TechnicianManagement() {
         { id: 'viewReports', label: 'View Reports', description: 'Can access reports and analytics' }
     ];
 
-    useEffect(() => { fetchTechnicians(); }, []);
+    useEffect(() => { fetchTechnicians(); fetchGeocodeCount(); }, []);
     useEffect(() => { if (activeTab === 'expenses') { fetchCategories(); fetchExpenses(); } }, [activeTab, expenseFilter]);
+    useEffect(() => { if (activeTab === 'livefleet') fetchActiveJobs(); }, [activeTab]);
+
+    const fetchGeocodeCount = async () => {
+        try {
+            const res = await fetch('/api/admin/geocode-properties');
+            const data = await res.json();
+            if (data.success) setGeocodeCount(data.needsGeocoding);
+        } catch(e) {}
+    };
+
+    const fetchActiveJobs = async () => {
+        setFleetLoading(true);
+        try {
+            const res = await fetch('/api/admin/jobs?status=in-progress&limit=50');
+            const data = await res.json();
+            setActiveJobs(data.jobs || data.data || []);
+        } catch(e) {
+            setActiveJobs([]);
+        } finally {
+            setFleetLoading(false);
+        }
+    };
+
+    const handleRunGeocode = async () => {
+        if (!window.confirm('This will convert text addresses of all existing properties to map coordinates. It takes about 1 second per property. Continue?')) return;
+        setGeocodeStatus('running');
+        try {
+            const res = await fetch('/api/admin/geocode-properties', { method: 'POST' });
+            const data = await res.json();
+            setGeocodeStatus(data);
+            setGeocodeCount(0);
+        } catch(e) {
+            setGeocodeStatus({ error: e.message });
+        }
+    };
 
     const fetchTechnicians = async () => {
         try {
@@ -233,7 +280,8 @@ function TechnicianManagement() {
             <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', paddingBottom: 0 }}>
                 {[
                     { id: 'credentials', label: '🔐 Technician Credentials' },
-                    { id: 'expenses', label: '💰 Technician Expenses' }
+                    { id: 'expenses', label: '💰 Technician Expenses' },
+                    { id: 'livefleet', label: '🗺️ Technicians on Map' }
                 ].map(t => (
                     <button
                         key={t.id}
@@ -515,6 +563,50 @@ function TechnicianManagement() {
                             </button>
                         </div>
                     </div>
+                </div>
+            )}
+            {/* ──────────────── FLEET MAP TAB ──────────────── */}
+            {activeTab === 'livefleet' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                        <div>
+                            <h3 style={{ fontWeight: 700, marginBottom: 4 }}>Live Technician Fleet</h3>
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Real-time locations of all technicians currently on in-progress jobs.</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                            <button
+                                onClick={fetchActiveJobs}
+                                disabled={fleetLoading}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.1)', color: '#6366f1', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+                            >
+                                <RefreshCcw size={14} className={fleetLoading ? 'spin' : ''} /> Refresh
+                            </button>
+                            {geocodeCount > 0 && (
+                                <button
+                                    onClick={handleRunGeocode}
+                                    disabled={geocodeStatus === 'running'}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
+                                >
+                                    <MapPin size={14} />
+                                    {geocodeStatus === 'running' ? 'Converting... (please wait)' : `🔄 Convert ${geocodeCount} Old Addresses`}
+                                </button>
+                            )}
+                            {geocodeStatus && geocodeStatus !== 'running' && (
+                                <div style={{ padding: '8px 14px', borderRadius: 8, background: geocodeStatus.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: geocodeStatus.error ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 600 }}>
+                                    {geocodeStatus.error ? `❌ ${geocodeStatus.error}` : `✅ Done: ${geocodeStatus.succeeded}/${geocodeStatus.processed} converted`}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {fleetLoading ? (
+                        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
+                            <Loader2 size={32} className="spin" style={{ marginBottom: 12 }} />
+                            <div>Loading active jobs...</div>
+                        </div>
+                    ) : (
+                        <TechnicianLiveMap activeTechnicians={activeJobs} />
+                    )}
                 </div>
             )}
         </div>

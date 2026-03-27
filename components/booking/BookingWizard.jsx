@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronRight, ChevronLeft, Clock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import BookingSteps from './BookingSteps';
 import './BookingWizard.css';
+import ClientPinDropMap from '@/components/common/ClientPinDropMap';
 
 // ─── Mumbai locality → pincode mapping ─────────────────────────────────────
 const MUMBAI_LOCALITIES = [
@@ -184,6 +185,7 @@ export default function BookingWizard() {
         selectedDate: '',   // ISO date string "YYYY-MM-DD"
         selectedSlotId: '', // slot id
         selectedSlotLabel: '',
+        lat: null, lng: null, // pin drop coordinates
     });
 
     useEffect(() => {
@@ -339,7 +341,9 @@ export default function BookingWizard() {
                         locality: formData.locality,
                         city: formData.city,
                         state: formData.state,
-                        zip: formData.zip
+                        zip: formData.zip,
+                        latitude: formData.lat || null,
+                        longitude: formData.lng || null,
                     }
                 },
                 schedule: { date: formData.selectedDate, slot: formData.selectedSlotLabel }
@@ -525,6 +529,23 @@ export default function BookingWizard() {
                                         value={formData.zip}
                                         onChange={e => setFormData({ ...formData, zip: e.target.value })} />
                                 </div>
+                            </div>
+
+                            {/* ── Pin Drop Map ── */}
+                            <div className="form-group">
+                                <ClientPinDropMap
+                                    label="📍 Confirm Your Location on Map"
+                                    geocodeQuery={[
+                                        formData.building_name,
+                                        formData.address,
+                                        formData.locality,
+                                        formData.zip
+                                    ].filter(Boolean).join(', ')}
+                                    initialLat={formData.lat}
+                                    initialLng={formData.lng}
+                                    onChange={({ lat, lng }) => setFormData(prev => ({ ...prev, lat, lng }))}
+                                    height="240px"
+                                />
                             </div>
 
                             <div className="form-group">

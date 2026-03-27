@@ -23,10 +23,19 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
 
-    // Tracking State
+    // Tracking State — use stored coordinates from property if available
     const [isTracking, setIsTracking] = useState(job?.status === 'in-progress');
     const [techLocation, setTechLocation] = useState(null);
-    const [custLocation, setCustLocation] = useState(job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng] : null);
+    
+    // Use stored lat/lng from property (if available) — no geocoding needed
+    const storedLat = job?.property?.latitude || job?.latitude;
+    const storedLng = job?.property?.longitude || job?.longitude;
+    const [custLocation, setCustLocation] = useState(
+        storedLat && storedLng ? [storedLat, storedLng]
+        : job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng] 
+        : null
+    );
+    const hasStoredCoords = !!(storedLat && storedLng);
 
     // Live Tracking Broadcaster
     useEffect(() => {
@@ -64,11 +73,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         };
     }, [editedJob?.status, editedJob?.id]);
 
-    // Geocoding Fallback for Customer Location
+    // Geocoding Fallback — only run if we don't have stored coordinates
     useEffect(() => {
+        if (hasStoredCoords) return; // Skip geocoding if we have stored coordinates
         const addressString = editedJob?.address || editedJob?.locality || (editedJob?.customer?.address && typeof editedJob.customer.address === 'string' ? editedJob.customer.address : '');
         if (!custLocation && addressString) {
-            const query = encodeURIComponent(addressString);
+            const query = encodeURIComponent(addressString + ', Mumbai, India');
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`)
                 .then(res => res.json())
                 .then(data => {
@@ -82,7 +92,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         } else if (!custLocation) {
             setCustLocation([19.0760, 72.8777]); // Mumbai fallback
         }
-    }, [editedJob?.address, editedJob?.locality, custLocation]);
+    }, [editedJob?.address, editedJob?.locality, custLocation, hasStoredCoords]);
 
     // Fetch fresh job and interactions on mount
     useEffect(() => {
@@ -534,8 +544,28 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             </div>
 
                             <div className="card" style={{ overflow: 'hidden', height: '350px', backgroundColor: '#e5e7eb', zIndex: 0 }}>
-                                <LiveMap technicianLocation={techLocation} customerLocation={custLocation} />
+                                <LiveMap technicianLocation={techLocation} customerLocation={custLocation} fitBounds={!!(techLocation && custLocation)} />
                             </div>
+
+                            {/* Navigate Button in Map Tab */}
+                            {custLocation && (
+                                <a
+                                    href={
+                                        storedLat && storedLng
+                                            ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
+                                            : `https://www.google.com/maps/dir/?api=1&destination=${custLocation[0]},${custLocation[1]}`
+                                    }
+                                    target="_blank" rel="noreferrer"
+                                    style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                        padding: '14px', borderRadius: 10, fontWeight: 700, fontSize: 15,
+                                        backgroundColor: '#10b981', color: '#fff', textDecoration: 'none',
+                                        boxShadow: '0 4px 14px rgba(16,185,129,0.35)'
+                                    }}
+                                >
+                                    <MapPin size={18} /> {storedLat && storedLng ? '📍 Navigate to Exact Location' : 'Navigate to Address'}
+                                </a>
+                            )}
                         </div>
                     )}
 
@@ -564,12 +594,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
                                             )}
                                             <a
-                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`}
+                                                href={
+                                                    storedLat && storedLng
+                                                        ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
+                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
+                                                }
                                                 target="_blank" rel="noreferrer"
                                                 onClick={handleMapClick}
-                                                style={{ display: 'inline-block', marginTop: '4px', color: '#3b82f6', fontSize: '12px', textDecoration: 'none' }}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
                                             >
-                                                Open in Maps &rsaquo;
+                                                {storedLat && storedLng ? '📍 Navigate (Precise)' : 'Open in Maps ›'}
                                             </a>
                                         </div>
                                     </div>

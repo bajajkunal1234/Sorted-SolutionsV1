@@ -17,6 +17,12 @@ import {
     getGroupPath
 } from '@/lib/utils/accountHelpers';
 import { validateMobileNumber, validateEmail, validateGSTIN, validatePAN, validateIFSC } from '@/lib/utils/validation';
+import dynamic from 'next/dynamic';
+
+const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
+    ssr: false,
+    loading: () => <div style={{ height: '200px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>🗺️ Loading map...</div>
+});
 
 // ─── Mumbai locality → pincode mapping ─────────────────────────────────────
 const MUMBAI_LOCALITIES = [
@@ -1062,6 +1068,26 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                             value={property.address}
                                                             onChange={(e) => updateProperty(index, 'address', e.target.value)}
                                                             placeholder="e.g. Opposite Bank of India, MG Road"
+                                                        />
+                                                    </div>
+
+                                                    {/* Pin Drop Map */}
+                                                    <div style={{ marginBottom: 'var(--spacing-sm)' }}>
+                                                        <ClientPinDropMap
+                                                            label="📍 Confirm location on map"
+                                                            geocodeQuery={[
+                                                                property.building_name,
+                                                                property.address,
+                                                                property.locality,
+                                                                property.pincode
+                                                            ].filter(Boolean).join(', ')}
+                                                            initialLat={property.lat}
+                                                            initialLng={property.lng}
+                                                            onChange={({ lat, lng }) => {
+                                                                updateProperty(index, 'lat', lat);
+                                                                updateProperty(index, 'lng', lng);
+                                                            }}
+                                                            height="200px"
                                                         />
                                                     </div>
 

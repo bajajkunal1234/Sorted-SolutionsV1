@@ -15,7 +15,7 @@ L.Icon.Default.mergeOptions({
 
 // Custom Technician Icon
 const techIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3204/3204085.png', // A wrench/worker icon or similar
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/3204/3204085.png',
     iconSize: [38, 38],
     iconAnchor: [19, 38],
     popupAnchor: [0, -38]
@@ -23,24 +23,28 @@ const techIcon = new L.Icon({
 
 // Custom Customer Icon
 const customerIcon = new L.Icon({
-    iconUrl: 'https://cdn-icons-png.flaticon.com/512/8044/8044237.png', // A home pin icon
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/8044/8044237.png',
     iconSize: [38, 38],
     iconAnchor: [19, 38],
     popupAnchor: [0, -38]
 });
 
-function MapUpdater({ center }) {
+function MapUpdater({ center, fitBounds, technicianLocation, customerLocation }) {
     const map = useMap();
+
+    // Auto-fit both pins when fitBounds is true and both locations exist
     useEffect(() => {
-        if (center) {
+        if (fitBounds && technicianLocation && customerLocation) {
+            const bounds = L.latLngBounds([technicianLocation, customerLocation]);
+            map.fitBounds(bounds, { padding: [50, 50], animate: true, duration: 1 });
+        } else if (center) {
             map.flyTo(center, map.getZoom(), { animate: true, duration: 1 });
         }
-    }, [center, map]);
+    }, [center, fitBounds, technicianLocation, customerLocation, map]);
     return null;
 }
 
-export default function MapVisualizer({ technicianLocation, customerLocation, height = '300px' }) {
-    // Default center to customer location, then technician, then a default fallback (e.g. Mumbai)
+export default function MapVisualizer({ technicianLocation, customerLocation, height = '300px', fitBounds = false }) {
     const [center, setCenter] = useState(customerLocation || technicianLocation || [19.0760, 72.8777]);
 
     useEffect(() => {
@@ -55,7 +59,7 @@ export default function MapVisualizer({ technicianLocation, customerLocation, he
                     attribution='&copy; <a href="https://carto.com/">Carto</a>'
                 />
                 
-                <MapUpdater center={center} />
+                <MapUpdater center={center} fitBounds={fitBounds} technicianLocation={technicianLocation} customerLocation={customerLocation} />
 
                 {technicianLocation && (
                     <Marker position={technicianLocation} icon={techIcon}>

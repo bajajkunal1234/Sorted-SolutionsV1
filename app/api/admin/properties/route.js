@@ -183,7 +183,7 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { address, locality, city, pincode, property_type, customer_id, notes, flat_number, building_name, force_create } = body
+        const { address, locality, city, pincode, property_type, customer_id, notes, flat_number, building_name, force_create, latitude, longitude } = body
 
         if (!address) return NextResponse.json({ success: false, error: 'Address is required' }, { status: 400 })
 
@@ -223,7 +223,9 @@ export async function POST(request) {
                 locality, 
                 city, 
                 pincode, 
-                property_type: property_type || 'residential' 
+                property_type: property_type || 'residential',
+                latitude: latitude || null,
+                longitude: longitude || null,
             })
             .select()
             .single()

@@ -496,6 +496,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                     city: prop.city || 'Mumbai',
                                     pincode: prop.pincode || '',
                                     property_type: prop.property_type || 'residential',
+                                    latitude: prop.lat || null,
+                                    longitude: prop.lng || null,
                                     customer_id: result.id,
                                     force_create: false
                                 })

@@ -7,6 +7,7 @@ import {
     X, Bell, HelpCircle, Star, Plus, Trash2, Loader2, Camera
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import ClientPinDropMap from '@/components/common/ClientPinDropMap'
 
 const S = {
     input: {
@@ -182,7 +183,7 @@ function PropertyManagerModal({ onClose }) {
     const [view, setView] = useState('list') // 'list' | 'add'
     
     // Add Property Form State
-    const [form, setForm] = useState({ type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '' })
+    const [form, setForm] = useState({ type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', lat: null, lng: null })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
@@ -289,6 +290,8 @@ function PropertyManagerModal({ onClose }) {
                     city: form.city,
                     pincode: form.pincode,
                     property_type: form.type,
+                    latitude: form.lat || null,
+                    longitude: form.lng || null,
                 }),
             })
             const data = await res.json()
@@ -408,6 +411,21 @@ function PropertyManagerModal({ onClose }) {
                                 <label style={S.label}>Street Address *</label>
                                 <input style={S.input} value={form.address} onChange={e => setForm(p => ({...p, address: e.target.value}))} placeholder="Opposite Bank of India, Main Road" />
                             </div>
+
+                            {/* Pin Drop Map */}
+                            <ClientPinDropMap
+                                geocodeQuery={[
+                                    form.building_name,
+                                    form.address,
+                                    form.locality,
+                                    form.pincode
+                                ].filter(Boolean).join(', ')}
+                                initialLat={form.lat}
+                                initialLng={form.lng}
+                                onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}
+                                height="220px"
+                                label="📍 Confirm your pin on map"
+                            />
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                                 <div>
                                     <label style={S.label}>Property Type</label>

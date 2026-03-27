@@ -2,6 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Link, Unlink, Calendar, Clock, Home, Trash2, Activity, MessageSquare, RefreshCw } from 'lucide-react'
+import dynamic from 'next/dynamic'
+
+const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
+    ssr: false,
+    loading: () => (
+        <div style={{ height: '200px', width: '100%', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 13 }}>
+            🗺️ Loading map...
+        </div>
+    )
+})
 
 const MUMBAI_LOCALITIES = [
     { name: 'Aarey Colony', pincode: '400065' }, { name: 'Airoli', pincode: '400708' },
@@ -204,6 +214,21 @@ export default function AdminPropertiesTab() {
 
                         {detailLoading ? <div style={{ textAlign: 'center', color: '#475569', padding: 40 }}>Loading...</div> : (
                             <>
+                        {/* Property Location Map */}
+                                {selected.latitude && selected.longitude && (
+                                    <div style={{ marginBottom: 20 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <MapPin size={12} color="#38bdf8" /> Saved Location
+                                        </div>
+                                        <ClientPinDropMap
+                                            readOnly={true}
+                                            initialLat={selected.latitude}
+                                            initialLng={selected.longitude}
+                                            height="200px"
+                                        />
+                                    </div>
+                                )}
+
                                 {/* Current Tenants */}
                                 <Section title="Linked Customers" icon={<Users size={14} color="#38bdf8" />}>
                                     {(selected.tenants || []).filter(t => t.is_active).length === 0 ? (
@@ -341,7 +366,7 @@ function TenantRow({ tenant, onUnlink, past }) {
 }
 
 function AddPropertyModal({ onClose, onSaved }) {
-    const [form, setForm] = useState({ flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential' })
+    const [form, setForm] = useState({ flat_number: '', building_name: '', address: '', locality: '', city: 'Mumbai', pincode: '', property_type: 'residential', lat: null, lng: null })
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
     const [duplicate, setDuplicate] = useState(null) // existing property if duplicate found
@@ -357,7 +382,9 @@ function AddPropertyModal({ onClose, onSaved }) {
         setSaving(true)
         setDuplicate(null)
         try {
-            const body = forceCreate ? { ...form, force_create: true } : form
+            const body = forceCreate 
+                ? { ...form, latitude: form.lat, longitude: form.lng, force_create: true } 
+                : { ...form, latitude: form.lat, longitude: form.lng }
             const res = await fetch('/api/admin/properties', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
             const data = await res.json()
             if (data.duplicate) {
@@ -398,6 +425,21 @@ function AddPropertyModal({ onClose, onSaved }) {
                             <input style={S.input} value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
                         </div>
                     ))}
+
+                    {/* Pin Drop Map */}
+                    <ClientPinDropMap
+                        label="📍 Confirm location on map"
+                        geocodeQuery={[
+                            form.building_name,
+                            form.address,
+                            form.locality,
+                            form.pincode
+                        ].filter(Boolean).join(', ')}
+                        initialLat={form.lat}
+                        initialLng={form.lng}
+                        onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}
+                        height="220px"
+                    />
                     <div>
                         <div style={S.label}>Locality</div>
                         <select

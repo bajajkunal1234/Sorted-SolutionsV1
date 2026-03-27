@@ -62,7 +62,7 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { customer_id, property_id, address, locality, city, pincode, property_type, name, flat_number, building_name } = body
+        const { customer_id, property_id, address, locality, city, pincode, property_type, name, flat_number, building_name, latitude, longitude } = body
 
         if (!customer_id) {
             return NextResponse.json({ error: 'customer_id is required' }, { status: 400 })
@@ -82,7 +82,9 @@ export async function POST(request) {
                     locality, 
                     city, 
                     pincode, 
-                    property_type: property_type || 'residential' 
+                    property_type: property_type || 'residential',
+                    latitude: latitude || null,
+                    longitude: longitude || null,
                 })
                 .select()
                 .single()

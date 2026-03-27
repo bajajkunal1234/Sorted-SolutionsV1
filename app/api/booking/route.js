@@ -161,6 +161,8 @@ export async function POST(request) {
                         city: customer.address.city || 'Mumbai',
                         pincode: pincode,
                         property_type: 'apartment', // Default
+                        latitude: customer.address.latitude || null,
+                        longitude: customer.address.longitude || null,
                     })
                     .select('id')
                     .single()
