@@ -119,7 +119,7 @@ const Header = () => {
                     {/* ── Actions ── */}
                     <div className="site-header__actions">
                         <ThemeToggle />
-                        <a href="tel:+918928895590" className="header-btn header-btn--call" aria-label="Call +91-8928895590">
+                        <a href="tel:+918928895590" className="header-btn header-btn--call call-btn" aria-label="Call +91-8928895590">
                             <Phone size={16} />
                             <span>+91-8928895590</span>
                         </a>
@@ -153,7 +153,7 @@ const Header = () => {
                         </Link>
                     ))}
                     <hr className="header-mobile-divider" />
-                    <a href="tel:+918928895590" className="header-btn header-btn--call header-btn--full">
+                    <a href="tel:+918928895590" className="header-btn header-btn--call header-btn--full call-btn">
                         <Phone size={16} /> +91-8928895590
                     </a>
                     <Link href="/login" className="header-btn header-btn--login header-btn--full" onClick={() => setMobileOpen(false)}>
