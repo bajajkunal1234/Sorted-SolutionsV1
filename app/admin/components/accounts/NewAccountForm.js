@@ -1075,13 +1075,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     <div style={{ marginBottom: 'var(--spacing-sm)' }}>
                                                         <ClientPinDropMap
                                                             label="📍 Confirm location on map"
-                                                            geocodeQuery={[
-                                                                property.building_name,
-                                                                property.address,
-                                                                property.locality,
-                                                                property.pincode
-                                                            ].filter(Boolean).join(', ')}
                                                             localityQuery={property.locality || ''}
+                                                            pincodeQuery={property.pincode || ''}
                                                             initialLat={property.lat}
                                                             initialLng={property.lng}
                                                             onChange={({ lat, lng }) => {
