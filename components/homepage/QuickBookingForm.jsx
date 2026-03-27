@@ -131,14 +131,14 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
 
             // Valid
             setIsPincodeValid(true);
-            setPincodeMessage(`${settings.valid_pincode_message} (${match.locality})`);
+            setPincodeMessage('✓ Serviceable');
         } else {
             // Legacy fallback validation
             const isValid = (settings.serviceable_pincodes || []).includes(formData.pincode);
             setIsPincodeValid(isValid);
-            setPincodeMessage(isValid ? settings.valid_pincode_message : settings.invalid_pincode_message);
+            setPincodeMessage(isValid ? '✓ Serviceable' : settings.invalid_pincode_message);
         }
-    }, [formData.pincode, formData.category, settings.advanced_pincodes, settings.valid_pincode_message, settings.invalid_pincode_message]);
+    }, [formData.pincode, formData.category, settings.advanced_pincodes, settings.invalid_pincode_message]);
 
     const handlePincodeChange = (e) => {
         const pincode = e.target.value.replace(/\D/g, '').slice(0, 6);
