@@ -214,30 +214,41 @@ function JobDetailSheet({ job, onClose, onCancel }) {
     const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.booking_request
     const Icon = cfg.icon
 
+    // Use stored lat/lng from property first — no geocoding needed
+    const storedLat = job?.property?.latitude || job?.latitude;
+    const storedLng = job?.property?.longitude || job?.longitude;
+    const hasStoredCoords = !!(storedLat && storedLng);
+
     // Tracking State
     const [techLocation, setTechLocation] = useState(null);
-    const [custLocation, setCustLocation] = useState(job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng] : null);
+    const [custLocation, setCustLocation] = useState(
+        storedLat && storedLng ? [storedLat, storedLng]
+        : job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng]
+        : null
+    );
 
-    // Geocoding Fallback for Customer Location
+    // Geocoding Fallback — only if we don't have stored coordinates
     useEffect(() => {
+        if (hasStoredCoords) return;
         const addressString = job?.address || job?.locality || (job?.customer?.address && typeof job.customer.address === 'string' ? job.customer.address : '');
         if (!custLocation && addressString) {
-            const query = encodeURIComponent(addressString);
+            const query = encodeURIComponent(addressString + ', Mumbai, India');
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`)
                 .then(res => res.json())
                 .then(data => {
                     if (data && data.length > 0) {
                         setCustLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
                     } else {
-                        setCustLocation([19.0760, 72.8777]); // Mumbai fallback
+                        setCustLocation([19.0760, 72.8777]);
                     }
                 })
                 .catch(() => setCustLocation([19.0760, 72.8777]));
         } else if (!custLocation) {
-            setCustLocation([19.0760, 72.8777]); // Mumbai fallback
+            setCustLocation([19.0760, 72.8777]);
         }
-    }, [job?.address, job?.locality, custLocation]);
+    }, [job?.address, job?.locality, custLocation, hasStoredCoords]);
 
+    // Live tracking — subscribe to technician location broadcasts when in-progress
     useEffect(() => {
         let channel;
         if (job?.status === 'in-progress') {
@@ -387,21 +398,37 @@ function JobDetailSheet({ job, onClose, onCancel }) {
                         </div>
                     )}
 
-                    {/* Live Tracking Map */}
-                    {job.status === 'in-progress' && (
+                    {/* Map — shown for assigned & in-progress. Live tracking (tech pin) only for in-progress */}
+                    {['assigned', 'in-progress'].includes(job.status) && custLocation && (
                         <div style={{
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                            background: 'rgba(255,255,255,0.03)', border: `1px solid ${job.status === 'in-progress' ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.06)'}`,
                             borderRadius: 14, overflow: 'hidden', marginBottom: 16
                         }}>
-                            <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <MapPin size={16} color="#38bdf8" />
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>Live Technician Tracking</div>
+                            <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <MapPin size={16} color={job.status === 'in-progress' ? '#38bdf8' : '#10b981'} />
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>
+                                        {job.status === 'in-progress' ? 'Live Technician Tracking' : 'Your Service Location'}
+                                    </div>
+                                </div>
+                                {/* Precise coordinates badge */}
+                                {hasStoredCoords && (
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: 20, border: '1px solid rgba(16,185,129,0.2)' }}>
+                                        📍 Precise
+                                    </span>
+                                )}
                             </div>
                             <div style={{ height: '260px', width: '100%', position: 'relative', zIndex: 0, background: '#1e293b' }}>
-                                <LiveMap technicianLocation={techLocation} customerLocation={custLocation} />
+                                <LiveMap
+                                    technicianLocation={techLocation}
+                                    customerLocation={custLocation}
+                                    fitBounds={!!(techLocation && custLocation)}
+                                />
                             </div>
-                            <div style={{ padding: '12px 16px', background: 'rgba(56,189,248,0.05)', fontSize: 12, color: '#bae6fd', textAlign: 'center' }}>
-                                The technician is on their way and sharing their live location.
+                            <div style={{ padding: '12px 16px', background: job.status === 'in-progress' ? 'rgba(56,189,248,0.05)' : 'rgba(16,185,129,0.05)', fontSize: 12, color: job.status === 'in-progress' ? '#bae6fd' : '#a7f3d0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                {job.status === 'in-progress'
+                                    ? (<><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8', display: 'inline-block', animation: 'pulse 2s infinite' }} /> Technician is on their way — location updates live</>)
+                                    : '📌 Your home pin — technician will navigate here'}
                             </div>
                         </div>
                     )}
