@@ -113,7 +113,6 @@ export async function POST(request) {
                         type: 'asset',
                         under: 'customer-accounts',
                         opening_balance: 0,
-                        source: 'website-booking',   // ← booked via the public booking form
                         created_at: new Date().toISOString()
                     })
                     .select('id')
