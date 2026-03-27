@@ -23,18 +23,16 @@ const pinIcon = new L.Icon({
     shadowSize: [41, 41],
 });
 
-// MUMBAI center defaults
 const MUMBAI_CENTER = [19.076, 72.8777];
-const NOMINATIM = 'https://nominatim.openstreetmap.org/search?format=json&limit=1';
 
 /**
- * Try Nominatim with a query string. Returns [lat, lng] or null.
+ * Nominatim geocode helper. Returns [lat, lng] or null.
  */
 async function tryGeocode(query) {
-    if (!query || query.trim().length < 4) return null;
+    if (!query || query.trim().length < 3) return null;
     try {
         const res = await fetch(
-            `${NOMINATIM}&q=${encodeURIComponent(query + ', Mumbai, India')}`,
+            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query + ', Mumbai, India')}`,
             { headers: { 'Accept-Language': 'en' } }
         );
         const data = await res.json();
@@ -67,7 +65,6 @@ function DraggableMarker({ position, onMove }) {
     );
 }
 
-// Fly map to new center whenever it changes
 function MapController({ center }) {
     const map = useMap();
     useEffect(() => {
@@ -80,24 +77,27 @@ function MapController({ center }) {
  * PinDropMap — Reusable draggable pin map component.
  *
  * Props:
- *   initialLat    {number}   — Starting latitude
- *   initialLng    {number}   — Starting longitude
- *   geocodeQuery  {string}   — Combined "building, street, locality" string.
- *                              Re-triggers search whenever any part changes.
- *   onChange      {fn}       — Called with { lat, lng } on pin move or geocode
- *   height        {string}   — CSS height (default '240px')
- *   label         {string}   — Optional label above the map
- *   readOnly      {boolean}  — View-only mode (no drag)
+ *   initialLat      {number}  — Starting latitude
+ *   initialLng      {number}  — Starting longitude
+ *   geocodeQuery    {string}  — Full address: "Building, Street, Locality, Pincode"
+ *   localityQuery   {string}  — JUST the locality name (guaranteed fallback anchor).
+ *                               Always provided separately so the pin can always land.
+ *   onChange        {fn}      — Called with { lat, lng } on pin move / geocode
+ *   height          {string}  — CSS height (default '240px')
+ *   label           {string}  — Optional label above the map
+ *   readOnly        {boolean} — View-only mode
  *
- * Geocoding strategy (progressive fallback):
- *   1. Full query: building + street + locality
- *   2. Drop first part: street + locality
- *   3. Last resort: locality / pincode only
+ * Search strategy (locality is the anchor — always finds location):
+ *   1. locality alone → pin immediately lands on the area  ← guaranteed
+ *   2. street + locality → refines if street is found
+ *   3. building + street + locality → most precise if building is found
+ *   If user has already dragged the pin, map pans to area but pin stays put.
  */
 export default function PinDropMap({
     initialLat,
     initialLng,
     geocodeQuery = '',
+    localityQuery = '',
     onChange,
     height = '240px',
     label,
@@ -111,80 +111,110 @@ export default function PinDropMap({
         hasCoords ? [initialLat, initialLng] : null
     );
     const [geocoding, setGeocoding] = useState(false);
-    const [searchStatus, setSearchStatus] = useState(''); // '' | 'found' | 'not_found'
+    const [searchStatus, setSearchStatus] = useState('');
 
     const debounceRef = useRef(null);
-    const lastSearchedQuery = useRef('');
-    // Track whether user has manually dragged — suppress auto-re-pin if so
+    const lastSearchedKey = useRef('');
     const userDragged = useRef(false);
 
-    /**
-     * Core geocoding function with progressive fallback:
-     *   1. Full query (building + street + locality)
-     *   2. Without first part (street + locality)
-     *   3. Just the last part (locality or pincode)
-     */
-    const runGeocode = useCallback(async (query) => {
-        if (!query || query.trim().length < 4) return;
+    const applyResult = useCallback((result, coords) => {
+        if (!userDragged.current) {
+            setPosition(result);
+            setMapCenter(result);
+            if (onChange) onChange(coords);
+        } else {
+            // User has manually placed pin — only pan map, keep pin
+            setMapCenter(result);
+        }
+    }, [onChange]);
 
-        const parts = query.split(',').map(p => p.trim()).filter(Boolean);
+    /**
+     * Geocode with locality as guaranteed anchor.
+     * Steps:
+     *  1. Locality alone → pin lands immediately
+     *  2. Street + locality → refine
+     *  3. Building + street + locality → most precise
+     *
+     * The pin progressively moves to more precise location as better results come in.
+     */
+    const runGeocode = useCallback(async (fullQuery, locality) => {
+        const parts = fullQuery.split(',').map(p => p.trim()).filter(Boolean);
+        // Identify the parts: assume order is [building?, street?, locality, pincode?]
+        // localityQuery is passed separately as the guaranteed anchor
 
         setGeocoding(true);
         setSearchStatus('');
-        lastSearchedQuery.current = query;
+        lastSearchedKey.current = fullQuery + '|' + locality;
 
-        let result = null;
+        let found = false;
 
-        // 1. Try full combined query
-        result = await tryGeocode(query);
-
-        // 2. Drop building name — search street + locality
-        if (!result && parts.length >= 2) {
-            result = await tryGeocode(parts.slice(1).join(', '));
-        }
-
-        // 3. Last resort — just locality / pincode
-        if (!result && parts.length >= 1) {
-            result = await tryGeocode(parts[parts.length - 1]);
-        }
-
-        if (result) {
-            const [lat, lng] = result;
-            if (!userDragged.current) {
-                // User hasn't manually placed pin yet — move it to geocoded spot
-                setPosition(result);
-                setMapCenter(result);
-                if (onChange) onChange({ lat, lng });
-            } else {
-                // User dragged already — fly map to area but keep their pin placement
-                setMapCenter(result);
+        // STEP 1: Search locality alone first — this is the guaranteed anchor
+        const localityAnchor = locality || (parts.length >= 1 ? parts[parts.length - 2] || parts[parts.length - 1] : '');
+        if (localityAnchor && localityAnchor.trim().length >= 3) {
+            const res = await tryGeocode(localityAnchor);
+            if (res) {
+                applyResult(res, { lat: res[0], lng: res[1] });
+                setSearchStatus('found');
+                found = true;
             }
-            setSearchStatus('found');
-        } else {
+        }
+
+        // STEP 2: Refine with street + locality (better precision)
+        if (parts.length >= 2) {
+            // Take last 2 non-numeric parts (street + locality, skip pincode)
+            const nonNumeric = parts.filter(p => isNaN(p.replace(/\s/g, '')));
+            if (nonNumeric.length >= 2) {
+                const streetLocality = nonNumeric.slice(-2).join(', ');
+                const res2 = await tryGeocode(streetLocality);
+                if (res2) {
+                    applyResult(res2, { lat: res2[0], lng: res2[1] });
+                    setSearchStatus('found');
+                    found = true;
+                }
+            }
+        }
+
+        // STEP 3: Try full query for maximum precision (building + street + locality)
+        if (parts.length >= 3) {
+            const nonNumeric = parts.filter(p => isNaN(p.replace(/\s/g, '')));
+            if (nonNumeric.length >= 3) {
+                const fullNonNumeric = nonNumeric.join(', ');
+                const res3 = await tryGeocode(fullNonNumeric);
+                if (res3) {
+                    applyResult(res3, { lat: res3[0], lng: res3[1] });
+                    setSearchStatus('found');
+                    found = true;
+                }
+            }
+        }
+
+        if (!found) {
             setSearchStatus('not_found');
         }
 
         setGeocoding(false);
-    }, [onChange]);
+    }, [applyResult]);
 
-    // Re-geocode whenever geocodeQuery changes (debounced 900ms)
-    // No "same query" guard — any field edit (building/street/locality) triggers a new search
+    // Re-geocode whenever address fields change (debounced 900ms)
     useEffect(() => {
         if (readOnly) return;
-        if (!geocodeQuery || geocodeQuery.trim().length < 4) return;
+        // Require at least locality to start geocoding
+        const trigger = localityQuery || geocodeQuery;
+        if (!trigger || trigger.trim().length < 3) return;
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
 
+        const searchKey = geocodeQuery + '|' + localityQuery;
+
         debounceRef.current = setTimeout(() => {
-            // If the query actually changed from the last search, reset the drag flag
-            if (geocodeQuery !== lastSearchedQuery.current) {
+            if (searchKey !== lastSearchedKey.current) {
                 userDragged.current = false;
             }
-            runGeocode(geocodeQuery);
+            runGeocode(geocodeQuery, localityQuery);
         }, 900);
 
         return () => clearTimeout(debounceRef.current);
-    }, [geocodeQuery, readOnly, runGeocode]);
+    }, [geocodeQuery, localityQuery, readOnly, runGeocode]);
 
     // Sync if parent passes new initial coords after mount
     useEffect(() => {
@@ -202,25 +232,25 @@ export default function PinDropMap({
         if (onChange) onChange(coords);
     };
 
-    // Manual search button — forces re-search and resets drag flag
     const handleManualSearch = () => {
-        if (!geocodeQuery || geocodeQuery.trim().length < 4) return;
+        const trigger = localityQuery || geocodeQuery;
+        if (!trigger || trigger.trim().length < 3) return;
         userDragged.current = false;
-        runGeocode(geocodeQuery);
+        runGeocode(geocodeQuery, localityQuery);
     };
 
     const statusText = geocoding
-        ? '🔍 Searching map...'
+        ? '🔍 Searching...'
         : searchStatus === 'found'
-            ? '✅ Location found — drag pin to fine-tune'
+            ? '✅ Location found — drag pin to fine-tune your exact spot'
             : searchStatus === 'not_found'
                 ? '⚠️ Not found — drag pin manually to your location'
-                : '📍 Fill in the address fields above to auto-locate';
+                : '📍 Enter Locality to auto-place the pin, then drag to fine-tune';
 
     const statusColor = geocoding ? '#7dd3fc'
         : searchStatus === 'found' ? '#6ee7b7'
         : searchStatus === 'not_found' ? '#fca5a5'
-        : '#7dd3fc';
+        : '#94a3b8';
 
     return (
         <div>
@@ -234,13 +264,12 @@ export default function PinDropMap({
                 </div>
             )}
 
-            {/* Status bar + manual Search button */}
             {!readOnly && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <div style={{
                         flex: 1, padding: '7px 12px',
-                        background: 'rgba(56,189,248,0.08)',
-                        border: '1px solid rgba(56,189,248,0.2)',
+                        background: searchStatus === 'found' ? 'rgba(16,185,129,0.07)' : 'rgba(56,189,248,0.08)',
+                        border: `1px solid ${searchStatus === 'found' ? 'rgba(16,185,129,0.2)' : 'rgba(56,189,248,0.2)'}`,
                         borderRadius: 8, fontSize: 12,
                         color: statusColor, fontWeight: 500,
                     }}>
@@ -249,14 +278,15 @@ export default function PinDropMap({
                     <button
                         type="button"
                         onClick={handleManualSearch}
-                        disabled={geocoding || !geocodeQuery || geocodeQuery.trim().length < 4}
+                        disabled={geocoding}
                         style={{
                             padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700,
                             border: '1px solid rgba(99,102,241,0.4)',
-                            background: geocoding ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.12)',
-                            color: '#818cf8', cursor: geocoding ? 'not-allowed' : 'pointer',
+                            background: 'rgba(99,102,241,0.12)',
+                            color: '#818cf8',
+                            cursor: geocoding ? 'not-allowed' : 'pointer',
                             whiteSpace: 'nowrap',
-                            opacity: (!geocodeQuery || geocodeQuery.trim().length < 4) ? 0.4 : 1,
+                            opacity: geocoding ? 0.5 : 1,
                         }}
                     >
                         {geocoding ? '...' : '🔍 Search'}
@@ -264,7 +294,6 @@ export default function PinDropMap({
                 </div>
             )}
 
-            {/* Map */}
             <div style={{
                 height, width: '100%', borderRadius: 12,
                 overflow: 'hidden',
@@ -291,7 +320,6 @@ export default function PinDropMap({
                 </MapContainer>
             </div>
 
-            {/* Coordinates display */}
             {position && !(position[0] === MUMBAI_CENTER[0] && position[1] === MUMBAI_CENTER[1]) && (
                 <div style={{
                     marginTop: 6, fontSize: 11, color: '#475569',

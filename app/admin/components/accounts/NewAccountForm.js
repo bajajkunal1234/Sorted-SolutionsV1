@@ -1081,6 +1081,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                                 property.locality,
                                                                 property.pincode
                                                             ].filter(Boolean).join(', ')}
+                                                            localityQuery={property.locality || ''}
                                                             initialLat={property.lat}
                                                             initialLng={property.lng}
                                                             onChange={({ lat, lng }) => {

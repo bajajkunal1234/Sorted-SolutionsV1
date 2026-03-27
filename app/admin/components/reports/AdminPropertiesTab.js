@@ -435,6 +435,7 @@ function AddPropertyModal({ onClose, onSaved }) {
                             form.locality,
                             form.pincode
                         ].filter(Boolean).join(', ')}
+                        localityQuery={form.locality || ''}
                         initialLat={form.lat}
                         initialLng={form.lng}
                         onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}

@@ -541,6 +541,7 @@ export default function BookingWizard() {
                                         formData.locality,
                                         formData.zip
                                     ].filter(Boolean).join(', ')}
+                                    localityQuery={formData.locality || ''}
                                     initialLat={formData.lat}
                                     initialLng={formData.lng}
                                     onChange={({ lat, lng }) => setFormData(prev => ({ ...prev, lat, lng }))}
