@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Heart, ArrowRight, Pin, Zap, Tag, Newspaper, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import NotificationBell from '@/components/common/NotificationBell'
 
 const TYPE_CONFIG = {
     tip:       { label: 'Tip',       color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
@@ -307,6 +308,7 @@ function FeedCard({ post, onLike, initialLiked }) {
 export default function HomePage() {
     const router = useRouter()
     const [customerName, setCustomerName] = useState('there')
+    const [customerId, setCustomerId] = useState(null)
     const [greeting, setGreeting] = useState('Good Morning')
     const [banners, setBanners] = useState([])
     const [bannerIndex, setBannerIndex] = useState(0)
@@ -328,8 +330,9 @@ export default function HomePage() {
             if (cData) setCustomerName(JSON.parse(cData).name?.split(' ')[0] || 'there')
         } catch {}
 
-        const customerId = localStorage.getItem('customerId')
-        if (!customerId) { router.push('/customer/login'); return }
+        const cId = localStorage.getItem('customerId')
+        if (!cId) { router.push('/customer/login'); return }
+        setCustomerId(cId)
 
         fetch('/api/settings/section-configs?id=customer-app-banners')
             .then(r => r.json())
@@ -369,9 +372,16 @@ export default function HomePage() {
     return (
         <div style={{ minHeight: '100%', background: '#0a0f1e' }}>
             {/* Greeting */}
-            <div style={{ padding: '28px 20px 12px' }}>
-                <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500, marginBottom: 2 }}>{greeting}</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px' }}>{customerName} 👋</div>
+            <div style={{ padding: '28px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div>
+                    <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500, marginBottom: 2 }}>{greeting}</div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px' }}>{customerName} 👋</div>
+                </div>
+                {customerId && (
+                    <div style={{ transform: 'scale(1.1)', marginBottom: '4px' }}>
+                        <NotificationBell recipientId={customerId} recipientType="customer" theme="dark" />
+                    </div>
+                )}
             </div>
 
             {/* Banner Carousel */}

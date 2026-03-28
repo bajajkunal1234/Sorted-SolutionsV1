@@ -62,18 +62,18 @@ export async function POST(request) {
         let status = 'pending';
         let errorMsg = null;
 
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
+        let targetLink = baseUrl;
+        if (recipient.recipientType === 'customer') targetLink = `${baseUrl}/customer/dashboard`;
+        else if (recipient.recipientType === 'technician') targetLink = `${baseUrl}/technician/dashboard`;
+        else if (recipient.recipientType === 'admin') targetLink = `${baseUrl}/admin`;
+
         try {
             if (channel === 'push') {
                 if (!recipient.fcm_token) {
                     status = 'skipped';
                     errorMsg = 'No FCM token — user has not enabled notifications';
                 } else {
-                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
-                    let targetLink = baseUrl;
-                    if (recipient.recipientType === 'customer') targetLink = `${baseUrl}/customer/dashboard`;
-                    else if (recipient.recipientType === 'technician') targetLink = `${baseUrl}/technician/dashboard`;
-                    else if (recipient.recipientType === 'admin') targetLink = `${baseUrl}/admin`;
-
                     const { sendFCMPush } = await import('@/lib/send-notification-server');
                     await sendFCMPush(recipient.fcm_token, { 
                         title: pushTitle, 
@@ -102,6 +102,18 @@ export async function POST(request) {
             status,
             error: errorMsg,
         });
+
+        // Also add to In-App Bell
+        if (status !== 'failed') {
+            await supabase.from('app_notifications').insert({
+                recipient_type: recipient.recipientType,
+                recipient_id: String(recipient.id),
+                title: pushTitle,
+                message: personalised,
+                link: targetLink,
+                is_read: false
+            }).catch(e => console.error('[compose] Error saving in-app notification', e.message));
+        }
 
         results.push({ name: recipient.name, status, error: errorMsg });
     }

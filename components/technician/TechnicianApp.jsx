@@ -7,6 +7,7 @@ import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, 
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import RepairCalculator from '@/components/common/RepairCalculator';
+import NotificationBell from '@/components/common/NotificationBell';
 import { logInteraction, logNavigation } from '@/lib/interactions';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 
@@ -1026,11 +1027,19 @@ function TechnicianApp() {
                 padding: 'var(--spacing-sm)',
                 backgroundColor: 'var(--bg-elevated)',
                 borderBottom: '1px solid var(--border-primary)',
-                boxShadow: 'var(--shadow-sm)'
+                boxShadow: 'var(--shadow-sm)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
             }}>
                 <h1 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, margin: 0, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                     🔧 Technician Portal
                 </h1>
+                {technicianId && (
+                    <div style={{ transform: 'scale(1.1)' }}>
+                        <NotificationBell recipientId={technicianId} recipientType="technician" theme={darkMode ? 'dark' : 'light'} />
+                    </div>
+                )}
             </div>
 
             {/* Tab Content */}

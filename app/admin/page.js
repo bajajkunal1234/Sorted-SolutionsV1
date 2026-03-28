@@ -9,7 +9,7 @@ import InventoryTab from './components/InventoryTab'
 import ReportsTab from './components/ReportsTab'
 import './admin.css'
 import './modal-improvements.css'
-
+import NotificationBell from '@/components/common/NotificationBell'
 
 export default function AdminApp() {
     const router = useRouter()
@@ -17,6 +17,7 @@ export default function AdminApp() {
     const [customerToOpen, setCustomerToOpen] = useState(null)
     const [jobToOpen, setJobToOpen] = useState(null)
     const [authChecked, setAuthChecked] = useState(false)
+    const [adminId, setAdminId] = useState(null)
 
     // ── Auth Guard ─────────────────────────────────────────────────────────
     useEffect(() => {
@@ -33,6 +34,7 @@ export default function AdminApp() {
                 router.replace('/login')
                 return
             }
+            setAdminId(session.id || 'admin') 
         } catch {
             router.replace('/login')
             return
@@ -80,8 +82,15 @@ export default function AdminApp() {
                 return <JobsTab jobToOpen={jobToOpen} onJobOpened={() => setJobToOpen(null)} />
             case 'dashboard':
                 return (
-                    <div className="dashboard-placeholder">
-                        <h2>Dashboard</h2>
+                    <div className="dashboard-placeholder" style={{ position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: '600px', margin: '0 auto 20px auto' }}>
+                            <h2 style={{ margin: 0 }}>Dashboard</h2>
+                            {adminId && (
+                                <div style={{ transform: 'scale(1.2)' }}>
+                                    <NotificationBell recipientId={adminId} recipientType="admin" theme="dark" />
+                                </div>
+                            )}
+                        </div>
                         <p>Dashboard with ERP features coming soon...</p>
                         <div className="portal-links">
                             <a href="/technician" className="portal-link">

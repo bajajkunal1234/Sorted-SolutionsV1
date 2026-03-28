@@ -83,30 +83,29 @@ export async function POST(request) {
                 .replace(/{recipient_name}/g, recipient.name || '')
                 .replace(/{event_type}/g, event_type);
 
+            // Smart Linking for Push Click & In-App Bell
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
+            let targetLink = baseUrl;
+            
+            if (recipient.recipientType === 'customer') {
+                if (['job_created_admin', 'job_assigned', 'job_started', 'job_completed', 'job_cancelled', 'sales_invoice_created', 'quotation_sent'].includes(event_type) && job_id) {
+                    targetLink = `${baseUrl}/customer/bookings/${job_id}`;
+                } else if (event_type.startsWith('rental_')) {
+                    targetLink = `${baseUrl}/customer/rentals`;
+                } else {
+                    targetLink = `${baseUrl}/customer/dashboard`;
+                }
+            } else if (recipient.recipientType === 'technician') {
+                targetLink = `${baseUrl}/technician/dashboard`;
+            } else if (recipient.recipientType === 'admin') {
+                targetLink = `${baseUrl}/admin`;
+            }
+
             let status = 'pending';
             let errorMsg = null;
 
             try {
                 if (trigger.channel === 'push' && recipient.fcm_token) {
-                    
-                    // Smart Linking for Push Click
-                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
-                    let targetLink = baseUrl;
-                    
-                    if (recipient.recipientType === 'customer') {
-                        if (['job_created_admin', 'job_assigned', 'job_started', 'job_completed', 'job_cancelled', 'sales_invoice_created', 'quotation_sent'].includes(event_type) && job_id) {
-                            targetLink = `${baseUrl}/customer/bookings/${job_id}`;
-                        } else if (event_type.startsWith('rental_')) {
-                            targetLink = `${baseUrl}/customer/rentals`;
-                        } else {
-                            targetLink = `${baseUrl}/customer/dashboard`;
-                        }
-                    } else if (recipient.recipientType === 'technician') {
-                        targetLink = `${baseUrl}/technician/dashboard`;
-                    } else if (recipient.recipientType === 'admin') {
-                        targetLink = `${baseUrl}/admin`;
-                    }
-
                     // Send FCM push
                     const { sendFCMPush } = await import('@/lib/send-notification-server');
                     await sendFCMPush(recipient.fcm_token, {
@@ -128,6 +127,19 @@ export async function POST(request) {
                 status = 'failed';
                 errorMsg = sendErr.message;
                 console.error(`[notifications/send] Failed for ${recipient.id}:`, sendErr.message);
+            }
+
+            // Always add to In-App Notifications (Notification Bell) regardless of push success
+            if (status !== 'failed') {
+                // If it's a push or whatsapp we want it in the bell. Even if skipped (no token), putting it in the bell ensures they see it when they open the app next!
+                await supabase.from('app_notifications').insert({
+                    recipient_type: recipient.recipientType,
+                    recipient_id: String(recipient.id),
+                    title: template.name || 'Notification',
+                    message: message,
+                    link: targetLink,
+                    is_read: false
+                }).catch(e => console.error('[notifications/bell] Error saving in-app notification', e.message));
             }
 
             // Log result
