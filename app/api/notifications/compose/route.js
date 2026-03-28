@@ -68,8 +68,18 @@ export async function POST(request) {
                     status = 'skipped';
                     errorMsg = 'No FCM token — user has not enabled notifications';
                 } else {
+                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
+                    let targetLink = baseUrl;
+                    if (recipient.recipientType === 'customer') targetLink = `${baseUrl}/customer/dashboard`;
+                    else if (recipient.recipientType === 'technician') targetLink = `${baseUrl}/technician/dashboard`;
+                    else if (recipient.recipientType === 'admin') targetLink = `${baseUrl}/admin`;
+
                     const { sendFCMPush } = await import('@/lib/send-notification-server');
-                    await sendFCMPush(recipient.fcm_token, { title: pushTitle, body: personalised });
+                    await sendFCMPush(recipient.fcm_token, { 
+                        title: pushTitle, 
+                        body: personalised,
+                        data: { link: targetLink }
+                    });
                     status = 'sent';
                 }
             } else if (channel === 'whatsapp') {

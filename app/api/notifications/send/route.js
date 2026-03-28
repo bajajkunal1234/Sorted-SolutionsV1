@@ -88,14 +88,35 @@ export async function POST(request) {
 
             try {
                 if (trigger.channel === 'push' && recipient.fcm_token) {
+                    
+                    // Smart Linking for Push Click
+                    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
+                    let targetLink = baseUrl;
+                    
+                    if (recipient.recipientType === 'customer') {
+                        if (['job_created_admin', 'job_assigned', 'job_started', 'job_completed', 'job_cancelled', 'sales_invoice_created', 'quotation_sent'].includes(event_type) && job_id) {
+                            targetLink = `${baseUrl}/customer/bookings/${job_id}`;
+                        } else if (event_type.startsWith('rental_')) {
+                            targetLink = `${baseUrl}/customer/rentals`;
+                        } else {
+                            targetLink = `${baseUrl}/customer/dashboard`;
+                        }
+                    } else if (recipient.recipientType === 'technician') {
+                        targetLink = `${baseUrl}/technician/dashboard`;
+                    } else if (recipient.recipientType === 'admin') {
+                        targetLink = `${baseUrl}/admin`;
+                    }
+
                     // Send FCM push
                     const { sendFCMPush } = await import('@/lib/send-notification-server');
                     await sendFCMPush(recipient.fcm_token, {
                         title: template.name,
                         body: message,
+                        data: { link: targetLink }
                     });
                     status = 'sent';
                 } else if (trigger.channel === 'whatsapp' && recipient.phone) {
+
                     // WhatsApp sending placeholder — wire when WhatsApp API is integrated
                     console.log(`[notifications/send] WhatsApp → ${recipient.phone}: ${message}`);
                     status = 'sent';
