@@ -9,6 +9,7 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [isOpen, setIsOpen] = useState(false);
+    const [showInboxModal, setShowInboxModal] = useState(false);
     const [loading, setLoading] = useState(false);
     const dropdownRef = useRef(null);
 
@@ -99,6 +100,12 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
         if (diffHrs < 24) return `${diffHrs}h ago`;
         if (diffDays === 1) return 'Yesterday';
         return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+    };
+
+    const fmtFullDateTime = (ts) => {
+        if (!ts) return '';
+        const d = new Date(ts);
+        return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     };
 
     return (
@@ -240,6 +247,141 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                                 ))}
                             </div>
                         )}
+                    </div>
+                    
+                    {/* Footer */}
+                    <div style={{
+                        padding: '12px',
+                        borderTop: '1px solid var(--border-primary, #e5e7eb)',
+                        textAlign: 'center',
+                        backgroundColor: 'var(--bg-primary, white)'
+                    }}>
+                        <button
+                            onClick={() => { setIsOpen(false); setShowInboxModal(true); }}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--color-primary, #3b82f6)',
+                                fontSize: '13px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: '4px 12px'
+                            }}
+                        >
+                            Open Full Inbox
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Full Screen Inbox Modal */}
+            {showInboxModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    zIndex: 100000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '20px'
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--bg-primary, white)',
+                        borderRadius: 'var(--radius-lg, 12px)',
+                        width: '100%',
+                        maxWidth: '600px',
+                        maxHeight: '85vh',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                        overflow: 'hidden'
+                    }}>
+                        {/* Modal Header */}
+                        <div style={{
+                            padding: '20px 24px',
+                            borderBottom: '1px solid var(--border-primary, #e5e7eb)',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            backgroundColor: 'var(--bg-elevated, white)'
+                        }}>
+                            <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--text-primary, #111827)' }}>
+                                Notifications Inbox
+                            </h2>
+                            <button
+                                onClick={() => setShowInboxModal(false)}
+                                style={{
+                                    background: 'var(--bg-secondary, #f3f4f6)',
+                                    border: 'none',
+                                    borderRadius: '50%',
+                                    width: '32px',
+                                    height: '32px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'pointer',
+                                    color: 'var(--text-secondary, #4b5563)'
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div style={{ flex: 1, overflowY: 'auto', backgroundColor: 'var(--bg-secondary, #f9fafb)', padding: '12px' }}>
+                            {notifications.length === 0 ? (
+                                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--text-tertiary, #9ca3af)' }}>
+                                    <Bell size={48} style={{ margin: '0 auto 16px', opacity: 0.2 }} />
+                                    <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-secondary, #4b5563)', marginBottom: '8px' }}>Your inbox is empty</div>
+                                    <div style={{ fontSize: '14px' }}>When you receive notifications, they will appear here.</div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {notifications.map(n => (
+                                        <div
+                                            key={n.id}
+                                            onClick={() => { setShowInboxModal(false); handleNotificationClick(n); }}
+                                            style={{
+                                                padding: '16px 20px',
+                                                borderRadius: '8px',
+                                                border: '1px solid var(--border-primary, #e5e7eb)',
+                                                backgroundColor: n.is_read ? 'var(--bg-primary, white)' : 'var(--color-primary-subtle, #f0f9ff)',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                gap: '16px',
+                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                            }}
+                                            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)'; }}
+                                            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)'; }}
+                                        >
+                                            <div style={{
+                                                width: '10px',
+                                                height: '10px',
+                                                borderRadius: '50%',
+                                                backgroundColor: n.is_read ? 'transparent' : 'var(--color-primary, #3b82f6)',
+                                                marginTop: '6px',
+                                                flexShrink: 0
+                                            }} />
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                                                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary, #111827)' }}>
+                                                        {n.title}
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary, #9ca3af)', fontWeight: 500, whiteSpace: 'nowrap', marginLeft: '12px' }}>
+                                                        {fmtFullDateTime(n.created_at)}
+                                                    </div>
+                                                </div>
+                                                <div style={{ fontSize: '14px', color: 'var(--text-secondary, #4b5563)', lineHeight: 1.5 }}>
+                                                    {n.message}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
