@@ -83,7 +83,7 @@ export default function AdminApp() {
             case 'dashboard':
                 return (
                     <div className="dashboard-placeholder" style={{ position: 'relative' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: '600px', margin: '0 auto 20px auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', maxWidth: '600px', margin: '0 auto 20px auto', position: 'relative', zIndex: 9999 }}>
                             <h2 style={{ margin: 0 }}>Dashboard</h2>
                             {adminId && (
                                 <div style={{ transform: 'scale(1.2)' }}>

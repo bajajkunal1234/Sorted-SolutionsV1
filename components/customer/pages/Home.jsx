@@ -372,7 +372,7 @@ export default function HomePage() {
     return (
         <div style={{ minHeight: '100%', background: '#0a0f1e' }}>
             {/* Greeting */}
-            <div style={{ padding: '28px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+            <div style={{ padding: '28px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', zIndex: 9999 }}>
                 <div>
                     <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500, marginBottom: 2 }}>{greeting}</div>
                     <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px' }}>{customerName} 👋</div>

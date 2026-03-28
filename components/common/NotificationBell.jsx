@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bell, Check, Trash2, ExternalLink } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Bell } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function NotificationBell({ recipientId, recipientType, theme = 'light' }) {
@@ -11,7 +12,12 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
     const [isOpen, setIsOpen] = useState(false);
     const [showInboxModal, setShowInboxModal] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [mounted, setMounted] = useState(false);
     const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const fetchInbox = async () => {
         if (!recipientId || !recipientType) return;
@@ -159,24 +165,24 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                     right: 0,
                     width: '320px',
                     maxHeight: '400px',
-                    backgroundColor: 'var(--bg-elevated, white)',
+                    backgroundColor: theme === 'dark' ? '#1e293b' : 'var(--bg-elevated, white)',
                     borderRadius: 'var(--radius-lg, 12px)',
-                    boxShadow: '0 10px 40px rgba(0,0,0,0.15), 0 0 0 1px var(--border-primary, #e5e7eb)',
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.5)',
                     overflow: 'hidden',
                     display: 'flex',
                     flexDirection: 'column',
-                    zIndex: 9999
+                    zIndex: 99999
                 }}>
                     {/* Header */}
                     <div style={{
                         padding: '16px',
-                        borderBottom: '1px solid var(--border-primary, #e5e7eb)',
+                        borderBottom: theme === 'dark' ? '1px solid #334155' : '1px solid var(--border-primary, #e5e7eb)',
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        backgroundColor: 'var(--bg-primary, white)'
+                        backgroundColor: theme === 'dark' ? '#0f172a' : 'var(--bg-primary, white)'
                     }}>
-                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--text-primary, #111827)' }}>
+                        <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: theme === 'dark' ? '#f8fafc' : 'var(--text-primary, #111827)' }}>
                             Notifications
                         </h3>
                         {unreadCount > 0 && (
@@ -200,9 +206,9 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                     </div>
 
                     {/* Notification List */}
-                    <div style={{ overflowY: 'auto', flex: 1, backgroundColor: 'var(--bg-secondary, #f9fafb)' }}>
+                    <div style={{ overflowY: 'auto', flex: 1, backgroundColor: theme === 'dark' ? '#1e293b' : 'var(--bg-secondary, #f9fafb)' }}>
                         {notifications.length === 0 ? (
-                            <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary, #9ca3af)' }}>
+                            <div style={{ padding: '30px', textAlign: 'center', color: theme === 'dark' ? '#94a3b8' : 'var(--text-tertiary, #9ca3af)' }}>
                                 <Bell size={32} style={{ margin: '0 auto 10px', opacity: 0.3 }} />
                                 <div style={{ fontSize: '14px' }}>No notifications yet</div>
                             </div>
@@ -214,15 +220,15 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                                         onClick={() => handleNotificationClick(n)}
                                         style={{
                                             padding: '14px 16px',
-                                            borderBottom: '1px solid var(--border-primary, #e5e7eb)',
-                                            backgroundColor: n.is_read ? 'var(--bg-primary, white)' : 'var(--color-primary-subtle, #f0f9ff)',
+                                            borderBottom: theme === 'dark' ? '1px solid #334155' : '1px solid var(--border-primary, #e5e7eb)',
+                                            backgroundColor: n.is_read ? (theme === 'dark' ? '#0f172a' : 'var(--bg-primary, white)') : (theme === 'dark' ? '#1e3a8a' : 'var(--color-primary-subtle, #f0f9ff)'),
                                             cursor: 'pointer',
                                             transition: 'background-color 0.2s',
                                             display: 'flex',
                                             gap: '12px'
                                         }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = n.is_read ? 'var(--bg-secondary, #f9fafb)' : '#e0f2fe' }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = n.is_read ? 'var(--bg-primary, white)' : 'var(--color-primary-subtle, #f0f9ff)' }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = n.is_read ? (theme === 'dark' ? '#1e293b' : 'var(--bg-secondary, #f9fafb)') : (theme === 'dark' ? '#1d4ed8' : '#e0f2fe') }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = n.is_read ? (theme === 'dark' ? '#0f172a' : 'var(--bg-primary, white)') : (theme === 'dark' ? '#1e3a8a' : 'var(--color-primary-subtle, #f0f9ff)') }}
                                     >
                                         <div style={{
                                             width: '8px',
@@ -233,13 +239,13 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                                             flexShrink: 0
                                         }} />
                                         <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-primary, #111827)', marginBottom: '4px' }}>
+                                            <div style={{ fontWeight: 600, fontSize: '13px', color: theme === 'dark' ? '#f8fafc' : 'var(--text-primary, #111827)', marginBottom: '4px' }}>
                                                 {n.title}
                                             </div>
-                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary, #4b5563)', lineHeight: 1.4 }}>
+                                            <div style={{ fontSize: '12px', color: theme === 'dark' ? '#cbd5e1' : 'var(--text-secondary, #4b5563)', lineHeight: 1.4 }}>
                                                 {n.message}
                                             </div>
-                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary, #9ca3af)', marginTop: '6px', fontWeight: 500 }}>
+                                            <div style={{ fontSize: '11px', color: theme === 'dark' ? '#94a3b8' : 'var(--text-tertiary, #9ca3af)', marginTop: '6px', fontWeight: 500 }}>
                                                 {fmtTime(n.created_at)}
                                             </div>
                                         </div>
@@ -252,12 +258,12 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                     {/* Footer */}
                     <div style={{
                         padding: '12px',
-                        borderTop: '1px solid var(--border-primary, #e5e7eb)',
+                        borderTop: theme === 'dark' ? '1px solid #334155' : '1px solid var(--border-primary, #e5e7eb)',
                         textAlign: 'center',
-                        backgroundColor: 'var(--bg-primary, white)'
+                        backgroundColor: theme === 'dark' ? '#0f172a' : 'var(--bg-primary, white)'
                     }}>
                         <button
-                            onClick={() => { setIsOpen(false); setShowInboxModal(true); }}
+                            onClick={(e) => { e.stopPropagation(); setIsOpen(false); setShowInboxModal(true); }}
                             style={{
                                 background: 'none',
                                 border: 'none',
@@ -268,14 +274,14 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                                 padding: '4px 12px'
                             }}
                         >
-                            Open Full Inbox
+                            Open Inbox
                         </button>
                     </div>
                 </div>
             )}
 
             {/* Full Screen Inbox Modal */}
-            {showInboxModal && (
+            {mounted && showInboxModal && createPortal(
                 <div style={{
                     position: 'fixed',
                     top: 0, left: 0, right: 0, bottom: 0,
@@ -383,7 +389,8 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

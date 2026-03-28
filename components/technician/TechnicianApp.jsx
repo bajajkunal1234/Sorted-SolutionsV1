@@ -1030,7 +1030,9 @@ function TechnicianApp() {
                 boxShadow: 'var(--shadow-sm)',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'center'
+                alignItems: 'center',
+                position: 'relative',
+                zIndex: 9999
             }}>
                 <h1 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, margin: 0, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                     🔧 Technician Portal
