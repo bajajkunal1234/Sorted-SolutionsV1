@@ -86,13 +86,15 @@ function TechnicianManagement() {
     };
 
     const handleRunGeocode = async () => {
-        if (!window.confirm('This will convert text addresses of all existing properties to map coordinates. It takes about 1 second per property. Continue?')) return;
+        const msg = `This will use Google to find precise coordinates for ${geocodeCount} propert${geocodeCount === 1 ? 'y' : 'ies'} that don't have a map pin yet.\n\nIt takes about 5 seconds total. Continue?`;
+        if (!window.confirm(msg)) return;
         setGeocodeStatus('running');
         try {
             const res = await fetch('/api/admin/geocode-properties', { method: 'POST' });
             const data = await res.json();
             setGeocodeStatus(data);
-            setGeocodeCount(0);
+            // Refresh the count — may be 0 now if all converted
+            fetchGeocodeCount();
         } catch(e) {
             setGeocodeStatus({ error: e.message });
         }
@@ -592,8 +594,18 @@ function TechnicianManagement() {
                                 </button>
                             )}
                             {geocodeStatus && geocodeStatus !== 'running' && (
-                                <div style={{ padding: '8px 14px', borderRadius: 8, background: geocodeStatus.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: geocodeStatus.error ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 600 }}>
-                                    {geocodeStatus.error ? `❌ ${geocodeStatus.error}` : `✅ Done: ${geocodeStatus.succeeded}/${geocodeStatus.processed} converted`}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ padding: '8px 14px', borderRadius: 8, background: geocodeStatus.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: geocodeStatus.error ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 600 }}>
+                                        {geocodeStatus.error
+                                            ? `❌ ${geocodeStatus.error}`
+                                            : `✅ ${geocodeStatus.succeeded}/${geocodeStatus.processed} pinned${geocodeStatus.failed > 0 ? ` (${geocodeStatus.failed} not found)` : ''}`
+                                        }
+                                    </div>
+                                    {geocodeStatus.failed > 0 && (
+                                        <div style={{ fontSize: 12, color: '#f59e0b' }}>
+                                            ⚠️ {geocodeStatus.failed} addresses couldn't be found on Google Maps — drag their pins manually
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

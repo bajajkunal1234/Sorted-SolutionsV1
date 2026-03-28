@@ -9,8 +9,26 @@ export const dynamic = 'force-dynamic'
  *
  * POST /api/admin/geocode-properties
  * Batch-geocodes all properties where latitude IS NULL.
- * Rate-limits to 1 request/second to comply with Nominatim TOS.
+ * Uses Google Geocoding API for high accuracy (especially for Indian addresses).
+ * Falls back through: building+street+locality → street+locality → locality → pincode
  */
+
+const GOOGLE_KEY = process.env.GOOGLE_GEOCODING_API_KEY
+
+async function googleGeocode(query) {
+    if (!query || query.trim().length < 3) return null
+    try {
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${GOOGLE_KEY}&region=in&components=country:IN`
+        const res = await fetch(url)
+        if (!res.ok) return null
+        const data = await res.json()
+        if (data.status === 'OK' && data.results.length > 0) {
+            const { lat, lng } = data.results[0].geometry.location
+            return { lat, lng, formatted: data.results[0].formatted_address }
+        }
+    } catch (_) {}
+    return null
+}
 
 export async function GET() {
     try {
@@ -30,78 +48,86 @@ export async function GET() {
 }
 
 export async function POST() {
+    if (!GOOGLE_KEY) {
+        return NextResponse.json({
+            success: false,
+            error: 'GOOGLE_GEOCODING_API_KEY not configured in environment variables.'
+        }, { status: 500 })
+    }
+
     try {
         // Fetch all properties without coordinates
         const { data: properties, error } = await supabase
             .from('properties')
             .select('id, flat_number, building_name, address, locality, city, pincode')
             .is('latitude', null)
-            .limit(200) // Process up to 200 per batch
+            .limit(500)
 
         if (error) throw error
 
         if (!properties || properties.length === 0) {
-            return NextResponse.json({ success: true, message: 'All properties already have coordinates!', processed: 0 })
+            return NextResponse.json({ success: true, message: 'All properties already have coordinates!', processed: 0, succeeded: 0, failed: 0 })
         }
 
         let succeeded = 0
         let failed = 0
         const results = []
 
-        // Process sequentially with 1.1 second delay between requests (Nominatim rate limit: 1/sec)
         for (const prop of properties) {
-            const query = [
-                prop.flat_number,
-                prop.building_name,
-                prop.address,
-                prop.locality,
-                prop.city,
-                prop.pincode,
-                'India'
-            ].filter(Boolean).join(', ')
+            const city = prop.city || 'Mumbai'
+            const building = prop.building_name || ''
+            const street = prop.address || ''
+            const locality = prop.locality || ''
+            const pincode = prop.pincode || ''
 
-            try {
-                const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
-                    {
-                        headers: {
-                            'Accept-Language': 'en',
-                            'User-Agent': 'SortedSolutions/1.0 (admin@sorted.solutions)'
-                        }
-                    }
-                )
+            // Build queries from most specific → least specific
+            const queries = []
+            if (building && street && locality) queries.push(`${building}, ${street}, ${locality}, ${city}, India`)
+            if (building && locality)           queries.push(`${building}, ${locality}, ${city}, India`)
+            if (street && locality)             queries.push(`${street}, ${locality}, ${city}, India`)
+            if (locality)                       queries.push(`${locality}, ${city}, India`)
+            if (pincode)                        queries.push(`${pincode}, India`)
 
-                const data = await res.json()
-
-                if (data && data.length > 0) {
-                    const lat = parseFloat(data[0].lat)
-                    const lng = parseFloat(data[0].lon)
-
+            let placed = false
+            for (const q of queries) {
+                const result = await googleGeocode(q)
+                if (result) {
                     await supabase
                         .from('properties')
-                        .update({ latitude: lat, longitude: lng })
+                        .update({ latitude: result.lat, longitude: result.lng })
                         .eq('id', prop.id)
 
                     succeeded++
-                    results.push({ id: prop.id, status: 'success', lat, lng })
-                } else {
-                    failed++
-                    results.push({ id: prop.id, status: 'not_found', query })
+                    results.push({ id: prop.id, status: 'success', lat: result.lat, lng: result.lng, query: q, formatted: result.formatted })
+                    placed = true
+                    break
                 }
-            } catch (geocodeErr) {
-                failed++
-                results.push({ id: prop.id, status: 'error', error: geocodeErr.message })
+                // Small delay between fallback attempts for same property
+                await new Promise(r => setTimeout(r, 50))
             }
 
-            // Wait 1.1s between requests to comply with Nominatim usage policy
-            await new Promise(resolve => setTimeout(resolve, 1100))
+            if (!placed) {
+                failed++
+                results.push({ id: prop.id, status: 'not_found', building, street, locality, pincode })
+            }
+
+            // Google Geocoding API supports ~50 requests/sec, but we add a tiny delay
+            // to be respectful and avoid hitting rate limits on large batches
+            await new Promise(r => setTimeout(r, 100))
         }
+
+        // Re-fetch count after processing
+        const { count: remaining } = await supabase
+            .from('properties')
+            .select('id', { count: 'exact', head: true })
+            .is('latitude', null)
 
         return NextResponse.json({
             success: true,
             processed: properties.length,
             succeeded,
             failed,
+            remaining: remaining || 0,
             results
         })
     } catch (error) {
