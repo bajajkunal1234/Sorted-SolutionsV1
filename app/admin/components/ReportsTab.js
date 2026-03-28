@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
-import DailyExpenses from './reports/DailyExpenses';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
 import PrevisitRequirements from './reports/PrevisitRequirements';
 import WebsiteSettings from './reports/WebsiteSettings';
@@ -37,7 +36,6 @@ function ReportsTab() {
     const sections = [
         { id: 'daybook', label: 'Daybook', icon: Calendar, component: DaybookView, color: '#3b82f6', description: 'View daily transaction records' },
         { id: 'properties', label: 'Properties', icon: Home, component: AdminPropertiesTab, color: '#f59e0b', description: 'Manage properties, tenants and service history' },
-        { id: 'expenses', label: 'Daily Expenses', icon: DollarSign, component: DailyExpenses, color: '#10b981', description: 'Track daily business expenses' },
         { id: 'rentals', label: 'Rentals', icon: Package, component: RentalsTab, color: '#8b5cf6', description: 'Manage rental agreements' },
         { id: 'amc', label: 'AMC', icon: Shield, component: AMCTab, color: '#06b6d4', description: 'Annual Maintenance Contracts' },
         { id: 'interactions', label: 'Interactions', icon: History, component: InteractionsTab, color: '#ec4899', description: 'View all customer interactions' },
