@@ -429,6 +429,8 @@ function AddPropertyModal({ onClose, onSaved }) {
                     {/* Pin Drop Map */}
                     <ClientPinDropMap
                         label="📍 Confirm location on map"
+                        building={form.building_name || ''}
+                        street={form.address || ''}
                         localityQuery={form.locality || ''}
                         pincodeQuery={form.pincode || ''}
                         initialLat={form.lat}

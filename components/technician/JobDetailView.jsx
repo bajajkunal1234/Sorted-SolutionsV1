@@ -10,7 +10,13 @@ import { logInteraction } from '@/lib/interactions';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import QuotationWhatsAppPopup from '@/components/common/QuotationWhatsAppPopup';
 import LiveMap from '@/components/common/LiveMap';
+import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
+
+const TechnicianDirectionsMap = dynamic(
+    () => import('@/components/technician/TechnicianDirectionsMap'),
+    { ssr: false, loading: () => <div style={{ height: 380, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 14 }}>Loading map...</div> }
+);
 
 export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -543,29 +549,20 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 )}
                             </div>
 
-                            <div className="card" style={{ overflow: 'hidden', height: '350px', backgroundColor: '#e5e7eb', zIndex: 0 }}>
-                                <LiveMap technicianLocation={techLocation} customerLocation={custLocation} fitBounds={!!(techLocation && custLocation)} />
-                            </div>
-
-                            {/* Navigate Button in Map Tab */}
-                            {custLocation && (
-                                <a
-                                    href={
-                                        storedLat && storedLng
+                            {/* In-App Directions Map */}
+                            <div className="card" style={{ overflow: 'hidden', borderRadius: 12 }}>
+                                <TechnicianDirectionsMap
+                                    techLocation={techLocation}
+                                    custLocation={custLocation}
+                                    height="360px"
+                                    onNavigateExternal={custLocation ? () => {
+                                        const url = storedLat && storedLng
                                             ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
-                                            : `https://www.google.com/maps/dir/?api=1&destination=${custLocation[0]},${custLocation[1]}`
-                                    }
-                                    target="_blank" rel="noreferrer"
-                                    style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        padding: '14px', borderRadius: 10, fontWeight: 700, fontSize: 15,
-                                        backgroundColor: '#10b981', color: '#fff', textDecoration: 'none',
-                                        boxShadow: '0 4px 14px rgba(16,185,129,0.35)'
-                                    }}
-                                >
-                                    <MapPin size={18} /> {storedLat && storedLng ? '📍 Navigate to Exact Location' : 'Navigate to Address'}
-                                </a>
-                            )}
+                                            : `https://www.google.com/maps/dir/?api=1&destination=${custLocation[0]},${custLocation[1]}`;
+                                        window.open(url, '_blank');
+                                    } : undefined}
+                                />
+                            </div>
                         </div>
                     )}
 

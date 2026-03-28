@@ -414,6 +414,8 @@ function PropertyManagerModal({ onClose }) {
 
                             {/* Pin Drop Map */}
                             <ClientPinDropMap
+                                building={form.building_name || ''}
+                                street={form.address || ''}
                                 localityQuery={form.locality || ''}
                                 pincodeQuery={form.pincode || ''}
                                 initialLat={form.lat}

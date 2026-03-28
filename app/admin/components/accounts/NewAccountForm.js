@@ -1075,6 +1075,8 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     <div style={{ marginBottom: 'var(--spacing-sm)' }}>
                                                         <ClientPinDropMap
                                                             label="📍 Confirm location on map"
+                                                            building={property.building_name || ''}
+                                                            street={property.address || ''}
                                                             localityQuery={property.locality || ''}
                                                             pincodeQuery={property.pincode || ''}
                                                             initialLat={property.lat}

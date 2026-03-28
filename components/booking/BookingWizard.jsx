@@ -535,6 +535,8 @@ export default function BookingWizard() {
                             <div className="form-group">
                                 <ClientPinDropMap
                                     label="📍 Confirm Your Location on Map"
+                                    building={formData.building_name || ''}
+                                    street={formData.address || ''}
                                     localityQuery={formData.locality || ''}
                                     pincodeQuery={formData.zip || ''}
                                     initialLat={formData.lat}
