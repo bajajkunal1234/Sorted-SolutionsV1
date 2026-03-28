@@ -594,20 +594,34 @@ function TechnicianManagement() {
                                 </button>
                             )}
                             {geocodeStatus && geocodeStatus !== 'running' && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <div style={{ padding: '8px 14px', borderRadius: 8, background: geocodeStatus.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: geocodeStatus.error ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 600 }}>
-                                        {geocodeStatus.error
-                                            ? `❌ ${geocodeStatus.error}`
-                                            : `✅ ${geocodeStatus.succeeded}/${geocodeStatus.processed} pinned${geocodeStatus.failed > 0 ? ` (${geocodeStatus.failed} not found)` : ''}`
-                                        }
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 480 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <div style={{ padding: '8px 14px', borderRadius: 8, background: geocodeStatus.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: geocodeStatus.error ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 600 }}>
+                                            {geocodeStatus.error
+                                                ? `❌ ${geocodeStatus.error}`
+                                                : `✅ ${geocodeStatus.succeeded}/${geocodeStatus.processed} addresses pinned on map${geocodeStatus.failed > 0 ? ` — ${geocodeStatus.failed} need manual pin` : ' — all done!'}`
+                                            }
+                                        </div>
                                     </div>
-                                    {geocodeStatus.failed > 0 && (
-                                        <div style={{ fontSize: 12, color: '#f59e0b' }}>
-                                            ⚠️ {geocodeStatus.failed} addresses couldn't be found on Google Maps — drag their pins manually
+                                    {/* Show which properties failed so user knows which to manually fix */}
+                                    {geocodeStatus.failed > 0 && geocodeStatus.results && (
+                                        <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '10px 14px' }}>
+                                            <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 6 }}>
+                                                ⚠️ These {geocodeStatus.failed} propert{geocodeStatus.failed === 1 ? 'y' : 'ies'} couldn't be auto-pinned — go to Admin → Accounts → edit the property and drag the pin manually:
+                                            </div>
+                                            {geocodeStatus.results
+                                                .filter(r => r.status === 'not_found')
+                                                .map((r, i) => (
+                                                    <div key={i} style={{ fontSize: 12, color: '#fbbf24', padding: '4px 0', borderTop: i > 0 ? '1px solid rgba(245,158,11,0.1)' : 'none' }}>
+                                                        • {[r.building, r.street, r.locality, r.pincode].filter(Boolean).join(', ') || `Property ID: ${r.id}`}
+                                                    </div>
+                                                ))
+                                            }
                                         </div>
                                     )}
                                 </div>
                             )}
+
                         </div>
                     </div>
 
