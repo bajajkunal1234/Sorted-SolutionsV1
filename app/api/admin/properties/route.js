@@ -349,3 +349,39 @@ export async function DELETE(request) {
     }
 }
 
+
+// PATCH — edit property fields (id comes from URL ?id=...)
+// Called from Reports > Properties > Edit & Fix Pin
+export async function PATCH(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const id = searchParams.get('id')
+        if (!id) return NextResponse.json({ success: false, error: 'Property ID required' }, { status: 400 })
+
+        const updates = await request.json()
+        // Never let client overwrite id
+        delete updates.id
+
+        const { data, error } = await supabase
+            .from('properties')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single()
+        if (error) throw error
+
+        const changedFields = Object.keys(updates)
+        logInteractionServer({
+            type: 'property-edited',
+            category: 'property',
+            propertyId: id,
+            description: `Property updated by admin: ${changedFields.join(', ')}`,
+            metadata: { property_id: id, changed_fields: changedFields },
+            source: 'Admin App',
+        })
+
+        return NextResponse.json({ success: true, data })
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+}
