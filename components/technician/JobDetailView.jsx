@@ -452,23 +452,29 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     backgroundColor: 'var(--bg-elevated)', flexShrink: 0
                 }}>
-                    <div>
-                        <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, marginBottom: '4px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, marginBottom: '2px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {editedJob.customerName || 'Customer'}
                         </h2>
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                            Job #: {editedJob.job_number || editedJob.id.split('-')[0]} 
-                            <span style={{ margin: '0 8px' }}>&bull;</span>
+                        {/* Job name — most important, shown prominently */}
+                        {(editedJob.description || editedJob.product?.type || editedJob.issueCategory) && (
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                🔧 {editedJob.description || editedJob.product?.type || editedJob.issueCategory}
+                            </div>
+                        )}
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
+                            <span>•</span>
                             <span style={{
-                                color: editedJob.status === 'completed' ? '#10b981' : 
+                                color: editedJob.status === 'completed' ? '#10b981' :
                                        editedJob.status === 'cancelled' ? '#ef4444' : '#f59e0b',
-                                fontWeight: 600, textTransform: 'uppercase'
+                                fontWeight: 600, textTransform: 'uppercase', fontSize: '11px'
                             }}>{editedJob.status}</span>
                         </div>
                     </div>
                     <button onClick={onClose} style={{
                         padding: 'var(--spacing-xs)', backgroundColor: 'transparent',
-                        border: 'none', cursor: 'pointer', color: 'var(--text-secondary)'
+                        border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', flexShrink: 0, marginLeft: 8
                     }}>
                         <X size={24} />
                     </button>

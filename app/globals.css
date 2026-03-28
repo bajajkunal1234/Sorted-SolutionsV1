@@ -765,6 +765,28 @@ select option {
   .filter-select {
     width: 100%;
   }
+
+  /* ── iOS auto-zoom prevention ──
+     iOS Safari zooms in when a focused input has font-size < 16px.
+     Force 16px on all interactive inputs on mobile to prevent this.
+  */
+  .form-input,
+  .form-select,
+  .form-textarea,
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* ── Bottom nav safe area ──
+     iPhone Safari adds ~50px browser chrome below fixed elements.
+     Use env() to push the nav above the safe area.
+  */
+  .bottom-tabs {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(var(--bottom-tab-height) + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* Utility Classes */
