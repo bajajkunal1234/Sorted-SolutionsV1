@@ -94,6 +94,44 @@ function TechnicianApp() {
         }
     }, [router]);
 
+    // ── Silent background location tracking ──────────────────────────────────
+    // Sends GPS to admin every 60s. No UI shown to technician.
+    // Technician only sees the customer-facing "share location" flow tied to Start Job.
+    useEffect(() => {
+        if (!technicianId) return;
+        if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+        let pingInterval = null;
+
+        const sendLocation = () => {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    // Fire-and-forget — no await, no error shown to user
+                    fetch('/api/technician/location', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            technician_id: technicianId,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            is_on_job: false, // updated by job tracking separately
+                        }),
+                    }).catch(() => {}); // silently ignore errors
+                },
+                () => {}, // silently ignore GPS errors
+                { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+            );
+        };
+
+        // First ping immediately, then every 60 seconds
+        sendLocation();
+        pingInterval = setInterval(sendLocation, 60_000);
+
+        return () => {
+            if (pingInterval) clearInterval(pingInterval);
+        };
+    }, [technicianId]);
+
     // Load saved views from Supabase after technicianId is ready
     useEffect(() => {
         if (!technicianId) return;
@@ -112,6 +150,7 @@ function TechnicianApp() {
         };
         loadViews();
     }, [technicianId]);
+
 
     const applyViewConfig = (config) => {
         if (!config) return;
