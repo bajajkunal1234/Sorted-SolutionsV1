@@ -30,14 +30,18 @@ export async function POST(request) {
     let recipients = [];
 
     if (audience_type === 'all_customers') {
-        const { data } = await supabase.from('customers').select('id, name, phone, fcm_token');
+        const { data } = await supabase.from('accounts').select('id, name, phone, fcm_token');
         recipients = (data || []).map(r => ({ ...r, recipientType: 'customer' }));
     } else if (audience_type === 'all_technicians') {
         const { data } = await supabase.from('technicians').select('id, name, phone, fcm_token');
         recipients = (data || []).map(r => ({ ...r, recipientType: 'technician' }));
     } else if (audience_type === 'all_admins') {
-        const { data } = await supabase.from('admin_recipients').select('id, name, fcm_token').not('fcm_token', 'is', null);
-        recipients = (data || []).map(r => ({ ...r, recipientType: 'admin' }));
+        const { data } = await supabase.from('admin_recipients').select('id, name, fcm_token');
+        if (data && data.length > 0) {
+            recipients = data.map(r => ({ ...r, recipientType: 'admin' }));
+        } else {
+            recipients = [{ id: 'admin', name: 'Admin', fcm_token: null, recipientType: 'admin' }];
+        }
     } else if (audience_type === 'specific' && recipient_ids?.length > 0) {
         // Try customers first, then technicians
         const { data: custs } = await supabase.from('customers').select('id, name, phone, fcm_token').in('id', recipient_ids);

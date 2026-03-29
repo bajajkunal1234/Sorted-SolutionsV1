@@ -66,11 +66,18 @@ export async function POST(request) {
         }
 
         if (audience.includes('admins')) {
+            // Try to get named admin recipients (for push), but always ensure at least one
+            // entry so the in-app bell always receives admin notifications.
             const { data: admins } = await supabase
                 .from('admin_recipients')
-                .select('id, name, fcm_token')
-                .not('fcm_token', 'is', null);
-            (admins || []).forEach(a => recipientSets.push({ ...a, recipientType: 'admin' }));
+                .select('id, name, fcm_token');
+            
+            if (admins && admins.length > 0) {
+                admins.forEach(a => recipientSets.push({ ...a, recipientType: 'admin' }));
+            } else {
+                // Fallback: always add a generic admin recipient for in-app bell
+                recipientSets.push({ id: 'admin', name: 'Admin', fcm_token: null, recipientType: 'admin' });
+            }
         }
 
         // Fire notification for each recipient

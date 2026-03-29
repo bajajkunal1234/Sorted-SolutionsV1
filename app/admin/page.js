@@ -34,7 +34,7 @@ export default function AdminApp() {
                 router.replace('/login')
                 return
             }
-            setAdminId(session.id || 'admin') 
+            setAdminId('admin') // Always use 'admin' as the recipient_id so it matches app_notifications
         } catch {
             router.replace('/login')
             return
