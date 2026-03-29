@@ -233,6 +233,31 @@ export async function PUT(request, { params }) {
                     source: 'Technician App'
                 });
             }
+
+            // Fire in-app + push notification for status changes (fire-and-forget)
+            const statusToEventType = {
+                'in-progress':    'job_started',
+                'in_progress':    'job_started',
+                'completed':      'job_completed',
+                'cancelled':      'job_cancelled',
+                'quotation-sent': 'quotation_sent',
+            };
+            const notifEvent = statusToEventType[updates.status];
+            if (notifEvent) {
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
+                fetch(`${baseUrl}/api/notifications/send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event_type: notifEvent,
+                        job_id: String(id),
+                        customer_id: customerId || undefined,
+                        technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
+                        customer_name: customerName || undefined,
+                        technician_name: techName,
+                    }),
+                }).catch(err => console.error('[technician/fireNotification] Error:', err.message));
+            }
         }
 
         return NextResponse.json({
