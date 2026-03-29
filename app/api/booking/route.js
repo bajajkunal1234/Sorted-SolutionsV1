@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
+import { fireNotification } from '@/lib/fire-notification'
 
 // Generate Job Number like JOB-1001, JOB-1002
 async function generateJobNumber() {
@@ -264,17 +265,11 @@ export async function POST(request) {
             source: 'Website',
         });
 
-        // Fire notification trigger (fire-and-forget)
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
-        fetch(`${baseUrl}/api/notifications/send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                event_type: 'booking_created_website',
-                job_id: String(job.id),
-                customer_id: customerId ? String(customerId) : undefined,
-                customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
-            }),
+        // Fire notification trigger (direct module call — no HTTP self-fetch)
+        fireNotification('booking_created_website', {
+            job_id: String(job.id),
+            customer_id: customerId ? String(customerId) : undefined,
+            customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
         }).catch(err => console.error('[booking/fireNotification] Error:', err.message));
 
         return NextResponse.json({

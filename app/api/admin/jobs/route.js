@@ -4,18 +4,7 @@ import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * Fire-and-forget notification trigger.
- * Calls the notification send endpoint for a given event without blocking the response.
- */
-function fireNotification(event_type, context = {}) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    fetch(`${baseUrl}/api/notifications/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_type, ...context }),
-    }).catch(err => console.error('[fireNotification] Error:', err.message));
-}
+import { fireNotification } from '@/lib/fire-notification'
 
 // GET - Fetch all jobs or filter by query params
 export async function GET(request) {

@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
+import { fireNotification } from '@/lib/fire-notification'
 
 export async function GET(request, { params }) {
     try {
@@ -234,7 +235,7 @@ export async function PUT(request, { params }) {
                 });
             }
 
-            // Fire in-app + push notification for status changes (fire-and-forget)
+            // Fire in-app + push notification for status changes
             const statusToEventType = {
                 'in-progress':    'job_started',
                 'in_progress':    'job_started',
@@ -244,18 +245,12 @@ export async function PUT(request, { params }) {
             };
             const notifEvent = statusToEventType[updates.status];
             if (notifEvent) {
-                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
-                fetch(`${baseUrl}/api/notifications/send`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        event_type: notifEvent,
-                        job_id: String(id),
-                        customer_id: customerId || undefined,
-                        technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
-                        customer_name: customerName || undefined,
-                        technician_name: techName,
-                    }),
+                fireNotification(notifEvent, {
+                    job_id: String(id),
+                    customer_id: customerId || undefined,
+                    technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
+                    customer_name: customerName || undefined,
+                    technician_name: techName,
                 }).catch(err => console.error('[technician/fireNotification] Error:', err.message));
             }
         }
