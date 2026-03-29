@@ -80,7 +80,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'credit_limit',    label: 'Credit Limit',  align: 'right',  defaultOn: false },
             { id: 'credit_period',   label: 'Credit Period', align: 'center', defaultOn: false },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: false },
-            { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false }
+            { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false },
+            { id: 'is_claimed',      label: 'Claimed',       align: 'center', defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ],
         sales: [
             { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
@@ -88,7 +90,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'account_name',    label: 'Ledger Name',   align: 'left',   defaultOn: true },
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ],
         purchases: [
             { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
@@ -96,7 +99,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'account_name',    label: 'Supplier',      align: 'left',   defaultOn: true },
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ],
         quotations: [
             { id: 'number',          label: 'Quote No',      align: 'left',   defaultOn: true },
@@ -104,7 +108,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ],
         receipts: [
             { id: 'number',          label: 'Receipt No',    align: 'left',   defaultOn: true },
@@ -112,7 +117,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'account_name',    label: 'From Account',  align: 'left',   defaultOn: true },
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ],
         payments: [
             { id: 'number',          label: 'Payment No',    align: 'left',   defaultOn: true },
@@ -120,7 +126,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'account_name',    label: 'To Account',    align: 'left',   defaultOn: true },
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
-            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true }
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ],
         amc: [
             { id: 'plan_name',       label: 'Plan',          align: 'left',   defaultOn: true },
@@ -129,7 +136,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true },
             { id: 'end_date',        label: 'End',           align: 'center', defaultOn: true },
             { id: 'amc_amount',      label: 'Amount',        align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true }
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ],
         rentals: [
             { id: 'product_name',    label: 'Product',       align: 'left',   defaultOn: true },
@@ -138,7 +146,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'start_date',      label: 'Start',         align: 'center', defaultOn: true },
             { id: 'next_due',        label: 'Next Due',      align: 'center', defaultOn: true },
             { id: 'security_deposit',label: 'Deposit',       align: 'right',  defaultOn: true },
-            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true }
+            { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
         ]
     };
 
@@ -752,6 +761,15 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                 case 'credit_period':   return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.credit_period > 0 ? `${ledger.credit_period}d` : '—'}</td>;
                                 case 'status':          return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}><span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: ledger.status === 'active' ? '#10b98115' : '#ef444415', color: ledger.status === 'active' ? '#10b981' : '#ef4444', fontWeight: 600 }}>{ledger.status || 'active'}</span></td>;
                                 case 'balance_type':    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.balance_type?.toUpperCase() || '—'}</td>;
+                                case 'is_claimed': {
+                                    const isCust = ledger.type === 'customer' || ledger.under?.toLowerCase().includes('customer') || ledger.under?.toLowerCase().includes('debtor');
+                                    if (!isCust) return <td key={col.id} style={{ ...tdBase, textAlign: 'center', color: 'var(--text-tertiary)' }}>—</td>;
+                                    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.is_claimed ? <span style={{ color: '#10b981', fontWeight: 600 }}>Yes</span> : <span style={{ color: '#ef4444', fontWeight: 600 }}>No</span>}</td>;
+                                }
+                                case 'created_at': {
+                                    const d = ledger.created_at ? new Date(ledger.created_at) : null;
+                                    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                }
                                 default: return null;
                             }
                         };
@@ -768,16 +786,24 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredLedgers.map(ledger => (
+                                {filteredLedgers.map(ledger => {
+                                    const isNewOrganic = ledger.source === 'Customer Signup' && new Date(ledger.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000);
+                                    const rowBg = selectedItems.has(ledger.id) ? 'rgba(99,102,241,0.08)' : (isNewOrganic ? 'rgba(16,185,129,0.05)' : 'transparent');
+                                    return (
                                     <tr key={ledger.id}
-                                        style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'default', transition: 'background-color var(--transition-fast)', backgroundColor: selectedItems.has(ledger.id) ? 'rgba(99,102,241,0.08)' : 'transparent' }}
+                                        style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'default', transition: 'background-color var(--transition-fast)', backgroundColor: rowBg }}
                                         onMouseEnter={e => { if (!selectedItems.has(ledger.id)) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                                        onMouseLeave={e => { if (!selectedItems.has(ledger.id)) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        onMouseLeave={e => { if (!selectedItems.has(ledger.id)) e.currentTarget.style.backgroundColor = rowBg; }}
                                     >
                                         <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                             <input type="checkbox" style={chkStyle} checked={selectedItems.has(ledger.id)} onChange={e => toggleItem(ledger.id, e)} onClick={e => e.stopPropagation()} />
                                         </td>
-                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: 'pointer' }}>{ledger.name}</td>
+                                        <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                {ledger.name}
+                                                {isNewOrganic && <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: '#10b981', color: '#fff', textTransform: 'uppercase' }}>New</span>}
+                                            </div>
+                                        </td>
                                         {activeCols.map(col => renderCell(col, ledger))}
                                         <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
@@ -786,7 +812,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                                 {filteredLedgers.length === 0 && <tr><td colSpan={activeCols.length + 3} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No accounts found.</td></tr>}
                             </tbody>
                         </table>
@@ -842,6 +869,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                     case 'end_date':     return <td key={col.id} style={{ ...td, textAlign: 'center', color: isExpiring ? '#f59e0b' : 'inherit', fontWeight: isExpiring ? 700 : 400 }}>{amc.end_date ? new Date(amc.end_date).toLocaleDateString('en-GB') : '—'}</td>;
                                                     case 'amc_amount':   return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(amc.amc_amount) || 0).toLocaleString()}</td>;
                                                     case 'status':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(amc.status === 'active' ? 'Paid' : amc.status)}</td>;
+                                                    case 'created_at': {
+                                                        const d = amc.created_at ? new Date(amc.created_at) : null;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                    }
                                                     default: return null;
                                                 }
                                             })}
@@ -903,6 +934,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                     case 'next_due':         return <td key={col.id} style={{ ...td, textAlign: 'center', color: isOverdue ? '#ef4444' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>{rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : '—'}</td>;
                                                     case 'security_deposit': return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace' }}>₹{(Number(rental.security_deposit) || 0).toLocaleString()}</td>;
                                                     case 'status':           return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(rental.status === 'active' ? 'Paid' : rental.status)}</td>;
+                                                    case 'created_at': {
+                                                        const d = rental.created_at ? new Date(rental.created_at) : null;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                    }
                                                     default: return null;
                                                 }
                                             })}
@@ -995,6 +1030,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>
                                                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: '#6366f115', color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>🛡️ {srcText}</span>
                                                     </td>;
+                                                case 'created_at': {
+                                                    const d = item.created_at ? new Date(item.created_at) : null;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                }
                                                 default: return null;
                                             }
                                         })}

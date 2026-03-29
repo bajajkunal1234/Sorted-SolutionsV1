@@ -51,7 +51,8 @@ export async function GET(request) {
                 jobs_done: account.jobs?.[0]?.count || 0,
                 jobs: undefined, // Clean up the raw relational object before sending to client
                 acquisition_source: acqSource,
-                source: strictSource
+                source: strictSource,
+                is_claimed: isOrganicCustomer
             };
         });
 
@@ -65,6 +66,26 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
+
+        const isCustomer = body.type === 'customer' ||
+            (body.under_name || '').toLowerCase().includes('customer') ||
+            (body.under_name || '').toLowerCase().includes('debtor');
+
+        // ── Prevent Duplicate Mobile Numbers for Customers ──────────────────────
+        if (isCustomer && body.mobile) {
+            const { data: existing } = await supabase
+                .from('customers')
+                .select('id, full_name, name')
+                .eq('phone', body.mobile)
+                .maybeSingle();
+
+            if (existing) {
+                return NextResponse.json({ 
+                    success: false, 
+                    error: `A customer with mobile number ${body.mobile} already exists (${existing.name || existing.full_name || 'Unknown'}). Please use the existing account.` 
+                }, { status: 409 });
+            }
+        }
 
         // ── Generate SKU server-side to prevent client race conditions ──────────
         if (!body.sku || body.sku === '') {
@@ -107,9 +128,7 @@ export async function POST(request) {
         if (error) throw error
 
         // Sync with customers/technicians tables
-        const isCustomer = body.type === 'customer' ||
-            (body.under_name || '').toLowerCase().includes('customer') ||
-            (body.under_name || '').toLowerCase().includes('debtor');
+        // Sync with customers/technicians tables (isCustomer already defined above)
 
         const isTechnician = body.type === 'technician' ||
             (body.under_name || '').toLowerCase().includes('technician') ||

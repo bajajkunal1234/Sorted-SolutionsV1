@@ -37,18 +37,64 @@ export async function POST(request) {
             );
         }
 
-        // ── Check duplicates ─────────────────────────────────────────────────
+        // ── Check duplicates & Admin Claims ──────────────────────────────────
         const { data: existingPhone } = await supabase
             .from('customers')
-            .select('id')
+            .select('id, ledger_id, password_hash, full_name')
             .eq('phone', phone)
             .maybeSingle();
 
         if (existingPhone) {
-            return NextResponse.json(
-                { success: false, error: 'This phone number is already registered. Please log in.' },
-                { status: 409 }
-            );
+            if (existingPhone.password_hash) {
+                return NextResponse.json(
+                    { success: false, error: 'This phone number is already registered. Please log in.' },
+                    { status: 409 }
+                );
+            } else {
+                // Admin-created account -> CLAIM IT
+                const password_hash = await bcrypt.hash(password, 12);
+                
+                // Update customers table
+                await supabase.from('customers').update({
+                    full_name: name.trim(),
+                    name: name.trim(),
+                    username: cleanUsername,
+                    password_hash,
+                    profile_complete: true
+                }).eq('id', existingPhone.id);
+
+                // Update accounts table name
+                if (existingPhone.ledger_id) {
+                    await supabase.from('accounts').update({ 
+                        name: name.trim(),
+                        source: 'Customer Signup'
+                    }).eq('id', existingPhone.ledger_id);
+                    
+                    // Log Interaction
+                    await supabase.from('interactions').insert([{
+                        type: 'account-claimed',
+                        category: 'account',
+                        customer_id: existingPhone.ledger_id,
+                        customer_name: name.trim(),
+                        performed_by_name: name.trim(),
+                        description: `Customer claimed their admin-created account via website signup.`,
+                        source: 'Website Signup'
+                    }]);
+                }
+
+                return NextResponse.json({
+                    success: true,
+                    customer: {
+                        id: existingPhone.id,
+                        name: name.trim(),
+                        username: cleanUsername,
+                        phone: phone,
+                        role: 'customer',
+                        profile_complete: true,
+                        ledger_id: existingPhone.ledger_id,
+                    },
+                });
+            }
         }
 
         const { data: existingUsername } = await supabase
@@ -72,6 +118,7 @@ export async function POST(request) {
             .insert([{
                 phone,
                 full_name: name.trim(),
+                name: name.trim(),
                 username: cleanUsername,
                 password_hash,
                 customer_type: 'one_time',
@@ -91,6 +138,7 @@ export async function POST(request) {
                 mobile: last10,
                 type: 'customer',
                 under: 'sundry-debtors',
+                source: 'Customer Signup',
                 opening_balance: 0,
                 balance_type: 'debit',
                 status: 'active',

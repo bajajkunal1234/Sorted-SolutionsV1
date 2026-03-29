@@ -80,7 +80,7 @@ function TechnicianApp() {
         const storedTechData = localStorage.getItem('technicianData');
 
         if (!session) {
-            router.push('/technician/login');
+            router.push('/login');
             return;
         }
 
@@ -91,7 +91,7 @@ function TechnicianApp() {
             setTechnicianData(techData);
         } catch (err) {
             console.error('Error parsing session:', err);
-            router.push('/technician/login');
+            router.push('/login');
         }
     }, [router]);
 
@@ -247,7 +247,7 @@ function TechnicianApp() {
             localStorage.removeItem('technicianSession');
             localStorage.removeItem('technicianData');
             // Force a hard reload to clear any in-memory state
-            window.location.href = '/technician/login';
+            window.location.href = '/login';
         }
 
     };
