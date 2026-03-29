@@ -543,7 +543,7 @@ export default function ServicesPage() {
             else setLoading(true)
 
             const customerId = localStorage.getItem('customerId') || ''
-            const res = await fetch(`/api/customer/jobs?customerId=${customerId}&status=all`)
+            const res = await fetch(`/api/customer/jobs?customerId=${customerId}&status=all&t=${Date.now()}`, { cache: 'no-store' })
             if (!res.ok) throw new Error('Failed to fetch jobs')
             const data = await res.json()
             const all = data.jobs || []
