@@ -1,11 +1,9 @@
 /**
  * GET /api/notifications/test
- * Diagnostic endpoint: directly inserts a test notification and fires a test trigger.
- * Remove this file after debugging is complete.
+ * Diagnostic: dumps ALL recent app_notifications and checks what IDs are being written.
  */
 import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
-import { fireNotification } from '@/lib/fire-notification';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,53 +11,45 @@ export async function GET(request) {
     const supabase = createServerSupabase();
     const results = {};
 
-    // 1. Direct insert into app_notifications
-    const { data: inserted, error: insertErr } = await supabase
+    // 1. ALL recent app_notifications (last 20 across all recipients)
+    const { data: allNotifs, error: allErr } = await supabase
         .from('app_notifications')
-        .insert({
-            recipient_type: 'admin',
-            recipient_id: 'admin',
-            title: 'Test Notification',
-            message: 'This is a direct test insert. If you see this in the bell, the table and inbox API work correctly.',
-            link: 'https://sortedsolutions.in/admin',
-            is_read: false,
-        })
-        .select()
-        .single();
-
-    results.directInsert = insertErr ? { error: insertErr.message } : { success: true, id: inserted?.id };
-
-    // 2. Fire a real notification via fireNotification module
-    try {
-        await fireNotification('job_completed', {
-            job_id: 'TEST-001',
-            customer_name: 'Test Customer',
-            technician_name: 'Test Tech',
-        });
-        results.fireNotification = { success: true };
-    } catch (err) {
-        results.fireNotification = { error: err.message };
-    }
-
-    // 3. Check what's in app_notifications for admin
-    const { data: inbox, error: inboxErr } = await supabase
-        .from('app_notifications')
-        .select('id, title, message, created_at')
-        .eq('recipient_type', 'admin')
-        .eq('recipient_id', 'admin')
+        .select('id, recipient_type, recipient_id, title, is_read, created_at')
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(20);
 
-    results.currentInbox = inboxErr ? { error: inboxErr.message } : { count: inbox?.length, items: inbox };
+    results.allRecentNotifications = allErr
+        ? { error: allErr.message }
+        : { count: allNotifs?.length, items: allNotifs };
 
-    // 4. Check notification_logs
+    // 2. Check notification_logs (any columns)
     const { data: logs, error: logsErr } = await supabase
         .from('notification_logs')
-        .select('id, event_type, status, error, recipient_type')
-        .order('id', { ascending: false })
-        .limit(5);
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-    results.recentLogs = logsErr ? { error: logsErr.message } : { count: logs?.length, items: logs };
+    results.recentLogs = logsErr
+        ? { error: logsErr.message }
+        : { count: logs?.length, items: logs };
+
+    // 3. Check if notification_logs has sent_at column by trying insert
+    const { error: logInsertErr } = await supabase
+        .from('notification_logs')
+        .insert({
+            channel: 'push',
+            recipient_type: 'admin',
+            recipient_id: 'admin',
+            recipient_name: 'Admin',
+            event_type: 'test_debug',
+            status: 'skipped',
+            sent_at: new Date().toISOString(),
+        });
+
+    results.logInsertTest = logInsertErr
+        ? { error: logInsertErr.message, hint: logInsertErr.hint }
+        : { success: true };
 
     return NextResponse.json(results);
 }
+
