@@ -166,13 +166,41 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 const saved = localStorage.getItem('accounts_configurable_tables');
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    if (parsed.tabColumns) setTabColumns({ ...DEFAULT_CONFIG, ...parsed.tabColumns });
+                    
+                    if (parsed.tabColumns) {
+                        // Smart merge to preserve user sorting but inject new schema columns
+                        const mergedColumns = {};
+                        for (const tab in DEFAULT_CONFIG) {
+                            if (!parsed.tabColumns[tab]) {
+                                mergedColumns[tab] = DEFAULT_CONFIG[tab];
+                            } else {
+                                const savedTab = parsed.tabColumns[tab];
+                                const savedIds = new Set(savedTab.map(c => c.id));
+                                const newCols = DEFAULT_CONFIG[tab].filter(c => !savedIds.has(c.id));
+                                mergedColumns[tab] = [...savedTab, ...newCols];
+                            }
+                        }
+                        setTabColumns(mergedColumns);
+                    }
+                    
                     if (parsed.visibleColumns) {
                         const hydratedVis = {};
-                        for (const tab in parsed.visibleColumns) {
-                            hydratedVis[tab] = new Set(parsed.visibleColumns[tab]);
+                        for (const tab in DEFAULT_CONFIG) {
+                            const savedArray = parsed.visibleColumns[tab] || [];
+                            const savedSet = new Set(savedArray);
+                            
+                            // Ensure new columns added to codebase that are defaultOn get turned on
+                            if (parsed.tabColumns && parsed.tabColumns[tab]) {
+                                const savedIds = new Set(parsed.tabColumns[tab].map(c => c.id));
+                                DEFAULT_CONFIG[tab].forEach(c => {
+                                    if (!savedIds.has(c.id) && c.defaultOn) {
+                                        savedSet.add(c.id);
+                                    }
+                                });
+                            }
+                            hydratedVis[tab] = savedSet;
                         }
-                        setVisibleColumns(prev => ({ ...prev, ...hydratedVis }));
+                        setVisibleColumns(hydratedVis);
                     }
                 }
             } catch(e) {}
