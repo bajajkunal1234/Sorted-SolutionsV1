@@ -264,6 +264,19 @@ export async function POST(request) {
             source: 'Website',
         });
 
+        // Fire notification trigger (fire-and-forget)
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in';
+        fetch(`${baseUrl}/api/notifications/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                event_type: 'booking_created_website',
+                job_id: String(job.id),
+                customer_id: customerId ? String(customerId) : undefined,
+                customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
+            }),
+        }).catch(err => console.error('[booking/fireNotification] Error:', err.message));
+
         return NextResponse.json({
             success: true,
             bookingId: job.id,

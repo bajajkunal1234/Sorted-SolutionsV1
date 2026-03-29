@@ -120,8 +120,8 @@ export async function POST(request) {
             source: 'Admin',
         });
 
-        // Fire notification trigger (fire-and-forget)
-        fireNotification('assigned', {
+        // Fire notification trigger for new job created by admin (fire-and-forget)
+        fireNotification('job_created_admin', {
             job_id: String(data.id),
             customer_id: body.customer_id ? String(body.customer_id) : undefined,
             customer_name: data.customer_name || undefined,
@@ -251,15 +251,35 @@ export async function PUT(request) {
         }
 
         // Fire notification trigger for relevant status changes (fire-and-forget)
-        // Since event types now exactly map to status strings, just use updates.status
-        const notifEvent = updates.status;
-        if (notifEvent && ['booking_request', 'assigned', 'in-progress', 'quotation-sent', 'completed', 'cancelled'].includes(notifEvent)) {
+        // Map DB status values to Notification Center event type IDs
+        const statusToEventType = {
+            'assigned':         'job_assigned',
+            'in-progress':      'job_started',
+            'in_progress':      'job_started',
+            'completed':        'job_completed',
+            'cancelled':        'job_cancelled',
+            'quotation-sent':   'quotation_sent',
+            'quotation_sent':   'quotation_sent',
+            'booking_request':  'booking_created_website',
+        };
+        const notifEvent = updates.status ? statusToEventType[updates.status] : null;
+        if (notifEvent) {
             fireNotification(notifEvent, {
                 job_id: String(id),
                 customer_id: data.customer_id ? String(data.customer_id) : undefined,
                 technician_id: data.assigned_to ? String(data.assigned_to) : undefined,
                 customer_name: data.customer_name || undefined,
                 technician_name: data.technician_name || undefined,
+            });
+        }
+        // Also fire job_assigned if a technician was newly assigned (even without status change)
+        if (updates.technician_id !== undefined && existing && updates.technician_id !== existing.technician_id && updates.technician_id) {
+            fireNotification('job_assigned', {
+                job_id: String(id),
+                customer_id: data.customer_id ? String(data.customer_id) : undefined,
+                technician_id: String(updates.technician_id),
+                customer_name: data.customer_name || undefined,
+                technician_name: updates.technician_name || undefined,
             });
         }
 
