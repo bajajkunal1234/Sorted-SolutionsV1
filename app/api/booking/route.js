@@ -266,7 +266,7 @@ export async function POST(request) {
         });
 
         // Fire notification trigger (direct module call — no HTTP self-fetch)
-        fireNotification('booking_created_website', {
+        await fireNotification('booking_created_website', {
             job_id: String(job.id),
             customer_id: customerId ? String(customerId) : undefined,
             customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
