@@ -35,9 +35,14 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
 
     useEffect(() => {
         fetchInbox();
-        const interval = setInterval(fetchInbox, 60000); // Poll every minute
+        const interval = setInterval(fetchInbox, 30000); // Poll every 30 seconds
         return () => clearInterval(interval);
     }, [recipientId, recipientType]);
+
+    // Also refresh when bell is opened
+    useEffect(() => {
+        if (isOpen) fetchInbox();
+    }, [isOpen]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
