@@ -48,12 +48,17 @@ export async function POST(request) {
 
         // Resolve recipients
         if (audience.includes('customers') && customer_id) {
+            // NOTE: customers are stored in 'accounts' table, not 'customers'
             const { data: customer } = await supabase
-                .from('customers')
+                .from('accounts')
                 .select('id, name, phone, fcm_token')
                 .eq('id', customer_id)
                 .single();
             if (customer) recipientSets.push({ ...customer, recipientType: 'customer' });
+            else {
+                // Fallback: use the customer_name passed in context so in-app notification still saves
+                recipientSets.push({ id: customer_id, name: customer_name || 'Customer', fcm_token: null, recipientType: 'customer' });
+            }
         }
 
         if (audience.includes('technicians') && technician_id) {
@@ -66,16 +71,16 @@ export async function POST(request) {
         }
 
         if (audience.includes('admins')) {
-            // Try to get named admin recipients (for push), but always ensure at least one
-            // entry so the in-app bell always receives admin notifications.
-            const { data: admins } = await supabase
+            // Query admin_recipients table; fall back to a generic 'admin' entry if table is empty or missing
+            const { data: admins, error: adminErr } = await supabase
                 .from('admin_recipients')
                 .select('id, name, fcm_token');
             
             if (admins && admins.length > 0) {
                 admins.forEach(a => recipientSets.push({ ...a, recipientType: 'admin' }));
             } else {
-                // Fallback: always add a generic admin recipient for in-app bell
+                // Fallback: always create a generic admin entry so in-app bell always works
+                // The bell on admin page uses recipient_id='admin'
                 recipientSets.push({ id: 'admin', name: 'Admin', fcm_token: null, recipientType: 'admin' });
             }
         }
