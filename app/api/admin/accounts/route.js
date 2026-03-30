@@ -25,10 +25,16 @@ export async function GET(request) {
             .from('accounts')
             .select('*, jobs:jobs(count), customers:customers(password_hash)')
             .order('name', { ascending: true })
-            .limit(200)
+            .limit(1000)
 
         if (type && type !== 'all') {
-            query = query.eq('type', type)
+            if (type === 'customer') {
+                query = query.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%')
+            } else if (type === 'supplier' || type === 'vendor' || type === 'technician') {
+                query = query.or(`type.eq.${type},under.ilike.%${type}%,under.ilike.%creditor%`)
+            } else {
+                query = query.eq('type', type)
+            }
         }
 
         const { data, error } = await query
