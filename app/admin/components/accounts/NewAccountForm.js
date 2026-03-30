@@ -275,7 +275,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
     // Default As on Date to start of financial year for customers
     useEffect(() => {
-        if (!initialData && (formData.under === 'customer-accounts' || formData.under === 'sundry-debtors')) {
+        if (!initialData && formData.under === 'sundry-debtors') {
             const today = new Date();
             const currentYear = today.getFullYear();
             const startYear = today.getMonth() >= 3 ? currentYear : currentYear - 1;
@@ -467,7 +467,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             if (!mobileValidation.isValid) {
                 validationErrors.mobile = mobileValidation.error;
             }
-        } else if (showField('mobile') || formData.under === 'customer-accounts' || formData.under === 'sundry-debtors' || groups.find(g => g.id === formData.under)?.name?.toLowerCase().includes('customer')) {
+        } else if (showField('mobile') || formData.under === 'sundry-debtors' || groups.find(g => g.id === formData.under)?.name?.toLowerCase().includes('customer')) {
             validationErrors.mobile = 'Mobile Number is required';
         }
 

@@ -120,7 +120,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
 
     // Resolve the best group ID for Customers
     const resolvedCustomerGroup = (() => {
-        if (groups.length === 0) return 'customer-accounts'; // Fallback to current default
+        if (groups.length === 0) return 'sundry-debtors'; // Fallback to current default
         const customersGroup = groups.find(g =>
             g.name.toLowerCase() === 'customers' ||
             g.name.toLowerCase() === 'customer accounts'
@@ -130,7 +130,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         const debtorsGroup = groups.find(g =>
             g.name.toLowerCase() === 'sundry debtors'
         );
-        return debtorsGroup ? debtorsGroup.id : 'customer-accounts';
+        return debtorsGroup ? debtorsGroup.id : 'sundry-debtors';
     })();
 
     const accountPrefill = {

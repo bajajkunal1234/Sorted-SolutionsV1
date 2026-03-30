@@ -111,8 +111,8 @@ export async function POST(request) {
                         name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || normalizedPhone,
                         phone: normalizedPhone,
                         email: customer.email || null,
-                        type: 'asset',
-                        under: 'customer-accounts',
+                        type: 'customer',
+                        under: 'sundry-debtors',
                         opening_balance: 0,
                         created_at: new Date().toISOString()
                     })

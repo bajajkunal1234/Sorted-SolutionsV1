@@ -110,7 +110,7 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
         name: cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim(),
         mobile: cust.phone || '',
         email: cust.email || '',
-        under: 'customer-accounts', // Maps to Sundry Debtors > Customer Accounts
+        under: 'sundry-debtors', // Maps to Current Assets > Sundry Debtors
         mailing_address: fullAddress,
         billing_address: fullAddress,
         shipping_address: fullAddress,
@@ -360,7 +360,7 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
                 <NewAccountForm
                     onClose={() => setShowAccountForm(false)}
                     onSave={handleAccountSaved}
-                    preselectedType="customer-accounts"
+                    preselectedType="sundry-debtors"
                     groups={groups}
                     onGroupCreated={async () => {
                         const updatedGroups = await accountGroupsAPI.getAll();
