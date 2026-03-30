@@ -111,7 +111,8 @@ export async function POST(request) {
 
         // Fire notification trigger for new job created by admin (awaiting instead of fire-and-forget)
         await fireNotification('job_created_admin', {
-            job_id: data.job_number || String(data.id),
+            job_id: String(data.id),
+            job_number: data.job_number,
             customer_id: body.customer_id ? String(body.customer_id) : undefined,
             customer_name: data.customer_name || undefined,
         });
@@ -254,7 +255,8 @@ export async function PUT(request) {
         const notifEvent = updates.status ? statusToEventType[updates.status] : null;
         if (notifEvent) {
             await fireNotification(notifEvent, {
-                job_id: data.job_number || String(id),
+                job_id: String(id),
+                job_number: data.job_number,
                 customer_id: data.customer_id ? String(data.customer_id) : undefined,
                 technician_id: data.assigned_to ? String(data.assigned_to) : undefined,
                 customer_name: data.customer_name || undefined,
@@ -264,7 +266,8 @@ export async function PUT(request) {
         // Also fire job_assigned if a technician was newly assigned (even without status change)
         if (updates.technician_id !== undefined && existing && updates.technician_id !== existing.technician_id && updates.technician_id) {
             await fireNotification('job_assigned', {
-                job_id: data.job_number || String(id),
+                job_id: String(id),
+                job_number: data.job_number,
                 customer_id: data.customer_id ? String(data.customer_id) : undefined,
                 technician_id: String(updates.technician_id),
                 customer_name: data.customer_name || undefined,

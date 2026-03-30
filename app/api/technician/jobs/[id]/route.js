@@ -246,7 +246,8 @@ export async function PUT(request, { params }) {
             const notifEvent = statusToEventType[updates.status];
             if (notifEvent) {
                 await fireNotification(notifEvent, {
-                    job_id: existing?.job_number || String(id),
+                    job_id: String(id),
+                    job_number: existing?.job_number,
                     customer_id: customerId || undefined,
                     technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
                     customer_name: customerName || undefined,
