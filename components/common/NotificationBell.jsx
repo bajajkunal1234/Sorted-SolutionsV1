@@ -22,7 +22,7 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
     const fetchInbox = async () => {
         if (!recipientId || !recipientType) return;
         try {
-            const res = await fetch(`/api/notifications/inbox?recipient_id=${recipientId}&recipient_type=${recipientType}`);
+            const res = await fetch(`/api/notifications/inbox?recipient_id=${recipientId}&recipient_type=${recipientType}&t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (data.success) {
                 setNotifications(data.data || []);
@@ -55,7 +55,8 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
         await fetch('/api/notifications/inbox', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipient_id: recipientId, recipient_type: recipientType, notification_id: notifId })
+            body: JSON.stringify({ recipient_id: recipientId, recipient_type: recipientType, notification_id: notifId }),
+            cache: 'no-store'
         }).catch(() => {});
     };
 
