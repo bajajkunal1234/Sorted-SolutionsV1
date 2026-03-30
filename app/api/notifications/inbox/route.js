@@ -15,11 +15,21 @@ export async function GET(request) {
             return NextResponse.json({ success: false, error: 'recipient_id and recipient_type required' }, { status: 400 });
         }
 
+        let targetIds = [String(recipient_id)];
+
+        // If customer, we must also check their ledger_id because jobs usually attach to the ledger account ID
+        if (recipient_type === 'customer') {
+            const { data: cx } = await supabase.from('customers').select('ledger_id').eq('id', recipient_id).single();
+            if (cx?.ledger_id && cx.ledger_id !== recipient_id) {
+                targetIds.push(cx.ledger_id);
+            }
+        }
+
         // Fetch up to 50 most recent notifications
         const { data, error } = await supabase
             .from('app_notifications')
             .select('*')
-            .eq('recipient_id', String(recipient_id))
+            .in('recipient_id', targetIds)
             .eq('recipient_type', recipient_type)
             .order('created_at', { ascending: false })
             .limit(50);
@@ -52,10 +62,18 @@ export async function PUT(request) {
             return NextResponse.json({ success: false, error: 'recipient_id and recipient_type required' }, { status: 400 });
         }
 
+        let targetIds = [String(recipient_id)];
+        if (recipient_type === 'customer') {
+            const { data: cx } = await supabase.from('customers').select('ledger_id').eq('id', recipient_id).single();
+            if (cx?.ledger_id && cx.ledger_id !== recipient_id) {
+                targetIds.push(cx.ledger_id);
+            }
+        }
+
         let query = supabase
             .from('app_notifications')
             .update({ is_read: true })
-            .eq('recipient_id', String(recipient_id))
+            .in('recipient_id', targetIds)
             .eq('recipient_type', recipient_type);
         
         if (!mark_all_read && notification_id) {
