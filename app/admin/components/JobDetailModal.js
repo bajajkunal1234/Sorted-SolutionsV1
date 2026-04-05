@@ -832,6 +832,10 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         setCalculatorItems(items);
                         setActiveForm('quotation');
                     }}
+                    onCreateInvoice={(items) => {
+                        setCalculatorItems(items);
+                        setActiveForm('sales-invoice');
+                    }}
                 />
             )}
             {activeForm === 'quotation' && (

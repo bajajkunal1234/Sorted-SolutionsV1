@@ -127,6 +127,47 @@ export async function POST(request) {
 
         if (error) throw error
 
+        // ── Save invoice allocations (many-to-many) ──────────────────────────
+        const allocations = body.allocations || [];
+        if (allocations.length > 0 && (type === 'receipt' || type === 'payment')) {
+            const allocationTable = type === 'receipt'
+                ? 'receipt_voucher_allocations'
+                : 'payment_voucher_allocations';
+            const voucherIdField = type === 'receipt' ? 'receipt_voucher_id' : 'payment_voucher_id';
+            const invoiceIdField = type === 'receipt' ? 'invoice_id' : 'purchase_invoice_id';
+
+            const allocationRows = allocations
+                .filter(a => a.invoice_id && parseFloat(a.amount_applied) > 0)
+                .map(a => ({
+                    [voucherIdField]: data.id,
+                    [invoiceIdField]: a.invoice_id,
+                    amount_applied: parseFloat(a.amount_applied),
+                    ...(type === 'payment' ? { purchase_invoice_ref: a.invoice_ref } : {}),
+                }));
+
+            if (allocationRows.length > 0) {
+                await supabase.from(allocationTable).insert(allocationRows);
+
+                // Update paid_amount on each referenced sales invoice
+                if (type === 'receipt') {
+                    for (const alloc of allocationRows) {
+                        const { data: invData } = await supabase
+                            .from('sales_invoices')
+                            .select('paid_amount, total_amount')
+                            .eq('id', alloc.invoice_id)
+                            .single();
+                        if (invData) {
+                            const newPaid = (parseFloat(invData.paid_amount) || 0) + alloc.amount_applied;
+                            const newStatus = newPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : 'partial';
+                            await supabase.from('sales_invoices')
+                                .update({ paid_amount: newPaid, status: newStatus })
+                                .eq('id', alloc.invoice_id);
+                        }
+                    }
+                }
+            }
+        }
+
         // Log interaction
         const info = createdInteractionMap[type];
         if (info) {

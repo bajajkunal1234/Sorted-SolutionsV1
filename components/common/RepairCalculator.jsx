@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, MessageSquare, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine } from 'lucide-react';
 import { inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
 
-export default function RepairCalculator({ job, onCreateQuotation, onClose }) {
+export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onClose }) {
     const [inventory, setInventory] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -83,17 +83,17 @@ export default function RepairCalculator({ job, onCreateQuotation, onClose }) {
         window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
     };
 
-    const handleCreateQuotation = () => {
-        const items = basket.map(b => ({
-            productId: b.isManual ? null : b.id,
-            description: b.name,
-            type: (b.itemType === 'service' || b.type === 'service' || b.product_type === 'service') ? 'service' : 'product',
-            qty: b.qty,
-            rate: b.sale_price || 0,
-            taxRate: b.tax_rate || 18,
-        }));
-        onCreateQuotation(items);
-    };
+    const buildItems = () => basket.map(b => ({
+        productId: b.isManual ? null : b.id,
+        description: b.name,
+        type: (b.itemType === 'service' || b.type === 'service' || b.product_type === 'service') ? 'service' : 'product',
+        qty: b.qty,
+        rate: b.sale_price || 0,
+        taxRate: b.tax_rate || 18,
+    }));
+
+    const handleCreateQuotation = () => onCreateQuotation(buildItems());
+    const handleCreateInvoice   = () => onCreateInvoice(buildItems());
 
     // ── Styles ───────────────────────────────────────────────────────────────
     const pillStyle = (active) => ({
@@ -287,12 +287,22 @@ export default function RepairCalculator({ job, onCreateQuotation, onClose }) {
                         <button onClick={handleWhatsApp} style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Share estimate on WhatsApp">
                             <MessageSquare size={18} />
                         </button>
-                        <button
-                            onClick={handleCreateQuotation}
-                            style={{ padding: '10px 16px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}
-                        >
-                            <FileText size={15} /> Create Quotation
-                        </button>
+                        {onCreateQuotation && (
+                            <button
+                                onClick={handleCreateQuotation}
+                                style={{ padding: '10px 14px', backgroundColor: '#8b5cf6', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}
+                            >
+                                <FileText size={15} /> Quotation
+                            </button>
+                        )}
+                        {onCreateInvoice && (
+                            <button
+                                onClick={handleCreateInvoice}
+                                style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}
+                            >
+                                <FileText size={15} /> Invoice
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

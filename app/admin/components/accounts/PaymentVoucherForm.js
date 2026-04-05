@@ -5,6 +5,7 @@ import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
+import InvoiceAllocations from './InvoiceAllocations';
 
 function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
     const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
         notes: existingPayment?.notes || existingPayment?.narration || '',
         job_id: existingPayment?.job_id || ''
     });
+    const [allocations, setAllocations] = useState(existingPayment?.allocations || []);
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
 
@@ -43,7 +45,8 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
         const voucher = {
             ...formData,
             amount: parseFloat(formData.amount),
-            type: 'payment'
+            type: 'payment',
+            allocations,
         };
 
         if (onSave) {
@@ -138,6 +141,15 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
                             onChange={(jobId) => setFormData({ ...formData, job_id: jobId || '' })}
                             accountId={formData.account_id}
                             label="Link to Job (optional — for incentives/commissions)"
+                        />
+
+                        {/* Invoice Allocations */}
+                        <InvoiceAllocations
+                            accountId={formData.account_id}
+                            invoiceType="purchase"
+                            allocations={allocations}
+                            onChange={setAllocations}
+                            totalAmount={parseFloat(formData.amount) || 0}
                         />
 
                         {/* Amount & Mode Row */}

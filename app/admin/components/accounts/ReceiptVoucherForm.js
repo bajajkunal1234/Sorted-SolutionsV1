@@ -5,6 +5,7 @@ import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
 import JobSelector from './JobSelector';
+import InvoiceAllocations from './InvoiceAllocations';
 
 function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
     const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         notes: existingReceipt?.notes || existingReceipt?.narration || '',
         job_id: existingReceipt?.job_id || ''
     });
+    const [allocations, setAllocations] = useState(existingReceipt?.allocations || []);
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
 
@@ -43,7 +45,8 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         const voucher = {
             ...formData,
             amount: parseFloat(formData.amount),
-            type: 'receipt'
+            type: 'receipt',
+            allocations,
         };
 
         if (onSave) {
@@ -138,6 +141,15 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                             onChange={(jobId) => setFormData({ ...formData, job_id: jobId || '' })}
                             accountId={formData.account_id}
                             label="Link to Job (optional)"
+                        />
+
+                        {/* Invoice Allocations */}
+                        <InvoiceAllocations
+                            accountId={formData.account_id}
+                            invoiceType="sales"
+                            allocations={allocations}
+                            onChange={setAllocations}
+                            totalAmount={parseFloat(formData.amount) || 0}
                         />
 
                         {/* Amount & Mode Row */}
