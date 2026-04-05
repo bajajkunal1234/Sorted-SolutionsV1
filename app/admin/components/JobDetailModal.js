@@ -610,6 +610,79 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* Service Feedback & Arrival — read-only, auto-shown when data exists */}
+                            {(editedJob.arrived_at || editedJob.customer_rating) && (
+                                <div className="card mb-md" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
+                                    <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
+                                        Service Feedback &amp; Arrival
+                                    </h3>
+                                    <div style={{ display: 'grid', gridTemplateColumns: editedJob.arrived_at && editedJob.customer_rating ? '1fr 1fr' : '1fr', gap: 'var(--spacing-md)' }}>
+                                        {editedJob.arrived_at && (() => {
+                                            const arrivedDt = new Date(editedJob.arrived_at);
+                                            let onTime = null;
+                                            if (editedJob.scheduled_time && editedJob.scheduled_date) {
+                                                const [hrs, mins] = (editedJob.scheduled_time || '').split(':').map(Number);
+                                                const sched = new Date(editedJob.scheduled_date);
+                                                sched.setHours(hrs || 0, mins || 0, 0, 0);
+                                                onTime = arrivedDt <= new Date(sched.getTime() + 15 * 60 * 1000);
+                                            }
+                                            return (
+                                                <div>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px', fontWeight: 600 }}>TECHNICIAN ARRIVAL</div>
+                                                    <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                                        {arrivedDt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>
+                                                        {arrivedDt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    </div>
+                                                    {onTime !== null && (
+                                                        <span style={{
+                                                            fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '20px',
+                                                            backgroundColor: onTime ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)',
+                                                            color: onTime ? '#10b981' : '#ef4444',
+                                                            border: `1px solid ${onTime ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`
+                                                        }}>
+                                                            {onTime ? '✓ On Time' : '⚠ Late'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                        {editedJob.customer_rating && (() => {
+                                            const rating = editedJob.customer_rating;
+                                            const colors = ['', '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981'];
+                                            const labels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+                                            return (
+                                                <div>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px', fontWeight: 600 }}>CUSTOMER RATING</div>
+                                                    <div style={{ display: 'flex', gap: '3px', marginBottom: '6px' }}>
+                                                        {[1,2,3,4,5].map(s => (
+                                                            <span key={s} style={{ fontSize: '18px', color: s <= rating ? colors[rating] : 'var(--border-primary)' }}>
+                                                                {s <= rating ? '★' : '☆'}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <div style={{ fontSize: '13px', fontWeight: 700, color: colors[rating], marginBottom: '4px' }}>
+                                                        {rating}/5 — {labels[rating]}
+                                                    </div>
+                                                    {editedJob.rating_note && (
+                                                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontStyle: 'italic', padding: '6px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: '6px', border: '1px solid var(--border-primary)' }}>
+                                                            "{editedJob.rating_note}"
+                                                        </div>
+                                                    )}
+                                                    {editedJob.rated_at && (
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                                            Rated {new Date(editedJob.rated_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+                                </div>
+                            )}
+
                         </div>
                     )}
 
