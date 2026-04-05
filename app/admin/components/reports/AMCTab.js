@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { Shield, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer } from 'lucide-react';
+import { Shield, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer, XCircle } from 'lucide-react';
 import { amcAPI } from '@/lib/adminAPI';
 import AMCPlanForm from './AMCPlanForm';
 import NewAMCForm from './NewAMCForm';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
 import PrintAgreementModal from './PrintAgreementModal';
+import TerminationModal from './TerminationModal';
 
 function AMCTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
@@ -15,6 +16,7 @@ function AMCTab() {
     const [editingPlan, setEditingPlan] = useState(null);
     const [showPrintAgreement, setShowPrintAgreement] = useState(false);
     const [selectedAmcForPrint, setSelectedAmcForPrint] = useState(null);
+    const [terminateTarget, setTerminateTarget] = useState(null);
     const [plans, setPlans] = useState([]);
     const [activeAMCs, setActiveAMCs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -282,6 +284,15 @@ function AMCTab() {
                                         >
                                             View Details
                                         </button>
+                                        {amc.status !== 'terminated' && (
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                onClick={() => setTerminateTarget(amc)}
+                                            >
+                                                <XCircle size={14} /> Terminate
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -546,6 +557,16 @@ function AMCTab() {
                     type="amc"
                     data={selectedAmcForPrint}
                     onClose={() => setShowPrintAgreement(false)}
+                />
+            )}
+
+            {terminateTarget && (
+                <TerminationModal
+                    type="amc"
+                    record={terminateTarget}
+                    customerId={terminateTarget.customer_id}
+                    onClose={() => setTerminateTarget(null)}
+                    onSuccess={() => { setTerminateTarget(null); fetchData(); }}
                 />
             )}
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCircle, RefreshCcw, Printer, XCircle } from 'lucide-react';
 import { rentalsAPI, transactionsAPI } from '@/lib/adminAPI';
 import RentalPlanForm from './RentalPlanForm';
 import NewRentalForm from './NewRentalForm';
@@ -7,6 +7,7 @@ import RentReceiptsModal from './RentReceiptsModal';
 import RentalDetailsModal from './RentalDetailsModal';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
 import PrintAgreementModal from './PrintAgreementModal';
+import TerminationModal from './TerminationModal';
 
 function RentalsTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
@@ -25,6 +26,7 @@ function RentalsTab() {
     const [onNewCustomerCallback, setOnNewCustomerCallback] = useState(null);
     const [showPrintAgreement, setShowPrintAgreement] = useState(false);
     const [selectedRentalForPrint, setSelectedRentalForPrint] = useState(null);
+    const [terminateTarget, setTerminateTarget] = useState(null);
 
     const fetchData = async () => {
         try {
@@ -302,11 +304,20 @@ function RentalsTab() {
                                                 >
                                                     <Printer size={16} />
                                                 </button>
+                                                {rental.status !== 'terminated' && (
+                                                    <button
+                                                        className="btn"
+                                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                                        onClick={() => setTerminateTarget({ ...rental, productName, customerName, monthlyRent, securityDeposit })}
+                                                    >
+                                                        <XCircle size={14} /> Terminate
+                                                    </button>
+                                                )}
                                                 <button
                                                     className="btn"
                                                     style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)', backgroundColor: '#ef444420', color: '#ef4444', border: '1px solid #ef444440', borderRadius: 'var(--radius-sm)' }}
                                                     onClick={async () => {
-                                                        if (!window.confirm(`Delete rental agreement for ${productName} — ${customerName}?\n\nThis will physically delete the record (use for mistakes). A separate "Close Agreement" feature will be added for actual terminations.`)) return;
+                                                        if (!window.confirm(`Delete rental record for ${productName} — ${customerName}?\n\nOnly use this to reverse a mistake. For actual contract termination, use the Terminate button.`)) return;
                                                         try {
                                                             const res = await fetch(`/api/admin/rentals?type=rental&id=${rental.id}`, { method: 'DELETE' });
                                                             const data = await res.json();
@@ -631,6 +642,16 @@ function RentalsTab() {
                     type="rental"
                     data={selectedRentalForPrint}
                     onClose={() => setShowPrintAgreement(false)}
+                />
+            )}
+
+            {terminateTarget && (
+                <TerminationModal
+                    type="rental"
+                    record={terminateTarget}
+                    customerId={terminateTarget.customer_id}
+                    onClose={() => setTerminateTarget(null)}
+                    onSuccess={() => { setTerminateTarget(null); fetchData(); }}
                 />
             )}
         </div>
