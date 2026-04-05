@@ -149,6 +149,60 @@ export async function PATCH(request, { params }) {
             })
         }
 
+        // Rate a completed job — customer submits 1-5 star rating
+        if (action === 'rate') {
+            const body = await request.clone().json().catch(() => ({}));
+            const { rating, rating_note: ratingNote } = body;
+
+            const ratingNum = parseInt(rating);
+            if (!ratingNum || ratingNum < 1 || ratingNum > 5) {
+                return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 });
+            }
+
+            // Verify job belongs to customer and is completed
+            const { data: job, error: fetchError } = await supabase
+                .from('jobs')
+                .select('customer_id, status, customer_rating')
+                .eq('id', id)
+                .single();
+
+            if (fetchError || !job) {
+                return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+            }
+            if (job.customer_id !== customerId) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+            }
+            if (job.status !== 'completed') {
+                return NextResponse.json({ error: 'Can only rate completed jobs' }, { status: 400 });
+            }
+
+            const { data: updatedJob, error: updateError } = await supabase
+                .from('jobs')
+                .update({
+                    customer_rating: ratingNum,
+                    rating_note: ratingNote || null,
+                    rated_at: new Date().toISOString(),
+                })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (updateError) {
+                console.error('Error saving rating:', updateError);
+                return NextResponse.json({ error: 'Failed to save rating' }, { status: 500 });
+            }
+
+            // Log it as an interaction
+            await supabase.from('job_interactions').insert({
+                job_id: id,
+                type: 'customer-rated',
+                message: `Customer gave ${ratingNum} star${ratingNum !== 1 ? 's' : ''}${ratingNote ? `: "${ratingNote}"` : ''}`,
+                user_name: 'Customer',
+            }).catch(() => {});
+
+            return NextResponse.json({ success: true, job: updatedJob });
+        }
+
         return NextResponse.json(
             { error: 'Invalid action' },
             { status: 400 }

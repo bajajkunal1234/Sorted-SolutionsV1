@@ -23,11 +23,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [editedJob, setEditedJob] = useState(job);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice' | 'calculator'
+    const [activeForm, setActiveForm] = useState(null);
     const [calculatorItems, setCalculatorItems] = useState(null);
     const [savedQuotation, setSavedQuotation] = useState(null);
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
+    const [markingArrival, setMarkingArrival] = useState(false);
 
     // Tracking State — use stored coordinates from property if available
     const [isTracking, setIsTracking] = useState(job?.status === 'in-progress');
@@ -195,6 +196,37 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             setError(err.message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleMarkArrived = async () => {
+        setMarkingArrival(true);
+        const arrivedAt = new Date().toISOString();
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        try {
+            // 1. Update arrived_at on job
+            await fetch(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ arrived_at: arrivedAt, updated_by_name: techName, source: 'Technician App' })
+            });
+            // 2. Log arrival as a job interaction
+            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'arrived',
+                    category: 'job',
+                    message: `${techName} marked arrival at customer location`,
+                    user_name: techName,
+                    customer_id: editedJob.customerId || null
+                })
+            });
+            setEditedJob(prev => ({ ...prev, arrived_at: arrivedAt }));
+        } catch (err) {
+            alert('Could not mark arrival: ' + err.message);
+        } finally {
+            setMarkingArrival(false);
         }
     };
 
@@ -814,6 +846,37 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+
+                            {/* Mark as Arrived — shown for assigned jobs */}
+                            {editedJob.status === 'assigned' && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: editedJob.arrived_at ? '1px solid rgba(16,185,129,0.4)' : '2px solid #3b82f6' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <MapPin size={18} color={editedJob.arrived_at ? '#10b981' : '#3b82f6'} />
+                                        {editedJob.arrived_at ? 'Arrival Confirmed ✓' : 'At Customer Location?'}
+                                    </h3>
+                                    {editedJob.arrived_at ? (
+                                        <div style={{ padding: '12px', backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 8, textAlign: 'center', fontSize: 13, color: '#10b981', fontWeight: 600 }}>
+                                            ✓ Arrived at {new Date(editedJob.arrived_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>Arrival time recorded for performance tracking</div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                                Tap when you reach the customer's location — this records your on-time arrival for monthly incentive tracking.
+                                            </p>
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={handleMarkArrived}
+                                                disabled={markingArrival}
+                                                style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                                            >
+                                                {markingArrival ? '...' : '📍 Mark as Arrived'}
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Activity size={18} color="#3b82f6" /> Job Status

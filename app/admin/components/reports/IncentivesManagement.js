@@ -1,18 +1,20 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3, Loader2, RefreshCcw } from 'lucide-react';
-import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
+import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3, Loader2, RefreshCcw, CreditCard } from 'lucide-react';
+import { techniciansAPI, websiteSettingsAPI, transactionsAPI } from '@/lib/adminAPI';
 
 function IncentivesManagement() {
     const [activeView, setActiveView] = useState('configure'); // configure, performance, history
     const [showPolicyPdf, setShowPolicyPdf] = useState(false);
     const [showTechPdf, setShowTechPdf] = useState(false);
     const [selectedTechForPdf, setSelectedTechForPdf] = useState(null);
-    const [activeMonth, setActiveMonth] = useState('2026-02');
+    const now = new Date();
+    const [activeMonth, setActiveMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
     const [isFinalized, setIsFinalized] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [payingTechId, setPayingTechId] = useState(null);
 
     // Incentive Parameters Configuration
     const [parameters, setParameters] = useState([]);
@@ -22,11 +24,13 @@ function IncentivesManagement() {
 
     useEffect(() => {
         fetchData();
-    }, []);
+    }, [activeMonth]); // re-fetch whenever the month changes
 
     const fetchData = async () => {
         try {
             setLoading(true);
+            const { supabase } = await import('@/lib/supabase');
+
             const [techsData, paramsData] = await Promise.all([
                 techniciansAPI.getAll(),
                 websiteSettingsAPI.getByKey('incentive-parameters')
@@ -35,7 +39,6 @@ function IncentivesManagement() {
             if (paramsData && paramsData.value) {
                 setParameters(paramsData.value);
             } else {
-                // Default parameters if none found
                 setParameters([
                     { id: 'p1', name: 'On-Time Visits %', type: 'positive', threshold: 95, rewardType: 'fixed', rewardValue: 5000, enabled: true },
                     { id: 'p2', name: 'Customer Feedback (4+ stars)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 3000, enabled: true },
@@ -48,29 +51,169 @@ function IncentivesManagement() {
                 ]);
             }
 
-            if (techsData) {
-                // Mock metrics for now as they require complex aggregation
-                const processedTechs = techsData.map(tech => ({
-                    id: tech.id,
-                    name: tech.name,
-                    currentMetrics: {
-                        onTimeVisits: Math.floor(Math.random() * 15) + 85, // 85-100
-                        feedbackAbove4: Math.floor(Math.random() * 20) + 80, // 80-100
-                        revenuePerCustomer: Math.floor(Math.random() * 1000) + 1800,
-                        revenuePerDay: Math.floor(Math.random() * 3000) + 4000,
-                        monthlyRevenue: Math.floor(Math.random() * 50000) + 80000,
-                        feedbackBelow4: Math.floor(Math.random() * 10),
-                        repeatCallPercent: Math.floor(Math.random() * 15),
-                        lateArrivals: Math.floor(Math.random() * 8)
-                    },
-                    history: [
-                        { month: '2026-01', incentive: Math.floor(Math.random() * 10000) + 10000, onTimeVisits: 94, feedbackAbove4: 90, monthlyRevenue: 115000 },
-                        { month: '2025-12', incentive: Math.floor(Math.random() * 10000) + 8000, onTimeVisits: 92, feedbackAbove4: 88, monthlyRevenue: 105000 },
-                        { month: '2025-11', incentive: Math.floor(Math.random() * 10000) + 12000, onTimeVisits: 95, feedbackAbove4: 91, monthlyRevenue: 118000 }
-                    ],
-                    calculatedIncentive: 0,
-                    breakdown: []
-                }));
+            if (techsData && techsData.length > 0) {
+                // Build date range for the selected month
+                const [yr, mo] = activeMonth.split('-').map(Number);
+                const monthStart = `${activeMonth}-01`;
+                const monthEnd = new Date(yr, mo, 0).toISOString().split('T')[0]; // last day
+
+                // Fetch all jobs for this month across all techs in one query
+                const { data: monthJobs } = await supabase
+                    .from('jobs')
+                    .select('id, assigned_to, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id')
+                    .gte('scheduled_date', monthStart)
+                    .lte('scheduled_date', monthEnd)
+                    .not('assigned_to', 'is', null);
+
+                // Fetch arrival interactions for on-time tracking
+                const jobIds = (monthJobs || []).map(j => j.id);
+                let invoicesByJob = {};
+                let arrivalsByJob = {};
+
+                const { data: paidVouchers } = await supabase
+                    .from('payment_vouchers')
+                    .select('account_id, amount, notes')
+                    .ilike('notes', `%Incentive%${activeMonth}%`);
+
+                if (jobIds.length > 0) {
+                    // Revenue from linked sales_invoices
+                    const { data: invoices } = await supabase
+                        .from('sales_invoices')
+                        .select('job_id, total_amount')
+                        .in('job_id', jobIds);
+                    (invoices || []).forEach(inv => {
+                        invoicesByJob[inv.job_id] = (invoicesByJob[inv.job_id] || 0) + (inv.total_amount || 0);
+                    });
+
+                    // Arrival events from job_interactions
+                    const { data: arrivals } = await supabase
+                        .from('job_interactions')
+                        .select('job_id, created_at')
+                        .eq('type', 'arrived')
+                        .in('job_id', jobIds);
+                    (arrivals || []).forEach(a => {
+                        arrivalsByJob[a.job_id] = a.created_at;
+                    });
+
+                    // Also pull arrived_at directly from jobs table (new column)
+                    const { data: jobsWithArrival } = await supabase
+                        .from('jobs')
+                        .select('id, arrived_at, scheduled_time, scheduled_date, customer_rating, rating_note, customer_id')
+                        .in('id', jobIds);
+                    (jobsWithArrival || []).forEach(j => {
+                        if (j.arrived_at) arrivalsByJob[j.id] = arrivalsByJob[j.id] || j.arrived_at;
+                    });
+
+                    // Merge customer_rating into monthJobs for easy access
+                    (jobsWithArrival || []).forEach(jw => {
+                        const idx = (monthJobs || []).findIndex(j => j.id === jw.id);
+                        if (idx !== -1) {
+                            monthJobs[idx].customer_rating = jw.customer_rating;
+                            monthJobs[idx].arrived_at = jw.arrived_at;
+                            monthJobs[idx].scheduled_time = jw.scheduled_time || monthJobs[idx].scheduled_time;
+                        }
+                    });
+                }
+
+                const processedTechs = techsData.map(tech => {
+                    const techJobs = (monthJobs || []).filter(j =>
+                        j.assigned_to === tech.id || j.technician_id === tech.id
+                    );
+                    const completedJobs = techJobs.filter(j => j.status === 'completed');
+                    const totalJobs = techJobs.length;
+
+                    // ── Revenue metrics (p3, p4, p5) ──────────────────
+                    const monthlyRevenue = completedJobs.reduce((sum, j) => sum + (invoicesByJob[j.id] || j.amount || 0), 0);
+                    const uniqueCustomers = new Set(completedJobs.map(j => j.customer_id)).size;
+                    const revenuePerCustomer = uniqueCustomers > 0 ? Math.round(monthlyRevenue / uniqueCustomers) : 0;
+                    const workDays = new Set(completedJobs.map(j => j.scheduled_date)).size || 1;
+                    const revenuePerDay = Math.round(monthlyRevenue / workDays);
+
+                    // ── On-time / Late arrivals (p1, n3) ──────────────
+                    // Compare arrived_at timestamp vs scheduled_time string (HH:MM)
+                    let onTimeCount = 0, lateCount = 0, arrivedCount = 0;
+                    completedJobs.forEach(j => {
+                        const arrivedAt = arrivalsByJob[j.id];
+                        if (!arrivedAt || !j.scheduled_time) return; // no data → skip
+                        arrivedCount++;
+                        const arrivedDate = new Date(arrivedAt);
+                        // Parse scheduled_time as HH:MM on the scheduled_date
+                        const [hrs, mins] = (j.scheduled_time || '').split(':').map(Number);
+                        const scheduledDt = new Date(j.scheduled_date);
+                        scheduledDt.setHours(hrs || 0, mins || 0, 0, 0);
+                        // Allow 15min grace period
+                        if (arrivedDate <= new Date(scheduledDt.getTime() + 15 * 60 * 1000)) {
+                            onTimeCount++;
+                        } else {
+                            lateCount++;
+                        }
+                    });
+                    const onTimeVisits = arrivedCount > 0 ? Math.round((onTimeCount / arrivedCount) * 100) : 0;
+                    const lateArrivals = arrivedCount > 0 ? Math.round((lateCount / arrivedCount) * 100) : 0;
+
+                    // ── Customer Feedback (p2, n1) ─────────────────────
+                    const ratedJobs = completedJobs.filter(j => j.customer_rating > 0);
+                    const goodRatings = ratedJobs.filter(j => j.customer_rating >= 4).length;
+                    const badRatings = ratedJobs.filter(j => j.customer_rating < 4).length;
+                    const feedbackAbove4 = ratedJobs.length > 0 ? Math.round((goodRatings / ratedJobs.length) * 100) : 0;
+                    const feedbackBelow4 = ratedJobs.length > 0 ? Math.round((badRatings / ratedJobs.length) * 100) : 0;
+
+                    // ── Repeat Call % (n2) ─────────────────────────────
+                    // A repeat call = a completed job where the same customer had a different
+                    // completed job in the 14 days before this one (comeback within 2 weeks)
+                    let repeatCalls = 0;
+                    completedJobs.forEach(job => {
+                        const jobDate = new Date(job.scheduled_date);
+                        const cutoff = new Date(jobDate.getTime() - 14 * 24 * 60 * 60 * 1000);
+                        const priorJob = completedJobs.find(other =>
+                            other.id !== job.id &&
+                            other.customer_id === job.customer_id &&
+                            new Date(other.scheduled_date) >= cutoff &&
+                            new Date(other.scheduled_date) < jobDate
+                        );
+                        if (priorJob) repeatCalls++;
+                    });
+                    const repeatCallPercent = completedJobs.length > 0
+                        ? Math.round((repeatCalls / completedJobs.length) * 100)
+                        : 0;
+
+                    // ── Already paid incentive this month ──────────────
+                    const alreadyPaid = (paidVouchers || [])
+                        .filter(v => v.account_id === tech.ledger_id)
+                        .reduce((s, v) => s + (v.amount || 0), 0);
+
+                    // ── 3-month history placeholders ───────────────────
+                    const history = [-1, -2, -3].map(offset => {
+                        const d = new Date(yr, mo - 1 + offset, 1);
+                        const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return { month: mStr, incentive: 0, onTimeVisits: 0, feedbackAbove4: 0, monthlyRevenue: 0 };
+                    });
+
+                    return {
+                        id: tech.id,
+                        ledger_id: tech.ledger_id,
+                        name: tech.name,
+                        alreadyPaid,
+                        currentMetrics: {
+                            onTimeVisits,      // p1 — real (from arrived_at vs scheduled_time)
+                            feedbackAbove4,    // p2 — real (from customer_rating >= 4)
+                            revenuePerCustomer,// p3 — real
+                            revenuePerDay,     // p4 — real
+                            monthlyRevenue,    // p5 — real
+                            feedbackBelow4,    // n1 — real (from customer_rating < 4)
+                            repeatCallPercent, // n2 — real (same customer within 14 days)
+                            lateArrivals,      // n3 — real (from arrived_at > scheduled_time)
+                            totalJobs,
+                            completedJobs: completedJobs.length,
+                            uniqueCustomers,
+                            ratedJobs: ratedJobs.length,
+                            arrivedJobs: arrivedCount,
+                        },
+                        history,
+                        calculatedIncentive: 0,
+                        breakdown: []
+                    };
+                });
                 setTechnicians(processedTechs);
             }
         } catch (err) {
@@ -199,6 +342,46 @@ function IncentivesManagement() {
             alert('Failed to save changes');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const payIncentive = async (tech) => {
+        if (!tech.ledger_id) {
+            alert(`No ledger account linked to ${tech.name}. Please link a ledger account in Technician Management first.`);
+            return;
+        }
+        const amount = tech.calculatedIncentive;
+        if (amount <= 0) {
+            alert('Calculated incentive is ₹0 — nothing to pay.');
+            return;
+        }
+        if (!window.confirm(`Pay ₹${amount.toLocaleString()} incentive to ${tech.name} for ${activeMonth}?`)) return;
+        try {
+            setPayingTechId(tech.id);
+            await transactionsAPI.create({
+                type: 'payment',
+                date: new Date().toISOString().split('T')[0],
+                account_id: tech.ledger_id,
+                account_name: tech.name,
+                amount,
+                payment_mode: 'bank_transfer',
+                notes: `Incentive for ${activeMonth} — ${tech.currentMetrics.completedJobs} jobs, ₹${tech.currentMetrics.monthlyRevenue.toLocaleString()} revenue`,
+                status: 'finalized',
+            });
+            // Mark as paid in settings
+            await websiteSettingsAPI.save(
+                `incentive-paid-${activeMonth}-${tech.id}`,
+                { amount, paidOn: new Date().toISOString() },
+                `Incentive paid to ${tech.name} for ${activeMonth}`
+            );
+            // Update local state to reflect payment
+            setTechnicians(ts => ts.map(t => t.id === tech.id ? { ...t, alreadyPaid: (t.alreadyPaid || 0) + amount } : t));
+            alert(`✓ Payment voucher created for ₹${amount.toLocaleString()} — ${tech.name}`);
+        } catch (err) {
+            console.error('Pay incentive error:', err);
+            alert('Failed to create payment: ' + err.message);
+        } finally {
+            setPayingTechId(null);
         }
     };
 
@@ -438,12 +621,24 @@ function IncentivesManagement() {
                                         padding: 'var(--spacing-md)'
                                     }}
                                 >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                            {tech.name}
-                                        </h4>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>
-                                            ₹{tech.calculatedIncentive.toLocaleString()}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-sm)' }}>
+                                        <div>
+                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
+                                                {tech.name}
+                                            </h4>
+                                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, display: 'flex', gap: 12 }}>
+                                                <span>{tech.currentMetrics.completedJobs ?? 0} jobs completed</span>
+                                                <span>₹{(tech.currentMetrics.monthlyRevenue || 0).toLocaleString()} revenue</span>
+                                                {tech.alreadyPaid > 0 && (
+                                                    <span style={{ color: '#10b981', fontWeight: 600 }}>✓ ₹{tech.alreadyPaid.toLocaleString()} paid</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>
+                                                ₹{tech.calculatedIncentive.toLocaleString()}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>calculated incentive</div>
                                         </div>
                                     </div>
 
@@ -481,6 +676,26 @@ function IncentivesManagement() {
                                             >
                                                 <FileText size={14} />
                                                 View Incentive Sheet (PDF)
+                                            </button>
+
+                                            {/* Pay Incentive Button */}
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={() => payIncentive(tech)}
+                                                disabled={payingTechId === tech.id || tech.calculatedIncentive <= 0 || (tech.alreadyPaid >= tech.calculatedIncentive)}
+                                                style={{
+                                                    width: '100%',
+                                                    marginTop: 'var(--spacing-xs)',
+                                                    padding: 'var(--spacing-sm)',
+                                                    backgroundColor: tech.alreadyPaid >= tech.calculatedIncentive && tech.calculatedIncentive > 0 ? '#10b981' : undefined,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                                                }}
+                                            >
+                                                {payingTechId === tech.id
+                                                    ? <><Loader2 size={14} className="spin" /> Processing...</>
+                                                    : tech.alreadyPaid >= tech.calculatedIncentive && tech.calculatedIncentive > 0
+                                                        ? <><CreditCard size={14} /> Already Paid</>
+                                                        : <><CreditCard size={14} /> Pay Incentive ₹{tech.calculatedIncentive.toLocaleString()}</>}
                                             </button>
                                         </>
                                     )}

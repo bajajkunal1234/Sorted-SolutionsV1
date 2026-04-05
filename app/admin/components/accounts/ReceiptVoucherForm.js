@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
+import JobSelector from './JobSelector';
 
 function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
     const [formData, setFormData] = useState({
@@ -12,7 +13,8 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         amount: existingReceipt?.amount?.toString() || '',
         payment_mode: existingReceipt?.payment_mode || 'cash',
         reference_number: existingReceipt?.reference_number || '',
-        notes: existingReceipt?.notes || existingReceipt?.narration || ''
+        notes: existingReceipt?.notes || existingReceipt?.narration || '',
+        job_id: existingReceipt?.job_id || ''
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
@@ -130,7 +132,15 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                             />
                         </div>
 
-                        {/* Amount & ModeRow */}
+                        {/* Link to Job */}
+                        <JobSelector
+                            value={formData.job_id}
+                            onChange={(jobId) => setFormData({ ...formData, job_id: jobId || '' })}
+                            accountId={formData.account_id}
+                            label="Link to Job (optional)"
+                        />
+
+                        {/* Amount & Mode Row */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                             <div>
                                 <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>

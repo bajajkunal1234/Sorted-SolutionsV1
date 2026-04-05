@@ -91,7 +91,11 @@ export async function GET(request) {
                 confirmedVisitTime: job.confirmed_visit_time,
                 completedAt: job.completed_at,
                 createdAt: job.created_at,
-                notes: job.description || ''   // show description as user-facing notes
+                notes: job.description || '',   // show description as user-facing notes
+                customer_rating: job.customer_rating || null,
+                rating_note: job.rating_note || null,
+                rated_at: job.rated_at || null,
+                arrived_at: job.arrived_at || null,
             };
         })
 

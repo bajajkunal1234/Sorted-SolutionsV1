@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X, Plus, AlertCircle, Save } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import NewAccountForm from './NewAccountForm';
+import JobSelector from './JobSelector';
 
 function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
     const [formData, setFormData] = useState({
@@ -12,7 +13,8 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
         amount: existingPayment?.amount?.toString() || '',
         payment_mode: existingPayment?.payment_mode || 'cash',
         reference_number: existingPayment?.reference_number || '',
-        notes: existingPayment?.notes || existingPayment?.narration || ''
+        notes: existingPayment?.notes || existingPayment?.narration || '',
+        job_id: existingPayment?.job_id || ''
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
@@ -129,6 +131,14 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
                                 label="Paid To"
                             />
                         </div>
+
+                        {/* Link to Job */}
+                        <JobSelector
+                            value={formData.job_id}
+                            onChange={(jobId) => setFormData({ ...formData, job_id: jobId || '' })}
+                            accountId={formData.account_id}
+                            label="Link to Job (optional — for incentives/commissions)"
+                        />
 
                         {/* Amount & Mode Row */}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>

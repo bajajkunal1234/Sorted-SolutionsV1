@@ -210,6 +210,134 @@ function JobCard({ job, onClick }) {
     )
 }
 
+// ── Star Rating Component ───────────────────────────────────────────────────
+
+function StarRating({ job, onRated }) {
+    const [hovered, setHovered] = useState(0);
+    const [selected, setSelected] = useState(job.customer_rating || 0);
+    const [note, setNote] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [submitted, setSubmitted] = useState(!!job.customer_rating);
+
+    const labels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
+    const colors = ['', '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981'];
+
+    const handleSubmit = async () => {
+        if (!selected) return;
+        setSubmitting(true);
+        try {
+            const customerId = localStorage.getItem('customerId');
+            const res = await fetch(`/api/customer/jobs/${job.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'rate', customerId, rating: selected, rating_note: note.trim() || undefined })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to submit rating');
+            setSubmitted(true);
+            if (onRated) onRated(selected);
+        } catch (err) {
+            alert('Could not submit rating: ' + err.message);
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const displayRating = hovered || selected;
+
+    if (submitted) {
+        return (
+            <div style={{
+                background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
+                borderRadius: 14, padding: '16px', marginBottom: 16, textAlign: 'center'
+            }}>
+                <div style={{ fontSize: 13, color: '#a7f3d0', fontWeight: 700, marginBottom: 8 }}>⭐ Thank you for your feedback!</div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
+                    {[1, 2, 3, 4, 5].map(s => (
+                        <Star key={s} size={22}
+                            fill={s <= (job.customer_rating || selected) ? '#f59e0b' : 'none'}
+                            color={s <= (job.customer_rating || selected) ? '#f59e0b' : '#334155'}
+                        />
+                    ))}
+                </div>
+                {(job.rating_note || note) && (
+                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, fontStyle: 'italic' }}>"{job.rating_note || note}"</div>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div style={{
+            background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
+            borderRadius: 14, padding: '16px', marginBottom: 16
+        }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Star size={13} fill="#f59e0b" color="#f59e0b" /> Rate this Service
+            </div>
+            <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 14, lineHeight: 1.5 }}>
+                How was your experience? Your rating helps us improve and reward our technicians.
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 10 }}>
+                {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                        key={star}
+                        onMouseEnter={() => setHovered(star)}
+                        onMouseLeave={() => setHovered(0)}
+                        onClick={() => setSelected(star)}
+                        style={{
+                            background: 'none', border: 'none', cursor: 'pointer', padding: '4px',
+                            transform: star <= displayRating ? 'scale(1.2)' : 'scale(1)',
+                            transition: 'transform 0.15s ease'
+                        }}
+                    >
+                        <Star
+                            size={32}
+                            fill={star <= displayRating ? colors[displayRating] : 'none'}
+                            color={star <= displayRating ? colors[displayRating] : '#334155'}
+                            strokeWidth={1.5}
+                        />
+                    </button>
+                ))}
+            </div>
+
+            {displayRating > 0 && (
+                <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, color: colors[displayRating], marginBottom: 12, transition: 'color 0.2s' }}>
+                    {labels[displayRating]}
+                </div>
+            )}
+
+            {selected > 0 && (
+                <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder="Add a comment (optional)..."
+                    rows={2}
+                    style={{
+                        width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 10, color: '#f8fafc', fontSize: 13, padding: '10px 12px',
+                        resize: 'none', outline: 'none', marginBottom: 12, boxSizing: 'border-box'
+                    }}
+                />
+            )}
+
+            <button
+                onClick={handleSubmit}
+                disabled={!selected || submitting}
+                style={{
+                    width: '100%', padding: '11px', borderRadius: 10, border: 'none',
+                    background: selected ? `linear-gradient(135deg, ${colors[selected]}, ${colors[selected]}cc)` : 'rgba(255,255,255,0.06)',
+                    color: selected ? '#fff' : '#475569', fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.2s', boxShadow: selected ? `0 4px 12px ${colors[selected]}40` : 'none'
+                }}
+            >
+                {submitting ? 'Submitting...' : selected ? `Submit ${selected}-Star Rating` : 'Tap a star to rate'}
+            </button>
+        </div>
+    );
+}
+
 function JobDetailSheet({ job, onClose, onCancel }) {
     const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.booking_request
     const Icon = cfg.icon
@@ -365,6 +493,11 @@ function JobDetailSheet({ job, onClose, onCancel }) {
                                 </div>
                             </div>
                         </div>
+                    )}
+
+                    {/* Star Rating for completed jobs */}
+                    {job.status === 'completed' && (
+                        <StarRating job={job} onRated={() => {}} />
                     )}
 
                     {/* Payment CTA for Completed Jobs */}
