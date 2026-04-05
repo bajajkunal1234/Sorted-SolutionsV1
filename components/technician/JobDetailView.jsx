@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, DollarSign, QrCode, Loader2 } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
@@ -29,6 +29,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
+
+    // Payment collection state
+    const [payAmount, setPayAmount] = useState('');
+    const [payLabel, setPayLabel] = useState('full'); // advance | partial | full
+    const [payNotes, setPayNotes] = useState('');
+    const [payLoading, setPayLoading] = useState(false);
+    const [paySuccess, setPaySuccess] = useState(null);
+    const [qrOrderData, setQrOrderData] = useState(null); // { short_url, order } from API
+    const [qrLoading, setQrLoading] = useState(false);
+    const [linkLoading, setLinkLoading] = useState(false);
 
     // Tracking State — use stored coordinates from property if available
     const [isTracking, setIsTracking] = useState(job?.status === 'in-progress');
@@ -847,7 +857,199 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
 
-                            {/* Mark as Arrived — shown for assigned jobs */}
+                            {/* ═══════════════════════════════════════════════════
+                                COLLECT PAYMENT — standalone, any time
+                            ═══════════════════════════════════════════════════ */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid rgba(16,185,129,0.4)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981' }}>
+                                    <DollarSign size={18} /> Collect Payment
+                                </h3>
+
+                                {paySuccess && (
+                                    <div style={{ padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, marginBottom: 14, fontSize: 13, color: '#10b981', fontWeight: 600 }}>
+                                        ✅ {paySuccess}
+                                    </div>
+                                )}
+
+                                {/* Amount + Label row */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginBottom: 12 }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontWeight: 700 }}>₹</span>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            placeholder="Enter amount"
+                                            value={payAmount}
+                                            onChange={e => { setPayAmount(e.target.value); setPaySuccess(null); setQrOrderData(null); }}
+                                            style={{ width: '100%', padding: '10px 10px 10px 26px', border: '1px solid var(--border-primary)', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, boxSizing: 'border-box' }}
+                                        />
+                                    </div>
+                                    <select
+                                        value={payLabel}
+                                        onChange={e => setPayLabel(e.target.value)}
+                                        style={{ padding: '10px 8px', border: '1px solid var(--border-primary)', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}
+                                    >
+                                        <option value="advance">Advance</option>
+                                        <option value="partial">Partial</option>
+                                        <option value="full">Full</option>
+                                    </select>
+                                </div>
+
+                                {/* Optional notes */}
+                                <input
+                                    type="text"
+                                    placeholder="Note (optional)"
+                                    value={payNotes}
+                                    onChange={e => setPayNotes(e.target.value)}
+                                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, marginBottom: 14, boxSizing: 'border-box' }}
+                                />
+
+                                {/* Action buttons */}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+
+                                    {/* Cash */}
+                                    <button
+                                        disabled={!payAmount || payLoading}
+                                        onClick={async () => {
+                                            if (!payAmount || parseFloat(payAmount) <= 0) return;
+                                            const storedTech = localStorage.getItem('technicianData');
+                                            let techName = 'Technician', techId = null;
+                                            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e){}
+                                            setPayLoading(true); setPaySuccess(null);
+                                            try {
+                                                const res = await fetch('/api/technician/payment', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        job_id: editedJob.id,
+                                                        account_id: editedJob.customerId || editedJob.account_id,
+                                                        technician_id: techId,
+                                                        technician_name: techName,
+                                                        amount: parseFloat(payAmount),
+                                                        method: 'cash',
+                                                        amount_label: payLabel,
+                                                        notes: payNotes,
+                                                    }),
+                                                });
+                                                const data = await res.json();
+                                                if (!data.success) throw new Error(data.error);
+                                                setPaySuccess(`₹${parseFloat(payAmount).toLocaleString('en-IN')} cash recorded!`);
+                                                setPayAmount(''); setPayNotes('');
+                                            } catch(err) { alert('Error: ' + err.message); }
+                                            finally { setPayLoading(false); }
+                                        }}
+                                        style={{ padding: '10px 6px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.4)', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: payAmount && !payLoading ? 'pointer' : 'not-allowed', opacity: payAmount && !payLoading ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                                    >
+                                        {payLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : '💵'} Cash
+                                    </button>
+
+                                    {/* Show QR */}
+                                    <button
+                                        disabled={!payAmount || qrLoading}
+                                        onClick={async () => {
+                                            if (!payAmount || parseFloat(payAmount) <= 0) return;
+                                            const storedTech = localStorage.getItem('technicianData');
+                                            let techName = 'Technician', techId = null;
+                                            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e){}
+                                            setQrLoading(true); setQrOrderData(null);
+                                            try {
+                                                // Create Razorpay order → QR will be shown via checkout
+                                                const res = await fetch('/api/customer/payment/create-order', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        amount: parseFloat(payAmount),
+                                                        receipt: editedJob.id,
+                                                        job_id: editedJob.id,
+                                                        account_id: editedJob.customerId || editedJob.account_id,
+                                                        collected_by: 'technician',
+                                                        technician_id: techId,
+                                                        technician_name: techName,
+                                                        amount_label: payLabel,
+                                                    }),
+                                                });
+                                                const data = await res.json();
+                                                if (!data.success) throw new Error(data.error);
+                                                // Open Razorpay checkout — customer scans the UPI QR inside
+                                                const { loadRazorpayScript } = await import('@/lib/razorpayClient');
+                                                await loadRazorpayScript();
+                                                const rzp = new window.Razorpay({
+                                                    key: data.keyId,
+                                                    order_id: data.order.id,
+                                                    amount: data.order.amount,
+                                                    currency: 'INR',
+                                                    name: 'Sorted Solutions',
+                                                    description: `${payLabel} payment — Job #${editedJob.job_number || editedJob.id?.split('-')[0]}`,
+                                                    prefill: { contact: editedJob.mobile || '' },
+                                                    method: { upi: true, card: false, netbanking: false, wallet: false },
+                                                    config: { display: { blocks: { upi: { name: 'UPI', instruments: [{ method: 'upi', flow: 'qr' }] } }, sequence: ['block.upi'], preferences: { show_default_blocks: false } } },
+                                                    handler: () => { setPaySuccess(`₹${parseFloat(payAmount).toLocaleString('en-IN')} payment received!`); setPayAmount(''); setPayNotes(''); },
+                                                });
+                                                rzp.open();
+                                            } catch(err) { alert('Error: ' + err.message); }
+                                            finally { setQrLoading(false); }
+                                        }}
+                                        style={{ padding: '10px 6px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.4)', backgroundColor: 'rgba(99,102,241,0.1)', color: '#6366f1', fontWeight: 700, fontSize: 12, cursor: payAmount && !qrLoading ? 'pointer' : 'not-allowed', opacity: payAmount && !qrLoading ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                                    >
+                                        {qrLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : '📱'} Show QR
+                                    </button>
+
+                                    {/* WhatsApp Link */}
+                                    <button
+                                        disabled={!payAmount || linkLoading}
+                                        onClick={async () => {
+                                            if (!payAmount || parseFloat(payAmount) <= 0) return;
+                                            const storedTech = localStorage.getItem('technicianData');
+                                            let techName = 'Technician', techId = null;
+                                            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e){}
+                                            setLinkLoading(true);
+                                            try {
+                                                const res = await fetch('/api/payment/create-link', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        amount: parseFloat(payAmount),
+                                                        customer_name: editedJob.customerName || 'Customer',
+                                                        customer_phone: editedJob.mobile || '',
+                                                        description: `${payLabel} payment for ${editedJob.description || 'service'} · Job #${editedJob.job_number || editedJob.id?.split('-')[0]}`,
+                                                        job_id: editedJob.id,
+                                                        account_id: editedJob.customerId || editedJob.account_id,
+                                                        collected_by: 'technician',
+                                                        technician_id: techId,
+                                                        technician_name: techName,
+                                                        amount_label: payLabel,
+                                                    }),
+                                                });
+                                                const data = await res.json();
+                                                if (!data.success) throw new Error(data.error);
+                                                // Log interaction
+                                                await fetch('/api/technician/payment', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({
+                                                        job_id: editedJob.id,
+                                                        account_id: editedJob.customerId || editedJob.account_id,
+                                                        technician_id: techId, technician_name: techName,
+                                                        amount: parseFloat(payAmount), method: 'link', amount_label: payLabel,
+                                                        notes: `Payment link sent via WhatsApp: ${data.short_url}`,
+                                                    }),
+                                                }).catch(() => {});
+                                                // Open WhatsApp
+                                                const phone = (editedJob.mobile || '').replace(/\D/g, '');
+                                                const msg = encodeURIComponent(`Hi ${editedJob.customerName || 'there'}, please pay ₹${parseFloat(payAmount).toLocaleString('en-IN')} for your service (${payLabel}): ${data.short_url}`);
+                                                window.open(`https://wa.me/91${phone}?text=${msg}`, '_blank');
+                                                setPaySuccess(`Payment link sent for ₹${parseFloat(payAmount).toLocaleString('en-IN')}!`);
+                                                setPayAmount(''); setPayNotes('');
+                                            } catch(err) { alert('Error: ' + err.message); }
+                                            finally { setLinkLoading(false); }
+                                        }}
+                                        style={{ padding: '10px 6px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', backgroundColor: 'rgba(34,197,94,0.1)', color: '#22c55e', fontWeight: 700, fontSize: 12, cursor: payAmount && !linkLoading ? 'pointer' : 'not-allowed', opacity: payAmount && !linkLoading ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                                    >
+                                        {linkLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : '💬'} WhatsApp
+                                    </button>
+                                </div>
+                            </div>
+
                             {editedJob.status === 'assigned' && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)', border: editedJob.arrived_at ? '1px solid rgba(16,185,129,0.4)' : '2px solid #3b82f6' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>

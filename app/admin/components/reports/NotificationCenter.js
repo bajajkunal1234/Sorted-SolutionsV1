@@ -38,6 +38,13 @@ const JOB_EVENTS = [
     { id: 'rental_contract_created', label: 'Rental Contract Created', icon: '📋' },
     { id: 'rent_due_reminder', label: 'Rent Due Reminder', icon: '💰' },
     { id: 'rental_contract_expiring', label: 'Rental Contract Expiring (30 days)', icon: '⏰' },
+    // Payment events
+    { id: 'payment_received_online', label: 'Payment Received (Online/Razorpay)', icon: '💳' },
+    { id: 'payment_received_cash', label: 'Payment Received (Cash by Tech)', icon: '💵' },
+    { id: 'payment_link_sent', label: 'Payment Link Sent to Customer', icon: '🔗' },
+    { id: 'payment_partial', label: 'Partial Payment Recorded', icon: '⚡' },
+    { id: 'invoice_generated', label: 'Invoice Generated', icon: '🧾' },
+    { id: 'rental_terminated', label: 'Rental / AMC Contract Terminated', icon: '🚫' },
 ];
 
 const TEMPLATE_TYPES = [
