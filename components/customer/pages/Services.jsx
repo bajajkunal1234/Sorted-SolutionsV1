@@ -501,35 +501,106 @@ function JobDetailSheet({ job, onClose, onCancel }) {
                     )}
 
                     {/* Payment CTA for Completed Jobs */}
-                    {job.status === 'completed' && (
-                        <div style={{
-                            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
-                            borderRadius: 14, padding: '16px', marginBottom: 16
-                        }}>
-                            <div style={{ fontSize: 13, color: '#a7f3d0', lineHeight: 1.6, marginBottom: 12 }}>
-                                Your service is complete. You can now pay securely online.
+                    {job.status === 'completed' && (() => {
+                        const [invoiceData, setInvoiceData] = React.useState(null);
+                        const [invoiceLoading, setInvoiceLoading] = React.useState(false);
+                        const [payInitiated, setPayInitiated] = React.useState(false);
+
+                        const handlePayOnline = async () => {
+                            setPayInitiated(true);
+                            setInvoiceLoading(true);
+                            try {
+                                // 1. Fetch unpaid invoice for this job
+                                const customerId = localStorage.getItem('customerId');
+                                const res = await fetch(`/api/customer/jobs/${job.id}/invoice`);
+                                const data = await res.json();
+
+                                let amount = 0;
+                                let invoiceId = null;
+                                let accountId = customerId;
+
+                                if (data.success && data.invoice) {
+                                    const due = (parseFloat(data.invoice.total_amount) || 0) - (parseFloat(data.invoice.paid_amount) || 0);
+                                    amount = due > 0 ? due : parseFloat(data.invoice.total_amount) || 0;
+                                    invoiceId = data.invoice.id;
+                                    accountId = data.invoice.account_id || customerId;
+                                }
+
+                                if (!amount || amount <= 0) {
+                                    alert('No outstanding amount found for this job.');
+                                    setPayInitiated(false);
+                                    return;
+                                }
+
+                                setInvoiceData({ amount, invoiceId, accountId });
+
+                                // 2. Create Razorpay order with full context
+                                const orderRes = await fetch('/api/customer/payment/create-order', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        amount,
+                                        receipt: job.id,
+                                        job_id: job.id,
+                                        account_id: accountId,
+                                        invoice_id: invoiceId || '',
+                                        collected_by: 'customer',
+                                        amount_label: 'full',
+                                    }),
+                                });
+                                const orderData = await orderRes.json();
+                                if (!orderData.success) throw new Error(orderData.error || 'Failed to create order');
+
+                                // 3. Open Razorpay checkout
+                                const { initiateRazorpayPayment } = await import('@/lib/razorpayClient');
+                                await initiateRazorpayPayment({
+                                    amount,
+                                    receiptId: job.id,
+                                    orderId: orderData.order.id,
+                                    keyId: orderData.keyId,
+                                    onSuccess: () => {
+                                        setInvoiceData(prev => ({ ...prev, paid: true }));
+                                        alert('Payment successful! Thank you.');
+                                    },
+                                });
+                            } catch (err) {
+                                console.error('[Pay Online]', err);
+                                alert('Payment failed: ' + err.message);
+                                setPayInitiated(false);
+                            } finally {
+                                setInvoiceLoading(false);
+                            }
+                        };
+
+                        if (invoiceData?.paid) return (
+                            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, fontSize: 13, color: '#a7f3d0', fontWeight: 600, textAlign: 'center' }}>
+                                ✅ Payment received. Thank you!
                             </div>
-                            <button
-                                onClick={() => {
-                                    import('@/lib/razorpayClient').then((m) => {
-                                        m.initiateRazorpayPayment({
-                                            amount: 500, // Fixed placeholder for beta
-                                            receiptId: job.id,
-                                            onSuccess: () => alert('Payment successful! Your technician has been notified.'),
-                                        })
-                                    })
-                                }}
-                                style={{
-                                    width: '100%', padding: '10px 14px', borderRadius: 10,
-                                    background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none',
-                                    textAlign: 'center', fontSize: 13, color: '#fff', fontWeight: 700, cursor: 'pointer',
-                                    boxShadow: '0 4px 12px rgba(16,185,129,0.3)'
-                                }}
-                            >
-                                Pay Online
-                            </button>
-                        </div>
-                    )}
+                        );
+
+                        return (
+                            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 14, padding: '16px', marginBottom: 16 }}>
+                                <div style={{ fontSize: 13, color: '#a7f3d0', lineHeight: 1.6, marginBottom: 12 }}>
+                                    Your service is complete. Pay securely online via UPI, card, or netbanking.
+                                </div>
+                                <button
+                                    onClick={handlePayOnline}
+                                    disabled={invoiceLoading}
+                                    style={{
+                                        width: '100%', padding: '10px 14px', borderRadius: 10,
+                                        background: invoiceLoading ? 'rgba(16,185,129,0.4)' : 'linear-gradient(135deg, #10b981, #059669)',
+                                        border: 'none', textAlign: 'center', fontSize: 13, color: '#fff',
+                                        fontWeight: 700, cursor: invoiceLoading ? 'not-allowed' : 'pointer',
+                                        boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                    }}
+                                >
+                                    {invoiceLoading ? '⏳ Loading...' : invoiceData ? `Pay ₹${invoiceData.amount.toLocaleString('en-IN')}` : '💳 Pay Online'}
+                                </button>
+                            </div>
+                        );
+                    })()}
+
 
                     {/* Map — shown for assigned & in-progress. Live tracking (tech pin) only for in-progress */}
                     {['assigned', 'in-progress'].includes(job.status) && custLocation && (

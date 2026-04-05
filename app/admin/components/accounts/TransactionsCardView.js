@@ -1,6 +1,7 @@
 'use client'
 
-import { FileText, Calendar, User, Receipt, CreditCard, Tag } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Calendar, User, Receipt, CreditCard, Tag, Send, Loader2, Trash2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
 // ─── Status badge ────────────────────────────────────────────────────────────
@@ -242,6 +243,72 @@ function TransactionsCardView({ items, activeTab, groupBy, onItemClick, onDelete
                                         </span>
                                     )}
                                 </div>
+
+                                {/* Send Payment Link — only for unpaid/partial sales invoices */}
+                                {activeTab === 'sales' && ['unpaid', 'partial'].includes((item.status || '').toLowerCase()) && (() => {
+                                    const [sending, setSending] = useState(false);
+                                    const [sent, setSent] = useState(false);
+                                    return (
+                                        <button
+                                            onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (sending || sent) return;
+                                                const phone = item.account_phone || item.phone || '';
+                                                if (!phone) { alert('No phone number on file for this account. Open account detail and add a phone number.'); return; }
+                                                setSending(true);
+                                                try {
+                                                    const dueAmount = (parseFloat(item.total_amount) || 0) - (parseFloat(item.paid_amount) || 0);
+                                                    const amount = dueAmount > 0 ? dueAmount : parseFloat(item.total_amount) || 0;
+                                                    const res = await fetch('/api/payment/create-link', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            amount,
+                                                            customer_name: item.account_name || 'Customer',
+                                                            customer_phone: phone,
+                                                            description: `Payment for Invoice ${item.invoice_number} · ${item.account_name}`,
+                                                            account_id: item.account_id,
+                                                            invoice_id: item.id,
+                                                            collected_by: 'admin',
+                                                            amount_label: dueAmount < parseFloat(item.total_amount) ? 'partial' : 'full',
+                                                        }),
+                                                    });
+                                                    const data = await res.json();
+                                                    if (!data.success) throw new Error(data.error);
+                                                    // Open WhatsApp
+                                                    const cleanPhone = phone.replace(/\D/g, '');
+                                                    const msg = encodeURIComponent(`Hi ${item.account_name || 'there'}, please find your payment link of ₹${amount.toLocaleString('en-IN')} for Invoice ${item.invoice_number}: ${data.short_url}`);
+                                                    window.open(`https://wa.me/91${cleanPhone}?text=${msg}`, '_blank');
+                                                    setSent(true);
+                                                    // Log interaction
+                                                    await fetch('/api/admin/interactions', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            account_id: item.account_id,
+                                                            type: 'payment-link-sent',
+                                                            description: `Payment link of ₹${amount.toLocaleString('en-IN')} sent via WhatsApp for Invoice ${item.invoice_number}. Link: ${data.short_url}`,
+                                                            performed_by_name: 'Admin',
+                                                        }),
+                                                    }).catch(() => {});
+                                                } catch (err) { alert('Error: ' + err.message); }
+                                                finally { setSending(false); }
+                                            }}
+                                            style={{
+                                                width: '100%', padding: '8px 12px', borderRadius: 'var(--radius-md)',
+                                                background: sent ? 'rgba(16,185,129,0.1)' : 'rgba(34,197,94,0.1)',
+                                                border: `1px solid ${sent ? 'rgba(16,185,129,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                                                color: sent ? '#10b981' : '#22c55e', cursor: 'pointer',
+                                                fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center',
+                                                justifyContent: 'center', gap: 6,
+                                            }}
+                                        >
+                                            {sending ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={13} />}
+                                            {sent ? '✓ Link Sent' : sending ? 'Creating Link...' : '📲 Send Payment Link'}
+                                        </button>
+                                    );
+                                })()}
+
                             </div>
                         );
                     })}
