@@ -72,8 +72,18 @@ function TransactionsTab({ accountId, accountName }) {
                 }
             }
 
-            // Sort by date desc
-            allTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+            // Sort ascending for running balance computation
+            allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // Compute running balance (credit = +, debit = -)
+            let runningBalance = 0;
+            allTransactions.forEach(txn => {
+                runningBalance += (txn.credit || 0) - (txn.debit || 0);
+                txn.balance = runningBalance;
+            });
+
+            // Reverse to show newest first in UI
+            allTransactions.reverse();
 
             setTransactions(allTransactions);
 
@@ -218,6 +228,7 @@ function TransactionsTab({ accountId, accountName }) {
                                 <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Description</th>
                                 <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Debit</th>
                                 <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Credit</th>
+                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Balance</th>
                                 <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Actions</th>
                             </tr>
                         </thead>
@@ -270,6 +281,9 @@ function TransactionsTab({ accountId, accountName }) {
                                         ) : (
                                             <span style={{ color: 'var(--text-tertiary)' }}>-</span>
                                         )}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: (txn.balance || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                                        {txn.balance != null ? `₹${Math.abs(txn.balance).toLocaleString()}${txn.balance >= 0 ? ' Cr' : ' Dr'}` : '—'}
                                     </td>
                                     <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>

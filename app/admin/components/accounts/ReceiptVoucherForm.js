@@ -12,7 +12,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         amount: existingReceipt?.amount?.toString() || '',
         payment_mode: existingReceipt?.payment_mode || 'cash',
         reference_number: existingReceipt?.reference_number || '',
-        narration: existingReceipt?.narration || ''
+        notes: existingReceipt?.notes || existingReceipt?.narration || ''
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
@@ -33,7 +33,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
             alert('Please enter a valid amount');
             return;
         }
-        if (!formData.narration.trim()) {
+        if (!formData.notes.trim()) {
             alert('Please enter narration');
             return;
         }
@@ -185,12 +185,12 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                         {/* Narration */}
                         <div>
                             <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Narration *
+                            Narration / Description *
                             </label>
                             <textarea
                                 className="form-input"
-                                value={formData.narration}
-                                onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
+                                value={formData.notes}
+                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                                 rows="3"
                                 placeholder="Details of the payment received..."
                                 style={{ width: '100%', resize: 'vertical' }}

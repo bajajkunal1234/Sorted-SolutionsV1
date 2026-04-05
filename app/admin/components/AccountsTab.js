@@ -955,7 +955,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                             {activeCols.map(col => {
                                                 const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
                                                 switch (col.id) {
-                                                    case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.product_name || rental.rental_plans?.product_name || '—'}</td>;
+                                                    case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.rental_plans?.product_name || rental.product_name || '—'}</td>;
                                                     case 'account_name':     return <td key={col.id} style={td}>{rental.accounts?.name || rental.customer_name || '—'}</td>;
                                                     case 'monthly_rent':     return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(rental.monthly_rent) || 0).toLocaleString()}</td>;
                                                     case 'start_date':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{rental.start_date ? new Date(rental.start_date).toLocaleDateString('en-GB') : '—'}</td>;

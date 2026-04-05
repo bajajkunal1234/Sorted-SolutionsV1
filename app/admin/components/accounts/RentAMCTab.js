@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Package, Shield, Calendar, DollarSign, Loader2, RefreshCcw, CheckCircle, AlertCircle, Wrench } from 'lucide-react';
 import CollectRentForm from '../reports/CollectRentForm';
-import { transactionsAPI, rentalsAPI } from '@/lib/adminAPI';
+import { transactionsAPI, rentalsAPI, jobsAPI } from '@/lib/adminAPI';
 
 function RentAMCTab({ customerId }) {
     const [rentals, setRentals] = useState([]);
@@ -12,6 +12,7 @@ function RentAMCTab({ customerId }) {
     const [error, setError] = useState(null);
     const [showCollectRentForm, setShowCollectRentForm] = useState(false);
     const [selectedRentalForPayment, setSelectedRentalForPayment] = useState(null);
+    const [scheduleAmc, setScheduleAmc] = useState(null); // { amc, scheduledDate, notes }
 
     useEffect(() => {
         if (customerId) fetchAll();
@@ -24,7 +25,7 @@ function RentAMCTab({ customerId }) {
             const { supabase } = await import('@/lib/supabase');
 
             const [rentalsRes, amcsRes] = await Promise.all([
-                supabase.from('active_rentals').select('*, jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)').eq('customer_id', customerId).order('start_date', { ascending: false }),
+                supabase.from('active_rentals').select('*, rental_plans(product_name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)').eq('customer_id', customerId).order('start_date', { ascending: false }),
                 supabase.from('active_amcs').select('*, amc_plans(name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)').eq('customer_id', customerId).order('created_at', { ascending: false })
             ]);
 
@@ -105,7 +106,7 @@ function RentAMCTab({ customerId }) {
                             <div key={rental.id} style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: `2px solid ${statusColor(rental.status)}` }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-sm)' }}>
                                     <div>
-                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 4 }}>{rental.product_name}</h4>
+                                        <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 4 }}>{rental.rental_plans?.product_name || rental.product_name}</h4>
                                         <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>
                                             {rental.serial_number && <>SN: {rental.serial_number} • </>}ID: {rental.id?.slice(0, 8)}
                                         </div>
@@ -302,11 +303,21 @@ function RentAMCTab({ customerId }) {
 
                                     <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                                         <button className="btn btn-secondary" style={{ flex: 1, padding: '6px', fontSize: 12 }}
-                                            onClick={() => window.location.href = '/admin#amc'}>
+                                            onClick={() => setScheduleAmc({ amc, scheduledDate: amc.next_service_date || new Date().toISOString().split('T')[0], notes: '' })}>
                                             <Calendar size={13} /> Schedule Service
                                         </button>
                                         <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 12 }}
-                                            onClick={() => window.location.href = '/admin#amc'}>
+                                            onClick={() => {
+                                                const info = [
+                                                    `Plan: ${amc.plan_name || amc.amc_plans?.name}`,
+                                                    `Product: ${[amc.product_brand, amc.product_model].filter(Boolean).join(' ')}`,
+                                                    `Amount: ₹${amc.amc_amount}`,
+                                                    `Period: ${fmtDate(amc.start_date)} – ${fmtDate(amc.end_date)}`,
+                                                    `Next Service: ${fmtDate(amc.next_service_date)}`,
+                                                ].join('\n');
+                                                navigator.clipboard?.writeText(info);
+                                                alert(`AMC Details:\n\n${info}`);
+                                            }}>
                                             View Details
                                         </button>
                                     </div>
@@ -346,7 +357,7 @@ function RentAMCTab({ customerId }) {
 
                             if (!paymentData.useExistingReceipt || !receiptId) {
                                 // Create a new receipt voucher in accounts
-                                const productName = rental.product_name || rental.productName || 'Rental';
+                                const productName = rental.rental_plans?.product_name || rental.product_name || rental.productName || 'Rental';
                                 const receipt = await transactionsAPI.create({
                                     type: 'receipt',
                                     date: paymentData.paymentDate || new Date().toISOString().split('T')[0],
@@ -380,6 +391,79 @@ function RentAMCTab({ customerId }) {
                         }
                     }}
                 />
+            )}
+            {/* ───── AMC Schedule Service Modal ───── */}
+            {scheduleAmc && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}
+                    onClick={() => setScheduleAmc(null)}>
+                    <div style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth: 480, boxShadow: 'var(--shadow-xl)', overflow: 'hidden' }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div>
+                                <h3 style={{ fontWeight: 600, margin: 0, color: '#8b5cf6' }}>Schedule AMC Service</h3>
+                                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>
+                                    {scheduleAmc.amc.plan_name || scheduleAmc.amc.amc_plans?.name} — {[scheduleAmc.amc.product_brand, scheduleAmc.amc.product_model].filter(Boolean).join(' ')}
+                                </p>
+                            </div>
+                            <button onClick={() => setScheduleAmc(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: 4, borderRadius: 4 }}>✕</button>
+                        </div>
+                        <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Scheduled Date *</label>
+                                <input type="date" className="form-input" style={{ width: '100%' }}
+                                    value={scheduleAmc.scheduledDate}
+                                    onChange={e => setScheduleAmc(s => ({ ...s, scheduledDate: e.target.value }))} />
+                            </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Job Description</label>
+                                <textarea className="form-input" rows={3} style={{ width: '100%', resize: 'vertical' }}
+                                    placeholder={`AMC service for ${scheduleAmc.amc.plan_name || 'AMC plan'}`}
+                                    value={scheduleAmc.notes}
+                                    onChange={e => setScheduleAmc(s => ({ ...s, notes: e.target.value }))} />
+                            </div>
+                        </div>
+                        <div style={{ padding: 'var(--spacing-md)', borderTop: '1px solid var(--border-primary)', display: 'flex', gap: 'var(--spacing-sm)', justifyContent: 'flex-end' }}>
+                            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setScheduleAmc(null)}>Cancel</button>
+                            <button className="btn btn-primary" style={{ padding: '8px 20px', backgroundColor: '#8b5cf6' }}
+                                onClick={async () => {
+                                    if (!scheduleAmc.scheduledDate) { alert('Please select a date'); return; }
+                                    try {
+                                        setLoading(true);
+                                        const amc = scheduleAmc.amc;
+                                        const description = scheduleAmc.notes.trim() ||
+                                            `AMC service — ${amc.plan_name || amc.amc_plans?.name || 'AMC'} for ${[amc.product_brand, amc.product_model].filter(Boolean).join(' ') || 'product'}`;
+                                        await jobsAPI.create({
+                                            customer_id: customerId,
+                                            description,
+                                            scheduled_date: scheduleAmc.scheduledDate,
+                                            source: 'amc',
+                                            amc_id: amc.id,
+                                            status: 'scheduled',
+                                            priority: 'medium',
+                                        });
+                                        // Update next_service_date on the AMC record
+                                        const nextDate = new Date(scheduleAmc.scheduledDate);
+                                        nextDate.setMonth(nextDate.getMonth() + 1);
+                                        await fetch(`/api/admin/amc?type=amc`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ id: amc.id, next_service_date: nextDate.toISOString().split('T')[0] })
+                                        });
+                                        setScheduleAmc(null);
+                                        await fetchAll();
+                                        alert('Service job scheduled successfully!');
+                                    } catch (err) {
+                                        console.error(err);
+                                        alert('Failed to schedule service: ' + err.message);
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}>
+                                Schedule Job
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
