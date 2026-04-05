@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Package, Shield, Calendar, DollarSign, Loader2, RefreshCcw, CheckCircle, AlertCircle, Wrench } from 'lucide-react';
+import { Package, Shield, Calendar, DollarSign, Loader2, RefreshCcw, CheckCircle, AlertCircle, Wrench, XCircle, TrendingUp } from 'lucide-react';
 import CollectRentForm from '../reports/CollectRentForm';
 import { transactionsAPI, rentalsAPI, jobsAPI } from '@/lib/adminAPI';
 
@@ -12,7 +12,8 @@ function RentAMCTab({ customerId }) {
     const [error, setError] = useState(null);
     const [showCollectRentForm, setShowCollectRentForm] = useState(false);
     const [selectedRentalForPayment, setSelectedRentalForPayment] = useState(null);
-    const [scheduleAmc, setScheduleAmc] = useState(null); // { amc, scheduledDate, notes }
+    const [scheduleAmc, setScheduleAmc] = useState(null);
+    const [terminateTarget, setTerminateTarget] = useState(null); // { type:'rental'|'amc', record }
 
     useEffect(() => {
         if (customerId) fetchAll();
@@ -192,6 +193,15 @@ function RentAMCTab({ customerId }) {
                                         onClick={() => alert('Detailed view for individual rentals coming soon!')}>
                                         View Details
                                     </button>
+                                    {rental.status !== 'terminated' && (
+                                        <button
+                                            className="btn"
+                                            style={{ padding: '6px 12px', fontSize: 12, backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                                            onClick={() => setTerminateTarget({ type: 'rental', record: rental })}
+                                        >
+                                            <XCircle size={13} /> Terminate
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -320,6 +330,15 @@ function RentAMCTab({ customerId }) {
                                             }}>
                                             View Details
                                         </button>
+                                        {amc.status !== 'terminated' && (
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '6px 12px', fontSize: 12, backgroundColor: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}
+                                                onClick={() => setTerminateTarget({ type: 'amc', record: amc })}
+                                            >
+                                                <XCircle size={13} /> Terminate
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );
@@ -465,8 +484,225 @@ function RentAMCTab({ customerId }) {
                     </div>
                 </div>
             )}
+
+            {/* ─── TERMINATION MODAL ─── */}
+            {terminateTarget && (() => {
+                const { type, record } = terminateTarget;
+                const isRental = type === 'rental';
+                const monthlyAmt = isRental ? (parseFloat(record.monthly_rent) || 0) : (parseFloat(record.amc_amount) || 0);
+                const endDate = record.end_date ? new Date(record.end_date) : null;
+                const today = new Date();
+                const remainingMs = endDate ? Math.max(0, endDate - today) : 0;
+                const remainingMonths = endDate ? Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24 * 30))) : 0;
+                const earlyTermDues = isRental ? remainingMonths * monthlyAmt : Math.round((remainingMs / (endDate - new Date(record.start_date))) * monthlyAmt * 100) / 100;
+
+                return (
+                    <TerminationModal
+                        type={type}
+                        record={record}
+                        remainingMonths={remainingMonths}
+                        earlyTermDues={earlyTermDues}
+                        fmt={fmt}
+                        fmtDate={fmtDate}
+                        customerId={customerId}
+                        onClose={() => setTerminateTarget(null)}
+                        onSuccess={() => { setTerminateTarget(null); fetchAll(); }}
+                    />
+                );
+            })()}
         </div>
     );
 }
 
 export default RentAMCTab;
+
+function TerminationModal({ type, record, remainingMonths, earlyTermDues, fmt, fmtDate, customerId, onClose, onSuccess }) {
+    const [termType, setTermType] = useState('customer'); // 'customer' | 'company'
+    const [reason, setReason] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const waived = termType === 'company';
+    const duesAmount = waived ? 0 : earlyTermDues;
+    const isRental = type === 'rental';
+    const name = isRental
+        ? (record.rental_plans?.product_name || record.product_name || 'Rental')
+        : (record.plan_name || record.amc_plans?.name || 'AMC');
+
+    const handleConfirm = async () => {
+        if (!reason.trim()) { alert('Please enter a reason for termination.'); return; }
+        setSaving(true);
+        try {
+            const today = new Date().toISOString();
+            const terminationPayload = {
+                id: record.id,
+                status: 'terminated',
+                terminated_at: today,
+                termination_type: termType,
+                termination_reason: reason,
+                termination_waived: waived,
+                early_termination_amount: duesAmount,
+            };
+
+            // 1. Update the contract record
+            const apiUrl = isRental ? '/api/admin/rentals?type=rental' : '/api/admin/amc?type=amc';
+            const res = await fetch(apiUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(terminationPayload),
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Failed to terminate');
+
+            // 2. Auto-create a sales invoice if dues apply
+            if (duesAmount > 0) {
+                const accountName = record.customer_name || record.accounts?.name || '';
+                const invoicePayload = {
+                    account_id: customerId,
+                    account_name: accountName,
+                    date: today.split('T')[0],
+                    items: JSON.stringify([{
+                        description: `Early Termination — ${name} (${remainingMonths} month${remainingMonths !== 1 ? 's' : ''} remaining)`,
+                        type: 'service',
+                        qty: 1,
+                        rate: duesAmount,
+                        taxRate: 0,
+                    }]),
+                    subtotal: duesAmount,
+                    total_amount: duesAmount,
+                    cgst: 0, sgst: 0, igst: 0, total_tax: 0,
+                    status: 'unpaid',
+                    notes: `Early termination of ${isRental ? 'rental' : 'AMC'} contract. Reason: ${reason}`,
+                };
+                await fetch('/api/admin/transactions?type=sales', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(invoicePayload),
+                });
+            }
+
+            onSuccess();
+        } catch (err) {
+            console.error(err);
+            alert('Error: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px' }}>
+            <div style={{ backgroundColor: 'var(--bg-primary)', borderRadius: '16px', width: '100%', maxWidth: '480px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
+                {/* Header */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-primary)', background: 'rgba(239,68,68,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <div style={{ fontSize: '16px', fontWeight: 700, color: '#ef4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <XCircle size={18} /> Terminate {isRental ? 'Rental' : 'AMC'} Contract
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{name}</div>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>✕</button>
+                </div>
+
+                <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {/* Contract summary */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '12px', backgroundColor: 'var(--bg-secondary)', borderRadius: '10px' }}>
+                        <div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>CONTRACT END</div>
+                            <div style={{ fontSize: '14px', fontWeight: 700 }}>{fmtDate(record.end_date)}</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>REMAINING</div>
+                            <div style={{ fontSize: '14px', fontWeight: 700 }}>{remainingMonths} month{remainingMonths !== 1 ? 's' : ''}</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{isRental ? 'MONTHLY RENT' : 'AMC AMOUNT'}</div>
+                            <div style={{ fontSize: '14px', fontWeight: 700 }}>{fmt(isRental ? record.monthly_rent : record.amc_amount)}</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>EARLY TERM DUES</div>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#ef4444' }}>{fmt(earlyTermDues)}</div>
+                        </div>
+                    </div>
+
+                    {/* Termination type toggle */}
+                    <div>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '8px' }}>WHO IS TERMINATING?</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <button
+                                onClick={() => setTermType('customer')}
+                                style={{
+                                    padding: '10px', borderRadius: '10px', border: `2px solid ${termType === 'customer' ? '#ef4444' : 'var(--border-primary)'}`,
+                                    backgroundColor: termType === 'customer' ? 'rgba(239,68,68,0.1)' : 'var(--bg-secondary)',
+                                    cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                                    color: termType === 'customer' ? '#ef4444' : 'var(--text-secondary)'
+                                }}
+                            >
+                                Customer Initiated<br />
+                                <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-tertiary)' }}>Dues apply — invoice raised</span>
+                            </button>
+                            <button
+                                onClick={() => setTermType('company')}
+                                style={{
+                                    padding: '10px', borderRadius: '10px', border: `2px solid ${termType === 'company' ? '#f59e0b' : 'var(--border-primary)'}`,
+                                    backgroundColor: termType === 'company' ? 'rgba(245,158,11,0.1)' : 'var(--bg-secondary)',
+                                    cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                                    color: termType === 'company' ? '#f59e0b' : 'var(--text-secondary)'
+                                }}
+                            >
+                                Company Initiated<br />
+                                <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--text-tertiary)' }}>Dues waived — no invoice</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Dues summary */}
+                    <div style={{
+                        padding: '10px 14px', borderRadius: '8px',
+                        backgroundColor: waived ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                        border: `1px solid ${waived ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                        fontSize: '13px', fontWeight: 600,
+                        color: waived ? '#f59e0b' : '#ef4444'
+                    }}>
+                        {waived
+                            ? '✓ Remaining dues waived — no invoice will be generated'
+                            : `⚠ Sales invoice of ${fmt(earlyTermDues)} will be created for customer to clear`
+                        }
+                    </div>
+
+                    {/* Reason */}
+                    <div>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>REASON FOR TERMINATION *</label>
+                        <textarea
+                            className="form-input"
+                            value={reason}
+                            onChange={e => setReason(e.target.value)}
+                            rows={3}
+                            placeholder="Enter the reason for termination..."
+                            style={{ width: '100%', resize: 'vertical', fontSize: '13px' }}
+                        />
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <button onClick={onClose} className="btn btn-secondary" style={{ padding: '8px 16px' }} disabled={saving}>
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleConfirm}
+                            disabled={saving}
+                            style={{
+                                padding: '8px 20px', backgroundColor: '#ef4444', color: '#fff',
+                                border: 'none', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer',
+                                fontWeight: 700, fontSize: '13px', opacity: saving ? 0.7 : 1,
+                                display: 'flex', alignItems: 'center', gap: '6px'
+                            }}
+                        >
+                            {saving ? <Loader2 size={14} className="animate-spin" /> : <XCircle size={14} />}
+                            {saving ? 'Terminating...' : 'Confirm Termination'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
