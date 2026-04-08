@@ -1,19 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Printer, Save, Eye, Upload, X, Plus, Trash2 } from 'lucide-react';
+import { Printer, Save, Eye, Upload, X, Plus, Trash2, CheckCircle } from 'lucide-react';
 import { printSettingsAPI } from '@/lib/adminAPI';
 
 function PrintSetup() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
     const [settingsId, setSettingsId] = useState(null);
     const [settings, setSettings] = useState({
-        companyName: 'AC Repair Services',
-        companyAddress: 'Shop No. 5, Malad West, Mumbai - 400064',
-        companyPhone: '+91 98765 43210',
-        companyEmail: 'info@acrepair.com',
-        gstNumber: '27AABCU9603R1ZM',
+        companyName: '',
+        companyAddress: '',
+        companyPhone: '',
+        companyEmail: '',
+        gstNumber: '',
         logoUrl: null,
         showLogo: true,
         showGST: true,
@@ -25,7 +27,7 @@ function PrintSetup() {
         gstBreakdown: {
             showCGST: true,
             showSGST: true,
-            showIGST: true,
+            showIGST: false,
             cgstRate: 9,
             sgstRate: 9,
             igstRate: 18
@@ -62,7 +64,7 @@ function PrintSetup() {
                     includeSignature: data.include_signature ?? true,
                     templateStyle: data.template_style || 'modern-boxes',
                     gstBreakdown: data.gst_breakdown || {
-                        showCGST: true, showSGST: true, showIGST: true, cgstRate: 9, sgstRate: 9, igstRate: 18
+                        showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18
                     }
                 });
                 setInvoiceTerms(data.invoice_terms || []);
@@ -72,50 +74,39 @@ function PrintSetup() {
             }
         } catch (error) {
             console.error('Failed to load print settings:', error);
-            alert('Failed to load print settings');
         } finally {
             setIsLoading(false);
         }
     };
 
     const [showPreview, setShowPreview] = useState(false);
-    const [previewType, setPreviewType] = useState('invoice'); // invoice or quotation
+    const [previewType, setPreviewType] = useState('invoice');
 
     const templateStyles = [
-        {
-            id: 'modern-boxes',
-            name: 'Modern Boxes',
-            description: 'Clean boxed layout with logo placement',
-            preview: 'Box-based design with header logo'
-        },
-        {
-            id: 'classic-lines',
-            name: 'Classic Lines',
-            description: 'Traditional line separators',
-            preview: 'Line-separated sections'
-        },
-        {
-            id: 'minimal-clean',
-            name: 'Minimal Clean',
-            description: 'Minimalist design with subtle borders',
-            preview: 'Clean minimal layout'
-        },
-        {
-            id: 'professional-grid',
-            name: 'Professional Grid',
-            description: 'Grid-based structured layout',
-            preview: 'Structured grid design'
-        }
+        { id: 'modern-boxes', name: 'Modern (Dark Header)', description: 'Dark navy header with white company text — clean and professional' },
+        { id: 'classic-lines', name: 'Classic Lines', description: 'Traditional line separators, light and minimal' },
+        { id: 'minimal-clean', name: 'Minimal Clean', description: 'Ultra-minimal with subtle borders, great for modern businesses' },
+        { id: 'professional-grid', name: 'Professional Grid', description: 'Structured two-column header, grid-based layout' }
     ];
 
-    const handleLogoUpload = (e) => {
+    // ── Logo upload — now uses /api/upload, NOT base64 ───────────────────────
+    const handleLogoUpload = async (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setSettings({ ...settings, logoUrl: reader.result });
-            };
-            reader.readAsDataURL(file);
+        if (!file) return;
+        try {
+            setIsUploadingLogo(true);
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('bucket', 'media');
+            fd.append('folder', 'branding');
+            const res = await fetch('/api/upload', { method: 'POST', body: fd });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Upload failed');
+            setSettings(prev => ({ ...prev, logoUrl: json.url }));
+        } catch (err) {
+            alert('Logo upload failed: ' + err.message);
+        } finally {
+            setIsUploadingLogo(false);
         }
     };
 
@@ -147,983 +138,313 @@ function PrintSetup() {
 
             const saved = await printSettingsAPI.update(payload);
             setSettingsId(saved.id);
-            alert('Print settings saved successfully!');
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 3000);
         } catch (error) {
-            console.error('Failed to save settings:', error);
             alert('Failed to save settings: ' + error.message);
         } finally {
             setIsSaving(false);
         }
     };
 
-    const addInvoiceTerm = () => {
-        setInvoiceTerms([...invoiceTerms, 'New term']);
-    };
+    // ── Terms CRUD helpers ───────────────────────────────────────────────────
+    const makeTermsHandlers = (getter, setter) => ({
+        add: (defaultText) => setter([...getter, defaultText]),
+        update: (i, v) => { const a = [...getter]; a[i] = v; setter(a); },
+        delete: (i) => setter(getter.filter((_, idx) => idx !== i))
+    });
 
-    const updateInvoiceTerm = (index, value) => {
-        const updated = [...invoiceTerms];
-        updated[index] = value;
-        setInvoiceTerms(updated);
-    };
-
-    const deleteInvoiceTerm = (index) => {
-        setInvoiceTerms(invoiceTerms.filter((_, i) => i !== index));
-    };
-
-    const addQuotationTerm = () => {
-        setQuotationTerms([...quotationTerms, 'New term']);
-    };
-
-    const updateQuotationTerm = (index, value) => {
-        const updated = [...quotationTerms];
-        updated[index] = value;
-        setQuotationTerms(updated);
-    };
-
-    const deleteQuotationTerm = (index) => {
-        setQuotationTerms(quotationTerms.filter((_, i) => i !== index));
-    };
-
-    const addRentalTerm = () => {
-        setRentalTerms([...rentalTerms, 'New rental term']);
-    };
-
-    const updateRentalTerm = (index, value) => {
-        const updated = [...rentalTerms];
-        updated[index] = value;
-        setRentalTerms(updated);
-    };
-
-    const deleteRentalTerm = (index) => {
-        setRentalTerms(rentalTerms.filter((_, i) => i !== index));
-    };
-
-    const addAmcTerm = () => {
-        setAmcTerms([...amcTerms, 'New AMC term']);
-    };
-
-    const updateAmcTerm = (index, value) => {
-        const updated = [...amcTerms];
-        updated[index] = value;
-        setAmcTerms(updated);
-    };
-
-    const deleteAmcTerm = (index) => {
-        setAmcTerms(amcTerms.filter((_, i) => i !== index));
-    };
+    const invoiceH = makeTermsHandlers(invoiceTerms, setInvoiceTerms);
+    const quotationH = makeTermsHandlers(quotationTerms, setQuotationTerms);
+    const rentalH = makeTermsHandlers(rentalTerms, setRentalTerms);
+    const amcH = makeTermsHandlers(amcTerms, setAmcTerms);
 
     if (isLoading) {
-        return <div style={{ padding: '20px' }}>Loading settings...</div>;
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                Loading print settings...
+            </div>
+        );
     }
+
+    // ── Shared style for section cards ────────────────────────────────────────
+    const card = {
+        backgroundColor: 'var(--bg-elevated)',
+        border: '1px solid var(--border-primary)',
+        borderRadius: 'var(--radius-lg)',
+        padding: 'var(--spacing-lg)'
+    };
+
+    const label = (text, required) => (
+        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px', color: 'var(--text-primary)' }}>
+            {text}{required && <span style={{ color: 'var(--color-danger)', marginLeft: '2px' }}>*</span>}
+        </label>
+    );
+
+    const checkRow = (checked, onChange, text) => (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', padding: '6px 0' }}>
+            <input type="checkbox" checked={checked} onChange={onChange} style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)' }} />
+            <span style={{ fontSize: 'var(--font-size-sm)' }}>{text}</span>
+        </label>
+    );
+
+    const TermsBlock = ({ title, items, handlers, defaultText }) => (
+        <div style={card}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{title}</h4>
+                <button className="btn btn-secondary" onClick={() => handlers.add(defaultText)} style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Plus size={14} /> Add Term
+                </button>
+            </div>
+            {items.length === 0 && (
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic', margin: 0 }}>
+                    No terms yet. Click "Add Term" to add one.
+                </p>
+            )}
+            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '220px', overflow: 'auto' }}>
+                {items.map((term, index) => (
+                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                        <span style={{ minWidth: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'right' }}>{index + 1}.</span>
+                        <input
+                            type="text"
+                            value={term}
+                            onChange={(e) => handlers.update(index, e.target.value)}
+                            className="form-input"
+                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
+                            placeholder="Enter term..."
+                        />
+                        <button onClick={() => handlers.delete(index)} style={{ padding: '4px', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
+                            <Trash2 size={14} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
-            <div style={{
-                padding: 'var(--spacing-md)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
+            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
                 <div>
-                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '4px' }}>
-                        Print Setup
-                    </h3>
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                        Customize invoice and quotation print templates
+                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '2px' }}>Print Setup</h3>
+                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: 0 }}>
+                        Company branding, GST settings, and T&C for invoices, quotations, rentals and AMC
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={() => {
-                            setPreviewType('invoice');
-                            setShowPreview(true);
-                        }}
-                        style={{ padding: '8px 16px' }}
-                    >
-                        <Eye size={16} />
-                        Invoice
-                    </button>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={() => {
-                            setPreviewType('quotation');
-                            setShowPreview(true);
-                        }}
-                        style={{ padding: '8px 16px' }}
-                    >
-                        <Eye size={16} />
-                        Quotation
-                    </button>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={() => {
-                            setPreviewType('rental');
-                            setShowPreview(true);
-                        }}
-                        style={{ padding: '8px 16px' }}
-                    >
-                        <Eye size={16} />
-                        Rental
-                    </button>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={() => {
-                            setPreviewType('amc');
-                            setShowPreview(true);
-                        }}
-                        style={{ padding: '8px 16px' }}
-                    >
-                        <Eye size={16} />
-                        AMC
-                    </button>
+                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+                    {['invoice', 'quotation', 'rental', 'amc'].map(type => (
+                        <button key={type} className="btn btn-secondary" onClick={() => { setPreviewType(type); setShowPreview(true); }} style={{ padding: '8px 14px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Eye size={14} /> {type.charAt(0).toUpperCase() + type.slice(1)}
+                        </button>
+                    ))}
                     <button
                         className="btn btn-primary"
                         onClick={handleSave}
                         disabled={isSaving}
-                        style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px', opacity: isSaving ? 0.7 : 1 }}
+                        style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
-                        <Save size={16} />
-                        {isSaving ? 'Saving...' : 'Save Settings'}
+                        {saveSuccess ? <><CheckCircle size={16} /> Saved!</> : <><Save size={16} />{isSaving ? 'Saving...' : 'Save Settings'}</>}
                     </button>
                 </div>
             </div>
 
-            {/* Settings */}
+            {/* Content */}
             <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
                 <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
-                    {/* Left Column */}
+
+                    {/* ── LEFT COLUMN ──────────────────────────────────────── */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+
                         {/* Company Information */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                Company Information
-                            </h4>
+                        <div style={card}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Company Information</h4>
                             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                {/* Logo Upload */}
+
+                                {/* Logo Upload — now uses /api/upload */}
                                 <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Company Logo
-                                    </label>
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handleLogoUpload}
-                                            style={{ display: 'none' }}
-                                            id="logo-upload"
-                                        />
-                                        <label
-                                            htmlFor="logo-upload"
-                                            className="btn btn-secondary"
-                                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', cursor: 'pointer', margin: 0 }}
-                                        >
+                                    {label('Company Logo')}
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: 'none' }} id="logo-upload" disabled={isUploadingLogo} />
+                                        <label htmlFor="logo-upload" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', cursor: isUploadingLogo ? 'wait' : 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', opacity: isUploadingLogo ? 0.7 : 1 }}>
                                             <Upload size={14} />
-                                            Upload Logo
+                                            {isUploadingLogo ? 'Uploading...' : 'Upload Logo'}
                                         </label>
                                         {settings.logoUrl && (
                                             <>
-                                                <img
-                                                    src={settings.logoUrl}
-                                                    alt="Logo"
-                                                    style={{ height: '40px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}
-                                                />
-                                                <button
-                                                    onClick={() => setSettings({ ...settings, logoUrl: null })}
-                                                    style={{
-                                                        padding: '4px',
-                                                        border: 'none',
-                                                        background: 'none',
-                                                        color: 'var(--color-danger)',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
+                                                <img src={settings.logoUrl} alt="Logo" style={{ height: '44px', maxWidth: '120px', objectFit: 'contain', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', backgroundColor: '#fff', padding: '4px' }} />
+                                                <button onClick={() => setSettings(prev => ({ ...prev, logoUrl: null }))} style={{ padding: '4px', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }} title="Remove logo">
                                                     <X size={16} />
                                                 </button>
                                             </>
                                         )}
                                     </div>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                        Saved as a URL — no base64 bloat. Recommended: PNG with transparent background, max 500KB.
+                                    </p>
                                 </div>
 
                                 <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Company Name
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={settings.companyName}
-                                        onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
-                                        className="form-input"
-                                        style={{ width: '100%' }}
-                                    />
+                                    {label('Company Name', true)}
+                                    <input type="text" value={settings.companyName} onChange={e => setSettings(p => ({ ...p, companyName: e.target.value }))} className="form-input" style={{ width: '100%' }} placeholder="e.g. Sorted Solutions" />
                                 </div>
+
                                 <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Address
-                                    </label>
-                                    <textarea
-                                        value={settings.companyAddress}
-                                        onChange={(e) => setSettings({ ...settings, companyAddress: e.target.value })}
-                                        className="form-input"
-                                        style={{ width: '100%', minHeight: '60px' }}
-                                    />
+                                    {label('Address')}
+                                    <textarea value={settings.companyAddress} onChange={e => setSettings(p => ({ ...p, companyAddress: e.target.value }))} className="form-input" style={{ width: '100%', minHeight: '60px', resize: 'vertical' }} placeholder="Full business address..." />
                                 </div>
+
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Phone
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={settings.companyPhone}
-                                            onChange={(e) => setSettings({ ...settings, companyPhone: e.target.value })}
-                                            className="form-input"
-                                            style={{ width: '100%' }}
-                                        />
+                                        {label('Phone')}
+                                        <input type="text" value={settings.companyPhone} onChange={e => setSettings(p => ({ ...p, companyPhone: e.target.value }))} className="form-input" style={{ width: '100%' }} placeholder="+91 98765 43210" />
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Email
-                                        </label>
-                                        <input
-                                            type="email"
-                                            value={settings.companyEmail}
-                                            onChange={(e) => setSettings({ ...settings, companyEmail: e.target.value })}
-                                            className="form-input"
-                                            style={{ width: '100%' }}
-                                        />
+                                        {label('Email')}
+                                        <input type="email" value={settings.companyEmail} onChange={e => setSettings(p => ({ ...p, companyEmail: e.target.value }))} className="form-input" style={{ width: '100%' }} placeholder="info@company.com" />
                                     </div>
                                 </div>
+
                                 <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        GST Number
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={settings.gstNumber}
-                                        onChange={(e) => setSettings({ ...settings, gstNumber: e.target.value })}
-                                        className="form-input"
-                                        style={{ width: '100%', fontFamily: 'monospace' }}
-                                    />
+                                    {label('GSTIN')}
+                                    <input type="text" value={settings.gstNumber} onChange={e => setSettings(p => ({ ...p, gstNumber: e.target.value.toUpperCase() }))} className="form-input" style={{ width: '100%', fontFamily: 'monospace', letterSpacing: '0.08em' }} placeholder="27AABCU9603R1ZM" maxLength={15} />
                                 </div>
                             </div>
                         </div>
 
-                        {/* GST Breakdown Settings */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                GST Breakdown Settings
-                            </h4>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={settings.gstBreakdown.showCGST}
-                                            onChange={(e) => setSettings({
-                                                ...settings,
-                                                gstBreakdown: { ...settings.gstBreakdown, showCGST: e.target.checked }
-                                            })}
-                                            style={{ width: '16px', height: '16px' }}
-                                        />
-                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>Show CGST (Central GST)</span>
-                                    </label>
-                                    {settings.gstBreakdown.showCGST && (
-                                        <input
-                                            type="number"
-                                            value={settings.gstBreakdown.cgstRate}
-                                            onChange={(e) => setSettings({
-                                                ...settings,
-                                                gstBreakdown: { ...settings.gstBreakdown, cgstRate: parseFloat(e.target.value) }
-                                            })}
-                                            className="form-input"
-                                            style={{ width: '100px', marginLeft: '24px' }}
-                                            placeholder="Rate %"
-                                        />
-                                    )}
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={settings.gstBreakdown.showSGST}
-                                            onChange={(e) => setSettings({
-                                                ...settings,
-                                                gstBreakdown: { ...settings.gstBreakdown, showSGST: e.target.checked }
-                                            })}
-                                            style={{ width: '16px', height: '16px' }}
-                                        />
-                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>Show SGST (State GST)</span>
-                                    </label>
-                                    {settings.gstBreakdown.showSGST && (
-                                        <input
-                                            type="number"
-                                            value={settings.gstBreakdown.sgstRate}
-                                            onChange={(e) => setSettings({
-                                                ...settings,
-                                                gstBreakdown: { ...settings.gstBreakdown, sgstRate: parseFloat(e.target.value) }
-                                            })}
-                                            className="form-input"
-                                            style={{ width: '100px', marginLeft: '24px' }}
-                                            placeholder="Rate %"
-                                        />
-                                    )}
-                                </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={settings.gstBreakdown.showIGST}
-                                            onChange={(e) => setSettings({
-                                                ...settings,
-                                                gstBreakdown: { ...settings.gstBreakdown, showIGST: e.target.checked }
-                                            })}
-                                            style={{ width: '16px', height: '16px' }}
-                                        />
-                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>Show IGST (Integrated GST)</span>
-                                    </label>
-                                    {settings.gstBreakdown.showIGST && (
-                                        <input
-                                            type="number"
-                                            value={settings.gstBreakdown.igstRate}
-                                            onChange={(e) => setSettings({
-                                                ...settings,
-                                                gstBreakdown: { ...settings.gstBreakdown, igstRate: parseFloat(e.target.value) }
-                                            })}
-                                            className="form-input"
-                                            style={{ width: '100px', marginLeft: '24px' }}
-                                            placeholder="Rate %"
-                                        />
-                                    )}
-                                </div>
+                        {/* GST Breakdown */}
+                        <div style={card}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>GST Breakdown on Invoices</h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                                {[
+                                    { key: 'showCGST', rateKey: 'cgstRate', label: 'Show CGST (Central GST)' },
+                                    { key: 'showSGST', rateKey: 'sgstRate', label: 'Show SGST (State GST)' },
+                                    { key: 'showIGST', rateKey: 'igstRate', label: 'Show IGST (Integrated GST)' }
+                                ].map(({ key, rateKey, label: l }) => (
+                                    <div key={key}>
+                                        {checkRow(
+                                            settings.gstBreakdown[key],
+                                            e => setSettings(p => ({ ...p, gstBreakdown: { ...p.gstBreakdown, [key]: e.target.checked } })),
+                                            l
+                                        )}
+                                        {settings.gstBreakdown[key] && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginLeft: '28px', marginTop: '4px' }}>
+                                                <input
+                                                    type="number"
+                                                    value={settings.gstBreakdown[rateKey]}
+                                                    onChange={e => setSettings(p => ({ ...p, gstBreakdown: { ...p.gstBreakdown, [rateKey]: parseFloat(e.target.value) || 0 } }))}
+                                                    className="form-input"
+                                                    style={{ width: '90px' }}
+                                                    min="0" max="100" step="0.5"
+                                                    placeholder="Rate %"
+                                                />
+                                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>%</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
 
                         {/* Print Options */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                Print Options
-                            </h4>
+                        <div style={card}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Print Options</h4>
                             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Paper Size
-                                        </label>
-                                        <select
-                                            value={settings.paperSize}
-                                            onChange={(e) => setSettings({ ...settings, paperSize: e.target.value })}
-                                            className="form-input"
-                                            style={{ width: '100%' }}
-                                        >
-                                            <option value="A4">A4</option>
-                                            <option value="A5">A5</option>
-                                            <option value="Letter">Letter</option>
+                                        {label('Paper Size')}
+                                        <select value={settings.paperSize} onChange={e => setSettings(p => ({ ...p, paperSize: e.target.value }))} className="form-input" style={{ width: '100%' }}>
+                                            <option value="A4">A4 (210 × 297 mm)</option>
+                                            <option value="A5">A5 (148 × 210 mm)</option>
+                                            <option value="Letter">Letter (216 × 279 mm)</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Font Size
-                                        </label>
-                                        <select
-                                            value={settings.fontSize}
-                                            onChange={(e) => setSettings({ ...settings, fontSize: e.target.value })}
-                                            className="form-input"
-                                            style={{ width: '100%' }}
-                                        >
-                                            <option value="small">Small</option>
-                                            <option value="medium">Medium</option>
-                                            <option value="large">Large</option>
+                                        {label('Font Size')}
+                                        <select value={settings.fontSize} onChange={e => setSettings(p => ({ ...p, fontSize: e.target.value }))} className="form-input" style={{ width: '100%' }}>
+                                            <option value="small">Small (12px)</option>
+                                            <option value="medium">Medium (14px)</option>
+                                            <option value="large">Large (16px)</option>
                                         </select>
                                     </div>
                                 </div>
-
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={settings.showLogo}
-                                            onChange={(e) => setSettings({ ...settings, showLogo: e.target.checked })}
-                                            style={{ width: '16px', height: '16px' }}
-                                        />
-                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>Show company logo</span>
-                                    </label>
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={settings.includeSignature}
-                                            onChange={(e) => setSettings({ ...settings, includeSignature: e.target.checked })}
-                                            style={{ width: '16px', height: '16px' }}
-                                        />
-                                        <span style={{ fontSize: 'var(--font-size-sm)' }}>Include signature space</span>
-                                    </label>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                    {checkRow(settings.showLogo, e => setSettings(p => ({ ...p, showLogo: e.target.checked })), 'Show company logo on documents')}
+                                    {checkRow(settings.showGST, e => setSettings(p => ({ ...p, showGST: e.target.checked })), 'Show GSTIN on header')}
+                                    {checkRow(settings.showTerms, e => setSettings(p => ({ ...p, showTerms: e.target.checked })), 'Show Terms & Conditions on documents')}
+                                    {checkRow(settings.includeSignature, e => setSettings(p => ({ ...p, includeSignature: e.target.checked })), 'Include signature section at bottom')}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Right Column */}
+                    {/* ── RIGHT COLUMN ─────────────────────────────────────── */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+
                         {/* Template Styles */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                Template Styles
-                            </h4>
+                        <div style={card}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Invoice Template Style</h4>
                             <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                {templateStyles.map(template => (
+                                {templateStyles.map(tmpl => (
                                     <div
-                                        key={template.id}
-                                        onClick={() => setSettings({ ...settings, templateStyle: template.id })}
+                                        key={tmpl.id}
+                                        onClick={() => setSettings(p => ({ ...p, templateStyle: tmpl.id }))}
                                         style={{
                                             padding: 'var(--spacing-md)',
-                                            backgroundColor: settings.templateStyle === template.id ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-secondary)',
-                                            border: `2px solid ${settings.templateStyle === template.id ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                            backgroundColor: settings.templateStyle === tmpl.id ? 'rgba(99,102,241,0.08)' : 'var(--bg-secondary)',
+                                            border: `2px solid ${settings.templateStyle === tmpl.id ? '#6366f1' : 'var(--border-primary)'}`,
                                             borderRadius: 'var(--radius-md)',
                                             cursor: 'pointer',
-                                            transition: 'all var(--transition-fast)',
+                                            transition: 'all 0.15s',
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: 'var(--spacing-sm)'
                                         }}
                                     >
-                                        <input
-                                            type="radio"
-                                            checked={settings.templateStyle === template.id}
-                                            onChange={() => setSettings({ ...settings, templateStyle: template.id })}
-                                            style={{ width: '16px', height: '16px' }}
-                                        />
+                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${settings.templateStyle === tmpl.id ? '#6366f1' : 'var(--border-primary)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            {settings.templateStyle === tmpl.id && <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#6366f1' }} />}
+                                        </div>
                                         <div>
-                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                                                {template.name}
-                                            </div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                                {template.description}
-                                            </div>
+                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{tmpl.name}</div>
+                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>{tmpl.description}</div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Invoice Terms & Conditions */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                    Invoice Terms & Conditions
-                                </h4>
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={addInvoiceTerm}
-                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)' }}
-                                >
-                                    <Plus size={14} />
-                                    Add Term
-                                </button>
-                            </div>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '200px', overflow: 'auto' }}>
-                                {invoiceTerms.map((term, index) => (
-                                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                                        <input
-                                            type="text"
-                                            value={term}
-                                            onChange={(e) => updateInvoiceTerm(index, e.target.value)}
-                                            className="form-input"
-                                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px' }}
-                                        />
-                                        <button
-                                            onClick={() => deleteInvoiceTerm(index)}
-                                            style={{
-                                                padding: '4px',
-                                                border: 'none',
-                                                background: 'none',
-                                                color: 'var(--color-danger)',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Quotation Terms & Conditions */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                    Quotation Terms & Conditions
-                                </h4>
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={addQuotationTerm}
-                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)' }}
-                                >
-                                    <Plus size={14} />
-                                    Add Term
-                                </button>
-                            </div>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '200px', overflow: 'auto' }}>
-                                {quotationTerms.map((term, index) => (
-                                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                                        <input
-                                            type="text"
-                                            value={term}
-                                            onChange={(e) => updateQuotationTerm(index, e.target.value)}
-                                            className="form-input"
-                                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px' }}
-                                        />
-                                        <button
-                                            onClick={() => deleteQuotationTerm(index)}
-                                            style={{
-                                                padding: '4px',
-                                                border: 'none',
-                                                background: 'none',
-                                                color: 'var(--color-danger)',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Rental Agreement Terms */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                    Rental Agreement Terms
-                                </h4>
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={addRentalTerm}
-                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)' }}
-                                >
-                                    <Plus size={14} />
-                                    Add Term
-                                </button>
-                            </div>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '200px', overflow: 'auto' }}>
-                                {rentalTerms.map((term, index) => (
-                                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                                        <input
-                                            type="text"
-                                            value={term}
-                                            onChange={(e) => updateRentalTerm(index, e.target.value)}
-                                            className="form-input"
-                                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px' }}
-                                        />
-                                        <button
-                                            onClick={() => deleteRentalTerm(index)}
-                                            style={{
-                                                padding: '4px',
-                                                border: 'none',
-                                                background: 'none',
-                                                color: 'var(--color-danger)',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* AMC Agreement Terms */}
-                        <div style={{
-                            backgroundColor: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-lg)',
-                            padding: 'var(--spacing-lg)'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                    AMC Agreement Terms
-                                </h4>
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={addAmcTerm}
-                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)' }}
-                                >
-                                    <Plus size={14} />
-                                    Add Term
-                                </button>
-                            </div>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '200px', overflow: 'auto' }}>
-                                {amcTerms.map((term, index) => (
-                                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                                        <input
-                                            type="text"
-                                            value={term}
-                                            onChange={(e) => updateAmcTerm(index, e.target.value)}
-                                            className="form-input"
-                                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px' }}
-                                        />
-                                        <button
-                                            onClick={() => deleteAmcTerm(index)}
-                                            style={{
-                                                padding: '4px',
-                                                border: 'none',
-                                                background: 'none',
-                                                color: 'var(--color-danger)',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                        {/* Terms blocks */}
+                        <TermsBlock title="Invoice Terms & Conditions" items={invoiceTerms} handlers={invoiceH} defaultText="New invoice term..." />
+                        <TermsBlock title="Quotation Terms & Conditions" items={quotationTerms} handlers={quotationH} defaultText="New quotation term..." />
+                        <TermsBlock title="Rental Agreement Terms" items={rentalTerms} handlers={rentalH} defaultText="New rental term..." />
+                        <TermsBlock title="AMC Agreement Terms" items={amcTerms} handlers={amcH} defaultText="New AMC term..." />
                     </div>
                 </div>
             </div>
 
-            {/* Preview Modal */}
+            {/* ── Preview Modal ──────────────────────────────────────────── */}
             {showPreview && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                    padding: 'var(--spacing-md)'
-                }}>
-                    <div style={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: 'var(--radius-lg)',
-                        maxWidth: '900px',
-                        width: '100%',
-                        maxHeight: '90vh',
-                        overflow: 'auto',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-                    }}>
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 'var(--spacing-md)' }}>
+                    <div style={{ backgroundColor: '#ffffff', borderRadius: 'var(--radius-lg)', maxWidth: '900px', width: '100%', maxHeight: '92vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
                         {/* Modal Header */}
-                        <div style={{
-                            padding: 'var(--spacing-md)',
-                            backgroundColor: '#1e293b',
-                            color: '#ffffff',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            borderTopLeftRadius: 'var(--radius-lg)',
-                            borderTopRightRadius: 'var(--radius-lg)'
-                        }}>
-                            <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
-                                {previewType === 'invoice' ? 'Invoice' : 
-                                 previewType === 'quotation' ? 'Quotation' :
-                                 previewType === 'rental' ? 'Rental Agreement' : 'AMC Agreement'} Preview - {settings.templateStyle}
-                            </h3>
-                            <button
-                                onClick={() => setShowPreview(false)}
-                                style={{
-                                    padding: '6px',
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    color: '#ffffff',
-                                    cursor: 'pointer'
-                                }}
-                            >
+                        <div style={{ padding: 'var(--spacing-md)', backgroundColor: '#1e293b', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTopLeftRadius: 'var(--radius-lg)', borderTopRightRadius: 'var(--radius-lg)', position: 'sticky', top: 0 }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
+                                    {previewType.charAt(0).toUpperCase() + previewType.slice(1)} Preview
+                                </h3>
+                                <p style={{ margin: '2px 0 0', fontSize: 'var(--font-size-xs)', color: '#94a3b8' }}>
+                                    Template: {templateStyles.find(t => t.id === settings.templateStyle)?.name} · {settings.paperSize} · Font {settings.fontSize}
+                                </p>
+                            </div>
+                            <button onClick={() => setShowPreview(false)} style={{ padding: '6px', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer' }}>
                                 <X size={20} />
                             </button>
                         </div>
 
-                        {/* Preview Content */}
-                        <div style={{
-                            padding: '40px',
-                            backgroundColor: '#ffffff',
-                            color: '#000000',
-                            fontFamily: 'Arial, sans-serif',
-                            fontSize: settings.fontSize === 'small' ? '12px' : settings.fontSize === 'large' ? '16px' : '14px'
-                        }}>
-                            {/* Header with Logo */}
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'flex-start',
-                                marginBottom: '30px',
-                                paddingBottom: '20px',
-                                borderBottom: settings.templateStyle === 'modern-boxes' ? '3px solid #1e293b' :
-                                    settings.templateStyle === 'classic-lines' ? '2px solid #64748b' :
-                                        settings.templateStyle === 'minimal-clean' ? '1px solid #e2e8f0' : '2px double #1e293b'
-                            }}>
-                                <div>
-                                    {settings.showLogo && settings.logoUrl && (
-                                        <img
-                                            src={settings.logoUrl}
-                                            alt="Company Logo"
-                                            style={{ height: '60px', marginBottom: '10px' }}
-                                        />
-                                    )}
-                                    <h1 style={{ margin: 0, fontSize: '24px', color: '#1e293b', fontWeight: 700 }}>
-                                        {settings.companyName}
-                                    </h1>
-                                    <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
-                                        {settings.companyAddress}
-                                    </p>
-                                    <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
-                                        Phone: {settings.companyPhone} | Email: {settings.companyEmail}
-                                    </p>
-                                    {settings.showGST && (
-                                        <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>
-                                            GST: {settings.gstNumber}
-                                        </p>
-                                    )}
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <h2 style={{ margin: 0, fontSize: '28px', color: '#1e293b', fontWeight: 700 }}>
-                                        {previewType === 'invoice' ? 'INVOICE' : 
-                                         previewType === 'quotation' ? 'QUOTATION' :
-                                         previewType === 'rental' ? 'RENTAL AGREEMENT' : 'AMC AGREEMENT'}
-                                    </h2>
-                                    <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
-                                        #{previewType === 'invoice' ? 'INV' : 
-                                          previewType === 'quotation' ? 'QUO' :
-                                          previewType === 'rental' ? 'RA' : 'AMC'}-2026-001
-                                    </p>
-                                    <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
-                                        Date: {new Date().toLocaleDateString('en-GB')}
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Customer Details */}
-                            <div style={{
-                                marginBottom: '30px',
-                                padding: settings.templateStyle === 'modern-boxes' ? '15px' : '0',
-                                backgroundColor: settings.templateStyle === 'modern-boxes' ? '#f8fafc' : 'transparent',
-                                border: settings.templateStyle === 'modern-boxes' ? '1px solid #e2e8f0' : 'none',
-                                borderRadius: settings.templateStyle === 'modern-boxes' ? '8px' : '0'
-                            }}>
-                                <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px', color: '#1e293b' }}>
-                                    Bill To:
-                                </h3>
-                                <p style={{ margin: '3px 0', fontSize: '13px', fontWeight: 600 }}>Sample Customer Name</p>
-                                <p style={{ margin: '3px 0', fontSize: '12px', color: '#64748b' }}>123 Customer Street, Mumbai - 400001</p>
-                                <p style={{ margin: '3px 0', fontSize: '12px', color: '#64748b' }}>Phone: +91 98765 12345</p>
-                            </div>
-
-                            {/* Render different bodies based on type */}
-                            {(previewType === 'invoice' || previewType === 'quotation') ? (
-                                <>
-                                    {/* Items Table */}
-                                    <table style={{
-                                        width: '100%',
-                                        borderCollapse: 'collapse',
-                                        marginBottom: '20px',
-                                        border: settings.templateStyle === 'modern-boxes' ? '1px solid #e2e8f0' : 'none'
-                                    }}>
-                                        <thead>
-                                            <tr style={{
-                                                backgroundColor: settings.templateStyle === 'modern-boxes' ? '#1e293b' :
-                                                    settings.templateStyle === 'professional-grid' ? '#f1f5f9' : '#f8fafc',
-                                                color: settings.templateStyle === 'modern-boxes' ? '#ffffff' : '#1e293b'
-                                            }}>
-                                                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>Item</th>
-                                                <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #cbd5e1' }}>Qty</th>
-                                                <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #cbd5e1' }}>Rate</th>
-                                                <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #cbd5e1' }}>Amount</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>AC Service - Split Unit</td>
-                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>1</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹1,500</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹1,500</td>
-                                            </tr>
-                                            <tr>
-                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>Gas Refilling - R32</td>
-                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>1</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹2,500</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹2,500</td>
-                                            </tr>
-                                            <tr>
-                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>Spare Parts</td>
-                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>3</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>₹500</td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>₹1,500</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-
-                                    {/* Totals Section */}
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '30px' }}>
-                                        <div style={{ minWidth: '300px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                                <span style={{ fontSize: '13px' }}>Subtotal:</span>
-                                                <span style={{ fontSize: '13px', fontWeight: 600 }}>₹5,500</span>
-                                            </div>
-
-                                            {/* GST Breakdown */}
-                                            {settings.showGST && (
-                                                <>
-                                                    {settings.gstBreakdown.showCGST && (
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                                            <span style={{ fontSize: '13px' }}>CGST ({settings.gstBreakdown.cgstRate}%):</span>
-                                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.cgstRate / 100).toFixed(2)}</span>
-                                                        </div>
-                                                    )}
-                                                    {settings.gstBreakdown.showSGST && (
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                                            <span style={{ fontSize: '13px' }}>SGST ({settings.gstBreakdown.sgstRate}%):</span>
-                                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.sgstRate / 100).toFixed(2)}</span>
-                                                        </div>
-                                                    )}
-                                                    {settings.gstBreakdown.showIGST && (
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0' }}>
-                                                            <span style={{ fontSize: '13px' }}>IGST ({settings.gstBreakdown.igstRate}%):</span>
-                                                            <span style={{ fontSize: '13px', fontWeight: 600 }}>₹{(5500 * settings.gstBreakdown.igstRate / 100).toFixed(2)}</span>
-                                                        </div>
-                                                    )}
-                                                </>
-                                            )}
-
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                padding: '12px 0',
-                                                borderTop: '2px solid #1e293b',
-                                                marginTop: '8px'
-                                            }}>
-                                                <span style={{ fontSize: '16px', fontWeight: 700 }}>Total:</span>
-                                                <span style={{ fontSize: '18px', fontWeight: 700, color: '#10b981' }}>
-                                                    ₹{(5500 * 1.18).toFixed(2)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    {/* Agreement Body Placeholder */}
-                                    <div style={{
-                                        minHeight: '200px',
-                                        padding: '20px',
-                                        backgroundColor: '#f8fafc',
-                                        border: '1px dashed #cbd5e1',
-                                        borderRadius: '8px',
-                                        marginBottom: '30px',
-                                        color: '#64748b',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        textAlign: 'center'
-                                    }}>
-                                        <div>
-                                            <p style={{ fontWeight: 600, fontSize: '16px', marginBottom: '8px', color: '#1e293b' }}>
-                                                Parsed HTML Template Content
-                                            </p>
-                                            <p style={{ fontSize: '13px' }}>
-                                                Your {previewType === 'rental' ? 'Rental' : 'AMC'} template design from the Agreement Templates tab will appear here. Placeholders like [CUSTOMER_NAME] and [PRODUCT_NAME] are replaced with actual data during generation.
-                                            </p>
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Terms & Conditions */}
-                            {settings.showTerms && (
-                                <div style={{
-                                    marginTop: '30px',
-                                    padding: '15px',
-                                    backgroundColor: '#f8fafc',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: '8px'
-                                }}>
-                                    <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '10px', color: '#1e293b' }}>
-                                        {previewType === 'invoice' || previewType === 'quotation' ? 'Terms & Conditions:' : 'Standard Terms & Conditions:'}
-                                    </h4>
-                                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '11px', color: '#64748b', lineHeight: 1.6 }}>
-                                        {(
-                                            previewType === 'invoice' ? invoiceTerms : 
-                                            previewType === 'quotation' ? quotationTerms : 
-                                            previewType === 'rental' ? rentalTerms : 
-                                            amcTerms
-                                        ).map((term, index) => (
-                                            <li key={index} style={{ marginBottom: '4px' }}>{term}</li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
-
-                            {/* Signature Section */}
-                            {settings.includeSignature && (
-                                <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'space-between' }}>
-                                    <div>
-                                        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '40px' }}>Customer Signature</p>
-                                        <div style={{ borderTop: '1px solid #cbd5e1', width: '200px' }}></div>
-                                    </div>
-                                    <div>
-                                        <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '40px' }}>Authorized Signatory</p>
-                                        <div style={{ borderTop: '1px solid #cbd5e1', width: '200px' }}></div>
-                                        <p style={{ fontSize: '11px', color: '#64748b', marginTop: '5px', textAlign: 'center' }}>
-                                            For {settings.companyName}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Footer */}
-                            <div style={{
-                                marginTop: '40px',
-                                paddingTop: '20px',
-                                borderTop: '2px solid #e2e8f0',
-                                textAlign: 'center',
-                                fontSize: '11px',
-                                color: '#94a3b8'
-                            }}>
-                                <p style={{ margin: '3px 0' }}>This is a computer-generated document</p>
-                                <p style={{ margin: '3px 0' }}>{settings.companyName} | {settings.companyPhone} | {settings.companyEmail}</p>
-                            </div>
-                        </div>
+                        {/* The actual preview document */}
+                        <InvoicePreview settings={settings} previewType={previewType}
+                            terms={previewType === 'invoice' ? invoiceTerms : previewType === 'quotation' ? quotationTerms : previewType === 'rental' ? rentalTerms : amcTerms}
+                        />
                     </div>
                 </div>
             )}
@@ -1131,5 +452,138 @@ function PrintSetup() {
     );
 }
 
-export default PrintSetup;
+// ── Reusable preview component (also referenced by SetupInvoiceModal concept) ─
+function InvoicePreview({ settings, previewType, terms }) {
+    const fontSize = settings.fontSize === 'small' ? '12px' : settings.fontSize === 'large' ? '16px' : '14px';
+    const tStyle = settings.templateStyle;
 
+    const themeColor = tStyle === 'modern-boxes' ? '#1e293b' : tStyle === 'classic-lines' ? '#374151' : tStyle === 'minimal-clean' ? '#6366f1' : '#1e40af';
+    const accentColor = tStyle === 'modern-boxes' ? '#6366f1' : tStyle === 'classic-lines' ? '#10b981' : tStyle === 'minimal-clean' ? '#6366f1' : '#1e40af';
+
+    const headerStyle = tStyle === 'modern-boxes'
+        ? { backgroundColor: themeColor, color: '#fff', padding: '24px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }
+        : tStyle === 'professional-grid'
+            ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '24px 30px', borderBottom: `3px solid ${themeColor}` }
+            : { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '24px 30px', borderBottom: tStyle === 'classic-lines' ? `2px solid ${themeColor}` : `1px solid #e2e8f0` };
+
+    const companyTextColor = tStyle === 'modern-boxes' ? '#fff' : '#1e293b';
+    const companySubColor = tStyle === 'modern-boxes' ? 'rgba(255,255,255,0.75)' : '#64748b';
+
+    const docTitle = previewType === 'invoice' ? 'TAX INVOICE' : previewType === 'quotation' ? 'QUOTATION' : previewType === 'rental' ? 'RENTAL AGREEMENT' : 'AMC AGREEMENT';
+    const refPrefix = previewType === 'invoice' ? 'INV' : previewType === 'quotation' ? 'QUO' : previewType === 'rental' ? 'RA' : 'AMC';
+
+    return (
+        <div style={{ padding: '30px', backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, sans-serif', fontSize }}>
+            {/* Header */}
+            <div style={headerStyle}>
+                <div>
+                    {settings.showLogo && settings.logoUrl && (
+                        <img src={settings.logoUrl} alt="Logo" style={{ height: '52px', marginBottom: '12px', display: 'block' }} />
+                    )}
+                    <div style={{ fontWeight: 700, fontSize: '20px', color: companyTextColor }}>{settings.companyName || 'Your Company Name'}</div>
+                    {settings.companyAddress && <div style={{ fontSize: '12px', color: companySubColor, marginTop: '4px', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{settings.companyAddress}</div>}
+                    <div style={{ fontSize: '12px', color: companySubColor, marginTop: '4px' }}>
+                        {[settings.companyPhone, settings.companyEmail].filter(Boolean).join(' · ')}
+                    </div>
+                    {settings.showGST && settings.gstNumber && (
+                        <div style={{ fontSize: '11px', color: companySubColor, marginTop: '4px', fontFamily: 'monospace' }}>GSTIN: {settings.gstNumber}</div>
+                    )}
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: '22px', fontWeight: 800, color: tStyle === 'modern-boxes' ? '#fff' : accentColor, letterSpacing: '1px' }}>{docTitle}</div>
+                    <div style={{ fontSize: '12px', color: tStyle === 'modern-boxes' ? 'rgba(255,255,255,0.7)' : '#64748b', marginTop: '8px' }}>
+                        <div>#{refPrefix}-2026-0042</div>
+                        <div>Date: {new Date().toLocaleDateString('en-GB')}</div>
+                        {previewType !== 'invoice' || <div>Due: {new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-GB')}</div>}
+                    </div>
+                </div>
+            </div>
+
+            {/* Bill To */}
+            <div style={{ padding: '20px 30px', backgroundColor: tStyle === 'minimal-clean' ? '#f9fafb' : 'transparent', borderBottom: tStyle !== 'modern-boxes' ? '1px solid #e2e8f0' : 'none' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#94a3b8', marginBottom: '6px' }}>Bill To</div>
+                <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e293b' }}>Sample Customer Name</div>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>123 Customer Street, Andheri West, Mumbai · 400053</div>
+                <div style={{ fontSize: '12px', color: '#64748b' }}>+91 98765 12345</div>
+            </div>
+
+            {/* Items Table */}
+            <div style={{ padding: '0 30px 20px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+                    <thead>
+                        <tr style={{ backgroundColor: tStyle === 'modern-boxes' ? themeColor : tStyle === 'professional-grid' ? '#f1f5f9' : '#f8fafc', color: tStyle === 'modern-boxes' ? '#fff' : '#1e293b' }}>
+                            {['#', 'Description', 'HSN', 'Qty', 'Rate', 'Tax%', 'Amount'].map((h, i) => (
+                                <th key={h} style={{ padding: '10px 12px', textAlign: i > 2 ? 'right' : 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {[
+                            ['1', 'AC Service – Split Unit 1.5 Ton', '998519', '1', '₹1,500', '18%', '₹1,770'],
+                            ['2', 'Gas Refilling – R32 Refrigerant', '271600', '1', '₹2,500', '18%', '₹2,950'],
+                            ['3', 'Spare Parts (Capacitor)', '8536', '2', '₹450', '18%', '₹1,062'],
+                        ].map((row, ri) => (
+                            <tr key={ri} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                {row.map((cell, ci) => (
+                                    <td key={ci} style={{ padding: '10px 12px', fontSize: '13px', textAlign: ci > 2 ? 'right' : 'left', color: ci === 6 ? '#1e293b' : '#374151', fontWeight: ci === 6 ? 600 : 400 }}>{cell}</td>
+                                ))}
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+
+                {/* Totals */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                    <div style={{ width: '280px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}>
+                            <span style={{ color: '#64748b' }}>Subtotal:</span>
+                            <span style={{ fontWeight: 600 }}>₹4,450.00</span>
+                        </div>
+                        {settings.showGST && (
+                            <>
+                                {settings.gstBreakdown.showCGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>CGST ({settings.gstBreakdown.cgstRate}%):</span><span>₹{(4450 * settings.gstBreakdown.cgstRate / 100).toFixed(2)}</span></div>}
+                                {settings.gstBreakdown.showSGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>SGST ({settings.gstBreakdown.sgstRate}%):</span><span>₹{(4450 * settings.gstBreakdown.sgstRate / 100).toFixed(2)}</span></div>}
+                                {settings.gstBreakdown.showIGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>IGST ({settings.gstBreakdown.igstRate}%):</span><span>₹{(4450 * settings.gstBreakdown.igstRate / 100).toFixed(2)}</span></div>}
+                            </>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: `2px solid ${themeColor}`, fontSize: '16px', fontWeight: 800, color: themeColor, marginTop: '4px' }}>
+                            <span>Grand Total:</span>
+                            <span style={{ color: accentColor }}>₹5,250.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Terms */}
+            {settings.showTerms && terms.length > 0 && (
+                <div style={{ margin: '0 30px', padding: '16px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', marginBottom: '24px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8', marginBottom: '8px' }}>Terms & Conditions</div>
+                    <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', color: '#64748b', lineHeight: 1.6 }}>
+                        {terms.map((t, i) => <li key={i} style={{ marginBottom: '3px' }}>{t}</li>)}
+                    </ol>
+                </div>
+            )}
+
+            {/* Signature */}
+            {settings.includeSignature && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 30px', marginBottom: '30px' }}>
+                    {['Customer Signature', `For ${settings.companyName || 'Company'}`].map((sig, i) => (
+                        <div key={i} style={{ textAlign: 'center' }}>
+                            <div style={{ width: '180px', height: '50px', borderBottom: '1px solid #cbd5e1', marginBottom: '8px' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>{sig}</div>
+                            {i === 1 && <div style={{ fontSize: '10px', color: '#94a3b8' }}>Authorized Signatory</div>}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Footer */}
+            <div style={{ borderTop: '1px solid #e2e8f0', padding: '12px 30px', textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>
+                This is a computer-generated document. {settings.companyName} · {settings.companyPhone} · {settings.companyEmail}
+            </div>
+        </div>
+    );
+}
+
+export { InvoicePreview };
+export default PrintSetup;

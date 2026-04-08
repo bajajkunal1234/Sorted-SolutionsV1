@@ -607,74 +607,141 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         } catch (err) { alert(`Failed to save: ${err.message}`); }
     };
 
-    // Bug 4 & 5: Print a formatted invoice/quotation with company info from Print Setup
+    // Print a beautifully branded invoice/quotation using Print Setup settings
     const handlePrintItem = (item, tab) => {
-        const ref = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
-        const acct = item.account_name || '';
-        const date = item.date || '';
-        const amount = item.total_amount || item.amount || 0;
-        const tabLabel = tabConfig[tab]?.label || tab;
-        const items = Array.isArray(item.items) ? item.items : [];
+        const ref         = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+        const acct        = item.account_name || '';
+        const date        = item.date ? new Date(item.date).toLocaleDateString('en-GB') : '';
+        const amount      = item.total_amount || item.amount || 0;
+        const itemsList   = Array.isArray(item.items) ? item.items : [];
 
-        // Pull print settings (from DB via Print Setup)
-        const ps = printSettingsRef.current;
-        const companyName = ps?.company_name || 'Your Company';
-        const companyAddress = ps?.company_address || '';
-        const companyPhone = ps?.company_phone || '';
-        const companyGstin = ps?.gstin || '';
-        const companyEmail = ps?.company_email || '';
-        const logoUrl = ps?.show_logo && ps?.logo_url ? ps.logo_url : null;
+        const ps            = printSettingsRef.current || {};
+        const companyName   = ps.company_name    || 'Your Company';
+        const companyAddr   = ps.company_address || '';
+        const companyPhone  = ps.company_phone   || '';
+        const companyEmail  = ps.company_email   || '';
+        const companyGstin  = ps.gst_number      || '';   // fixed: was ps.gstin
+        const showLogo      = ps.show_logo !== false;
+        const logoUrl       = showLogo && ps.logo_url ? ps.logo_url : null;
+        const showGST       = ps.show_gst !== false;
+        const showTerms     = ps.show_terms !== false;
+        const showSig       = ps.include_signature !== false;
+        const tStyle        = ps.template_style  || 'modern-boxes';
+        const fontSize      = ps.font_size === 'small' ? '12px' : ps.font_size === 'large' ? '16px' : '14px';
+        const paperSize     = ps.paper_size      || 'A4';
+        const gstB          = ps.gst_breakdown   || { showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18 };
 
-        // Pick the right T&C based on tab
+        // Pick T&C based on tab
         const termsMap = { sales: 'invoice_terms', purchases: 'invoice_terms', quotations: 'quotation_terms', rentals: 'rental_terms', amc: 'amc_terms' };
-        const termsKey = termsMap[tab] || 'invoice_terms';
-        const terms = Array.isArray(ps?.[termsKey]) ? ps[termsKey] : [];
+        const terms = Array.isArray(ps[termsMap[tab] || 'invoice_terms']) ? ps[termsMap[tab] || 'invoice_terms'] : [];
 
-        const rows = items.map((it, i) => `
+        const docTitle  = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : 'TAX INVOICE';
+        const pageSize  = paperSize === 'A5' ? 'A5' : paperSize === 'Letter' ? 'letter' : 'A4';
+        const themeColor  = tStyle === 'modern-boxes' ? '#1e293b' : tStyle === 'classic-lines' ? '#374151' : tStyle === 'minimal-clean' ? '#6366f1' : '#1e40af';
+        const accentColor = tStyle === 'modern-boxes' ? '#6366f1' : tStyle === 'minimal-clean' ? '#6366f1' : '#10b981';
+        const darkHeader  = tStyle === 'modern-boxes';
+        const headerBg    = darkHeader ? themeColor : '#ffffff';
+        const headerText  = darkHeader ? '#ffffff' : '#1e293b';
+        const headerSub   = darkHeader ? 'rgba(255,255,255,0.72)' : '#64748b';
+        const headerBorder= darkHeader ? 'none' : `3px solid ${themeColor}`;
+
+        const subtotal = item.items_subtotal || itemsList.reduce((s, it) => s + parseFloat(it.total || it.amount || 0), 0);
+
+        const rows = itemsList.map((it, i) => `
             <tr>
-                <td style="padding:6px;border:1px solid #e2e8f0">${i + 1}</td>
-                <td style="padding:6px;border:1px solid #e2e8f0">${it.description || ''}</td>
-                <td style="padding:6px;border:1px solid #e2e8f0;text-align:center">${it.hsn || ''}</td>
-                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right">${it.qty || 1}</td>
-                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right">₹${(it.rate || 0).toLocaleString()}</td>
-                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right">${it.taxRate || 0}%</td>
-                <td style="padding:6px;border:1px solid #e2e8f0;text-align:right;font-weight:600">₹${(it.total || 0).toLocaleString()}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${i + 1}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0">${it.description || it.name || ''}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:monospace;color:#64748b">${it.hsn || ''}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right">${it.qty || it.quantity || 1}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right">&#8377;${Number(it.rate || it.unit_price || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:center;color:#64748b">${it.taxRate || it.tax_rate || 0}%</td>
+              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">&#8377;${Number(it.total || it.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
             </tr>`).join('');
 
-        const termsHtml = terms.length > 0 ? `
-            <div style="margin-top:32px;border-top:1px solid #e2e8f0;padding-top:16px">
-                <h3 style="font-size:13px;font-weight:700;margin-bottom:8px">Terms & Conditions</h3>
-                <ol style="margin:0;padding-left:20px;font-size:12px;color:#475569;line-height:1.6">
-                    ${terms.map(t => `<li>${t}</li>`).join('')}
-                </ol>
+        const cgstAmt = item.cgst > 0 ? item.cgst : (gstB.showCGST ? subtotal * gstB.cgstRate / 100 : 0);
+        const sgstAmt = item.sgst > 0 ? item.sgst : (gstB.showSGST ? subtotal * gstB.sgstRate / 100 : 0);
+        const igstAmt = item.igst > 0 ? item.igst : (gstB.showIGST ? subtotal * gstB.igstRate / 100 : 0);
+
+        const taxRows = showGST ? [
+            (gstB.showCGST || item.cgst > 0) ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">CGST (${gstB.cgstRate}%)</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${cgstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : '',
+            (gstB.showSGST || item.sgst > 0) ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">SGST (${gstB.sgstRate}%)</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${sgstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : '',
+            (gstB.showIGST || item.igst > 0) ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">IGST (${gstB.igstRate}%)</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${igstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : ''
+        ].join('') : '';
+
+        const termsHtml = showTerms && terms.length > 0 ? `
+            <div style="margin:20px 32px;padding:14px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;margin-bottom:8px">Terms &amp; Conditions</div>
+              <ol style="margin:0;padding-left:16px;font-size:11px;color:#475569;line-height:1.7">${terms.map(t => `<li style="margin-bottom:3px">${t}</li>`).join('')}</ol>
             </div>` : '';
 
-        const html = `<!DOCTYPE html><html><head><title>${tabLabel} - ${ref}</title>
-        <style>body{font-family:Arial,sans-serif;padding:32px;color:#1e293b;max-width:900px;margin:0 auto}h1{font-size:22px;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:16px}th{background:#f1f5f9;padding:8px;border:1px solid #e2e8f0;text-align:left;font-size:12px}td{font-size:12px}.total-section{margin-top:16px;text-align:right}.grand{font-size:20px;font-weight:700;color:#10b981}@media print{button{display:none}}</style>
-        </head><body>
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
-            <div style="display:flex;align-items:center;gap:12px">
-                ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="height:50px;width:auto;object-fit:contain">` : ''}
-                <div>
-                    <h1 style="margin:0 0 4px">${companyName}</h1>
-                    ${companyAddress ? `<p style="margin:2px 0;font-size:12px;color:#64748b">${companyAddress}</p>` : ''}
-                    ${companyPhone ? `<p style="margin:2px 0;font-size:12px;color:#64748b">Ph: ${companyPhone}</p>` : ''}
-                    ${companyEmail ? `<p style="margin:2px 0;font-size:12px;color:#64748b">${companyEmail}</p>` : ''}
-                    ${companyGstin ? `<p style="margin:2px 0;font-size:12px;color:#64748b">GSTIN: ${companyGstin}</p>` : ''}
-                </div>
-            </div>
-            <div style="text-align:right">
-                <h2 style="margin:0 0 8px;font-size:18px;color:#6366f1">${tabLabel}</h2>
-                <p style="margin:2px 0;font-size:13px;color:#64748b">Ref: <strong>${ref}</strong></p>
-                <p style="margin:2px 0;font-size:13px;color:#64748b">Date: ${date}</p>
-                <p style="margin:4px 0;font-size:13px"><strong>${acct}</strong></p>
-            </div>
-        </div>
-        <table><thead><tr><th>#</th><th>Description</th><th>HSN</th><th>Qty</th><th>Rate</th><th>Tax</th><th>Total</th></tr></thead><tbody>${rows || '<tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8">No items</td></tr>'}</tbody></table>
-        <div class="total-section"><p style="margin:4px 0;font-size:13px">Subtotal: ₹${(item.subtotal || 0).toLocaleString()}</p>${item.cgst > 0 ? `<p style="margin:4px 0;font-size:13px">CGST: ₹${item.cgst.toLocaleString()}</p><p style="margin:4px 0;font-size:13px">SGST: ₹${item.sgst.toLocaleString()}</p>` : ''}${item.igst > 0 ? `<p style="margin:4px 0;font-size:13px">IGST: ₹${item.igst.toLocaleString()}</p>` : ''}<p class="grand" style="margin-top:8px">Grand Total: ₹${amount.toLocaleString()}</p></div>
-        ${item.notes ? `<p style="margin-top:24px;font-size:12px;color:#64748b">Notes: ${item.notes}</p>` : ''}
-        ${termsHtml}
-        <script>window.onload = () => window.print();<\/script></body></html>`;
+        const sigHtml = showSig ? `
+            <div style="display:flex;justify-content:space-between;padding:0 32px;margin-top:32px">
+              <div style="text-align:center"><div style="width:180px;height:54px;border-bottom:1px solid #cbd5e1;margin-bottom:8px"></div><div style="font-size:12px;font-weight:600">Customer Signature</div></div>
+              <div style="text-align:center"><div style="width:180px;height:54px;border-bottom:1px solid #cbd5e1;margin-bottom:8px"></div><div style="font-size:12px;font-weight:600">For ${companyName}</div><div style="font-size:10px;color:#94a3b8">Authorized Signatory</div></div>
+            </div>` : '';
+
+        const html = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>${docTitle} \u2013 ${ref}</title>
+<style>
+  @page { size: ${pageSize}; margin: 14mm 12mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; color: #1e293b; font-size: ${fontSize}; }
+  table { border-collapse: collapse; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>
+<div style="background:${headerBg};padding:24px 32px;border-bottom:${headerBorder};display:flex;justify-content:space-between;align-items:flex-start">
+  <div>
+    ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="height:50px;max-width:160px;object-fit:contain;margin-bottom:10px;display:block">` : ''}
+    <div style="font-size:20px;font-weight:800;color:${headerText}">${companyName}</div>
+    ${companyAddr  ? `<div style="font-size:11px;color:${headerSub};margin-top:4px;white-space:pre-wrap;line-height:1.5">${companyAddr}</div>` : ''}
+    <div style="font-size:11px;color:${headerSub};margin-top:4px">${[companyPhone, companyEmail].filter(Boolean).join(' · ')}</div>
+    ${showGST && companyGstin ? `<div style="font-size:10px;color:${headerSub};margin-top:3px;font-family:monospace">GSTIN: ${companyGstin}</div>` : ''}
+  </div>
+  <div style="text-align:right">
+    <div style="font-size:24px;font-weight:900;color:${darkHeader ? '#fff' : accentColor};letter-spacing:1px">${docTitle}</div>
+    <div style="margin-top:10px;font-size:12px;color:${darkHeader ? 'rgba(255,255,255,0.7)' : '#64748b'}">
+      <div>Ref: <strong style="color:${darkHeader ? '#fff' : '#1e293b'}">${ref}</strong></div>
+      <div style="margin-top:3px">Date: ${date}</div>
+    </div>
+  </div>
+</div>
+<div style="padding:14px 32px;background:${tStyle === 'minimal-clean' ? '#f9fafb' : '#fff'};border-bottom:1px solid #e2e8f0">
+  <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:5px">Bill To</div>
+  <div style="font-size:15px;font-weight:700">${acct}</div>
+</div>
+<div style="padding:0 32px;margin-top:20px">
+  <table style="width:100%">
+    <thead><tr style="background:${darkHeader ? themeColor : '#f1f5f9'};color:${darkHeader ? '#fff' : '#334155'}">
+      <th style="padding:10px 12px;text-align:left;font-size:12px">#</th>
+      <th style="padding:10px 12px;text-align:left;font-size:12px">Description</th>
+      <th style="padding:10px 12px;text-align:center;font-size:12px">HSN/SAC</th>
+      <th style="padding:10px 12px;text-align:right;font-size:12px">Qty</th>
+      <th style="padding:10px 12px;text-align:right;font-size:12px">Rate (&#8377;)</th>
+      <th style="padding:10px 12px;text-align:center;font-size:12px">Tax%</th>
+      <th style="padding:10px 12px;text-align:right;font-size:12px">Amount (&#8377;)</th>
+    </tr></thead>
+    <tbody>${rows || `<tr><td colspan="7" style="padding:20px;text-align:center;color:#94a3b8">No items found</td></tr>`}</tbody>
+  </table>
+</div>
+<div style="padding:0 32px;margin-top:16px;display:flex;justify-content:flex-end">
+  <table style="width:280px">
+    <tr style="border-top:1px solid #e2e8f0"><td style="padding:7px 0;color:#64748b;font-size:13px">Subtotal</td><td style="padding:7px 0;text-align:right;font-size:13px;font-weight:600">&#8377;${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+    ${taxRows}
+    <tr style="border-top:2px solid ${themeColor}">
+      <td style="padding:12px 0 0;font-size:16px;font-weight:800;color:${themeColor}">Grand Total</td>
+      <td style="padding:12px 0 0;text-align:right;font-size:18px;font-weight:900;color:${accentColor}">&#8377;${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+    </tr>
+    <tr><td colspan="2" style="font-size:10px;color:#94a3b8;text-align:right;padding-top:2px">All amounts in Indian Rupees (INR)</td></tr>
+  </table>
+</div>
+${item.notes ? `<div style="margin:20px 32px;padding:12px;background:#f8fafc;border-left:3px solid ${accentColor};font-size:12px;color:#475569"><strong>Notes:</strong> ${item.notes}</div>` : ''}
+${termsHtml}
+${sigHtml}
+<div style="margin-top:32px;border-top:1px solid #e2e8f0;padding:12px 32px;text-align:center;font-size:10px;color:#94a3b8">
+  This is a computer-generated document &nbsp;|&nbsp; ${companyName} · ${companyPhone} · ${companyEmail}
+</div>
+<script>window.onload = () => { setTimeout(() => window.print(), 400); }<\/script>
+</body></html>`;
 
         const w = window.open('', '_blank');
         if (w) { w.document.write(html); w.document.close(); }
