@@ -11,8 +11,8 @@ const S = {
     },
     sheet: {
         width: '100%', maxWidth: 480, background: 'linear-gradient(180deg, #1e293b 0%, #0f172a 100%)',
-        borderRadius: '28px 28px 0 0', padding: '8px 24px 32px',
-        border: '1px solid rgba(255,255,255,0.08)', maxHeight: '88vh', overflowY: 'auto',
+        borderRadius: '28px 28px 0 0', padding: 'max(8px, env(safe-area-inset-top)) 24px 32px',
+        border: '1px solid rgba(255,255,255,0.08)', maxHeight: '85dvh', overflowY: 'auto',
     },
     handle: { width: 40, height: 4, background: 'rgba(255,255,255,0.2)', borderRadius: 2, margin: '12px auto 20px' },
     label: { display: 'block', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 },

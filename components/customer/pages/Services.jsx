@@ -404,17 +404,16 @@ function JobDetailSheet({ job, onClose, onCancel }) {
                 borderTop: '1px solid rgba(255,255,255,0.08)',
                 borderRadius: '28px 28px 0 0',
                 padding: '0 0 calc(80px + env(safe-area-inset-bottom))',
-                zIndex: 201, maxHeight: '92vh', overflowY: 'auto',
+                zIndex: 201, maxHeight: '85dvh', overflowY: 'auto',
                 boxShadow: '0 -20px 60px rgba(0,0,0,0.6)'
             }}>
                 {/* Drag handle */}
                 <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '16px auto 0' }} />
 
-                {/* Sticky header w/ close */}
                 <div style={{
                     position: 'sticky', top: 0,
                     background: 'linear-gradient(180deg, #1a2332 80%, transparent)',
-                    padding: '16px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     zIndex: 10
                 }}>
                     <div>
