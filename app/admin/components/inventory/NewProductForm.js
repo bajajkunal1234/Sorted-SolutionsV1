@@ -1,12 +1,33 @@
 'use client'
 
 import { useState } from 'react';
-import { X, Upload, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
+import { X, Upload, Plus, Trash2 } from 'lucide-react';
 import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
 import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
 
 
-function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTemplates = [], existingProducts = [] }) {
+async function uploadImage(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bucket', 'media');
+    formData.append('folder', 'inventory');
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || 'Image upload failed');
+    return data.url;
+}
+
+
+function NewProductForm({
+    onClose,
+    onSave,
+    categories = [],
+    brands = [],
+    termsTemplates = [],
+    existingProducts = [],
+    onCategoryAdded,   // (categoryObj) => void  — bubbles real DB record to parent
+    onBrandAdded,      // (brandObj) => void
+}) {
     const [formData, setFormData] = useState({
         name: '',
         type: 'product',
@@ -21,6 +42,7 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
             quantity: 0,
             date: new Date().toISOString().split('T')[0]
         },
+        minStockLevel: '',
 
         // Service fields
         serviceTermsTemplate: '',
@@ -32,14 +54,15 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
         sacCode: '',
 
         // Pricing (4 prices)
-        purchasePrice: '',  // Purchase Rate / Cost
-        salePrice: '',      // Sale Price (standard)
-        dealerPrice: '',    // Dealer Price
-        retailPrice: ''     // Retail Price / MRP
+        purchasePrice: '',
+        salePrice: '',
+        dealerPrice: '',
+        retailPrice: ''
     });
 
     const [imagePreview, setImagePreview] = useState([]);
     const [saving, setSaving] = useState(false);
+    const [uploadingImages, setUploadingImages] = useState(false);
 
     // Auto-generate SKU from type + existing products
     const autoSKU = generateProductSKU(formData.type, existingProducts);
@@ -73,13 +96,19 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
         if (!name) return;
         try {
             if (addingList === 'category') {
-                await inventoryCategoriesAPI.create({ name });
-                setLocalCategories(prev => [...prev, { id: `_new_${name}`, name }]);
-                setFormData(prev => ({ ...prev, category: name }));
+                const created = await inventoryCategoriesAPI.create({ name });
+                // Use the real DB record (has the real id)
+                const newCat = created || { id: `_new_${name}`, name };
+                setLocalCategories(prev => [...prev, newCat]);
+                setFormData(prev => ({ ...prev, category: newCat.name }));
+                // Bubble up to parent InventoryTab so future form opens see it
+                if (onCategoryAdded) onCategoryAdded(newCat);
             } else {
-                await inventoryBrandsAPI.create({ name });
-                setLocalBrands(prev => [...prev, { id: `_new_${name}`, name }]);
-                setFormData(prev => ({ ...prev, brand: name }));
+                const created = await inventoryBrandsAPI.create({ name });
+                const newBrand = created || { id: `_new_${name}`, name };
+                setLocalBrands(prev => [...prev, newBrand]);
+                setFormData(prev => ({ ...prev, brand: newBrand.name }));
+                if (onBrandAdded) onBrandAdded(newBrand);
             }
             setNewListItem('');
             setAddingList(null);
@@ -93,30 +122,41 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
         e.preventDefault();
         setSaving(true);
 
-        const newProduct = {
-            name: formData.name,
-            sku: autoSKU,
-            type: formData.type,
-            category: formData.category,
-            brand: formData.brand || null,
-            description: formData.description || null,
-            unit_of_measure: formData.type === 'service' ? null : formData.unitOfMeasure,
-            opening_balance_qty: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
-            opening_balance_date: formData.type === 'service' ? null : formData.openingBalance.date,
-            current_stock: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
-            purchase_price: parseFloat(formData.purchasePrice) || 0,
-            sale_price: parseFloat(formData.salePrice) || 0,
-            dealer_price: parseFloat(formData.dealerPrice) || 0,
-            retail_price: parseFloat(formData.retailPrice) || 0,
-            gst_applicable: formData.gstApplicable,
-            gst_rate: parseFloat(formData.gstRate) || 0,
-            hsn_code: formData.hsnCode || null,
-            sac_code: formData.sacCode || null,
-            service_terms_template: formData.serviceTermsTemplate || null,
-            status: 'active'
-        };
-
         try {
+            // 1. Upload images first
+            let imageUrls = [];
+            if (formData.images.length > 0) {
+                setUploadingImages(true);
+                imageUrls = await Promise.all(formData.images.map(uploadImage));
+                setUploadingImages(false);
+            }
+
+            // 2. Build product payload
+            const newProduct = {
+                name: formData.name,
+                sku: autoSKU,
+                type: formData.type,
+                category: formData.category,
+                brand: formData.brand || null,
+                description: formData.description || null,
+                images: imageUrls,                          // ✅ saved to DB
+                unit_of_measure: formData.type === 'service' ? null : formData.unitOfMeasure,
+                opening_balance_qty: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
+                opening_balance_date: formData.type === 'service' ? null : formData.openingBalance.date,
+                current_stock: formData.type === 'service' ? null : (parseFloat(formData.openingBalance.quantity) || 0),
+                min_stock_level: formData.type === 'service' ? null : (parseFloat(formData.minStockLevel) || 0), // ✅
+                purchase_price: parseFloat(formData.purchasePrice) || 0,
+                sale_price: parseFloat(formData.salePrice) || 0,
+                dealer_price: parseFloat(formData.dealerPrice) || 0,
+                retail_price: parseFloat(formData.retailPrice) || 0,
+                gst_applicable: formData.gstApplicable,
+                gst_rate: parseFloat(formData.gstRate) || 0,
+                hsn_code: formData.hsnCode || null,
+                sac_code: formData.sacCode || null,
+                service_terms_template: formData.serviceTermsTemplate || null,
+                status: 'active'
+            };
+
             if (onSave) {
                 await onSave(newProduct);
             }
@@ -126,11 +166,14 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
             alert('Failed to create: ' + (err.message || 'Unknown error'));
         } finally {
             setSaving(false);
+            setUploadingImages(false);
         }
     };
 
     const showStockFields = formData.type === 'product';
     const showServiceFields = formData.type === 'service';
+    const isSaving = saving || uploadingImages;
+    const saveLabel = uploadingImages ? 'Uploading images...' : saving ? 'Saving...' : `Create ${formData.type === 'product' ? 'Product' : 'Service'}`;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -328,7 +371,10 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
 
                                 <div className="form-group">
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                        <label className="form-label" style={{ margin: 0 }}>Brand *</label>
+                                        {/* Brand is required for products, optional for services */}
+                                        <label className="form-label" style={{ margin: 0 }}>
+                                            Brand {formData.type === 'product' ? '*' : ''}
+                                        </label>
                                         <button
                                             type="button"
                                             onClick={() => { setAddingList('brand'); setNewListItem(''); setAddingListError(''); }}
@@ -342,7 +388,7 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
                                         className="form-select"
                                         value={formData.brand}
                                         onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                                        required
+                                        required={formData.type === 'product'}   /* ✅ optional for services */
                                     >
                                         <option value="">— Select brand —</option>
                                         {localBrands.map(b => (
@@ -387,7 +433,7 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
                                     </select>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
                                     <div className="form-group">
                                         <label className="form-label">Opening Balance (Qty)</label>
                                         <input
@@ -401,6 +447,22 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
                                             min="0"
                                             placeholder="0"
                                         />
+                                    </div>
+
+                                    {/* ✅ NEW: Min Stock Level */}
+                                    <div className="form-group">
+                                        <label className="form-label">Min Stock Level</label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={formData.minStockLevel}
+                                            onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value })}
+                                            min="0"
+                                            placeholder="e.g. 5"
+                                        />
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '3px' }}>
+                                            Alert threshold for low stock
+                                        </div>
                                     </div>
 
                                     <div className="form-group">
@@ -618,9 +680,9 @@ function NewProductForm({ onClose, onSave, categories = [], brands = [], termsTe
                         <button type="button" className="btn btn-secondary" onClick={onClose}>
                             Cancel
                         </button>
-                        <button type="submit" className="btn btn-primary" disabled={saving}>
+                        <button type="submit" className="btn btn-primary" disabled={isSaving}>
                             <Plus size={16} />
-                            {saving ? 'Saving...' : `Create ${formData.type === 'product' ? 'Product' : 'Service'}`}
+                            {saveLabel}
                         </button>
                     </div>
                 </form>

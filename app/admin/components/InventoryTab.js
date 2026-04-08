@@ -30,6 +30,21 @@ function InventoryTab() {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showCreateForm, setShowCreateForm] = useState(false);
 
+    // Bubble newly-created categories/brands into parent state so next
+    // form open doesn't re-fetch and lose them.
+    const handleCategoryAdded = (newCat) => {
+        setCategories(prev => {
+            if (prev.some(c => c.id === newCat.id)) return prev;
+            return [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name));
+        });
+    };
+    const handleBrandAdded = (newBrand) => {
+        setManagedBrands(prev => {
+            if (prev.some(b => b.id === newBrand.id)) return prev;
+            return [...prev, newBrand].sort((a, b) => a.name.localeCompare(b.name));
+        });
+    };
+
     // Fetch products on mount
     useEffect(() => {
         const fetchInventory = async () => {
@@ -158,7 +173,18 @@ function InventoryTab() {
                 }
             }
 
-            setProducts(prevProducts => [...prevProducts, result]);
+            const normalizedResult = {
+                ...result,
+                currentStock: result.current_stock,
+                minStockLevel: result.min_stock_level,
+                reorderLevel: result.min_stock_level,
+                salePrice: result.sale_price,
+                purchasePrice: result.purchase_price,
+                unitOfMeasure: result.unit_of_measure,
+                hsnCode: result.hsn_code,
+                stockStatus: getStockStatus(result.current_stock, result.min_stock_level, result.type === 'service')
+            };
+            setProducts(prevProducts => [...prevProducts, normalizedResult]);
             setShowCreateForm(false);
         } catch (err) {
             console.error('Error creating product:', err);
@@ -420,6 +446,8 @@ function InventoryTab() {
                     brands={managedBrands}
                     termsTemplates={termsTemplates}
                     existingProducts={products}
+                    onCategoryAdded={handleCategoryAdded}
+                    onBrandAdded={handleBrandAdded}
                 />
             )}
         </div>

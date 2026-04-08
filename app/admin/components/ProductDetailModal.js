@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Package, BarChart2, MessageSquare, History, DollarSign, Edit2, Save, Trash2, ArrowUpRight, ArrowDownLeft, RefreshCcw, Plus, Paperclip, TrendingUp, TrendingDown, ShoppingCart, FileText } from 'lucide-react';
+import { X, Package, BarChart2, MessageSquare, Edit2, Save, Trash2, RefreshCcw, Plus, Paperclip, TrendingUp, TrendingDown, ShoppingCart, FileText, ArrowUpCircle, ArrowDownCircle, Sliders } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusLabel, getStockStatusColor, formatStock } from '@/lib/utils/inventoryHelpers';
 import { inventoryLogsAPI, inventoryMovementAPI, inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
@@ -14,6 +14,13 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
     const [newNote, setNewNote] = useState('');
     const [noteFiles, setNoteFiles] = useState([]);
     const [submittingNote, setSubmittingNote] = useState(false);
+
+    // ── Stock Adjustment ──────────────────────────────────────────────────────
+    const [showAdjustment, setShowAdjustment] = useState(false);
+    const [adjustmentType, setAdjustmentType] = useState('add'); // 'add' | 'remove'
+    const [adjustmentQty, setAdjustmentQty] = useState('');
+    const [adjustmentNote, setAdjustmentNote] = useState('');
+    const [savingAdjustment, setSavingAdjustment] = useState(false);
 
     const [editedProduct, setEditedProduct] = useState({
         ...product,
@@ -101,6 +108,35 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
     const handleSave = () => {
         onUpdate(editedProduct);
         setIsEditing(false);
+    };
+
+    const handleStockAdjustment = async () => {
+        const qty = parseFloat(adjustmentQty);
+        if (!qty || qty <= 0) return;
+        setSavingAdjustment(true);
+        try {
+            const delta = adjustmentType === 'add' ? qty : -qty;
+            const newStock = Math.max(0, (product.current_stock || 0) + delta);
+            await onUpdate({ ...product, current_stock: newStock });
+            // Log the adjustment
+            await inventoryLogsAPI.create({
+                inventory_id: product.id,
+                type: 'adjustment',
+                quantity_changed: delta,
+                previous_quantity: product.current_stock || 0,
+                new_quantity: newStock,
+                reference_type: 'manual',
+                notes: adjustmentNote.trim() || `Stock ${adjustmentType === 'add' ? 'added' : 'removed'}: ${qty} ${product.unit_of_measure || 'pcs'}`
+            });
+            setShowAdjustment(false);
+            setAdjustmentQty('');
+            setAdjustmentNote('');
+        } catch (err) {
+            console.error('Stock adjustment failed:', err);
+            alert('Failed to adjust stock');
+        } finally {
+            setSavingAdjustment(false);
+        }
     };
 
     // ── Interaction helpers ────────────────────────────────────────────────────
@@ -464,6 +500,116 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                             <input type="text" className="form-input" value={product.hsn_code || product.sac_code || ''} disabled style={{ backgroundColor: 'var(--bg-elevated)', fontFamily: 'monospace' }} />
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* ── Stock Adjustment — Products Only ─────────── */}
+                            {product.type === 'product' && (
+                                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showAdjustment ? 'var(--spacing-md)' : 0 }}>
+                                        <div>
+                                            <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+                                                Stock Adjustment
+                                            </h3>
+                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                Current: <strong style={{ color: 'var(--text-primary)' }}>{product.current_stock || 0} {product.unit_of_measure || 'pcs'}</strong>
+                                            </div>
+                                        </div>
+                                        <button
+                                            className={`btn ${showAdjustment ? 'btn-secondary' : 'btn-primary'}`}
+                                            style={{ fontSize: 'var(--font-size-sm)', padding: '6px 14px' }}
+                                            onClick={() => { setShowAdjustment(v => !v); setAdjustmentQty(''); setAdjustmentNote(''); }}
+                                        >
+                                            <Sliders size={14} />
+                                            {showAdjustment ? 'Cancel' : 'Adjust Stock'}
+                                        </button>
+                                    </div>
+
+                                    {showAdjustment && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                                            {/* Add / Remove toggle */}
+                                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAdjustmentType('add')}
+                                                    style={{
+                                                        flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                                                        border: `2px solid ${adjustmentType === 'add' ? '#10b981' : 'var(--border-primary)'}`,
+                                                        backgroundColor: adjustmentType === 'add' ? '#10b98118' : 'var(--bg-elevated)',
+                                                        color: adjustmentType === 'add' ? '#10b981' : 'var(--text-secondary)',
+                                                        fontWeight: 600, fontSize: 'var(--font-size-sm)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                                    }}
+                                                >
+                                                    <ArrowUpCircle size={16} /> Add Stock
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAdjustmentType('remove')}
+                                                    style={{
+                                                        flex: 1, padding: '8px', borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                                                        border: `2px solid ${adjustmentType === 'remove' ? '#ef4444' : 'var(--border-primary)'}`,
+                                                        backgroundColor: adjustmentType === 'remove' ? '#ef444418' : 'var(--bg-elevated)',
+                                                        color: adjustmentType === 'remove' ? '#ef4444' : 'var(--text-secondary)',
+                                                        fontWeight: 600, fontSize: 'var(--font-size-sm)',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'
+                                                    }}
+                                                >
+                                                    <ArrowDownCircle size={16} /> Remove Stock
+                                                </button>
+                                            </div>
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-sm)' }}>
+                                                <div>
+                                                    <label className="form-label" style={{ fontSize: 'var(--font-size-xs)' }}>
+                                                        Quantity ({product.unit_of_measure || 'pcs'})
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        className="form-input"
+                                                        value={adjustmentQty}
+                                                        onChange={e => setAdjustmentQty(e.target.value)}
+                                                        min="0.01"
+                                                        step="1"
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="form-label" style={{ fontSize: 'var(--font-size-xs)' }}>Reason / Note</label>
+                                                    <input
+                                                        type="text"
+                                                        className="form-input"
+                                                        value={adjustmentNote}
+                                                        onChange={e => setAdjustmentNote(e.target.value)}
+                                                        placeholder="e.g. Received new stock, Damaged goods..."
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Preview */}
+                                            {adjustmentQty > 0 && (
+                                                <div style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span>{product.current_stock || 0}</span>
+                                                    <span style={{ color: adjustmentType === 'add' ? '#10b981' : '#ef4444', fontWeight: 700 }}>
+                                                        {adjustmentType === 'add' ? `+${adjustmentQty}` : `−${adjustmentQty}`}
+                                                    </span>
+                                                    <span>→</span>
+                                                    <strong style={{ color: 'var(--text-primary)' }}>
+                                                        {Math.max(0, (product.current_stock || 0) + (adjustmentType === 'add' ? parseFloat(adjustmentQty) : -parseFloat(adjustmentQty)))} {product.unit_of_measure || 'pcs'}
+                                                    </strong>
+                                                </div>
+                                            )}
+
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={handleStockAdjustment}
+                                                disabled={!adjustmentQty || parseFloat(adjustmentQty) <= 0 || savingAdjustment}
+                                                style={{ fontSize: 'var(--font-size-sm)' }}
+                                            >
+                                                {savingAdjustment ? 'Saving...' : `Confirm ${adjustmentType === 'add' ? 'Add' : 'Remove'} Stock`}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
