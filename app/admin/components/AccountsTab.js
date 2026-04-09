@@ -1322,11 +1322,15 @@ ${sigHtml}
             <div style={{ padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '0', overflowX: 'auto' }}>
                 {Object.keys(tabConfig).map(tabKey => (
                     <button key={tabKey} onClick={() => handleTabChange(tabKey)} style={{ padding: '10px 20px', border: 'none', borderBottom: activeTab === tabKey ? '2px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tabKey ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tabKey ? 600 : 400, fontSize: 'var(--font-size-sm)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
-                       {/* Row 3: Accounts toolbar */}
+                        {tabConfig[tabKey].label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Row 3: Accounts toolbar */}
             {activeTab === 'accounts' && (
                 <>
                 <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* View type buttons */}
                     {[['table', TableIcon, 'Table'], ['list', List, 'List'], ['card', Grid, 'Cards'], ['kanban', Columns, 'Kanban'], ['details', Layers, 'Details']].map(([type, Icon, label]) => (
                         <button key={type} onClick={() => setViewType(type)} title={label} style={{ padding: '5px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : '#334155', color: viewType === type ? 'white' : '#cbd5e1', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                             <Icon size={14} />
@@ -1365,13 +1369,11 @@ ${sigHtml}
                         <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                     </div>
                     <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
-                    {/* Balance filter toggle */}
                     <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#cbd5e1', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                         <input type="checkbox" checked={accHasBalance} onChange={e => setAccHasBalance(e.target.checked)} style={{ accentColor: '#6366f1' }} />
                         Has Balance
                     </label>
                     <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
-                    {/* Column Picker */}
                     <div style={{ position: 'relative' }}>
                         <button onClick={() => setShowColumnPicker(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showColumnPicker ? '#6366f1' : '#334155', color: showColumnPicker ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                             <SlidersHorizontal size={13} /> Columns
@@ -1399,7 +1401,6 @@ ${sigHtml}
                             </div>
                         )}
                     </div>
-                    {/* Saved Views */}
                     <div ref={viewMenuRef} style={{ position: 'relative', marginLeft: 'auto' }}>
                         <button onClick={() => setShowViewsMenu(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                             <BookmarkCheck size={13} /> Views {savedViews.filter(v => v.tab === activeTab).length > 0 && `(${savedViews.filter(v => v.tab === activeTab).length})`} <ChevronDown size={10} />
@@ -1420,7 +1421,7 @@ ${sigHtml}
                                 ))}
                                 <div style={{ borderTop: '1px solid var(--border-primary)', padding: '6px 12px', fontSize: 12, color: '#6366f1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}
                                     onClick={() => { setShowViewsMenu(false); setShowSaveViewModal(true); }}>
-                                    <Save size={11} /> Save current view…
+                                                    <Save size={11} /> Save current view…
                                 </div>
                             </div>
                         )}
@@ -1428,7 +1429,9 @@ ${sigHtml}
                     <button onClick={() => setShowSaveViewModal(true)} title="Save view" style={{ padding: '4px 7px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}><Save size={13} /></button>
                 </div>
                 </>
-            )}                {/* Row 4: Transaction toolbar */}
+            )}
+
+            {/* Row 4: Transaction toolbar */}
             {activeTab !== 'accounts' && (
                 <>
                 <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1576,10 +1579,6 @@ ${sigHtml}
                             <button className="btn btn-secondary" onClick={() => { setShowSaveViewModal(false); setSaveViewName(''); }} style={{ padding: '6px 14px', fontSize: 12 }}>Cancel</button>
                             <button className="btn btn-primary" onClick={handleSaveView} disabled={!saveViewName.trim()} style={{ padding: '6px 14px', fontSize: 12 }}>Save</button>
                         </div>
-                    </div>
-                </div>
-            )}                        </div>
-                        )}
                     </div>
                 </div>
             )}
