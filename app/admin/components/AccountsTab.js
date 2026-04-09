@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react';
-import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, Edit2, Shield, Package } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, Edit2, Shield, Package, List, Columns, BookmarkCheck, Save, Star, StarOff, X } from 'lucide-react';
 import { accountsAPI, transactionsAPI, accountGroupsAPI, amcAPI, rentalsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
@@ -15,6 +15,8 @@ import PaymentVoucherForm from './accounts/PaymentVoucherForm';
 import NewAccountForm from './accounts/NewAccountForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import TransactionsCardView from './accounts/TransactionsCardView';
+import TransactionsKanbanView from './accounts/TransactionsKanbanView';
+import TransactionsListView from './accounts/TransactionsListView';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 import NewAMCForm from './reports/NewAMCForm';
 import NewRentalForm from './reports/NewRentalForm';
@@ -68,6 +70,78 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [txSortBy, setTxSortBy] = useState('date');
     const [txSortDir, setTxSortDir] = useState('desc');
     const [txGroupBy, setTxGroupBy] = useState('none');
+
+    // Advanced filters
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
+    const [txDateFrom, setTxDateFrom] = useState('');
+    const [txDateTo, setTxDateTo] = useState('');
+    const [txAmountMin, setTxAmountMin] = useState('');
+    const [txAmountMax, setTxAmountMax] = useState('');
+    const [accHasBalance, setAccHasBalance] = useState(false);
+
+    // Saved views
+    const [savedViews, setSavedViews] = useState([]);
+    const [showSaveViewModal, setShowSaveViewModal] = useState(false);
+    const [saveViewName, setSaveViewName] = useState('');
+    const [saveViewDefault, setSaveViewDefault] = useState(false);
+    const [showViewsMenu, setShowViewsMenu] = useState(false);
+    const viewMenuRef = useRef(null);
+
+    // Close views menu on outside click
+    useEffect(() => {
+        const h = (e) => { if (viewMenuRef.current && !viewMenuRef.current.contains(e.target)) setShowViewsMenu(false); };
+        document.addEventListener('mousedown', h);
+        return () => document.removeEventListener('mousedown', h);
+    }, []);
+
+    // Fetch saved views once
+    useEffect(() => {
+        fetch('/api/admin/account-views').then(r => r.json()).then(d => { if (d.success) setSavedViews(d.data || []); }).catch(() => {});
+    }, []);
+
+    const handleSaveView = async () => {
+        if (!saveViewName.trim()) return;
+        const isAcc = activeTab === 'accounts';
+        const newView = {
+            id: `v_${Date.now()}`, name: saveViewName.trim(), tab: activeTab, isDefault: saveViewDefault,
+            config: isAcc
+                ? { viewType, sortBy, filterType, filterGroup, accHasBalance }
+                : { txViewType, txSortBy, txSortDir, txGroupBy, txFilterStatus, txDateFrom, txDateTo, txAmountMin, txAmountMax },
+        };
+        let updated = savedViews.map(v => v.tab === activeTab && saveViewDefault ? { ...v, isDefault: false } : v);
+        updated = [...updated, newView];
+        setSavedViews(updated);
+        setSaveViewName(''); setSaveViewDefault(false); setShowSaveViewModal(false);
+        try { await fetch('/api/admin/account-views', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views: updated }) }); } catch (e) {}
+    };
+
+    const applyView = (view) => {
+        const c = view.config || {};
+        if (activeTab === 'accounts') {
+            if (c.viewType) setViewType(c.viewType);
+            if (c.sortBy) setSortBy(c.sortBy);
+            if (c.filterType) setFilterType(c.filterType);
+            if (c.filterGroup) setFilterGroup(c.filterGroup);
+            setAccHasBalance(!!c.accHasBalance);
+        } else {
+            if (c.txViewType) setTxViewType(c.txViewType);
+            if (c.txSortBy) setTxSortBy(c.txSortBy);
+            if (c.txSortDir) setTxSortDir(c.txSortDir);
+            if (c.txGroupBy) setTxGroupBy(c.txGroupBy);
+            if (c.txFilterStatus) setTxFilterStatus(c.txFilterStatus);
+            if (c.txDateFrom !== undefined) setTxDateFrom(c.txDateFrom);
+            if (c.txDateTo !== undefined) setTxDateTo(c.txDateTo);
+            if (c.txAmountMin !== undefined) setTxAmountMin(c.txAmountMin);
+            if (c.txAmountMax !== undefined) setTxAmountMax(c.txAmountMax);
+        }
+        setShowViewsMenu(false);
+    };
+
+    const deleteView = async (id) => {
+        const updated = savedViews.filter(v => v.id !== id);
+        setSavedViews(updated);
+        try { await fetch('/api/admin/account-views', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views: updated }) }); } catch (e) {}
+    };
 
     // Column picker
     const DEFAULT_CONFIG = {
@@ -330,7 +404,14 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         setTxSortBy('date');
         setTxSortDir('desc');
         setTxGroupBy('none');
+        setTxDateFrom(''); setTxDateTo(''); setTxAmountMin(''); setTxAmountMax('');
+        setAccHasBalance(false);
+        setShowFilterPanel(false);
+        setShowViewsMenu(false);
         setSelectedItems(new Set());
+        // Apply default view if one exists for this tab
+        const defView = savedViews.find(v => v.tab === newTab && v.isDefault);
+        if (defView) setTimeout(() => applyView(defView), 0);
     };
 
     const handleCreateClick = () => { setSelectedTransaction(null); setActiveForm(tabConfig[activeTab].formType); };
@@ -474,6 +555,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
             data = data.filter(item => isVoucher ? (item.payment_mode || 'Cash') === txFilterStatus : item.status === txFilterStatus);
         }
+        // Date range
+        if (txDateFrom) data = data.filter(i => i.date && new Date(i.date) >= new Date(txDateFrom));
+        if (txDateTo)   data = data.filter(i => i.date && new Date(i.date) <= new Date(txDateTo));
+        // Amount range
+        const getAmt = i => i.total_amount || i.amount || 0;
+        if (txAmountMin !== '') data = data.filter(i => getAmt(i) >= parseFloat(txAmountMin));
+        if (txAmountMax !== '') data = data.filter(i => getAmt(i) <= parseFloat(txAmountMax));
         return [...data].sort((a, b) => {
             let valA, valB;
             const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
@@ -508,10 +596,16 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 ? ['cash-in-hand', 'bank-accounts'].includes(l.type)
                 : l.type === filterType;
         const matchGroup = filterGroup === 'all' || l.under === filterGroup;
-        return matchSearch && matchType && matchGroup;
+        const matchBalance = !accHasBalance || (l.closing_balance || l.closingBalance || 0) !== 0;
+        return matchSearch && matchType && matchGroup && matchBalance;
     }).sort((a, b) => {
-        if (sortBy === 'balance') return (b.closing_balance || 0) - (a.closing_balance || 0);
-        if (sortBy === 'jobs') return (b.jobs_done || 0) - (a.jobs_done || 0);
+        if (sortBy === 'balance_desc') return (b.closing_balance || b.closingBalance || 0) - (a.closing_balance || a.closingBalance || 0);
+        if (sortBy === 'balance_asc')  return (a.closing_balance || a.closingBalance || 0) - (b.closing_balance || b.closingBalance || 0);
+        if (sortBy === 'balance' || sortBy === 'balance_desc') return (b.closing_balance || b.closingBalance || 0) - (a.closing_balance || a.closingBalance || 0);
+        if (sortBy === 'jobs') return (b.jobs_done || b.jobsDone || 0) - (a.jobs_done || a.jobsDone || 0);
+        if (sortBy === 'opening_desc') return (b.opening_balance || b.openingBalance || 0) - (a.opening_balance || a.openingBalance || 0);
+        if (sortBy === 'name_desc')    return b.name.localeCompare(a.name);
+        if (sortBy === 'updated_desc') return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
         return a.name.localeCompare(b.name);
     }) : [];
 
@@ -1070,6 +1164,22 @@ ${sigHtml}
             </div>
         );
 
+        if (txViewType === 'kanban') return (
+            <div style={{ flex: 1, overflow: 'auto' }}>
+                {TransactionsKanbanView
+                    ? <TransactionsKanbanView items={processedData} tab={activeTab} onItemClick={handleTransactionClick} groupBy={txGroupBy} />
+                    : <div style={{ padding: 40, color: 'var(--text-tertiary)', textAlign: 'center' }}>Kanban view coming soon</div>}
+            </div>
+        );
+
+        if (txViewType === 'list') return (
+            <div style={{ flex: 1, overflow: 'auto' }}>
+                {TransactionsListView
+                    ? <TransactionsListView items={processedData} tab={activeTab} onItemClick={handleTransactionClick} groupBy={txGroupBy} />
+                    : <div style={{ padding: 40, color: 'var(--text-tertiary)', textAlign: 'center' }}>List view coming soon</div>}
+            </div>
+        );
+
         const activeTxCols = tabColumns[activeTab].filter(c => visibleColumns[activeTab].has(c.id));
         const thBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 600, position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' };
         const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
@@ -1212,17 +1322,14 @@ ${sigHtml}
             <div style={{ padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '0', overflowX: 'auto' }}>
                 {Object.keys(tabConfig).map(tabKey => (
                     <button key={tabKey} onClick={() => handleTabChange(tabKey)} style={{ padding: '10px 20px', border: 'none', borderBottom: activeTab === tabKey ? '2px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tabKey ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tabKey ? 600 : 400, fontSize: 'var(--font-size-sm)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
-                        {tabConfig[tabKey].label}
-                    </button>
-                ))}
-            </div>
-
-            {/* Row 3: Accounts toolbar */}
+                       {/* Row 3: Accounts toolbar */}
             {activeTab === 'accounts' && (
+                <>
                 <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {[['card', Grid], ['table', TableIcon]].map(([type, Icon]) => (
-                        <button key={type} onClick={() => setViewType(type)} style={{ padding: '6px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : '#334155', color: viewType === type ? 'white' : '#cbd5e1', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                            <Icon size={16} />
+                    {/* View type buttons */}
+                    {[['table', TableIcon, 'Table'], ['list', List, 'List'], ['card', Grid, 'Cards'], ['kanban', Columns, 'Kanban'], ['details', Layers, 'Details']].map(([type, Icon, label]) => (
+                        <button key={type} onClick={() => setViewType(type)} title={label} style={{ padding: '5px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : '#334155', color: viewType === type ? 'white' : '#cbd5e1', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                            <Icon size={14} />
                         </button>
                     ))}
                     <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
@@ -1233,6 +1340,7 @@ ${sigHtml}
                             <option value="supplier">Suppliers</option>
                             <option value="technician">Technicians</option>
                             <option value="cash">Cash/Bank</option>
+                            <option value="expense">Expense</option>
                         </select>
                         <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                     </div>
@@ -1246,12 +1354,22 @@ ${sigHtml}
                     <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
                     <div style={{ position: 'relative' }}>
                         <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            <option value="name">Sort: Name</option>
-                            <option value="balance">Sort: Balance</option>
-                            <option value="jobs">Sort: Jobs</option>
+                            <option value="name">Sort: Name A→Z</option>
+                            <option value="name_desc">Sort: Name Z→A</option>
+                            <option value="balance_desc">Sort: Balance ↓</option>
+                            <option value="balance_asc">Sort: Balance ↑</option>
+                            <option value="opening_desc">Sort: Opening Bal ↓</option>
+                            <option value="jobs">Sort: Jobs Done ↓</option>
+                            <option value="updated_desc">Sort: Last Updated</option>
                         </select>
                         <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                     </div>
+                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
+                    {/* Balance filter toggle */}
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#cbd5e1', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input type="checkbox" checked={accHasBalance} onChange={e => setAccHasBalance(e.target.checked)} style={{ accentColor: '#6366f1' }} />
+                        Has Balance
+                    </label>
                     <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
                     {/* Column Picker */}
                     <div style={{ position: 'relative' }}>
@@ -1259,8 +1377,8 @@ ${sigHtml}
                             <SlidersHorizontal size={13} /> Columns
                         </button>
                         {showColumnPicker && (
-                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
-                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange & Toggle Columns</div>
+                            <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
+                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange &amp; Toggle Columns</div>
                                 {tabColumns[activeTab].map((col, index) => (
                                     <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
@@ -1281,24 +1399,52 @@ ${sigHtml}
                             </div>
                         )}
                     </div>
+                    {/* Saved Views */}
+                    <div ref={viewMenuRef} style={{ position: 'relative', marginLeft: 'auto' }}>
+                        <button onClick={() => setShowViewsMenu(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                            <BookmarkCheck size={13} /> Views {savedViews.filter(v => v.tab === activeTab).length > 0 && `(${savedViews.filter(v => v.tab === activeTab).length})`} <ChevronDown size={10} />
+                        </button>
+                        {showViewsMenu && (
+                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 300, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+                                <div style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)' }}>Saved Views</div>
+                                {savedViews.filter(v => v.tab === activeTab).length === 0 && <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center' }}>No saved views</div>}
+                                {savedViews.filter(v => v.tab === activeTab).map(view => (
+                                    <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', cursor: 'pointer' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <span style={{ flex: 1, fontSize: 12, fontWeight: 500 }} onClick={() => applyView(view)}>
+                                            {view.isDefault && <Star size={9} style={{ color: '#f59e0b', marginRight: 4, display: 'inline' }} />}{view.name}
+                                        </span>
+                                        <button onClick={() => deleteView(view.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 2 }}><Trash2 size={11} /></button>
+                                    </div>
+                                ))}
+                                <div style={{ borderTop: '1px solid var(--border-primary)', padding: '6px 12px', fontSize: 12, color: '#6366f1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}
+                                    onClick={() => { setShowViewsMenu(false); setShowSaveViewModal(true); }}>
+                                    <Save size={11} /> Save current view…
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <button onClick={() => setShowSaveViewModal(true)} title="Save view" style={{ padding: '4px 7px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}><Save size={13} /></button>
                 </div>
-            )}
-
-            {/* Row 4: Transaction toolbar */}
+                </>
+            )}                {/* Row 4: Transaction toolbar */}
             {activeTab !== 'accounts' && (
+                <>
                 <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {[{ type: 'table', Icon: TableIcon, title: 'Table' }, { type: 'card', Icon: Grid, title: 'Cards' }].map(({ type, Icon, title }) => (
-                        <button key={type} onClick={() => setTxViewType(type)} style={{ padding: '6px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: txViewType === type ? '#6366f1' : '#334155', color: txViewType === type ? 'white' : '#cbd5e1', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', fontWeight: 500 }}>
-                            <Icon size={14} />{title}
+                    {/* View type buttons */}
+                    {[{ type: 'table', Icon: TableIcon, title: 'Table' }, { type: 'list', Icon: List, title: 'List' }, { type: 'card', Icon: Grid, title: 'Cards' }, { type: 'kanban', Icon: Columns, title: 'Kanban' }].map(({ type, Icon, title }) => (
+                        <button key={type} onClick={() => setTxViewType(type)} title={title} style={{ padding: '5px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: txViewType === type ? '#6366f1' : '#334155', color: txViewType === type ? 'white' : '#cbd5e1', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 500 }}>
+                            <Icon size={13} /><span style={{ display: 'none' }}>{title}</span>
                         </button>
                     ))}
                     <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
                     <div style={{ position: 'relative' }}>
                         <Filter size={12} style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
                         <select value={txFilterStatus} onChange={e => setTxFilterStatus(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 24px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            {(activeTab === 'receipts' || activeTab === 'payments') ? (<><option value="all">All Methods</option><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option><option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option></>) :
+                            {(activeTab === 'receipts' || activeTab === 'payments') ? (<><option value="all">All Methods</option><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option><option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option><option value="Online">Online</option></>) :
                                 activeTab === 'quotations' ? (<><option value="all">All Status</option><option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Accepted">Accepted</option><option value="Declined">Declined</option></>) :
-                                    (<><option value="all">All Status</option><option value="Draft">Draft</option><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Overdue">Overdue</option></>)}
+                                    (<><option value="all">All Status</option><option value="Draft">Draft</option><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Overdue">Overdue</option><option value="Partial">Partial</option></>)}
                         </select>
                         <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
                     </div>
@@ -1307,7 +1453,7 @@ ${sigHtml}
                         <select value={txGroupBy} onChange={e => setTxGroupBy(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 24px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
                             <option value="none">No Grouping</option>
                             <option value="account">Group: Account</option>
-                            <option value="status">Group: Status</option>
+                            <option value="status">Group: Status/Method</option>
                             <option value="month">Group: Month</option>
                         </select>
                         <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
@@ -1327,13 +1473,18 @@ ${sigHtml}
                         {txSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
                     </button>
                     <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
+                    {/* Filter panel toggle */}
+                    <button onClick={() => setShowFilterPanel(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showFilterPanel || txDateFrom || txDateTo || txAmountMin || txAmountMax ? '#6366f1' : '#334155', color: showFilterPanel || txDateFrom || txDateTo || txAmountMin || txAmountMax ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                        <Filter size={12} /> {txDateFrom || txDateTo || txAmountMin || txAmountMax ? 'Filtered' : 'Filter'}
+                    </button>
+                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
                     <div style={{ position: 'relative' }}>
                         <button onClick={() => setShowColumnPicker(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showColumnPicker ? '#6366f1' : '#334155', color: showColumnPicker ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
                             <SlidersHorizontal size={13} /> Columns
                         </button>
                         {showColumnPicker && (
                             <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
-                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange & Toggle Columns</div>
+                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange &amp; Toggle Columns</div>
                                 {tabColumns[activeTab].map((col, index) => (
                                     <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
@@ -1352,6 +1503,82 @@ ${sigHtml}
                                 <div style={{ borderTop: '1px solid var(--border-primary)', margin: '8px 0 4px' }} />
                                 <button onClick={() => resetColumnsToDefault(activeTab)} style={{ width: '100%', textAlign: 'left', padding: '5px 14px', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer' }}>Reset to defaults</button>
                             </div>
+                        )}
+                    </div>
+                    {/* Saved Views */}
+                    <div ref={viewMenuRef} style={{ position: 'relative', marginLeft: 'auto' }}>
+                        <button onClick={() => setShowViewsMenu(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                            <BookmarkCheck size={13} /> Views {savedViews.filter(v => v.tab === activeTab).length > 0 && `(${savedViews.filter(v => v.tab === activeTab).length})`} <ChevronDown size={10} />
+                        </button>
+                        {showViewsMenu && (
+                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 300, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
+                                <div style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)' }}>Saved Views</div>
+                                {savedViews.filter(v => v.tab === activeTab).length === 0 && <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center' }}>No saved views</div>}
+                                {savedViews.filter(v => v.tab === activeTab).map(view => (
+                                    <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', cursor: 'pointer' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <span style={{ flex: 1, fontSize: 12, fontWeight: 500 }} onClick={() => applyView(view)}>
+                                            {view.isDefault && <Star size={9} style={{ color: '#f59e0b', marginRight: 4, display: 'inline' }} />}{view.name}
+                                        </span>
+                                        <button onClick={() => deleteView(view.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 2 }}><Trash2 size={11} /></button>
+                                    </div>
+                                ))}
+                                <div style={{ borderTop: '1px solid var(--border-primary)', padding: '6px 12px', fontSize: 12, color: '#6366f1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}
+                                    onClick={() => { setShowViewsMenu(false); setShowSaveViewModal(true); }}>
+                                    <Save size={11} /> Save current view…
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <button onClick={() => setShowSaveViewModal(true)} title="Save view" style={{ padding: '4px 7px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}><Save size={13} /></button>
+                </div>
+                {/* Date/Amount filter panel */}
+                {showFilterPanel && (
+                    <div style={{ padding: '8px 16px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                        {['From Date', 'To Date'].map((lbl, i) => (
+                            <div key={lbl}>
+                                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 3 }}>{lbl}</div>
+                                <input type="date" value={i === 0 ? txDateFrom : txDateTo} onChange={e => i === 0 ? setTxDateFrom(e.target.value) : setTxDateTo(e.target.value)}
+                                    style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }} />
+                            </div>
+                        ))}
+                        {['Min ₹', 'Max ₹'].map((lbl, i) => (
+                            <div key={lbl} style={{ width: 90 }}>
+                                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 3 }}>{lbl}</div>
+                                <input type="number" placeholder={i === 0 ? '0' : '∞'} value={i === 0 ? txAmountMin : txAmountMax} onChange={e => i === 0 ? setTxAmountMin(e.target.value) : setTxAmountMax(e.target.value)}
+                                    style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', width: '100%' }} />
+                            </div>
+                        ))}
+                        {(txDateFrom || txDateTo || txAmountMin || txAmountMax) && (
+                            <button onClick={() => { setTxDateFrom(''); setTxDateTo(''); setTxAmountMin(''); setTxAmountMax(''); }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-elevated)', color: '#ef4444', cursor: 'pointer', fontSize: 11 }}>
+                                <X size={11} /> Clear
+                            </button>
+                        )}
+                    </div>
+                )}
+                </>
+            )}
+
+            {/* Save View Modal */}
+            {showSaveViewModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 24, width: 340, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, margin: '0 0 14px' }}>Save View</h3>
+                        <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 5 }}>View Name</label>
+                        <input className="form-input" autoFocus value={saveViewName} onChange={e => setSaveViewName(e.target.value)} placeholder="e.g. Sales This Month"
+                            style={{ width: '100%', marginBottom: 10 }} onKeyDown={e => e.key === 'Enter' && handleSaveView()} />
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: 'var(--text-secondary)', marginBottom: 18, cursor: 'pointer' }}>
+                            <input type="checkbox" checked={saveViewDefault} onChange={e => setSaveViewDefault(e.target.checked)} /> Set as default for this tab
+                        </label>
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-secondary" onClick={() => { setShowSaveViewModal(false); setSaveViewName(''); }} style={{ padding: '6px 14px', fontSize: 12 }}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleSaveView} disabled={!saveViewName.trim()} style={{ padding: '6px 14px', fontSize: 12 }}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}                        </div>
                         )}
                     </div>
                 </div>
