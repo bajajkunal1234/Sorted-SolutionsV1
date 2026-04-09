@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, ChevronDown, Grid, Table as TableIcon, Loader2, ArrowUpDown, Filter, Layers, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, Edit2, Shield, Package, List, Columns, BookmarkCheck, Save, Star, StarOff, X } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw } from 'lucide-react';
+import AccountsSearchPanel from '@/components/shared/AccountsSearchPanel';
 import { accountsAPI, transactionsAPI, accountGroupsAPI, amcAPI, rentalsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
@@ -58,89 +59,87 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     const [viewType, setViewType] = useState('table');
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState('all');
-    const [filterGroup, setFilterGroup] = useState('all');
     const [sortBy, setSortBy] = useState('name');
+    const [groupBy, setGroupBy] = useState('none');
+    const [activeTags, setActiveTags] = useState([]);
     const [selectedAccount, setSelectedAccount] = useState(null);
     const [activeForm, setActiveForm] = useState(null);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
 
     const [txViewType, setTxViewType] = useState('table');
-    const [txFilterStatus, setTxFilterStatus] = useState('all');
     const [txSortBy, setTxSortBy] = useState('date');
-    const [txSortDir, setTxSortDir] = useState('desc');
     const [txGroupBy, setTxGroupBy] = useState('none');
-
-    // Advanced filters
-    const [showFilterPanel, setShowFilterPanel] = useState(false);
-    const [txDateFrom, setTxDateFrom] = useState('');
-    const [txDateTo, setTxDateTo] = useState('');
-    const [txAmountMin, setTxAmountMin] = useState('');
-    const [txAmountMax, setTxAmountMax] = useState('');
-    const [accHasBalance, setAccHasBalance] = useState(false);
+    const [txActiveTags, setTxActiveTags] = useState([]);
 
     // Saved views
     const [savedViews, setSavedViews] = useState([]);
-    const [showSaveViewModal, setShowSaveViewModal] = useState(false);
-    const [saveViewName, setSaveViewName] = useState('');
-    const [saveViewDefault, setSaveViewDefault] = useState(false);
-    const [showViewsMenu, setShowViewsMenu] = useState(false);
-    const viewMenuRef = useRef(null);
+    const [saveStatus, setSaveStatus] = useState(null);
+    const [showColumnPicker, setShowColumnPicker] = useState(false);
 
-    // Close views menu on outside click
-    useEffect(() => {
-        const h = (e) => { if (viewMenuRef.current && !viewMenuRef.current.contains(e.target)) setShowViewsMenu(false); };
-        document.addEventListener('mousedown', h);
-        return () => document.removeEventListener('mousedown', h);
-    }, []);
+    // Unique id generator
+    const uid = () => Math.random().toString(36).slice(2, 9);
 
     // Fetch saved views once
     useEffect(() => {
         fetch('/api/admin/account-views').then(r => r.json()).then(d => { if (d.success) setSavedViews(d.data || []); }).catch(() => {});
     }, []);
 
-    const handleSaveView = async () => {
-        if (!saveViewName.trim()) return;
+    // â”€â”€ Saved Views helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    const persistViews = async (views) => {
+        setSavedViews(views);
+        try { await fetch('/api/admin/account-views', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views }) }); } catch (e) {}
+    };
+
+    const handleSaveNamedView = async (name) => {
+        setSaveStatus('saving');
         const isAcc = activeTab === 'accounts';
-        const newView = {
-            id: `v_${Date.now()}`, name: saveViewName.trim(), tab: activeTab, isDefault: saveViewDefault,
-            config: isAcc
-                ? { viewType, sortBy, filterType, filterGroup, accHasBalance }
-                : { txViewType, txSortBy, txSortDir, txGroupBy, txFilterStatus, txDateFrom, txDateTo, txAmountMin, txAmountMax },
-        };
-        let updated = savedViews.map(v => v.tab === activeTab && saveViewDefault ? { ...v, isDefault: false } : v);
-        updated = [...updated, newView];
-        setSavedViews(updated);
-        setSaveViewName(''); setSaveViewDefault(false); setShowSaveViewModal(false);
-        try { await fetch('/api/admin/account-views', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views: updated }) }); } catch (e) {}
+        const config = isAcc
+            ? { viewType, sortBy, groupBy, activeTags }
+            : { txViewType, txSortBy, txGroupBy, txActiveTags };
+        const existing = savedViews.find(v => v.tab === activeTab && v.name.toLowerCase() === name.toLowerCase());
+        let updated;
+        if (existing) {
+            updated = savedViews.map(v => (v.tab === activeTab && v.name.toLowerCase() === name.toLowerCase()) ? { ...v, config } : v);
+        } else {
+            const isFirst = savedViews.filter(v => v.tab === activeTab).length === 0;
+            updated = [...savedViews, { id: uid(), name, tab: activeTab, isDefault: isFirst, config }];
+        }
+        await persistViews(updated);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(null), 2000);
     };
 
     const applyView = (view) => {
         const c = view.config || {};
         if (activeTab === 'accounts') {
-            if (c.viewType) setViewType(c.viewType);
-            if (c.sortBy) setSortBy(c.sortBy);
-            if (c.filterType) setFilterType(c.filterType);
-            if (c.filterGroup) setFilterGroup(c.filterGroup);
-            setAccHasBalance(!!c.accHasBalance);
+            if (c.viewType)    setViewType(c.viewType);
+            if (c.sortBy)      setSortBy(c.sortBy);
+            if (c.groupBy)     setGroupBy(c.groupBy);
+            if (c.activeTags)  setActiveTags(c.activeTags);
         } else {
-            if (c.txViewType) setTxViewType(c.txViewType);
-            if (c.txSortBy) setTxSortBy(c.txSortBy);
-            if (c.txSortDir) setTxSortDir(c.txSortDir);
-            if (c.txGroupBy) setTxGroupBy(c.txGroupBy);
-            if (c.txFilterStatus) setTxFilterStatus(c.txFilterStatus);
-            if (c.txDateFrom !== undefined) setTxDateFrom(c.txDateFrom);
-            if (c.txDateTo !== undefined) setTxDateTo(c.txDateTo);
-            if (c.txAmountMin !== undefined) setTxAmountMin(c.txAmountMin);
-            if (c.txAmountMax !== undefined) setTxAmountMax(c.txAmountMax);
+            if (c.txViewType)   setTxViewType(c.txViewType);
+            if (c.txSortBy)     setTxSortBy(c.txSortBy);
+            if (c.txGroupBy)    setTxGroupBy(c.txGroupBy);
+            if (c.txActiveTags) setTxActiveTags(c.txActiveTags);
         }
-        setShowViewsMenu(false);
     };
 
     const deleteView = async (id) => {
         const updated = savedViews.filter(v => v.id !== id);
-        setSavedViews(updated);
-        try { await fetch('/api/admin/account-views', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views: updated }) }); } catch (e) {}
+        await persistViews(updated);
+    };
+
+    const setDefaultView = async (id) => {
+        const updated = savedViews.map(v => ({ ...v, isDefault: v.id === id && v.tab === activeTab ? true : (v.tab === activeTab ? false : v.isDefault) }));
+        await persistViews(updated);
+    };
+
+    const handleAddTag    = (tag) => activeTab === 'accounts' ? setActiveTags(p => [...p.filter(t => t.id !== tag.id), tag]) : setTxActiveTags(p => [...p.filter(t => t.id !== tag.id), tag]);
+    const handleRemoveTag = (id)  => activeTab === 'accounts' ? setActiveTags(p => p.filter(t => t.id !== id)) : setTxActiveTags(p => p.filter(t => t.id !== id));
+
+    const handleResetView = () => {
+        if (activeTab === 'accounts') { setViewType('table'); setSortBy('name'); setGroupBy('none'); setActiveTags([]); setSearchTerm(''); }
+        else { setTxViewType('table'); setTxSortBy('date'); setTxGroupBy('none'); setTxActiveTags([]); setSearchTerm(''); }
     };
 
     // Column picker
@@ -299,8 +298,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         return () => clearTimeout(timeout);
     }, [tabColumns, visibleColumns]);
 
-    const [showColumnPicker, setShowColumnPicker] = useState(false);
-    
+
+
     const toggleColumn = (tab, id) => {
         setVisibleColumns(prev => {
             const n = new Set(prev[tab]);
@@ -395,20 +394,16 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const handleTabChange = (newTab) => {
         setActiveTab(newTab);
         setSearchTerm('');
-        setFilterType('all');
-        setFilterGroup('all');
         setSortBy('name');
+        setGroupBy('none');
+        setActiveTags([]);
         setViewType('table');
         setTxViewType('table');
-        setTxFilterStatus('all');
         setTxSortBy('date');
-        setTxSortDir('desc');
         setTxGroupBy('none');
-        setTxDateFrom(''); setTxDateTo(''); setTxAmountMin(''); setTxAmountMax('');
-        setAccHasBalance(false);
-        setShowFilterPanel(false);
-        setShowViewsMenu(false);
+        setTxActiveTags([]);
         setSelectedItems(new Set());
+        setShowColumnPicker(false);
         // Apply default view if one exists for this tab
         const defView = savedViews.find(v => v.tab === newTab && v.isDefault);
         if (defView) setTimeout(() => applyView(defView), 0);
@@ -430,10 +425,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 customer_id: account.id,
                 customer_name: account.name,
                 performed_by_name: 'Admin',
-                description: `Admin opened account record — ${account.name} (SKU: ${account.sku || 'N/A'})`,
+                description: `Admin opened account record â€” ${account.name} (SKU: ${account.sku || 'N/A'})`,
                 source: 'Admin App',
             }),
-        }).catch(() => {}); // silent — never block the UI for a log call
+        }).catch(() => {}); // silent â€” never block the UI for a log call
     };
 
     // Multi-select helpers
@@ -498,7 +493,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             setSelectedItems(new Set());
 
             if (failed.length === 0) {
-                alert(`✅ ${count} item(s) deleted successfully.`);
+                alert(`âœ… ${count} item(s) deleted successfully.`);
             } else {
                 const successCount = count - failed.length;
                 const failLines = failed.map(f => {
@@ -506,15 +501,15 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                         // Rich structured dependency info from API
                         const depLines = f.blocking.map(b => {
                             const records = b.records?.join(', ') || '';
-                            const action = b.action ? `\n     → ${b.action}` : '';
-                            return `  • ${b.type} (${b.records?.length || 0}): ${records}${action}`;
+                            const action = b.action ? `\n     â†’ ${b.action}` : '';
+                            return `  â€¢ ${b.type} (${b.records?.length || 0}): ${records}${action}`;
                         }).join('\n');
-                        return `\n❌ "${f.name}" cannot be deleted — clear these first:\n${depLines}`;
+                        return `\nâŒ "${f.name}" cannot be deleted â€” clear these first:\n${depLines}`;
                     }
-                    return `\n❌ "${f.name}": ${f.error}`;
+                    return `\nâŒ "${f.name}": ${f.error}`;
                 }).join('\n');
                 alert(
-                    `${successCount > 0 ? `✅ ${successCount} deleted.\n` : ''}` +
+                    `${successCount > 0 ? `âœ… ${successCount} deleted.\n` : ''}` +
                     failLines
                 );
             }
@@ -549,65 +544,108 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         });
     };
 
+    // Apply activeTags filter conditions to transaction data
+    const applyTxTags = (data, tags) => {
+        let result = [...data];
+        for (const tag of tags) {
+            if (tag.type === 'preset' && tag.filter) {
+                const f = tag.filter;
+                if (f.status)       result = result.filter(i => i.status === f.status);
+                if (f.payment_mode) result = result.filter(i => (i.payment_mode || 'Cash') === f.payment_mode);
+            } else if (tag.type === 'custom' && tag.conditions) {
+                for (const cond of tag.conditions) {
+                    result = result.filter(item => {
+                        const getAmt = i => i.total_amount || i.amount || 0;
+                        let fv = '';
+                        switch (cond.field) {
+                            case 'account_name': fv = item.account_name || ''; break;
+                            case 'status':       fv = item.status || ''; break;
+                            case 'payment_mode': fv = item.payment_mode || ''; break;
+                            case 'date_from':    return !cond.value || (item.date && new Date(item.date) >= new Date(cond.value));
+                            case 'date_to':      return !cond.value || (item.date && new Date(item.date) <= new Date(cond.value));
+                            case 'amount_min':   return !cond.value || getAmt(item) >= parseFloat(cond.value);
+                            case 'amount_max':   return !cond.value || getAmt(item) <= parseFloat(cond.value);
+                            case 'reference':    fv = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || ''; break;
+                            default:             return true;
+                        }
+                        const v = (cond.value || '').toLowerCase(), val = fv.toLowerCase();
+                        switch (cond.operator) {
+                            case 'is':           return val === v;
+                            case 'is_not':       return val !== v;
+                            case 'contains':     return val.includes(v);
+                            case 'not_contains': return !val.includes(v);
+                            default:             return true;
+                        }
+                    });
+                }
+            }
+        }
+        return result;
+    };
+
+    const applyAccTags = (data, tags) => {
+        let result = [...data];
+        for (const tag of tags) {
+            if (tag.type === 'preset' && tag.filter) {
+                const f = tag.filter;
+                if (f.type) result = result.filter(l => f.type === 'cash' ? ['cash-in-hand','bank-accounts'].includes(l.type) : l.type === f.type);
+                if (f.has_balance === 'yes') result = result.filter(l => (l.closing_balance || l.closingBalance || 0) !== 0);
+            } else if (tag.type === 'custom' && tag.conditions) {
+                for (const cond of tag.conditions) {
+                    result = result.filter(l => {
+                        let fv = '';
+                        switch (cond.field) {
+                            case 'account_name': fv = l.name || ''; break;
+                            case 'type':         fv = l.type || ''; break;
+                            case 'group':        fv = l.under || ''; break;
+                            case 'has_balance':  return cond.value === 'yes' ? (l.closing_balance || l.closingBalance || 0) !== 0 : (l.closing_balance || l.closingBalance || 0) === 0;
+                            default:             return true;
+                        }
+                        const v = (cond.value || '').toLowerCase(), val = fv.toLowerCase();
+                        switch (cond.operator) {
+                            case 'is':           return val === v;
+                            case 'is_not':       return val !== v;
+                            case 'contains':     return val.includes(v);
+                            case 'not_contains': return !val.includes(v);
+                            default:             return true;
+                        }
+                    });
+                }
+            }
+        }
+        return result;
+    };
+
     const getProcessedTransactionData = () => {
         let data = getFilteredData();
-        if (txFilterStatus !== 'all') {
-            const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
-            data = data.filter(item => isVoucher ? (item.payment_mode || 'Cash') === txFilterStatus : item.status === txFilterStatus);
-        }
-        // Date range
-        if (txDateFrom) data = data.filter(i => i.date && new Date(i.date) >= new Date(txDateFrom));
-        if (txDateTo)   data = data.filter(i => i.date && new Date(i.date) <= new Date(txDateTo));
-        // Amount range
-        const getAmt = i => i.total_amount || i.amount || 0;
-        if (txAmountMin !== '') data = data.filter(i => getAmt(i) >= parseFloat(txAmountMin));
-        if (txAmountMax !== '') data = data.filter(i => getAmt(i) <= parseFloat(txAmountMax));
+        // Apply tag-based filters
+        data = applyTxTags(data, txActiveTags);
         return [...data].sort((a, b) => {
-            let valA, valB;
             const isVoucher = activeTab === 'receipts' || activeTab === 'payments';
             switch (txSortBy) {
-                case 'amount': valA = isVoucher ? (a.amount || 0) : (a.total_amount || 0); valB = isVoucher ? (b.amount || 0) : (b.total_amount || 0); return txSortDir === 'asc' ? valA - valB : valB - valA;
-                case 'account': valA = a.account_name || ''; valB = b.account_name || ''; return txSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                case 'number': valA = a.invoice_number || a.quote_number || a.receipt_number || a.payment_number || ''; valB = b.invoice_number || b.quote_number || b.receipt_number || b.payment_number || ''; return txSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-                default: valA = a.date ? new Date(a.date).getTime() : 0; valB = b.date ? new Date(b.date).getTime() : 0; return txSortDir === 'asc' ? valA - valB : valB - valA;
+                case 'amount':    case 'amount_asc': { const va = isVoucher ? (a.amount||0):(a.total_amount||0), vb = isVoucher ? (b.amount||0):(b.total_amount||0); return txSortBy === 'amount_asc' ? va-vb : vb-va; }
+                case 'account':  { const va = a.account_name||'', vb = b.account_name||''; return va.localeCompare(vb); }
+                case 'number':   { const va = a.invoice_number||a.quote_number||a.receipt_number||a.payment_number||'', vb = b.invoice_number||b.quote_number||b.receipt_number||b.payment_number||''; return va.localeCompare(vb); }
+                case 'date_asc': { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return va-vb; }
+                default:         { const va = a.date?new Date(a.date).getTime():0, vb = b.date?new Date(b.date).getTime():0; return vb-va; } // newest first
             }
         });
     };
 
-    const getGroupedTransactionData = (data) => {
-        if (txGroupBy === 'none') return [{ label: null, items: data }];
-        const map = new Map();
-        data.forEach(item => {
-            let key = '—';
-            if (txGroupBy === 'account') key = item.account_name || '—';
-            else if (txGroupBy === 'status') key = item.status || item.payment_mode || '—';
-            else if (txGroupBy === 'month' && item.date) { const d = new Date(item.date); key = isNaN(d.getTime()) ? '—' : d.toLocaleString('default', { month: 'long', year: 'numeric' }); }
-            if (!map.has(key)) map.set(key, []);
-            map.get(key).push(item);
+    const filteredLedgers = activeTab === 'accounts' ? (() => {
+        let data = ledgers;
+        if (searchTerm) data = data.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.sku?.toLowerCase().includes(searchTerm.toLowerCase()));
+        data = applyAccTags(data, activeTags);
+        return [...data].sort((a, b) => {
+            if (sortBy === 'balance_desc') return (b.closing_balance||b.closingBalance||0) - (a.closing_balance||a.closingBalance||0);
+            if (sortBy === 'balance_asc')  return (a.closing_balance||a.closingBalance||0) - (b.closing_balance||b.closingBalance||0);
+            if (sortBy === 'jobs')         return (b.jobs_done||b.jobsDone||0) - (a.jobs_done||a.jobsDone||0);
+            if (sortBy === 'opening_desc') return (b.opening_balance||b.openingBalance||0) - (a.opening_balance||a.openingBalance||0);
+            if (sortBy === 'name_desc')    return b.name.localeCompare(a.name);
+            if (sortBy === 'updated_desc') return new Date(b.updated_at||0) - new Date(a.updated_at||0);
+            return a.name.localeCompare(b.name);
         });
-        return Array.from(map.entries()).sort((a, b) => String(a[0]).localeCompare(String(b[0]))).map(([label, items]) => ({ label, items }));
-    };
-
-    const filteredLedgers = activeTab === 'accounts' ? ledgers.filter(l => {
-        const matchSearch = !searchTerm || l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.sku?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchType = filterType === 'all' 
-            ? true 
-            : filterType === 'cash' 
-                ? ['cash-in-hand', 'bank-accounts'].includes(l.type)
-                : l.type === filterType;
-        const matchGroup = filterGroup === 'all' || l.under === filterGroup;
-        const matchBalance = !accHasBalance || (l.closing_balance || l.closingBalance || 0) !== 0;
-        return matchSearch && matchType && matchGroup && matchBalance;
-    }).sort((a, b) => {
-        if (sortBy === 'balance_desc') return (b.closing_balance || b.closingBalance || 0) - (a.closing_balance || a.closingBalance || 0);
-        if (sortBy === 'balance_asc')  return (a.closing_balance || a.closingBalance || 0) - (b.closing_balance || b.closingBalance || 0);
-        if (sortBy === 'balance' || sortBy === 'balance_desc') return (b.closing_balance || b.closingBalance || 0) - (a.closing_balance || a.closingBalance || 0);
-        if (sortBy === 'jobs') return (b.jobs_done || b.jobsDone || 0) - (a.jobs_done || a.jobsDone || 0);
-        if (sortBy === 'opening_desc') return (b.opening_balance || b.openingBalance || 0) - (a.opening_balance || a.openingBalance || 0);
-        if (sortBy === 'name_desc')    return b.name.localeCompare(a.name);
-        if (sortBy === 'updated_desc') return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
-        return a.name.localeCompare(b.name);
-    }) : [];
+    })() : [];
 
     const refreshGroups = async () => { try { const data = await accountGroupsAPI.getAll(); setGroups(data || []); } catch (err) { console.error(err); } };
 
@@ -672,7 +710,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 else await transactionsAPI.create(cleanData, type);
             }
 
-            // ✅ Save succeeded — close form and notify user immediately
+            // âœ… Save succeeded â€” close form and notify user immediately
             alert(`${tabConfig[activeTab]?.label || 'Record'} saved successfully!`);
             setActiveForm(null);
             setSelectedTransaction(null);
@@ -682,7 +720,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 setTimeout(() => handlePrintItem(data, activeTab), 300);
             }
 
-            // Refresh data in the background — errors here don't matter for the user
+            // Refresh data in the background â€” errors here don't matter for the user
             try {
                 const type2 = data?.__formType || tabToTypeMap[activeTab];
                 const tabKey = { sales: 'sales', purchase: 'purchases', quotation: 'quotations', receipt: 'receipts', payment: 'payments' }[type2] || activeTab;
@@ -793,7 +831,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="height:50px;max-width:160px;object-fit:contain;margin-bottom:10px;display:block">` : ''}
     <div style="font-size:20px;font-weight:800;color:${headerText}">${companyName}</div>
     ${companyAddr  ? `<div style="font-size:11px;color:${headerSub};margin-top:4px;white-space:pre-wrap;line-height:1.5">${companyAddr}</div>` : ''}
-    <div style="font-size:11px;color:${headerSub};margin-top:4px">${[companyPhone, companyEmail].filter(Boolean).join(' · ')}</div>
+    <div style="font-size:11px;color:${headerSub};margin-top:4px">${[companyPhone, companyEmail].filter(Boolean).join(' Â· ')}</div>
     ${showGST && companyGstin ? `<div style="font-size:10px;color:${headerSub};margin-top:3px;font-family:monospace">GSTIN: ${companyGstin}</div>` : ''}
   </div>
   <div style="text-align:right">
@@ -837,7 +875,7 @@ ${item.notes ? `<div style="margin:20px 32px;padding:12px;background:#f8fafc;bor
 ${termsHtml}
 ${sigHtml}
 <div style="margin-top:32px;border-top:1px solid #e2e8f0;padding:12px 32px;text-align:center;font-size:10px;color:#94a3b8">
-  This is a computer-generated document &nbsp;|&nbsp; ${companyName} · ${companyPhone} · ${companyEmail}
+  This is a computer-generated document &nbsp;|&nbsp; ${companyName} Â· ${companyPhone} Â· ${companyEmail}
 </div>
 <script>window.onload = () => { setTimeout(() => window.print(), 400); }<\/script>
 </body></html>`;
@@ -846,7 +884,7 @@ ${sigHtml}
         if (w) { w.document.write(html); w.document.close(); }
     };
 
-    // Share via WhatsApp — open the rich share modal
+    // Share via WhatsApp â€” open the rich share modal
     const handleShareItem = (item, tab) => {
         setShareItem(item);
         setShareTab(tab);
@@ -893,7 +931,7 @@ ${sigHtml}
     const renderStatusBadge = (status) => {
         const colorMap = { Paid: ['rgba(16,185,129,.15)', '#10b981'], Pending: ['rgba(245,158,11,.15)', '#f59e0b'], Overdue: ['rgba(239,68,68,.15)', '#ef4444'], Draft: ['rgba(148,163,184,.15)', '#94a3b8'], Sent: ['rgba(99,102,241,.15)', '#6366f1'], Accepted: ['rgba(16,185,129,.15)', '#10b981'], Declined: ['rgba(239,68,68,.15)', '#ef4444'] };
         const [bg, c] = colorMap[status] || ['var(--bg-secondary)', 'var(--text-secondary)'];
-        return <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: c }}>{status || '—'}</span>;
+        return <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: c }}>{status || 'â€”'}</span>;
     };
 
     const renderTable = () => {
@@ -915,11 +953,11 @@ ${sigHtml}
                     {viewType === 'details' && <AccountsDetailsView accounts={filteredLedgers} onAccountClick={handleOpenAccount} />}
                     {viewType === 'table' && (() => {
                         const activeCols = tabColumns.accounts.filter(c => visibleColumns.accounts.has(c.id));
-                        const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || '—';
+                        const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || 'â€”';
                         const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
                         const renderCell = (col, ledger) => {
                             switch (col.id) {
-                                case 'sku':             return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || '—'}</td>;
+                                case 'sku':             return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || 'â€”'}</td>;
                                 case 'type':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={tdBase}><span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)' }}>{ledger.type}</span></td>;
                                 case 'group':           return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{getGroupName(ledger.under)}</td>;
                                 case 'opening_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(ledger.opening_balance || ledger.openingBalance || 0)}</td>;
@@ -931,9 +969,9 @@ ${sigHtml}
                                     let badge;
                                     
                                     if (isAdmin) {
-                                        badge = { icon: '🛡️', label: 'Admin Created', bg: '#6366f115', color: '#6366f1' };
+                                        badge = { icon: 'ðŸ›¡ï¸', label: 'Admin Created', bg: '#6366f115', color: '#6366f1' };
                                     } else {
-                                        badge = { icon: '👤', label: 'Customer Signup', bg: '#10b98115', color: '#10b981' };
+                                        badge = { icon: 'ðŸ‘¤', label: 'Customer Signup', bg: '#10b98115', color: '#10b981' };
                                     }
 
                                     return (
@@ -944,21 +982,21 @@ ${sigHtml}
                                         </td>
                                     );
                                 }
-                                case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || '—'}</td>;
-                                case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || '—'}</td>;
-                                case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || '—'}</td>;
-                                case 'credit_limit':    return <td key={col.id} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{ledger.credit_limit > 0 ? formatCurrency(ledger.credit_limit) : '—'}</td>;
-                                case 'credit_period':   return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.credit_period > 0 ? `${ledger.credit_period}d` : '—'}</td>;
+                                case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || 'â€”'}</td>;
+                                case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || 'â€”'}</td>;
+                                case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || 'â€”'}</td>;
+                                case 'credit_limit':    return <td key={col.id} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{ledger.credit_limit > 0 ? formatCurrency(ledger.credit_limit) : 'â€”'}</td>;
+                                case 'credit_period':   return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.credit_period > 0 ? `${ledger.credit_period}d` : 'â€”'}</td>;
                                 case 'status':          return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}><span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: ledger.status === 'active' ? '#10b98115' : '#ef444415', color: ledger.status === 'active' ? '#10b981' : '#ef4444', fontWeight: 600 }}>{ledger.status || 'active'}</span></td>;
-                                case 'balance_type':    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.balance_type?.toUpperCase() || '—'}</td>;
+                                case 'balance_type':    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.balance_type?.toUpperCase() || 'â€”'}</td>;
                                 case 'is_claimed': {
                                     const isCust = ledger.type === 'customer' || ledger.under?.toLowerCase().includes('customer') || ledger.under?.toLowerCase().includes('debtor');
-                                    if (!isCust) return <td key={col.id} style={{ ...tdBase, textAlign: 'center', color: 'var(--text-tertiary)' }}>—</td>;
+                                    if (!isCust) return <td key={col.id} style={{ ...tdBase, textAlign: 'center', color: 'var(--text-tertiary)' }}>â€”</td>;
                                     return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.is_claimed ? <span style={{ color: '#10b981', fontWeight: 600 }}>Yes</span> : <span style={{ color: '#ef4444', fontWeight: 600 }}>No</span>}</td>;
                                 }
                                 case 'created_at': {
                                     const d = ledger.created_at ? new Date(ledger.created_at) : null;
-                                    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
                                 }
                                 default: return null;
                             }
@@ -1030,7 +1068,7 @@ ${sigHtml}
             return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
-                        {[{ label: 'Active AMCs', val: totalAMC, color: '#8b5cf6' }, { label: 'Monthly Revenue', val: `₹${Math.round(monthlyRev).toLocaleString()}`, color: '#10b981' }, { label: 'Expiring Soon', val: soonExpiring, color: '#f59e0b' }].map(s => (
+                        {[{ label: 'Active AMCs', val: totalAMC, color: '#8b5cf6' }, { label: 'Monthly Revenue', val: `â‚¹${Math.round(monthlyRev).toLocaleString()}`, color: '#10b981' }, { label: 'Expiring Soon', val: soonExpiring, color: '#f59e0b' }].map(s => (
                             <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.label}</div><div style={{ fontSize: '18px', fontWeight: 700, color: s.color }}>{s.val}</div></div>
                                 <Shield size={18} style={{ color: s.color, opacity: 0.4 }} />
@@ -1052,16 +1090,16 @@ ${sigHtml}
                                             {activeCols.map(col => {
                                                 const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
                                                 switch (col.id) {
-                                                    case 'plan_name':    return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{amc.plan_name || amc.amc_plans?.name || '—'}</td>;
-                                                    case 'account_name': return <td key={col.id} style={td}>{amc.accounts?.name || amc.customer_name || '—'}</td>;
+                                                    case 'plan_name':    return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{amc.plan_name || amc.amc_plans?.name || 'â€”'}</td>;
+                                                    case 'account_name': return <td key={col.id} style={td}>{amc.accounts?.name || amc.customer_name || 'â€”'}</td>;
                                                     case 'product':      return <td key={col.id} style={{ ...td, color: 'var(--text-secondary)' }}>{amc.product_brand} {amc.product_model}</td>;
-                                                    case 'start_date':   return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{amc.start_date ? new Date(amc.start_date).toLocaleDateString('en-GB') : '—'}</td>;
-                                                    case 'end_date':     return <td key={col.id} style={{ ...td, textAlign: 'center', color: isExpiring ? '#f59e0b' : 'inherit', fontWeight: isExpiring ? 700 : 400 }}>{amc.end_date ? new Date(amc.end_date).toLocaleDateString('en-GB') : '—'}</td>;
-                                                    case 'amc_amount':   return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(amc.amc_amount) || 0).toLocaleString()}</td>;
+                                                    case 'start_date':   return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{amc.start_date ? new Date(amc.start_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
+                                                    case 'end_date':     return <td key={col.id} style={{ ...td, textAlign: 'center', color: isExpiring ? '#f59e0b' : 'inherit', fontWeight: isExpiring ? 700 : 400 }}>{amc.end_date ? new Date(amc.end_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
+                                                    case 'amc_amount':   return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>â‚¹{(Number(amc.amc_amount) || 0).toLocaleString()}</td>;
                                                     case 'status':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(amc.status === 'active' ? 'Paid' : amc.status)}</td>;
                                                     case 'created_at': {
                                                         const d = amc.created_at ? new Date(amc.created_at) : null;
-                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
                                                     }
                                                     default: return null;
                                                 }
@@ -1095,7 +1133,7 @@ ${sigHtml}
             return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
-                        {[{ label: 'Active Rentals', val: totalRentals, color: '#10b981' }, { label: 'Monthly Income', val: `₹${monthlyIncome.toLocaleString()}`, color: '#3b82f6' }, { label: 'Overdue', val: overdue, color: '#ef4444' }].map(s => (
+                        {[{ label: 'Active Rentals', val: totalRentals, color: '#10b981' }, { label: 'Monthly Income', val: `â‚¹${monthlyIncome.toLocaleString()}`, color: '#3b82f6' }, { label: 'Overdue', val: overdue, color: '#ef4444' }].map(s => (
                             <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.label}</div><div style={{ fontSize: '18px', fontWeight: 700, color: s.color }}>{s.val}</div></div>
                                 <Package size={18} style={{ color: s.color, opacity: 0.4 }} />
@@ -1117,16 +1155,16 @@ ${sigHtml}
                                             {activeCols.map(col => {
                                                 const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
                                                 switch (col.id) {
-                                                    case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.rental_plans?.product_name || rental.product_name || '—'}</td>;
-                                                    case 'account_name':     return <td key={col.id} style={td}>{rental.accounts?.name || rental.customer_name || '—'}</td>;
-                                                    case 'monthly_rent':     return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(rental.monthly_rent) || 0).toLocaleString()}</td>;
-                                                    case 'start_date':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{rental.start_date ? new Date(rental.start_date).toLocaleDateString('en-GB') : '—'}</td>;
-                                                    case 'next_due':         return <td key={col.id} style={{ ...td, textAlign: 'center', color: isOverdue ? '#ef4444' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>{rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : '—'}</td>;
-                                                    case 'security_deposit': return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace' }}>₹{(Number(rental.security_deposit) || 0).toLocaleString()}</td>;
+                                                    case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.rental_plans?.product_name || rental.product_name || 'â€”'}</td>;
+                                                    case 'account_name':     return <td key={col.id} style={td}>{rental.accounts?.name || rental.customer_name || 'â€”'}</td>;
+                                                    case 'monthly_rent':     return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>â‚¹{(Number(rental.monthly_rent) || 0).toLocaleString()}</td>;
+                                                    case 'start_date':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{rental.start_date ? new Date(rental.start_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
+                                                    case 'next_due':         return <td key={col.id} style={{ ...td, textAlign: 'center', color: isOverdue ? '#ef4444' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>{rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
+                                                    case 'security_deposit': return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace' }}>â‚¹{(Number(rental.security_deposit) || 0).toLocaleString()}</td>;
                                                     case 'status':           return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(rental.status === 'active' ? 'Paid' : rental.status)}</td>;
                                                     case 'created_at': {
                                                         const d = rental.created_at ? new Date(rental.created_at) : null;
-                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
                                                     }
                                                     default: return null;
                                                 }
@@ -1201,7 +1239,7 @@ ${sigHtml}
                             <>
                                 {label !== null && (
                                     <tr key={`grp-${label}`}>
-                                        <td colSpan={10} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>▸ {label}</td>
+                                        <td colSpan={10} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>â–¸ {label}</td>
                                     </tr>
                                 )}
                                 {items.map(item => (
@@ -1216,12 +1254,12 @@ ${sigHtml}
                                         {activeTxCols.map(col => {
                                             switch (col.id) {
                                                 case 'number': 
-                                                    const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || '—';
+                                                    const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || 'â€”';
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{no}</td>;
                                                 case 'date':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || '—'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || 'â€”'}</td>;
                                                 case 'account_name':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || '—'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || 'â€”'}</td>;
                                                 case 'amount':
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 600, fontFamily: 'monospace' }}>{formatCurrency(item.amount || item.total_amount || 0)}</td>;
                                                 case 'status': {
@@ -1234,11 +1272,11 @@ ${sigHtml}
                                                 case 'created_by':
                                                     const srcText = item.created_by || 'Admin';
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: '#6366f115', color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>🛡️ {srcText}</span>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: '#6366f115', color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>ðŸ›¡ï¸ {srcText}</span>
                                                     </td>;
                                                 case 'created_at': {
                                                     const d = item.created_at ? new Date(item.created_at) : null;
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
                                                 }
                                                 default: return null;
                                             }
@@ -1307,7 +1345,7 @@ ${sigHtml}
                                     <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{activeTab === 'accounts' ? item.name : item.invoice_number || item.quote_number || item.receipt_number || item.payment_number}</span>
                                     <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{formatCurrency(item.total_amount || item.amount || 0)}</span>
                                 </div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{item.account_name || item.group}{item.date && ` • ${item.date}`}</div>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{item.account_name || item.group}{item.date && ` â€¢ ${item.date}`}</div>
                             </div>
                         )}
                     />
@@ -1327,266 +1365,118 @@ ${sigHtml}
                 ))}
             </div>
 
-            {/* Row 3: Accounts toolbar */}
-            {activeTab === 'accounts' && (
-                <>
-                <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {[['table', TableIcon, 'Table'], ['list', List, 'List'], ['card', Grid, 'Cards'], ['kanban', Columns, 'Kanban'], ['details', Layers, 'Details']].map(([type, Icon, label]) => (
-                        <button key={type} onClick={() => setViewType(type)} title={label} style={{ padding: '5px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : '#334155', color: viewType === type ? 'white' : '#cbd5e1', display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                            <Icon size={14} />
-                        </button>
-                    ))}
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
+            {/* Row 3: Unified Search/Filter/Sort/Views Panel */}
+            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <AccountsSearchPanel
+                    tab={activeTab}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    groupBy={activeTab === 'accounts' ? groupBy : txGroupBy}
+                    onGroupByChange={activeTab === 'accounts' ? setGroupBy : setTxGroupBy}
+                    sortBy={activeTab === 'accounts' ? sortBy : txSortBy}
+                    onSortByChange={activeTab === 'accounts' ? setSortBy : setTxSortBy}
+                    activeTags={activeTab === 'accounts' ? activeTags : txActiveTags}
+                    onAddTag={handleAddTag}
+                    onRemoveTag={handleRemoveTag}
+                    savedViews={savedViews}
+                    onSaveNamedView={handleSaveNamedView}
+                    onApplyView={applyView}
+                    onDeleteView={deleteView}
+                    onSetDefaultView={setDefaultView}
+                    saveStatus={saveStatus}
+                    onResetView={handleResetView}
+                />
+            </div>
+
+            {/* Row 4: View Type Toggles + Columns + Refresh + Count + Create */}
+            <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* View toggles */}
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    {activeTab === 'accounts'
+                        ? [{ type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'kanban', Icon: Columns, label: 'Kanban' }, { type: 'details', Icon: Layers, label: 'Details' }].map(({ type, Icon, label }) => (
+                            <button key={type} onClick={() => setViewType(type)} title={label}
+                                style={{ padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : 'transparent', color: viewType === type ? 'white' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
+                                <Icon size={13} />{label}
+                            </button>
+                        ))
+                        : [{ type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'kanban', Icon: Columns, label: 'Kanban' }].map(({ type, Icon, label }) => (
+                            <button key={type} onClick={() => setTxViewType(type)} title={label}
+                                style={{ padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: txViewType === type ? '#6366f1' : 'transparent', color: txViewType === type ? 'white' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
+                                <Icon size={13} />{label}
+                            </button>
+                        ))
+                    }
+                </div>
+
+                {/* Column Picker */}
+                {(activeTab === 'accounts' || ['sales','purchases','quotations','receipts','payments'].includes(activeTab)) && (
                     <div style={{ position: 'relative' }}>
-                        <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            <option value="all">All Types</option>
-                            <option value="customer">Customers</option>
-                            <option value="supplier">Suppliers</option>
-                            <option value="technician">Technicians</option>
-                            <option value="cash">Cash/Bank</option>
-                            <option value="expense">Expense</option>
-                        </select>
-                        <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                    </div>
-                    <div style={{ position: 'relative' }}>
-                        <select value={filterGroup} onChange={e => setFilterGroup(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            <option value="all">All Groups</option>
-                            {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                        </select>
-                        <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                    </div>
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
-                    <div style={{ position: 'relative' }}>
-                        <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            <option value="name">Sort: Name A→Z</option>
-                            <option value="name_desc">Sort: Name Z→A</option>
-                            <option value="balance_desc">Sort: Balance ↓</option>
-                            <option value="balance_asc">Sort: Balance ↑</option>
-                            <option value="opening_desc">Sort: Opening Bal ↓</option>
-                            <option value="jobs">Sort: Jobs Done ↓</option>
-                            <option value="updated_desc">Sort: Last Updated</option>
-                        </select>
-                        <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                    </div>
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#cbd5e1', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                        <input type="checkbox" checked={accHasBalance} onChange={e => setAccHasBalance(e.target.checked)} style={{ accentColor: '#6366f1' }} />
-                        Has Balance
-                    </label>
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
-                    <div style={{ position: 'relative' }}>
-                        <button onClick={() => setShowColumnPicker(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showColumnPicker ? '#6366f1' : '#334155', color: showColumnPicker ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
+                        <button onClick={() => setShowColumnPicker(p => !p)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: showColumnPicker ? '#6366f1' : 'transparent', color: showColumnPicker ? 'white' : '#94a3b8', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
                             <SlidersHorizontal size={13} /> Columns
                         </button>
                         {showColumnPicker && (
                             <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
                                 <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange &amp; Toggle Columns</div>
-                                {tabColumns[activeTab].map((col, index) => (
+                                {tabColumns[activeTab]?.map((col, index) => (
                                     <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
-                                            <input type="checkbox" checked={visibleColumns[activeTab].has(col.id)} onChange={() => toggleColumn(activeTab, col.id)}
+                                            <input type="checkbox" checked={visibleColumns[activeTab]?.has(col.id)} onChange={() => toggleColumn(activeTab, col.id)}
                                                 style={{ accentColor: '#6366f1', width: 14, height: 14, margin: 0, cursor: 'pointer' }} />
                                             {col.label}
                                         </label>
                                         <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button onClick={() => moveColumn(activeTab, index, -1)} disabled={index === 0} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'transparent' : 'var(--text-secondary)' }}>▲</button>
-                                            <button onClick={() => moveColumn(activeTab, index, 1)} disabled={index === tabColumns[activeTab].length - 1} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === tabColumns[activeTab].length - 1 ? 'default' : 'pointer', color: index === tabColumns[activeTab].length - 1 ? 'transparent' : 'var(--text-secondary)' }}>▼</button>
+                                            <button onClick={() => moveColumn(activeTab, index, -1)} disabled={index === 0} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'transparent' : 'var(--text-secondary)' }}>â–²</button>
+                                            <button onClick={() => moveColumn(activeTab, index, 1)} disabled={index === tabColumns[activeTab].length - 1} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === tabColumns[activeTab].length - 1 ? 'default' : 'pointer', color: index === tabColumns[activeTab].length - 1 ? 'transparent' : 'var(--text-secondary)' }}>â–¼</button>
                                         </div>
                                     </div>
                                 ))}
                                 <div style={{ borderTop: '1px solid var(--border-primary)', margin: '8px 0 4px' }} />
                                 <button onClick={() => resetColumnsToDefault(activeTab)} style={{ width: '100%', textAlign: 'left', padding: '5px 14px', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer' }}>Reset to defaults</button>
                             </div>
-                        )}
-                    </div>
-                    <div ref={viewMenuRef} style={{ position: 'relative', marginLeft: 'auto' }}>
-                        <button onClick={() => setShowViewsMenu(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
-                            <BookmarkCheck size={13} /> Views {savedViews.filter(v => v.tab === activeTab).length > 0 && `(${savedViews.filter(v => v.tab === activeTab).length})`} <ChevronDown size={10} />
-                        </button>
-                        {showViewsMenu && (
-                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 300, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
-                                <div style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)' }}>Saved Views</div>
-                                {savedViews.filter(v => v.tab === activeTab).length === 0 && <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center' }}>No saved views</div>}
-                                {savedViews.filter(v => v.tab === activeTab).map(view => (
-                                    <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', cursor: 'pointer' }}
-                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                        <span style={{ flex: 1, fontSize: 12, fontWeight: 500 }} onClick={() => applyView(view)}>
-                                            {view.isDefault && <Star size={9} style={{ color: '#f59e0b', marginRight: 4, display: 'inline' }} />}{view.name}
-                                        </span>
-                                        <button onClick={() => deleteView(view.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 2 }}><Trash2 size={11} /></button>
-                                    </div>
-                                ))}
-                                <div style={{ borderTop: '1px solid var(--border-primary)', padding: '6px 12px', fontSize: 12, color: '#6366f1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}
-                                    onClick={() => { setShowViewsMenu(false); setShowSaveViewModal(true); }}>
-                                                    <Save size={11} /> Save current view…
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <button onClick={() => setShowSaveViewModal(true)} title="Save view" style={{ padding: '4px 7px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}><Save size={13} /></button>
-                </div>
-                </>
-            )}
-
-            {/* Row 4: Transaction toolbar */}
-            {activeTab !== 'accounts' && (
-                <>
-                <div style={{ padding: 'var(--spacing-xs) var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* View type buttons */}
-                    {[{ type: 'table', Icon: TableIcon, title: 'Table' }, { type: 'list', Icon: List, title: 'List' }, { type: 'card', Icon: Grid, title: 'Cards' }, { type: 'kanban', Icon: Columns, title: 'Kanban' }].map(({ type, Icon, title }) => (
-                        <button key={type} onClick={() => setTxViewType(type)} title={title} style={{ padding: '5px 8px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: txViewType === type ? '#6366f1' : '#334155', color: txViewType === type ? 'white' : '#cbd5e1', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 500 }}>
-                            <Icon size={13} /><span style={{ display: 'none' }}>{title}</span>
-                        </button>
-                    ))}
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
-                    <div style={{ position: 'relative' }}>
-                        <Filter size={12} style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                        <select value={txFilterStatus} onChange={e => setTxFilterStatus(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 24px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            {(activeTab === 'receipts' || activeTab === 'payments') ? (<><option value="all">All Methods</option><option value="Cash">Cash</option><option value="UPI">UPI</option><option value="Card">Card</option><option value="Bank Transfer">Bank Transfer</option><option value="Cheque">Cheque</option><option value="Online">Online</option></>) :
-                                activeTab === 'quotations' ? (<><option value="all">All Status</option><option value="Draft">Draft</option><option value="Sent">Sent</option><option value="Accepted">Accepted</option><option value="Declined">Declined</option></>) :
-                                    (<><option value="all">All Status</option><option value="Draft">Draft</option><option value="Pending">Pending</option><option value="Paid">Paid</option><option value="Overdue">Overdue</option><option value="Partial">Partial</option></>)}
-                        </select>
-                        <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                    </div>
-                    <div style={{ position: 'relative' }}>
-                        <Layers size={12} style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                        <select value={txGroupBy} onChange={e => setTxGroupBy(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 24px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            <option value="none">No Grouping</option>
-                            <option value="account">Group: Account</option>
-                            <option value="status">Group: Status/Method</option>
-                            <option value="month">Group: Month</option>
-                        </select>
-                        <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                    </div>
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
-                    <div style={{ position: 'relative' }}>
-                        <ArrowUpDown size={12} style={{ position: 'absolute', left: '7px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
-                        <select value={txSortBy} onChange={e => setTxSortBy(e.target.value)} style={{ appearance: 'none', padding: '4px 24px 4px 24px', fontSize: 'var(--font-size-xs)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}>
-                            <option value="date">Sort: Date</option>
-                            <option value="amount">Sort: Amount</option>
-                            <option value="number">Sort: Ref No.</option>
-                            <option value="account">Sort: Account</option>
-                        </select>
-                        <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                    </div>
-                    <button onClick={() => setTxSortDir(d => d === 'asc' ? 'desc' : 'asc')} style={{ padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
-                        {txSortDir === 'asc' ? '↑ Asc' : '↓ Desc'}
-                    </button>
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
-                    {/* Filter panel toggle */}
-                    <button onClick={() => setShowFilterPanel(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showFilterPanel || txDateFrom || txDateTo || txAmountMin || txAmountMax ? '#6366f1' : '#334155', color: showFilterPanel || txDateFrom || txDateTo || txAmountMin || txAmountMax ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
-                        <Filter size={12} /> {txDateFrom || txDateTo || txAmountMin || txAmountMax ? 'Filtered' : 'Filter'}
-                    </button>
-                    <span style={{ borderLeft: '1px solid var(--border-primary)', height: '18px', margin: '0 2px' }} />
-                    <div style={{ position: 'relative' }}>
-                        <button onClick={() => setShowColumnPicker(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: showColumnPicker ? '#6366f1' : '#334155', color: showColumnPicker ? 'white' : '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
-                            <SlidersHorizontal size={13} /> Columns
-                        </button>
-                        {showColumnPicker && (
-                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
-                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange &amp; Toggle Columns</div>
-                                {tabColumns[activeTab].map((col, index) => (
-                                    <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}
-                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
-                                            <input type="checkbox" checked={visibleColumns[activeTab].has(col.id)} onChange={() => toggleColumn(activeTab, col.id)}
-                                                style={{ accentColor: '#6366f1', width: 14, height: 14, margin: 0, cursor: 'pointer' }} />
-                                            {col.label}
-                                        </label>
-                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button onClick={() => moveColumn(activeTab, index, -1)} disabled={index === 0} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'transparent' : 'var(--text-secondary)' }}>▲</button>
-                                            <button onClick={() => moveColumn(activeTab, index, 1)} disabled={index === tabColumns[activeTab].length - 1} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === tabColumns[activeTab].length - 1 ? 'default' : 'pointer', color: index === tabColumns[activeTab].length - 1 ? 'transparent' : 'var(--text-secondary)' }}>▼</button>
-                                        </div>
-                                    </div>
-                                ))}
-                                <div style={{ borderTop: '1px solid var(--border-primary)', margin: '8px 0 4px' }} />
-                                <button onClick={() => resetColumnsToDefault(activeTab)} style={{ width: '100%', textAlign: 'left', padding: '5px 14px', background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 12, cursor: 'pointer' }}>Reset to defaults</button>
-                            </div>
-                        )}
-                    </div>
-                    {/* Saved Views */}
-                    <div ref={viewMenuRef} style={{ position: 'relative', marginLeft: 'auto' }}>
-                        <button onClick={() => setShowViewsMenu(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>
-                            <BookmarkCheck size={13} /> Views {savedViews.filter(v => v.tab === activeTab).length > 0 && `(${savedViews.filter(v => v.tab === activeTab).length})`} <ChevronDown size={10} />
-                        </button>
-                        {showViewsMenu && (
-                            <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 300, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', minWidth: 210, boxShadow: '0 8px 24px rgba(0,0,0,0.4)', overflow: 'hidden' }}>
-                                <div style={{ padding: '6px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', borderBottom: '1px solid var(--border-primary)' }}>Saved Views</div>
-                                {savedViews.filter(v => v.tab === activeTab).length === 0 && <div style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text-tertiary)', textAlign: 'center' }}>No saved views</div>}
-                                {savedViews.filter(v => v.tab === activeTab).map(view => (
-                                    <div key={view.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', cursor: 'pointer' }}
-                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
-                                        <span style={{ flex: 1, fontSize: 12, fontWeight: 500 }} onClick={() => applyView(view)}>
-                                            {view.isDefault && <Star size={9} style={{ color: '#f59e0b', marginRight: 4, display: 'inline' }} />}{view.name}
-                                        </span>
-                                        <button onClick={() => deleteView(view.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: 2 }}><Trash2 size={11} /></button>
-                                    </div>
-                                ))}
-                                <div style={{ borderTop: '1px solid var(--border-primary)', padding: '6px 12px', fontSize: 12, color: '#6366f1', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, fontWeight: 600 }}
-                                    onClick={() => { setShowViewsMenu(false); setShowSaveViewModal(true); }}>
-                                    <Save size={11} /> Save current view…
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <button onClick={() => setShowSaveViewModal(true)} title="Save view" style={{ padding: '4px 7px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: '#334155', color: '#cbd5e1', cursor: 'pointer' }}><Save size={13} /></button>
-                </div>
-                {/* Date/Amount filter panel */}
-                {showFilterPanel && (
-                    <div style={{ padding: '8px 16px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                        {['From Date', 'To Date'].map((lbl, i) => (
-                            <div key={lbl}>
-                                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 3 }}>{lbl}</div>
-                                <input type="date" value={i === 0 ? txDateFrom : txDateTo} onChange={e => i === 0 ? setTxDateFrom(e.target.value) : setTxDateTo(e.target.value)}
-                                    style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }} />
-                            </div>
-                        ))}
-                        {['Min ₹', 'Max ₹'].map((lbl, i) => (
-                            <div key={lbl} style={{ width: 90 }}>
-                                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-tertiary)', marginBottom: 3 }}>{lbl}</div>
-                                <input type="number" placeholder={i === 0 ? '0' : '∞'} value={i === 0 ? txAmountMin : txAmountMax} onChange={e => i === 0 ? setTxAmountMin(e.target.value) : setTxAmountMax(e.target.value)}
-                                    style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)', width: '100%' }} />
-                            </div>
-                        ))}
-                        {(txDateFrom || txDateTo || txAmountMin || txAmountMax) && (
-                            <button onClick={() => { setTxDateFrom(''); setTxDateTo(''); setTxAmountMin(''); setTxAmountMax(''); }}
-                                style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-elevated)', color: '#ef4444', cursor: 'pointer', fontSize: 11 }}>
-                                <X size={11} /> Clear
-                            </button>
                         )}
                     </div>
                 )}
-                </>
-            )}
 
-            {/* Save View Modal */}
-            {showSaveViewModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 24, width: 340, boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-                        <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, margin: '0 0 14px' }}>Save View</h3>
-                        <label style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'block', marginBottom: 5 }}>View Name</label>
-                        <input className="form-input" autoFocus value={saveViewName} onChange={e => setSaveViewName(e.target.value)} placeholder="e.g. Sales This Month"
-                            style={{ width: '100%', marginBottom: 10 }} onKeyDown={e => e.key === 'Enter' && handleSaveView()} />
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 11, color: 'var(--text-secondary)', marginBottom: 18, cursor: 'pointer' }}>
-                            <input type="checkbox" checked={saveViewDefault} onChange={e => setSaveViewDefault(e.target.checked)} /> Set as default for this tab
-                        </label>
-                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-secondary" onClick={() => { setShowSaveViewModal(false); setSaveViewName(''); }} style={{ padding: '6px 14px', fontSize: 12 }}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleSaveView} disabled={!saveViewName.trim()} style={{ padding: '6px 14px', fontSize: 12 }}>Save</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+                <div style={{ flex: 1 }} />
+
+                {/* Refresh + Count */}
+                <button
+                    onClick={() => setActiveTab(t => { const tmp = t; setActiveTab('__reset__'); setTimeout(() => setActiveTab(tmp), 0); })}
+                    title="Refresh"
+                    style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.color = '#e2e8f0'}
+                    onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
+                    onMouseDown={e => { e.currentTarget.querySelector('svg').style.transform = 'rotate(180deg)'; }}
+                    onMouseUp={e => { if(e.currentTarget.querySelector('svg')) e.currentTarget.querySelector('svg').style.transform = ''; }}
+                >
+                    <RefreshCw size={13} /> Refresh
+                </button>
+                <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                    {activeTab === 'accounts'
+                        ? `${filteredLedgers.length} / ${ledgers.length} accounts`
+                        : (() => {
+                            const all = getCurrentData();
+                            const filtered = getProcessedTransactionData();
+                            return `${filtered.length} / ${all.length} ${activeTab}`;
+                          })()
+                    }
+                </span>
+
+                {/* Create */}
+                <button className="btn btn-primary" onClick={handleCreateClick}
+                    style={{ padding: '6px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                    <Plus size={14} /> {tabConfig[activeTab]?.createButtonText || 'Create'}
+                </button>
+            </div>
+
 
             {/* Content */}
             {renderTable()}
 
-            {/* Bulk Action Bar — floats at bottom when items selected */}
+            {/* Bulk Action Bar â€” floats at bottom when items selected */}
             {selectedItems.size > 0 && (
                 <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '12px', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', zIndex: 100 }}>
                     <span style={{ color: '#94a3b8', fontSize: '13px', fontWeight: 500 }}>
