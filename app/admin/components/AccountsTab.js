@@ -21,6 +21,7 @@ import NewRentalForm from './reports/NewRentalForm';
 import PrintAgreementModal from './reports/PrintAgreementModal';
 import RentalDetailsModal from './reports/RentalDetailsModal';
 import RentReceiptsModal from './reports/RentReceiptsModal';
+import WhatsAppShareModal from './accounts/WhatsAppShareModal';
 
 function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [activeTab, setActiveTab] = useState('accounts');
@@ -44,6 +45,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [showRentReceipts, setShowRentReceipts] = useState(false);
     const [selectedRentalForPayment, setSelectedRentalForPayment] = useState(null);
     const printSettingsRef = useRef(null);
+    // WhatsApp share modal state
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [shareItem, setShareItem] = useState(null);
+    const [shareTab, setShareTab] = useState(null);
     const [tabLoading, setTabLoading] = useState({ accounts: true, sales: false, purchases: false, quotations: false, receipts: false, payments: false, amc: false, rentals: false });
     const [error, setError] = useState(null);
 
@@ -747,15 +752,11 @@ ${sigHtml}
         if (w) { w.document.write(html); w.document.close(); }
     };
 
-    // Bug 4: Share via WhatsApp
+    // Share via WhatsApp — open the rich share modal
     const handleShareItem = (item, tab) => {
-        const ref = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
-        const amount = item.total_amount || item.amount || 0;
-        const acct = item.account_name || '';
-        const date = item.date || '';
-        const tabLabel = tabConfig[tab]?.label || tab;
-        const text = encodeURIComponent(`${tabLabel} ${ref}\nAccount: ${acct}\nDate: ${date}\nAmount: ₹${amount.toLocaleString()}`);
-        window.open(`https://wa.me/?text=${text}`, '_blank');
+        setShareItem(item);
+        setShareTab(tab);
+        setShowShareModal(true);
     };
 
     const handleDeleteTransaction = async (item, tab) => {
@@ -1505,6 +1506,17 @@ ${sigHtml}
                             alert('Failed to save receipts: ' + err.message);
                         }
                     }}
+                />
+            )}
+
+            {/* WhatsApp Share Modal */}
+            {showShareModal && shareItem && (
+                <WhatsAppShareModal
+                    item={shareItem}
+                    tab={shareTab}
+                    printSettings={printSettingsRef.current}
+                    onClose={() => { setShowShareModal(false); setShareItem(null); setShareTab(null); }}
+                    onPrint={() => handlePrintItem(shareItem, shareTab)}
                 />
             )}
         </div>
