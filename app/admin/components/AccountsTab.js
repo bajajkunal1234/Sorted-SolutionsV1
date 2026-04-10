@@ -84,7 +84,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         fetch('/api/admin/account-views').then(r => r.json()).then(d => { if (d.success) setSavedViews(d.data || []); }).catch(() => {});
     }, []);
 
-    // â”€â”€ Saved Views helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // -- Saved Views helpers ------------------------------------------
     const persistViews = async (views) => {
         setSavedViews(views);
         try { await fetch('/api/admin/account-views', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ views }) }); } catch (e) {}
@@ -425,10 +425,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 customer_id: account.id,
                 customer_name: account.name,
                 performed_by_name: 'Admin',
-                description: `Admin opened account record â€” ${account.name} (SKU: ${account.sku || 'N/A'})`,
+                description: `Admin opened account record — ${account.name} (SKU: ${account.sku || 'N/A'})`,
                 source: 'Admin App',
             }),
-        }).catch(() => {}); // silent â€” never block the UI for a log call
+        }).catch(() => {}); // silent — never block the UI for a log call
     };
 
     // Multi-select helpers
@@ -493,7 +493,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             setSelectedItems(new Set());
 
             if (failed.length === 0) {
-                alert(`âœ… ${count} item(s) deleted successfully.`);
+                alert(`✅ ${count} item(s) deleted successfully.`);
             } else {
                 const successCount = count - failed.length;
                 const failLines = failed.map(f => {
@@ -501,15 +501,15 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                         // Rich structured dependency info from API
                         const depLines = f.blocking.map(b => {
                             const records = b.records?.join(', ') || '';
-                            const action = b.action ? `\n     â†’ ${b.action}` : '';
-                            return `  â€¢ ${b.type} (${b.records?.length || 0}): ${records}${action}`;
+                            const action = b.action ? `\n     → ${b.action}` : '';
+                            return `  • ${b.type} (${b.records?.length || 0}): ${records}${action}`;
                         }).join('\n');
-                        return `\nâŒ "${f.name}" cannot be deleted â€” clear these first:\n${depLines}`;
+                        return `\n❌ "${f.name}" cannot be deleted — clear these first:\n${depLines}`;
                     }
-                    return `\nâŒ "${f.name}": ${f.error}`;
+                    return `\n❌ "${f.name}": ${f.error}`;
                 }).join('\n');
                 alert(
-                    `${successCount > 0 ? `âœ… ${successCount} deleted.\n` : ''}` +
+                    `${successCount > 0 ? `✅ ${successCount} deleted.\n` : ''}` +
                     failLines
                 );
             }
@@ -730,7 +730,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 else await transactionsAPI.create(cleanData, type);
             }
 
-            // âœ… Save succeeded â€” close form and notify user immediately
+            // ✅ Save succeeded — close form and notify user immediately
             alert(`${tabConfig[activeTab]?.label || 'Record'} saved successfully!`);
             setActiveForm(null);
             setSelectedTransaction(null);
@@ -740,7 +740,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 setTimeout(() => handlePrintItem(data, activeTab), 300);
             }
 
-            // Refresh data in the background â€” errors here don't matter for the user
+            // Refresh data in the background — errors here don't matter for the user
             try {
                 const type2 = data?.__formType || tabToTypeMap[activeTab];
                 const tabKey = { sales: 'sales', purchase: 'purchases', quotation: 'quotations', receipt: 'receipts', payment: 'payments' }[type2] || activeTab;
@@ -827,7 +827,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
         const termsHtml = showTerms && terms.length > 0 ? `
             <div style="margin:20px 32px;padding:14px 18px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;margin-bottom:8px">Terms &amp; Conditions</div>
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;margin-bottom:8px">Terms & Conditions</div>
               <ol style="margin:0;padding-left:16px;font-size:11px;color:#475569;line-height:1.7">${terms.map(t => `<li style="margin-bottom:3px">${t}</li>`).join('')}</ol>
             </div>` : '';
 
@@ -838,7 +838,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             </div>` : '';
 
         const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><title>${docTitle} \u2013 ${ref}</title>
+<html lang="en"><head><meta charset="UTF-8"><title>${docTitle} – ${ref}</title>
 <style>
   @page { size: ${pageSize}; margin: 14mm 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -851,7 +851,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="height:50px;max-width:160px;object-fit:contain;margin-bottom:10px;display:block">` : ''}
     <div style="font-size:20px;font-weight:800;color:${headerText}">${companyName}</div>
     ${companyAddr  ? `<div style="font-size:11px;color:${headerSub};margin-top:4px;white-space:pre-wrap;line-height:1.5">${companyAddr}</div>` : ''}
-    <div style="font-size:11px;color:${headerSub};margin-top:4px">${[companyPhone, companyEmail].filter(Boolean).join(' Â· ')}</div>
+    <div style="font-size:11px;color:${headerSub};margin-top:4px">${[companyPhone, companyEmail].filter(Boolean).join(' · ')}</div>
     ${showGST && companyGstin ? `<div style="font-size:10px;color:${headerSub};margin-top:3px;font-family:monospace">GSTIN: ${companyGstin}</div>` : ''}
   </div>
   <div style="text-align:right">
@@ -873,20 +873,20 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
       <th style="padding:10px 12px;text-align:left;font-size:12px">Description</th>
       <th style="padding:10px 12px;text-align:center;font-size:12px">HSN/SAC</th>
       <th style="padding:10px 12px;text-align:right;font-size:12px">Qty</th>
-      <th style="padding:10px 12px;text-align:right;font-size:12px">Rate (&#8377;)</th>
+      <th style="padding:10px 12px;text-align:right;font-size:12px">Rate (₹)</th>
       <th style="padding:10px 12px;text-align:center;font-size:12px">Tax%</th>
-      <th style="padding:10px 12px;text-align:right;font-size:12px">Amount (&#8377;)</th>
+      <th style="padding:10px 12px;text-align:right;font-size:12px">Amount (₹)</th>
     </tr></thead>
     <tbody>${rows || `<tr><td colspan="7" style="padding:20px;text-align:center;color:#94a3b8">No items found</td></tr>`}</tbody>
   </table>
 </div>
 <div style="padding:0 32px;margin-top:16px;display:flex;justify-content:flex-end">
   <table style="width:280px">
-    <tr style="border-top:1px solid #e2e8f0"><td style="padding:7px 0;color:#64748b;font-size:13px">Subtotal</td><td style="padding:7px 0;text-align:right;font-size:13px;font-weight:600">&#8377;${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
+    <tr style="border-top:1px solid #e2e8f0"><td style="padding:7px 0;color:#64748b;font-size:13px">Subtotal</td><td style="padding:7px 0;text-align:right;font-size:13px;font-weight:600">₹${subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td></tr>
     ${taxRows}
     <tr style="border-top:2px solid ${themeColor}">
       <td style="padding:12px 0 0;font-size:16px;font-weight:800;color:${themeColor}">Grand Total</td>
-      <td style="padding:12px 0 0;text-align:right;font-size:18px;font-weight:900;color:${accentColor}">&#8377;${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+      <td style="padding:12px 0 0;text-align:right;font-size:18px;font-weight:900;color:${accentColor}">₹${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
     </tr>
     <tr><td colspan="2" style="font-size:10px;color:#94a3b8;text-align:right;padding-top:2px">All amounts in Indian Rupees (INR)</td></tr>
   </table>
@@ -895,7 +895,7 @@ ${item.notes ? `<div style="margin:20px 32px;padding:12px;background:#f8fafc;bor
 ${termsHtml}
 ${sigHtml}
 <div style="margin-top:32px;border-top:1px solid #e2e8f0;padding:12px 32px;text-align:center;font-size:10px;color:#94a3b8">
-  This is a computer-generated document &nbsp;|&nbsp; ${companyName} Â· ${companyPhone} Â· ${companyEmail}
+  This is a computer-generated document &nbsp;|&nbsp; ${companyName} · ${companyPhone} · ${companyEmail}
 </div>
 <script>window.onload = () => { setTimeout(() => window.print(), 400); }<\/script>
 </body></html>`;
@@ -904,7 +904,7 @@ ${sigHtml}
         if (w) { w.document.write(html); w.document.close(); }
     };
 
-    // Share via WhatsApp â€” open the rich share modal
+    // Share via WhatsApp — open the rich share modal
     const handleShareItem = (item, tab) => {
         setShareItem(item);
         setShareTab(tab);
@@ -951,7 +951,7 @@ ${sigHtml}
     const renderStatusBadge = (status) => {
         const colorMap = { Paid: ['rgba(16,185,129,.15)', '#10b981'], Pending: ['rgba(245,158,11,.15)', '#f59e0b'], Overdue: ['rgba(239,68,68,.15)', '#ef4444'], Draft: ['rgba(148,163,184,.15)', '#94a3b8'], Sent: ['rgba(99,102,241,.15)', '#6366f1'], Accepted: ['rgba(16,185,129,.15)', '#10b981'], Declined: ['rgba(239,68,68,.15)', '#ef4444'] };
         const [bg, c] = colorMap[status] || ['var(--bg-secondary)', 'var(--text-secondary)'];
-        return <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: c }}>{status || 'â€”'}</span>;
+        return <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: c }}>{status || '—'}</span>;
     };
 
     const renderTable = () => {
@@ -973,11 +973,11 @@ ${sigHtml}
                     {viewType === 'details' && <AccountsDetailsView accounts={filteredLedgers} onAccountClick={handleOpenAccount} />}
                     {viewType === 'table' && (() => {
                         const activeCols = tabColumns.accounts.filter(c => visibleColumns.accounts.has(c.id));
-                        const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || 'â€”';
+                        const getGroupName = (underId) => groups.find(g => g.id === underId)?.name || underId || '—';
                         const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
                         const renderCell = (col, ledger) => {
                             switch (col.id) {
-                                case 'sku':             return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || 'â€”'}</td>;
+                                case 'sku':             return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-tertiary)' }}>{ledger.sku || '—'}</td>;
                                 case 'type':            return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={tdBase}><span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)' }}>{ledger.type}</span></td>;
                                 case 'group':           return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{getGroupName(ledger.under)}</td>;
                                 case 'opening_balance': return <td key={col.id} onClick={() => handleOpenAccount(ledger)} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(ledger.opening_balance || ledger.openingBalance || 0)}</td>;
@@ -989,9 +989,9 @@ ${sigHtml}
                                     let badge;
                                     
                                     if (isAdmin) {
-                                        badge = { icon: 'ðŸ›¡ï¸', label: 'Admin Created', bg: '#6366f115', color: '#6366f1' };
+                                        badge = { icon: '🛡️', label: 'Admin Created', bg: '#6366f115', color: '#6366f1' };
                                     } else {
-                                        badge = { icon: 'ðŸ‘¤', label: 'Customer Signup', bg: '#10b98115', color: '#10b981' };
+                                        badge = { icon: '👤', label: 'Customer Signup', bg: '#10b98115', color: '#10b981' };
                                     }
 
                                     return (
@@ -1002,21 +1002,21 @@ ${sigHtml}
                                         </td>
                                     );
                                 }
-                                case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || 'â€”'}</td>;
-                                case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || 'â€”'}</td>;
-                                case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || 'â€”'}</td>;
-                                case 'credit_limit':    return <td key={col.id} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{ledger.credit_limit > 0 ? formatCurrency(ledger.credit_limit) : 'â€”'}</td>;
-                                case 'credit_period':   return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.credit_period > 0 ? `${ledger.credit_period}d` : 'â€”'}</td>;
+                                case 'mobile':          return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)' }}>{ledger.mobile || '—'}</td>;
+                                case 'email':           return <td key={col.id} style={{ ...tdBase, color: 'var(--text-secondary)', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ledger.email || '—'}</td>;
+                                case 'gstin':           return <td key={col.id} style={{ ...tdBase, fontFamily: 'monospace' }}>{ledger.gstin || '—'}</td>;
+                                case 'credit_limit':    return <td key={col.id} style={{ ...tdBase, textAlign: 'right', fontFamily: 'monospace' }}>{ledger.credit_limit > 0 ? formatCurrency(ledger.credit_limit) : '—'}</td>;
+                                case 'credit_period':   return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.credit_period > 0 ? `${ledger.credit_period}d` : '—'}</td>;
                                 case 'status':          return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}><span style={{ padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: ledger.status === 'active' ? '#10b98115' : '#ef444415', color: ledger.status === 'active' ? '#10b981' : '#ef4444', fontWeight: 600 }}>{ledger.status || 'active'}</span></td>;
-                                case 'balance_type':    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.balance_type?.toUpperCase() || 'â€”'}</td>;
+                                case 'balance_type':    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.balance_type?.toUpperCase() || '—'}</td>;
                                 case 'is_claimed': {
                                     const isCust = ledger.type === 'customer' || ledger.under?.toLowerCase().includes('customer') || ledger.under?.toLowerCase().includes('debtor');
-                                    if (!isCust) return <td key={col.id} style={{ ...tdBase, textAlign: 'center', color: 'var(--text-tertiary)' }}>â€”</td>;
+                                    if (!isCust) return <td key={col.id} style={{ ...tdBase, textAlign: 'center', color: 'var(--text-tertiary)' }}>—</td>;
                                     return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{ledger.is_claimed ? <span style={{ color: '#10b981', fontWeight: 600 }}>Yes</span> : <span style={{ color: '#ef4444', fontWeight: 600 }}>No</span>}</td>;
                                 }
                                 case 'created_at': {
                                     const d = ledger.created_at ? new Date(ledger.created_at) : null;
-                                    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
+                                    return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                 }
                                 default: return null;
                             }
@@ -1088,7 +1088,7 @@ ${sigHtml}
             return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
-                        {[{ label: 'Active AMCs', val: totalAMC, color: '#8b5cf6' }, { label: 'Monthly Revenue', val: `â‚¹${Math.round(monthlyRev).toLocaleString()}`, color: '#10b981' }, { label: 'Expiring Soon', val: soonExpiring, color: '#f59e0b' }].map(s => (
+                        {[{ label: 'Active AMCs', val: totalAMC, color: '#8b5cf6' }, { label: 'Monthly Revenue', val: `₹${Math.round(monthlyRev).toLocaleString()}`, color: '#10b981' }, { label: 'Expiring Soon', val: soonExpiring, color: '#f59e0b' }].map(s => (
                             <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.label}</div><div style={{ fontSize: '18px', fontWeight: 700, color: s.color }}>{s.val}</div></div>
                                 <Shield size={18} style={{ color: s.color, opacity: 0.4 }} />
@@ -1110,16 +1110,16 @@ ${sigHtml}
                                             {activeCols.map(col => {
                                                 const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
                                                 switch (col.id) {
-                                                    case 'plan_name':    return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{amc.plan_name || amc.amc_plans?.name || 'â€”'}</td>;
-                                                    case 'account_name': return <td key={col.id} style={td}>{amc.accounts?.name || amc.customer_name || 'â€”'}</td>;
+                                                    case 'plan_name':    return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{amc.plan_name || amc.amc_plans?.name || '—'}</td>;
+                                                    case 'account_name': return <td key={col.id} style={td}>{amc.accounts?.name || amc.customer_name || '—'}</td>;
                                                     case 'product':      return <td key={col.id} style={{ ...td, color: 'var(--text-secondary)' }}>{amc.product_brand} {amc.product_model}</td>;
-                                                    case 'start_date':   return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{amc.start_date ? new Date(amc.start_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
-                                                    case 'end_date':     return <td key={col.id} style={{ ...td, textAlign: 'center', color: isExpiring ? '#f59e0b' : 'inherit', fontWeight: isExpiring ? 700 : 400 }}>{amc.end_date ? new Date(amc.end_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
-                                                    case 'amc_amount':   return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>â‚¹{(Number(amc.amc_amount) || 0).toLocaleString()}</td>;
+                                                    case 'start_date':   return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{amc.start_date ? new Date(amc.start_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'end_date':     return <td key={col.id} style={{ ...td, textAlign: 'center', color: isExpiring ? '#f59e0b' : 'inherit', fontWeight: isExpiring ? 700 : 400 }}>{amc.end_date ? new Date(amc.end_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'amc_amount':   return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(amc.amc_amount) || 0).toLocaleString()}</td>;
                                                     case 'status':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(amc.status === 'active' ? 'Paid' : amc.status)}</td>;
                                                     case 'created_at': {
                                                         const d = amc.created_at ? new Date(amc.created_at) : null;
-                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                     }
                                                     default: return null;
                                                 }
@@ -1153,7 +1153,7 @@ ${sigHtml}
             return (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 'var(--spacing-sm)' }}>
-                        {[{ label: 'Active Rentals', val: totalRentals, color: '#10b981' }, { label: 'Monthly Income', val: `â‚¹${monthlyIncome.toLocaleString()}`, color: '#3b82f6' }, { label: 'Overdue', val: overdue, color: '#ef4444' }].map(s => (
+                        {[{ label: 'Active Rentals', val: totalRentals, color: '#10b981' }, { label: 'Monthly Income', val: `₹${monthlyIncome.toLocaleString()}`, color: '#3b82f6' }, { label: 'Overdue', val: overdue, color: '#ef4444' }].map(s => (
                             <div key={s.label} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '2px' }}>{s.label}</div><div style={{ fontSize: '18px', fontWeight: 700, color: s.color }}>{s.val}</div></div>
                                 <Package size={18} style={{ color: s.color, opacity: 0.4 }} />
@@ -1175,16 +1175,16 @@ ${sigHtml}
                                             {activeCols.map(col => {
                                                 const td = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' };
                                                 switch (col.id) {
-                                                    case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.rental_plans?.product_name || rental.product_name || 'â€”'}</td>;
-                                                    case 'account_name':     return <td key={col.id} style={td}>{rental.accounts?.name || rental.customer_name || 'â€”'}</td>;
-                                                    case 'monthly_rent':     return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>â‚¹{(Number(rental.monthly_rent) || 0).toLocaleString()}</td>;
-                                                    case 'start_date':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{rental.start_date ? new Date(rental.start_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
-                                                    case 'next_due':         return <td key={col.id} style={{ ...td, textAlign: 'center', color: isOverdue ? '#ef4444' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>{rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : 'â€”'}</td>;
-                                                    case 'security_deposit': return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace' }}>â‚¹{(Number(rental.security_deposit) || 0).toLocaleString()}</td>;
+                                                    case 'product_name':     return <td key={col.id} style={{ ...td, fontWeight: 600 }}>{rental.rental_plans?.product_name || rental.product_name || '—'}</td>;
+                                                    case 'account_name':     return <td key={col.id} style={td}>{rental.accounts?.name || rental.customer_name || '—'}</td>;
+                                                    case 'monthly_rent':     return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>₹{(Number(rental.monthly_rent) || 0).toLocaleString()}</td>;
+                                                    case 'start_date':       return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{rental.start_date ? new Date(rental.start_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'next_due':         return <td key={col.id} style={{ ...td, textAlign: 'center', color: isOverdue ? '#ef4444' : 'inherit', fontWeight: isOverdue ? 700 : 400 }}>{rental.next_rent_due_date ? new Date(rental.next_rent_due_date).toLocaleDateString('en-GB') : '—'}</td>;
+                                                    case 'security_deposit': return <td key={col.id} style={{ ...td, textAlign: 'right', fontFamily: 'monospace' }}>₹{(Number(rental.security_deposit) || 0).toLocaleString()}</td>;
                                                     case 'status':           return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{renderStatusBadge(rental.status === 'active' ? 'Paid' : rental.status)}</td>;
                                                     case 'created_at': {
                                                         const d = rental.created_at ? new Date(rental.created_at) : null;
-                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
+                                                        return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                     }
                                                     default: return null;
                                                 }
@@ -1259,7 +1259,7 @@ ${sigHtml}
                             <>
                                 {label !== null && (
                                     <tr key={`grp-${label}`}>
-                                        <td colSpan={10} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>â–¸ {label}</td>
+                                        <td colSpan={10} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>▸ {label}</td>
                                     </tr>
                                 )}
                                 {items.map(item => (
@@ -1274,12 +1274,12 @@ ${sigHtml}
                                         {activeTxCols.map(col => {
                                             switch (col.id) {
                                                 case 'number': 
-                                                    const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || 'â€”';
+                                                    const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || '—';
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{no}</td>;
                                                 case 'date':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || 'â€”'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || '—'}</td>;
                                                 case 'account_name':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || 'â€”'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || '—'}</td>;
                                                 case 'amount':
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 600, fontFamily: 'monospace' }}>{formatCurrency(item.amount || item.total_amount || 0)}</td>;
                                                 case 'status': {
@@ -1292,16 +1292,15 @@ ${sigHtml}
                                                 case 'created_by':
                                                     const srcText = item.created_by || 'Admin';
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: '#6366f115', color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>ðŸ›¡ï¸ {srcText}</span>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: '#6366f115', color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>🛡️ {srcText}</span>
                                                     </td>;
                                                 case 'created_at': {
                                                     const d = item.created_at ? new Date(item.created_at) : null;
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : 'â€”'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                 }
                                                 default: return null;
                                             }
                                         })}
-                                        {/* Bug 4: Action buttons */}
                                         <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
                                                 <button
@@ -1369,6 +1368,10 @@ ${sigHtml}
                     saveStatus={saveStatus}
                     onResetView={handleResetView}
                 />
+                <button className="btn btn-primary" onClick={handleCreateClick}
+                    style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                    <Plus size={15} /> {tabConfig[activeTab]?.createButtonText || 'Create'}
+                </button>
             </div>
 
             {/* Row 2: Sub-tabs */}
@@ -1380,7 +1383,7 @@ ${sigHtml}
                 ))}
             </div>
 
-            {/* Row 3: View Type Toggles + Columns + Refresh + Count + Create */}
+            {/* Row 3: View Type Toggles + Columns + Refresh + Count */}
             <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* View toggles */}
                 <div style={{ display: 'flex', gap: '4px' }}>
@@ -1409,7 +1412,7 @@ ${sigHtml}
                         </button>
                         {showColumnPicker && (
                             <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
-                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange &amp; Toggle Columns</div>
+                                <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Arrange & Toggle Columns</div>
                                 {tabColumns[activeTab]?.map((col, index) => (
                                     <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '5px 14px' }}
                                         onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
@@ -1420,8 +1423,8 @@ ${sigHtml}
                                             {col.label}
                                         </label>
                                         <div style={{ display: 'flex', gap: '4px' }}>
-                                            <button onClick={() => moveColumn(activeTab, index, -1)} disabled={index === 0} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'transparent' : 'var(--text-secondary)' }}>â–²</button>
-                                            <button onClick={() => moveColumn(activeTab, index, 1)} disabled={index === tabColumns[activeTab].length - 1} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === tabColumns[activeTab].length - 1 ? 'default' : 'pointer', color: index === tabColumns[activeTab].length - 1 ? 'transparent' : 'var(--text-secondary)' }}>â–¼</button>
+                                            <button onClick={() => moveColumn(activeTab, index, -1)} disabled={index === 0} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === 0 ? 'default' : 'pointer', color: index === 0 ? 'transparent' : 'var(--text-secondary)' }}>↑</button>
+                                            <button onClick={() => moveColumn(activeTab, index, 1)} disabled={index === tabColumns[activeTab].length - 1} style={{ padding: '2px 4px', fontSize: '10px', border: 'none', background: 'transparent', cursor: index === tabColumns[activeTab].length - 1 ? 'default' : 'pointer', color: index === tabColumns[activeTab].length - 1 ? 'transparent' : 'var(--text-secondary)' }}>↓</button>
                                         </div>
                                     </div>
                                 ))}
@@ -1456,12 +1459,6 @@ ${sigHtml}
                           })()
                     }
                 </span>
-
-                {/* Create */}
-                <button className="btn btn-primary" onClick={handleCreateClick}
-                    style={{ padding: '6px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                    <Plus size={14} /> {tabConfig[activeTab]?.createButtonText || 'Create'}
-                </button>
             </div>
 
 
