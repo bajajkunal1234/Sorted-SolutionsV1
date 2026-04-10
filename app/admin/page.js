@@ -44,7 +44,8 @@ export default function AdminApp() {
     }, [])
 
     // ── Request push notification permission after login ────────────────────
-    usePushNotifications({ userType: 'admin', userId: authChecked ? 'admin' : null })
+    const { needsPrompt: needsNotifPrompt, promptNow: enableNotifications } =
+        usePushNotifications({ userType: 'admin', userId: authChecked ? 'admin' : null })
 
     // Set up global function to open customer account from Jobs tab
     useEffect(() => {
@@ -119,6 +120,27 @@ export default function AdminApp() {
 
     return (
         <div className="admin-app">
+            {/* ── iOS notification prompt banner ── */}
+            {needsNotifPrompt && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999,
+                    backgroundColor: '#f59e0b', color: '#0f172a',
+                    padding: '10px 16px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', gap: 12, fontSize: 13, fontWeight: 600,
+                }}>
+                    <span>🔔 Tap to enable push notifications</span>
+                    <button
+                        onClick={enableNotifications}
+                        style={{
+                            padding: '6px 14px', backgroundColor: '#0f172a', color: '#f59e0b',
+                            border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 13,
+                        }}
+                    >
+                        Enable
+                    </button>
+                </div>
+            )}
+
             {/* Main Content */}
             <div className="admin-content-area">
                 {renderTabContent()}
