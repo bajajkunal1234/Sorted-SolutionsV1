@@ -10,6 +10,7 @@ import RepairCalculator from '@/components/common/RepairCalculator';
 import NotificationBell from '@/components/common/NotificationBell';
 import { logInteraction, logNavigation } from '@/lib/interactions';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -94,6 +95,9 @@ function TechnicianApp() {
             router.push('/login');
         }
     }, [router]);
+
+    // ── Request push notification permission once logged in ────────────────
+    usePushNotifications({ userType: 'technician', userId: technicianId });
 
     // ── Silent background location tracking ──────────────────────────────────
     // Sends GPS to admin every 60s. No UI shown to technician.

@@ -10,6 +10,7 @@ import ReportsTab from './components/ReportsTab'
 import './admin.css'
 import './modal-improvements.css'
 import NotificationBell from '@/components/common/NotificationBell'
+import { usePushNotifications } from '@/hooks/usePushNotifications'
 
 export default function AdminApp() {
     const router = useRouter()
@@ -41,6 +42,9 @@ export default function AdminApp() {
         }
         setAuthChecked(true)
     }, [])
+
+    // ── Request push notification permission after login ────────────────────
+    usePushNotifications({ userType: 'admin', userId: authChecked ? 'admin' : null })
 
     // Set up global function to open customer account from Jobs tab
     useEffect(() => {
