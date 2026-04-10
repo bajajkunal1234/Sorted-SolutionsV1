@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Phone, MapPin, User, Briefcase, Calendar, Clock, X, CheckCircle2, ChevronDown, ChevronUp, Loader2, ExternalLink } from 'lucide-react';
+import { Phone, MapPin, User, X, CheckCircle2, Loader2, UserCheck } from 'lucide-react';
 import { useMemo } from 'react';
 import { jobsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
 import NewAccountForm from '../accounts/NewAccountForm';
@@ -17,7 +17,14 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
             console.error('Failed to parse booking notes:', e);
         }
     }
-    const cust = bd.customer || {};
+
+    // Also support flat structure (customer app bookings store data directly on job row)
+    const cust = bd.customer || {
+        name: booking.customer_name || '',
+        phone: booking.customer_phone || '',
+        email: booking.customer_email || '',
+        address: {},
+    };
     const addr = cust.address || {};
     const schedule = bd.schedule || {};
 
@@ -29,15 +36,49 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     const [dismissing, setDismissing] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
+    // -- Auto-detect if account already exists for this booking's phone number --
+    const [checkingAccount, setCheckingAccount] = useState(true);
+    const [accountAlreadyExists, setAccountAlreadyExists] = useState(false);
+
+    useEffect(() => {
+        const phone = cust.phone || booking.customer_name; // customer app stores name in customer_name
+        if (!phone) { setCheckingAccount(false); return; }
+
+        // Normalise: last 10 digits
+        const digits = phone.replace(/\D/g, '').slice(-10);
+        if (!digits || digits.length < 7) { setCheckingAccount(false); return; }
+
+        // Check accounts table via admin API
+        fetch(`/api/admin/accounts?type=customer`)
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) return;
+                const match = (d.data || []).find(acc => {
+                    const m = (acc.mobile || acc.phone || '').replace(/\D/g, '').slice(-10);
+                    return m === digits;
+                });
+                if (match) {
+                    setCreatedCustomer(match);
+                    setAccountAlreadyExists(true);
+                }
+            })
+            .catch(() => {/* silent — don't block the UI */})
+            .finally(() => setCheckingAccount(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [booking.id]);
+
     // Build full address string
     const fullAddress = [
-        addr.apartment,
+        addr.flat_number || addr.apartment,
+        addr.building_name || addr.building,
         addr.street,
         addr.locality,
         addr.city,
         addr.state,
-        addr.zip
-    ].filter(Boolean).join(', ');
+        addr.zip || addr.pincode
+    ].filter(Boolean).join(', ')
+        || booking.property?.address
+        || '';
 
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress || cust.name)}`;
 
@@ -64,13 +105,10 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
             } else {
                 result = await accountsAPI.create(accountData);
             }
-            // account IS the customer now — use directly
             setCreatedCustomer(result);
+            setAccountAlreadyExists(false); // was newly created via form
             setShowAccountForm(false);
-
-            setTimeout(() => {
-                setShowJobForm(true);
-            }, 300);
+            setTimeout(() => setShowJobForm(true), 300);
         } catch (err) {
             console.error('Error saving account:', err);
             alert('Failed to save account: ' + err.message);
@@ -109,7 +147,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         setDeleting(true);
         try {
             await jobsAPI.delete(booking.id);
-            onDismissed(); // Reusing onDismissed to trigger the UI to remove the card/close modal
+            onDismissed();
         } catch (err) {
             console.error('Error deleting booking:', err);
             alert('Failed to delete: ' + err.message);
@@ -120,16 +158,13 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
 
     // Resolve the best group ID for Customers
     const resolvedCustomerGroup = (() => {
-        if (groups.length === 0) return 'sundry-debtors'; // Fallback to current default
+        if (groups.length === 0) return 'sundry-debtors';
         const customersGroup = groups.find(g =>
             g.name.toLowerCase() === 'customers' ||
             g.name.toLowerCase() === 'customer accounts'
         );
         if (customersGroup) return customersGroup.id;
-
-        const debtorsGroup = groups.find(g =>
-            g.name.toLowerCase() === 'sundry debtors'
-        );
+        const debtorsGroup = groups.find(g => g.name.toLowerCase() === 'sundry debtors');
         return debtorsGroup ? debtorsGroup.id : 'sundry-debtors';
     })();
 
@@ -164,17 +199,69 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         appliance: bd.applianceName || booking.appliance || bd.categoryName || booking.category || '',
         brand: bd.brandName || booking.brand || '',
         issue: bd.issueName || booking.issue || '',
-        description: bd.description || '',
-        scheduled_date: booking.scheduled_date || '',
-        scheduled_time: booking.scheduled_time || '',
-        customer_id: createdCustomer?.id || null, // This is the Ledger ID
+        description: bd.description || booking.description || '',
+        scheduled_date: schedule.date || booking.scheduled_date || '',
+        scheduled_time: schedule.slot || booking.scheduled_time || '',
+        customer_id: createdCustomer?.id || null,
         customer: createdCustomer || null,
         property: createdCustomer ? {
             id: `booking-${booking.id}`,
             property_name: 'Home',
             address: fullAddress,
         } : null,
-    }), [booking, bd, createdCustomer, fullAddress]);
+    }), [booking, bd, schedule, createdCustomer, fullAddress]);
+
+    // -- Account button rendering logic --
+    const renderAccountButton = () => {
+        if (checkingAccount) {
+            return (
+                <button className="btn btn-secondary" disabled style={{ minWidth: 160 }}>
+                    <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Checking...
+                </button>
+            );
+        }
+
+        if (accountAlreadyExists && createdCustomer) {
+            return (
+                <button
+                    className="btn"
+                    disabled
+                    style={{
+                        minWidth: 160,
+                        backgroundColor: 'rgba(16,185,129,0.12)',
+                        color: '#10b981',
+                        border: '1px solid rgba(16,185,129,0.35)',
+                        cursor: 'default',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                    title={`Account found: ${createdCustomer.name} (${createdCustomer.sku || createdCustomer.id})`}
+                >
+                    <UserCheck size={15} />
+                    Acct Already Exists
+                </button>
+            );
+        }
+
+        if (!accountAlreadyExists && createdCustomer) {
+            return (
+                <button className="btn btn-primary" disabled style={{ minWidth: 160 }}>
+                    <CheckCircle2 size={15} /> Account Created
+                </button>
+            );
+        }
+
+        return (
+            <button
+                onClick={handleOpenAccountForm}
+                className="btn btn-primary"
+                disabled={loadingGroups}
+                style={{ minWidth: 160 }}
+            >
+                {loadingGroups ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <User size={15} />}
+                {loadingGroups ? 'Loading...' : 'Create Account'}
+            </button>
+        );
+    };
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -193,8 +280,24 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                                     {(cust.name || cust.firstName || '?')[0].toUpperCase()}
                                 </div>
                                 <div>
-                                    <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>{cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim()}</h3>
-                                    <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>{cust.email}</div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
+                                            {cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim()}
+                                        </h3>
+                                        {accountAlreadyExists && (
+                                            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                                                ✓ Account Linked
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>
+                                        {cust.email || cust.phone}
+                                    </div>
+                                    {accountAlreadyExists && createdCustomer?.sku && (
+                                        <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                                            {createdCustomer.sku} · {createdCustomer.name}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
@@ -226,12 +329,12 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                         </div>
                         <div style={{ gridColumn: '1 / -1' }}>
                             <label className="form-label" style={{ color: 'var(--text-tertiary)' }}>LOCALITY / ADDRESS</label>
-                            <div style={{ fontSize: 'var(--font-size-sm)' }}>{fullAddress || 'No address provided'}</div>
+                            <div style={{ fontSize: 'var(--font-size-sm)' }}>{fullAddress || booking.property?.address || 'No address provided'}</div>
                         </div>
-                        {bd.description && (
+                        {(bd.description || booking.description) && (
                             <div style={{ gridColumn: '1 / -1' }}>
                                 <label className="form-label" style={{ color: 'var(--text-tertiary)' }}>DETAILS / INSTRUCTIONS</label>
-                                <div style={{ fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap' }}>{bd.description}</div>
+                                <div style={{ fontSize: 'var(--font-size-sm)', whiteSpace: 'pre-wrap' }}>{bd.description || booking.description}</div>
                             </div>
                         )}
                     </div>
@@ -240,29 +343,27 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                 <div className="modal-footer" style={{ justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                         <button onClick={handleDelete} disabled={deleting || dismissing} className="btn btn-secondary" style={{ color: 'var(--color-danger)', borderColor: 'transparent', padding: '6px 12px' }}>
-                            {deleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete Request'}
+                            {deleting ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Delete Request'}
                         </button>
                         <button onClick={handleDismiss} disabled={dismissing || deleting} className="btn" style={{ color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}>
-                            {dismissing ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />} Dismiss Request
+                            {dismissing ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={16} />} Dismiss Request
                         </button>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                        <button
-                            onClick={handleOpenAccountForm}
-                            className="btn btn-primary"
-                            disabled={createdCustomer}
-                        >
-                            <User size={16} /> {createdCustomer ? 'Account Created' : 'Create Account'}
-                        </button>
+                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                        {renderAccountButton()}
 
                         <button
                             onClick={() => setShowJobForm(true)}
                             className="btn btn-success"
-                            disabled={!createdCustomer}
-                            style={{ backgroundColor: createdCustomer ? 'var(--color-success)' : 'var(--bg-secondary)', color: createdCustomer ? 'white' : 'var(--text-tertiary)' }}
+                            disabled={!createdCustomer || checkingAccount}
+                            style={{
+                                backgroundColor: createdCustomer && !checkingAccount ? 'var(--color-success)' : 'var(--bg-secondary)',
+                                color: createdCustomer && !checkingAccount ? 'white' : 'var(--text-tertiary)',
+                                minWidth: 160,
+                            }}
                         >
-                            <CheckCircle2 size={16} /> Create & Assign Job
+                            <CheckCircle2 size={16} /> Create &amp; Assign Job
                         </button>
                     </div>
                 </div>
