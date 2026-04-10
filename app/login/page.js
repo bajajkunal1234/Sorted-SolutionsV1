@@ -6,6 +6,16 @@ import { Phone, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2, ChevronLeft
 import Link from 'next/link';
 import { auth } from '@/lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { requestNotificationPermission, saveFCMTokenToServer } from '@/lib/firebase-client';
+
+async function registerPushToken(userId, userType) {
+    try {
+        const token = await requestNotificationPermission();
+        if (token) await saveFCMTokenToServer(token, userType, userId);
+    } catch (e) {
+        console.warn('[FCM] push token registration:', e.message);
+    }
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function saveSession(user, persist) {
@@ -240,6 +250,10 @@ function LoginContent() {
 
     const finishLogin = (user) => {
         saveSession(user, keepSignedIn);
+        // Register FCM push token (fire-and-forget — don't block redirect)
+        if (user.role === 'customer') registerPushToken(user.id, 'customer');
+        else if (user.role === 'technician') registerPushToken(user.id, 'technician');
+        else if (user.role === 'admin') registerPushToken('admin', 'admin');
         const route = user.role === 'admin' ? '/admin' : user.role === 'technician' ? '/technician' : '/customer/dashboard';
         router.replace(route);
         setTimeout(() => { if (window.location.pathname.includes('/login')) window.location.href = route; }, 600);

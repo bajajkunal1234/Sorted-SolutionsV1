@@ -1,7 +1,6 @@
-'use client'
+import { redirect } from 'next/navigation';
 
-import Login from '@/components/customer/pages/Login';
-
+// /customer/login is a legacy URL — the unified login lives at /login
 export default function CustomerLoginPage() {
-    return <Login />;
+    redirect('/login');
 }
