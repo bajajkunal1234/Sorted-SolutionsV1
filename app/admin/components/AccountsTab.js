@@ -647,6 +647,26 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         });
     })() : [];
 
+    // Group processed transaction data for the table view
+    const getGroupedTransactionData = (data) => {
+        if (txGroupBy === 'none') return [{ label: null, items: data }];
+        const map = new Map();
+        data.forEach(item => {
+            let key = '—';
+            if (txGroupBy === 'account') key = item.account_name || '—';
+            else if (txGroupBy === 'status') key = item.status || item.payment_mode || '—';
+            else if (txGroupBy === 'month' && item.date) {
+                const d = new Date(item.date);
+                key = isNaN(d.getTime()) ? '—' : d.toLocaleString('default', { month: 'long', year: 'numeric' });
+            }
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(item);
+        });
+        return Array.from(map.entries())
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+            .map(([label, items]) => ({ label, items }));
+    };
+
     const refreshGroups = async () => { try { const data = await accountGroupsAPI.getAll(); setGroups(data || []); } catch (err) { console.error(err); } };
 
     const handleFormSave = async (data, action) => {
