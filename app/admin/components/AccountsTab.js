@@ -1347,46 +1347,9 @@ ${sigHtml}
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-            {/* Row 1: Header */}
-            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, minWidth: '100px' }}>Accounts</h2>
-
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <AutocompleteSearch
-                        placeholder={tabConfig[activeTab].searchPlaceholder}
-                        value={searchTerm}
-                        onChange={setSearchTerm}
-                        suggestions={getCurrentData()}
-                        onSelect={item => setSearchTerm(activeTab === 'accounts' ? item.name : item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || '')}
-                        searchKey={activeTab === 'accounts' ? 'name' : activeTab === 'quotations' ? 'quote_number' : activeTab === 'receipts' ? 'receipt_number' : activeTab === 'payments' ? 'payment_number' : 'invoice_number'}
-                        renderSuggestion={item => (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{activeTab === 'accounts' ? item.name : item.invoice_number || item.quote_number || item.receipt_number || item.payment_number}</span>
-                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{formatCurrency(item.total_amount || item.amount || 0)}</span>
-                                </div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{item.account_name || item.group}{item.date && ` â€¢ ${item.date}`}</div>
-                            </div>
-                        )}
-                    />
-                </div>
-
-                <button className="btn btn-primary" onClick={handleCreateClick} style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}>
-                    <Plus size={16} /> {tabConfig[activeTab].createButtonText}
-                </button>
-            </div>
-
-            {/* Row 2: Sub-tabs */}
-            <div style={{ padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '0', overflowX: 'auto' }}>
-                {Object.keys(tabConfig).map(tabKey => (
-                    <button key={tabKey} onClick={() => handleTabChange(tabKey)} style={{ padding: '10px 20px', border: 'none', borderBottom: activeTab === tabKey ? '2px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tabKey ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tabKey ? 600 : 400, fontSize: 'var(--font-size-sm)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
-                        {tabConfig[tabKey].label}
-                    </button>
-                ))}
-            </div>
-
-            {/* Row 3: Unified Search/Filter/Sort/Views Panel */}
+            {/* Row 1: Header — title + unified Odoo-style search/filter panel */}
             <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Accounts</span>
                 <AccountsSearchPanel
                     tab={activeTab}
                     searchTerm={searchTerm}
@@ -1408,7 +1371,16 @@ ${sigHtml}
                 />
             </div>
 
-            {/* Row 4: View Type Toggles + Columns + Refresh + Count + Create */}
+            {/* Row 2: Sub-tabs */}
+            <div style={{ padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '0', overflowX: 'auto' }}>
+                {Object.keys(tabConfig).map(tabKey => (
+                    <button key={tabKey} onClick={() => handleTabChange(tabKey)} style={{ padding: '10px 20px', border: 'none', borderBottom: activeTab === tabKey ? '2px solid var(--color-primary)' : '2px solid transparent', backgroundColor: 'transparent', color: activeTab === tabKey ? 'var(--text-primary)' : 'var(--text-secondary)', fontWeight: activeTab === tabKey ? 600 : 400, fontSize: 'var(--font-size-sm)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
+                        {tabConfig[tabKey].label}
+                    </button>
+                ))}
+            </div>
+
+            {/* Row 3: View Type Toggles + Columns + Refresh + Count + Create */}
             <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* View toggles */}
                 <div style={{ display: 'flex', gap: '4px' }}>
