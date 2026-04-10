@@ -1,10 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
-
-export const dynamic = 'force-dynamic'
-
 import { fireNotification } from '@/lib/fire-notification'
+import { generateJobNumber } from '@/lib/generateJobNumber'
 
 // GET - Fetch all jobs or filter by query params
 export async function GET(request) {
@@ -45,31 +43,7 @@ export async function GET(request) {
     }
 }
 
-// Generate Job Number like JOB-1001, JOB-1002
-async function generateJobNumber() {
-    // Find the highest existing JOB- number
-    const { data: latestJobs } = await supabase
-        .from('jobs')
-        .select('job_number')
-        .not('job_number', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(50);
-        
-    let nextNum = 1001; // Start from 1001 if none exist
-    if (latestJobs && latestJobs.length > 0) {
-        const nums = latestJobs
-            .map(j => {
-                const match = j.job_number?.match(/^JOB-(\d+)$/);
-                return match ? parseInt(match[1]) : 0;
-            })
-            .filter(n => n > 0);
-        
-        if (nums.length > 0) {
-            nextNum = Math.max(...nums) + 1;
-        }
-    }
-    return `JOB-${nextNum}`;
-}
+export const dynamic = 'force-dynamic'
 
 // POST - Create new job
 export async function POST(request) {

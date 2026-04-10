@@ -2,32 +2,8 @@ import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { fireNotification } from '@/lib/fire-notification'
-
-// Generate Job Number like JOB-1001, JOB-1002
-async function generateJobNumber() {
-    // Find the highest existing JOB- number
-    const { data: latestJobs } = await supabase
-        .from('jobs')
-        .select('job_number')
-        .not('job_number', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(50);
-        
-    let nextNum = 1001; // Start from 1001 if none exist
-    if (latestJobs && latestJobs.length > 0) {
-        const nums = latestJobs
-            .map(j => {
-                const match = j.job_number?.match(/^JOB-(\d+)$/);
-                return match ? parseInt(match[1]) : 0;
-            })
-            .filter(n => n > 0);
-        
-        if (nums.length > 0) {
-            nextNum = Math.max(...nums) + 1;
-        }
-    }
-    return `JOB-${nextNum}`;
-}
+import { generateJobNumber } from '@/lib/generateJobNumber'
+import { generateAccountSKU } from '@/lib/generateAccountSKU'
 
 export async function POST(request) {
     try {
@@ -104,16 +80,21 @@ export async function POST(request) {
                 // Reuse existing account
                 customerId = existingAccounts[0].id
             } else {
-                // Create a lightweight account under Customers group
+                // Create a lightweight account under Customers group (with SKU)
+                const newSKU = await generateAccountSKU('customer', 'sundry-debtors');
                 const { data: newAccount, error: accError } = await supabase
                     .from('accounts')
                     .insert({
                         name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || normalizedPhone,
-                        phone: normalizedPhone,
+                        mobile: normalizedPhone,
                         email: customer.email || null,
                         type: 'customer',
                         under: 'sundry-debtors',
+                        sku: newSKU,
+                        source: 'Website Booking',
                         opening_balance: 0,
+                        balance_type: 'debit',
+                        status: 'active',
                         created_at: new Date().toISOString()
                     })
                     .select('id')
@@ -125,6 +106,36 @@ export async function POST(request) {
                 } else {
                     customerId = newAccount.id
                 }
+            }
+        }
+
+        // -- Ensure a customers row exists so the visitor can access the Customer App later --
+        // This also sets the ledger_id link so customer/jobs API can find their bookings.
+        if (customerId) {
+            const customerFullName = customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || normalizedPhone;
+            const { data: existingCx } = await supabase
+                .from('customers')
+                .select('id, ledger_id')
+                .or(`phone.eq.${normalizedPhone},phone.eq.+91${normalizedPhone}`)
+                .maybeSingle();
+
+            if (!existingCx) {
+                // Create a minimal customers row (no password — they haven't signed up yet)
+                await supabase.from('customers').insert({
+                    name: customerFullName,
+                    full_name: customerFullName,
+                    phone: normalizedPhone,
+                    email: customer.email || null,
+                    ledger_id: customerId,
+                    customer_type: 'one_time',
+                    profile_complete: false,
+                }).catch(err => console.warn('[booking] Could not create customers row:', err.message));
+            } else if (!existingCx.ledger_id) {
+                // Existing customers row missing ledger_id — link it now
+                await supabase.from('customers')
+                    .update({ ledger_id: customerId })
+                    .eq('id', existingCx.id)
+                    .catch(err => console.warn('[booking] Could not update ledger_id:', err.message));
             }
         }
 

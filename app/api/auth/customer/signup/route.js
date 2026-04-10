@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { createServerSupabase } from '@/lib/supabase-server';
+import { generateAccountSKU } from '@/lib/generateAccountSKU';
 
 export const dynamic = 'force-dynamic';
 
@@ -129,8 +130,10 @@ export async function POST(request) {
 
         if (insertError) throw insertError;
 
-        // ── Create Sundry Debtors ledger entry in accounts table ──────────────
+        // -- Normalise phone and generate SKU for the new account
         const last10 = phone.replace(/\D/g, '').slice(-10);
+        const newSKU = await generateAccountSKU('customer', 'sundry-debtors');
+
         const { data: accountEntry, error: accountError } = await supabase
             .from('accounts')
             .insert([{
@@ -139,6 +142,7 @@ export async function POST(request) {
                 type: 'customer',
                 under: 'sundry-debtors',
                 source: 'Customer Signup',
+                sku: newSKU,
                 opening_balance: 0,
                 balance_type: 'debit',
                 status: 'active',

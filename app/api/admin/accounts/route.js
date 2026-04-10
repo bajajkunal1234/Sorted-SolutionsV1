@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
+import { generateAccountSKU } from '@/lib/generateAccountSKU'
 
 export const dynamic = 'force-dynamic'
 
@@ -93,30 +94,9 @@ export async function POST(request) {
             }
         }
 
-        // ── Generate SKU server-side to prevent client race conditions ──────────
+        // -- Generate SKU server-side using shared utility ----------------
         if (!body.sku || body.sku === '') {
-            // Determine prefix from under/type
-            let prefix = 'A'
-            const under = (body.under || '').toLowerCase()
-            const type  = (body.type  || '').toLowerCase()
-            if (under.includes('customer') || under.includes('debtor') || type === 'customer') prefix = 'C'
-            else if (under.includes('supplier') || under.includes('creditor') || type === 'supplier') prefix = 'S'
-            else if (under.includes('bank')) prefix = 'B'
-            else if (under.includes('fixed')) prefix = 'FA'
-            else if (under.includes('technician') || type === 'technician') prefix = 'T'
-
-            // Find max existing SKU number with this prefix
-            const { data: existing } = await supabase
-                .from('accounts')
-                .select('sku')
-                .like('sku', `${prefix}%`)
-            
-            const maxNum = (existing || []).reduce((max, acc) => {
-                const n = parseInt((acc.sku || '').replace(prefix, '')) || 0
-                return n > max ? n : max
-            }, 100)
-
-            body.sku = `${prefix}${maxNum + 1}`
+            body.sku = await generateAccountSKU(body.type || '', body.under || '');
         }
 
         // ── Remove columns that don't exist in the DB schema ──────────────
@@ -223,7 +203,7 @@ export async function PUT(request) {
     try {
         const body = await request.json()
         const { id, ...updates } = body
-        delete updates.source;
+        // NOTE: we intentionally keep `source` so the acquisition channel is preserved.
         delete updates.accountImage;
         delete updates.gst_ledger_nature;
         delete updates.tax_type;

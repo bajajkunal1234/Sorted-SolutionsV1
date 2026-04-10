@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { fireNotification } from '@/lib/fire-notification'
+import { generateJobNumber } from '@/lib/generateJobNumber'
 
 export const dynamic = 'force-dynamic';
 
@@ -114,32 +116,6 @@ export async function GET(request) {
     }
 }
 
-// Generate Job Number like JOB-1001, JOB-1002
-async function generateJobNumber() {
-    // Find the highest existing JOB- number
-    const { data: latestJobs } = await supabase
-        .from('jobs')
-        .select('job_number')
-        .not('job_number', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(50);
-        
-    let nextNum = 1001; // Start from 1001 if none exist
-    if (latestJobs && latestJobs.length > 0) {
-        const nums = latestJobs
-            .map(j => {
-                const match = j.job_number?.match(/^JOB-(\d+)$/);
-                return match ? parseInt(match[1]) : 0;
-            })
-            .filter(n => n > 0);
-        
-        if (nums.length > 0) {
-            nextNum = Math.max(...nums) + 1;
-        }
-    }
-    return `JOB-${nextNum}`;
-}
-
 export async function POST(request) {
     try {
         const jobData = await request.json()
@@ -240,8 +216,31 @@ export async function POST(request) {
             .eq('id', customer_id)
             .single()
         
-        const customer_name = customerData ? (customerData.name || customerData.full_name || customerData.phone || 'Customer') : 'Customer';
-        const account_id = customerData?.ledger_id || customer_id; // Fallback to raw ID if ledger_id isn't present
+        const customer_name = customerData
+            ? (customerData.name || customerData.full_name || customerData.phone || 'Customer')
+            : 'Customer';
+
+        // -- Safe ledger_id resolution --
+        // customerData.ledger_id is the accounts.id for this customer.
+        // If it's null (e.g. website-created account not yet linked), fall back to
+        // a phone-based lookup against the accounts table rather than using customers.id
+        // (which is a different UUID and would not match any jobs.customer_id).
+        let account_id = customerData?.ledger_id;
+        if (!account_id && customerData?.phone) {
+            const phone = customerData.phone.replace(/\D/g, '').slice(-10);
+            const { data: acct } = await supabase
+                .from('accounts')
+                .select('id')
+                .or(`mobile.eq.${phone},mobile.eq.+91${phone}`)
+                .maybeSingle();
+            account_id = acct?.id;
+        }
+        // Final fallback: use the raw customer_id from the request (may still be wrong,
+        // but it's the last resort and we log a warning)
+        if (!account_id) {
+            console.warn(`[customer/jobs POST] No ledger_id or account found for customer ${customer_id} — using raw ID as fallback`);
+            account_id = customer_id;
+        }
 
         // ── Insert job using confirmed existing columns ────────────────────────
         // We map app fields → existing jobs columns to avoid schema errors:
@@ -303,14 +302,13 @@ export async function POST(request) {
                     )
                 }
                 // Log and return with retry result
-                await supabase.from('interactions').insert({
+                // Log to job_interactions for admin job timeline visibility
+                await supabase.from('job_interactions').insert({
                     job_id: jobRetry.id,
-                    customer_id: account_id,
-                    type: 'job_created',
-                    description: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
-                    created_by: 'Customer App',
-                    created_at: new Date().toISOString()
-                })
+                    type: 'created',
+                    message: `Service request created via Customer App for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
+                    user_name: customer_name,
+                }).catch(() => {});
                 return NextResponse.json({ success: true, job: jobRetry, message: 'Service request created successfully' })
             }
             return NextResponse.json(
@@ -319,15 +317,21 @@ export async function POST(request) {
             )
         }
 
-        // ── Log interaction ───────────────────────────────────────────────────
-        await supabase.from('interactions').insert({
+        // -- Log to job_interactions (admin job timeline) and fire notification --
+        await supabase.from('job_interactions').insert({
             job_id: job.id,
-            customer_id: account_id,
-            type: 'job_created',
-            description: `Service request created via customer app for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
-            created_by: 'Customer App',
-            created_at: new Date().toISOString()
-        })
+            type: 'created',
+            message: `Service request created via Customer App for ${appliance_type}${issue_type ? ' \u2014 ' + issue_type : ''}`,
+            user_name: customer_name,
+        }).catch(err => console.warn('[customer/jobs] job_interactions insert failed:', err.message));
+
+        // Fire notification so admin sees the incoming booking request immediately
+        await fireNotification('booking_created_website', {
+            job_id: String(job.id),
+            job_number: job.job_number,
+            customer_id: account_id ? String(account_id) : undefined,
+            customer_name: customer_name || undefined,
+        }).catch(err => console.warn('[customer/jobs] fireNotification failed:', err.message));
 
         return NextResponse.json({
             success: true,
