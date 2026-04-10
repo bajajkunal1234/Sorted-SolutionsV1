@@ -163,8 +163,17 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     // For a new account: fully pre-fill from booking
     const accountPrefill = useMemo(() => {
         if (accountAlreadyExists && createdCustomer) {
+            // Normalize mobile: accounts may store number in `mobile`, `phone`, or neither (old records).
+            // Fall back to the booking's phone so the field is never blank.
+            const normalizedMobile =
+                createdCustomer.mobile?.trim() ||
+                createdCustomer.phone?.trim() ||
+                cust.phone?.trim() || '';
+
             return {
                 ...createdCustomer,
+                mobile: normalizedMobile,
+                email: createdCustomer.email?.trim() || cust.email?.trim() || '',
                 acquisition_source: createdCustomer.acquisition_source || 'Website Organic',
                 // Add booking property so admin can verify / save it
                 properties: (createdCustomer.properties?.length > 0)
@@ -174,8 +183,8 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         }
         return {
             name: cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim(),
-            mobile: cust.phone || '',
-            email: cust.email || '',
+            mobile: cust.phone?.trim() || '',
+            email: cust.email?.trim() || '',
             under: resolvedCustomerGroup,
             acquisition_source: 'Website Organic',
             mailing_address: fullAddress,
@@ -185,6 +194,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [accountAlreadyExists, createdCustomer, resolvedCustomerGroup]);
+
 
     // ── Job pre-fill ────────────────────────────────────────────────────────────
     const jobPrefill = useMemo(() => ({
