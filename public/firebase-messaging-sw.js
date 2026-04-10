@@ -1,17 +1,16 @@
 /**
  * public/firebase-messaging-sw.js
  * Firebase Cloud Messaging Service Worker
- * Handles background push notifications for web browsers.
  *
- * This file MUST stay in /public so it is served at the root URL.
- * Replace the firebaseConfig values with your actual project config.
+ * Handles background push notifications (tab closed / not focused).
+ * This file MUST stay in /public so it is served at the root URL (/firebase-messaging-sw.js).
+ * Service workers cannot access Next.js env vars — values are hardcoded here.
  */
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// ─── Firebase Config ────────────────────────────────────────────────────────
-// Service workers cannot read Next.js env vars, so these are hardcoded.
+// ─── Firebase Config ─────────────────────────────────────────────────────────
 const firebaseConfig = {
     apiKey: "AIzaSyCAPc5BIURGrPKig40qgRyaqi9eX8euXRA",
     authDomain: "sorted-cx-otp.firebaseapp.com",
@@ -23,35 +22,89 @@ const firebaseConfig = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 firebase.initializeApp(firebaseConfig);
-
 const messaging = firebase.messaging();
 
-// Handle background messages (when tab is closed or in background)
+// ─── Background message handler ──────────────────────────────────────────────
+// Fires when the browser tab is CLOSED or not focused.
 messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Background message received:', payload);
+    console.log('[SW] Background message received:', payload);
 
-    const { title, body, icon } = payload.notification || {};
-    const notificationOptions = {
-        body: body || 'You have a new notification',
-        icon: icon || '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
-        data: payload.data || {},
-        requireInteraction: false,
-        vibrate: [200, 100, 200],
+    // FCM sends data in two possible shapes:
+    //   1. payload.notification  — standard notification shape
+    //   2. payload.data          — data-only message (our server sends both)
+    const n = payload.notification || {};
+    const d = payload.data || {};
+
+    const title = n.title || d.title || 'Sorted Solutions';
+    const body  = n.body  || d.body  || 'You have a new notification';
+    const link  = d.link  || n.click_action || '/';
+
+    const options = {
+        body,
+        icon:             '/icons/icon-192x192.png',
+        badge:            '/icons/badge-72x72.png',
+        data:             { link },
+        requireInteraction: true,           // stays until user dismisses
+        vibrate:          [200, 100, 200],
+        tag:              d.job_id || 'sorted-notification',  // collapses duplicates
+        renotify:         false,
+        actions: [
+            { action: 'open', title: 'Open App' },
+            { action: 'dismiss', title: 'Dismiss' },
+        ],
     };
 
-    return self.registration.showNotification(title || 'Sorted Solutions', notificationOptions);
+    return self.registration.showNotification(title, options);
 });
 
-// Handle notification click — opens the app URL
+// ─── Notification click handler ───────────────────────────────────────────────
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
+
+    if (event.action === 'dismiss') return;
+
     const url = event.notification.data?.link || '/';
+
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-            const existing = windowClients.find((c) => c.url === url && 'focus' in c);
-            if (existing) return existing.focus();
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+            // Focus existing window if URL matches
+            const match = wins.find((w) => w.url.includes(url.split('?')[0]) && 'focus' in w);
+            if (match) return match.focus();
+            // Otherwise open a new window
             return clients.openWindow(url);
+        })
+    );
+});
+
+// ─── Push event fallback ──────────────────────────────────────────────────────
+// Catches raw push events that FCM SDK might not intercept (data-only messages).
+self.addEventListener('push', (event) => {
+    // If FCM SDK already handled it via onBackgroundMessage, this will still fire
+    // but showNotification is idempotent with the same `tag` so no duplicate appears.
+    if (!event.data) return;
+
+    let payload;
+    try { payload = event.data.json(); } catch { return; }
+
+    const n = payload.notification || {};
+    const d = payload.data || {};
+
+    // Only handle if FCM SDK didn't already (data-only messages have no notification key)
+    if (n.title) return; // FCM SDK will handle messages that have a notification block
+
+    const title = d.title || 'Sorted Solutions';
+    const body  = d.body  || 'You have a new update';
+    const link  = d.link  || '/';
+
+    event.waitUntil(
+        self.registration.showNotification(title, {
+            body,
+            icon:   '/icons/icon-192x192.png',
+            badge:  '/icons/badge-72x72.png',
+            data:   { link },
+            tag:    d.job_id || 'sorted-push',
+            requireInteraction: true,
+            vibrate: [200, 100, 200],
         })
     );
 });
