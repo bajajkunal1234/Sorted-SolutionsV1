@@ -91,7 +91,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     const handleAccountSaved = async (accountData) => {
         try {
             const result = accountData.id
-                ? await accountsAPI.update(accountData)
+                ? await accountsAPI.update(accountData.id, accountData)
                 : await accountsAPI.create(accountData);
             setCreatedCustomer(result);
             setAccountConfirmed(true);
