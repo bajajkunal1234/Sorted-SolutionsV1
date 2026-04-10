@@ -92,6 +92,7 @@ export async function POST(request) {
                         under: 'sundry-debtors',
                         sku: newSKU,
                         source: 'Website Booking',
+                        acquisition_source: 'Website Organic',
                         opening_balance: 0,
                         balance_type: 'debit',
                         status: 'active',
