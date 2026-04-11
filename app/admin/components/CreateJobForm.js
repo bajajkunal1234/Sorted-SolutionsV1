@@ -868,7 +868,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     setQuickFormData({});
                                 }}
                                 onSave={handleAccountSave}
-                                preselectedType="sundry-debtors"
+                                preselectedType="customers"
                                 groups={groups}
                                 onGroupCreated={async () => {
                                     const updatedGroups = await accountGroupsAPI.getAll();

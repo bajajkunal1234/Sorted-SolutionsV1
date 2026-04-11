@@ -360,7 +360,7 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
                 <NewAccountForm
                     onClose={() => setShowAccountForm(false)}
                     onSave={handleAccountSaved}
-                    preselectedType="sundry-debtors"
+                    preselectedType="customers"
                     groups={groups}
                     onGroupCreated={async () => {
                         const updatedGroups = await accountGroupsAPI.getAll();
