@@ -521,9 +521,36 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             validationErrors.acquisitionSource = 'Acquisition Source is required';
         }
 
-        if (duplicateWarning) {
-            validationErrors.name = 'Account name already exists';
+        // ── Duplicate checks (direct, synchronous — don't rely on async state) ──
+        const allAccounts = localLedgers.length > 0
+            ? localLedgers
+            : (typeof sampleLedgers !== 'undefined' ? sampleLedgers : []);
+
+        // 1. Duplicate by name (case-insensitive, excluding self when editing)
+        const nameTrimmed = formData.name.trim().toLowerCase();
+        const nameDupe = allAccounts.find(acc =>
+            acc.id !== initialData?.id &&
+            acc.name?.trim().toLowerCase() === nameTrimmed
+        );
+        if (nameDupe) {
+            validationErrors.name = `Account name already exists: "${nameDupe.name}" (${nameDupe.sku || nameDupe.id})`;
         }
+
+        // 2. Duplicate by mobile (normalised digits, excluding self when editing)
+        if (formData.mobile.trim() && !validationErrors.mobile) {
+            const newDigits = normalizeMobile(formData.mobile);
+            if (newDigits.length === 10) {
+                const mobileDupe = allAccounts.find(acc =>
+                    acc.id !== initialData?.id &&
+                    acc.mobile &&
+                    normalizeMobile(acc.mobile) === newDigits
+                );
+                if (mobileDupe) {
+                    validationErrors.mobile = `Mobile already used by: "${mobileDupe.name}" (${mobileDupe.sku || mobileDupe.id})`;
+                }
+            }
+        }
+        // ─────────────────────────────────────────────────────────────────────────
 
         if (Object.keys(validationErrors).length > 0) {
             setErrors(validationErrors);
