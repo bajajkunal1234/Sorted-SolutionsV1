@@ -146,7 +146,6 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const DEFAULT_CONFIG = {
         accounts: [
             { id: 'sku',             label: 'SKU',           align: 'left',   defaultOn: true  },
-            { id: 'type',            label: 'Type',          align: 'left',   defaultOn: true  },
             { id: 'group',           label: 'Group',         align: 'left',   defaultOn: true  },
             { id: 'opening_balance', label: 'Opening Bal',   align: 'right',  defaultOn: true  },
             { id: 'closing_balance', label: 'Closing Bal',   align: 'right',  defaultOn: true  },
