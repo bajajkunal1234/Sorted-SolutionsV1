@@ -1454,6 +1454,18 @@ ${sigHtml}
                 <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
                     {activeTab === 'accounts'
                         ? `${filteredLedgers.length} / ${ledgers.length} accounts`
+                        : activeTab === 'amc'
+                        ? (() => {
+                            const st = searchTerm.toLowerCase();
+                            const f = amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st));
+                            return `${f.length} / ${amcSubscriptions.length} amc`;
+                          })()
+                        : activeTab === 'rentals'
+                        ? (() => {
+                            const st = searchTerm.toLowerCase();
+                            const f = rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st));
+                            return `${f.length} / ${rentalAgreements.length} rentals`;
+                          })()
                         : (() => {
                             const all = getCurrentData();
                             const filtered = getProcessedTransactionData();
