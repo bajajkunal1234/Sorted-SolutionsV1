@@ -142,20 +142,9 @@ export async function POST(request) {
                 return NextResponse.json({ error: 'Failed to create account. Please try again.' }, { status: 500 })
             }
 
-            // Get Customers group ID (which lives under Sundry Debtors)
-            let customersGroupId = null;
-            const { data: cGroup } = await supabase
-                .from('account_groups')
-                .select('id')
-                .ilike('name', 'Customers')
-                .limit(1)
-                .maybeSingle()
-
-            if (cGroup && cGroup.id) {
-                customersGroupId = cGroup.id;
-            } else {
-                customersGroupId = 'sundry-debtors';
-            }
+            // The 'customers' group (child of sundry-debtors) always has id='customers' in account_groups.
+            // Use it directly — no lookup needed, no fallback to sundry-debtors.
+            const customersGroupId = 'customers';
 
             // Generate Account SKU securely for standard customers automatically
             const { data: existingAccounts } = await supabase
