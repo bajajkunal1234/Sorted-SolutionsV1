@@ -902,58 +902,41 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     {/* 3. Property Selection */}
                     <div className="form-group">
                         <label className="form-label">Property / Address *</label>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                            <select
-                                className="form-select"
-                                value={formData.property?.id || ''}
-                                onChange={(e) => handlePropertyChange(e.target.value)}
-                                onBlur={() => { if (!formData.property) setErrors(prev => ({ ...prev, property: 'Property is required' })); else setErrors(prev => { const e = {...prev}; delete e.property; return e; }); }}
-                                disabled={!formData.customer}
-                                style={{ flex: 1, borderColor: errors.property ? 'var(--color-danger)' : undefined }}
-                            >
-                                <option value="">
-                                    {!formData.customer ? 'Select customer first' : (loadingStates.properties ? 'Loading addresses...' : 'Select property...')}
-                                </option>
-                                {properties.map(property => {
-                                    let addrStr = '';
-                                    if (typeof property.address === 'string') {
-                                        addrStr = property.address;
-                                    } else if (property.address?.line1) {
-                                        addrStr = property.address.line1;
-                                    }
-                                    const dbAddrStr = [property.flat_number, property.building_name, addrStr, property.locality].filter(Boolean).join(', ');
-                                    const displayLabel = property.property_name || property.label || dbAddrStr || `Property #${String(property.id).slice(0, 6)}`;
-                                    
-                                    return (
-                                        <option key={property.id} value={property.id}>
-                                            {displayLabel}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                            <button
-                                type="button"
-                                className="btn btn-secondary"
-                                disabled={!formData.customer}
-                                onClick={() => {
-                                    setShowCreateModal('property');
-                                    setQuickFormData({ property_name: '', address: { line1: '', locality: '', pincode: '' } });
-                                }}
-                                title="Add property"
-                            >
-                                <Plus size={16} />
-                            </button>
-                        </div>
+                        <select
+                            className="form-select"
+                            value={formData.property?.id || ''}
+                            onChange={(e) => handlePropertyChange(e.target.value)}
+                            onBlur={() => { if (!formData.property) setErrors(prev => ({ ...prev, property: 'Property is required' })); else setErrors(prev => { const e = {...prev}; delete e.property; return e; }); }}
+                            disabled={!formData.customer}
+                            style={{ borderColor: errors.property ? 'var(--color-danger)' : undefined }}
+                        >
+                            <option value="">
+                                {!formData.customer ? 'Select customer first' : (loadingStates.properties ? 'Loading addresses...' : 'Select property...')}
+                            </option>
+                            {properties.map(property => {
+                                let addrStr = '';
+                                if (typeof property.address === 'string') {
+                                    addrStr = property.address;
+                                } else if (property.address?.line1) {
+                                    addrStr = property.address.line1;
+                                }
+                                const dbAddrStr = [property.flat_number, property.building_name, addrStr, property.locality].filter(Boolean).join(', ');
+                                const displayLabel = property.property_name || property.label || dbAddrStr || `Property #${String(property.id).slice(0, 6)}`;
+                                return (
+                                    <option key={property.id} value={property.id}>
+                                        {displayLabel}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        {!formData.property && formData.customer && properties.length === 0 && !loadingStates.properties && (
+                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
+                                No properties found. Go to the <strong>Accounts tab</strong> to add a property to this customer.
+                            </p>
+                        )}
                         {errors.property && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.property}</span>}
 
-                        {/* Full Property Creation Form */}
-                        {showCreateModal === 'property' && (
-                            <PropertyForm
-                                customerId={formData.customer.id}
-                                onSave={handlePropertySave}
-                                onClose={() => setShowCreateModal(null)}
-                            />
-                        )}
+
 
                         {formData.property && (
                             <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
