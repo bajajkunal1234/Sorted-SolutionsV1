@@ -367,26 +367,68 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         setProperties(updated);
     };
 
-    // Mobile number validation
-    const handleMobileChange = (value) => {
-        setFormData({ ...formData, mobile: value });
+    // ── Mobile: format as +91-XXXXX XXXXX on blur ──────────────────────────
+    const normalizeMobile = (raw) => {
+        // Strip everything that isn't a digit
+        let digits = raw.replace(/\D/g, '');
+        // Remove leading country code: 0, 91, 091
+        if (digits.startsWith('91') && digits.length === 12) digits = digits.slice(2);
+        else if (digits.startsWith('0') && digits.length === 11) digits = digits.slice(1);
+        return digits;
+    };
 
-        if (value.trim()) {
-            const validation = validateMobileNumber(value);
-            if (!validation.isValid) {
-                setErrors(prev => ({ ...prev, mobile: validation.error }));
-            } else {
-                setErrors(prev => {
-                    const { mobile, ...rest } = prev;
-                    return rest;
-                });
-            }
-        } else {
-            setErrors(prev => {
-                const { mobile, ...rest } = prev;
-                return rest;
-            });
+    const formatMobile = (raw) => {
+        const digits = normalizeMobile(raw);
+        if (digits.length !== 10) return raw; // don't mangle incomplete input
+        return `+91-${digits.slice(0, 5)} ${digits.slice(5)}`;
+    };
+
+    const handleMobileChange = (value) => {
+        // While typing — allow free input, just store raw
+        setFormData(prev => ({ ...prev, mobile: value }));
+        // Clear error while typing so it's not distracting
+        setErrors(prev => { const { mobile, ...rest } = prev; return rest; });
+    };
+
+    const handleMobileBlur = () => {
+        const raw = formData.mobile.trim();
+        if (!raw) {
+            if (showField('mobile')) setErrors(prev => ({ ...prev, mobile: 'Mobile Number is required' }));
+            return;
         }
+
+        const digits = normalizeMobile(raw);
+
+        // Must be 10 digits
+        if (digits.length !== 10) {
+            setErrors(prev => ({ ...prev, mobile: 'Enter a valid 10-digit mobile number' }));
+            return;
+        }
+
+        // Must start with 6-9
+        if (!/^[6-9]/.test(digits)) {
+            setErrors(prev => ({ ...prev, mobile: 'Mobile number must start with 6, 7, 8, or 9' }));
+            return;
+        }
+
+        // Duplicate check against existing accounts
+        const formatted = `+91-${digits.slice(0, 5)} ${digits.slice(5)}`;
+        const allAccounts = localLedgers.length > 0 ? localLedgers : (typeof sampleLedgers !== 'undefined' ? sampleLedgers : []);
+        const duplicate = allAccounts.find(acc =>
+            acc.id !== initialData?.id &&
+            acc.mobile &&
+            normalizeMobile(acc.mobile) === digits
+        );
+
+        if (duplicate) {
+            setErrors(prev => ({ ...prev, mobile: `Number already used by account: ${duplicate.name}` }));
+            setFormData(prev => ({ ...prev, mobile: formatted }));
+            return;
+        }
+
+        // All good — apply formatted value and clear error
+        setFormData(prev => ({ ...prev, mobile: formatted }));
+        setErrors(prev => { const { mobile, ...rest } = prev; return rest; });
     };
 
     // GSTIN validation
@@ -461,11 +503,11 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         // Validate (with inheritance)
         const validationErrors = validateAccountData(formData, formData.under, groups);
 
-        // Validate mobile number
+        // Validate mobile number (normalise first — stored value may already be +91-XXXXX XXXXX)
         if (formData.mobile.trim()) {
-            const mobileValidation = validateMobileNumber(formData.mobile);
-            if (!mobileValidation.isValid) {
-                validationErrors.mobile = mobileValidation.error;
+            const digits = normalizeMobile(formData.mobile);
+            if (digits.length !== 10 || !/^[6-9]/.test(digits)) {
+                validationErrors.mobile = 'Enter a valid 10-digit mobile number';
             }
         } else if (showField('mobile') || formData.under === 'sundry-debtors' || groups.find(g => g.id === formData.under)?.name?.toLowerCase().includes('customer')) {
             validationErrors.mobile = 'Mobile Number is required';
@@ -850,12 +892,10 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         className="form-input"
                                                         value={formData.mobile}
                                                         onChange={(e) => handleMobileChange(e.target.value)}
-                                                        onBlur={() => {
-                                                            if (!formData.mobile.trim()) setErrors(prev => ({ ...prev, mobile: 'Mobile Number is required' }));
-                                                        }}
-                                                        placeholder="+91 98765 43210"
-                                                        pattern="[0-9+\s\(\)\-]*"
-                                                        title="Please enter a valid 10-digit mobile number"
+                                                        onBlur={handleMobileBlur}
+                                                        placeholder="9876543210 or +91-98765 43210"
+                                                        inputMode="tel"
+                                                        title="Enter 10-digit mobile number — auto-formatted to +91-XXXXX XXXXX"
                                                         style={{ borderColor: errors.mobile ? '#ef4444' : undefined }}
                                                     />
                                                     {errors.mobile && (
