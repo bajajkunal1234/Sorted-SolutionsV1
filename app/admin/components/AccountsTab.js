@@ -1205,6 +1205,9 @@ ${sigHtml}
             );
         }
 
+
+        if (!tabColumns[activeTab]) return null;
+
         const processedData = getProcessedTransactionData();
         const groupedData = getGroupedTransactionData(processedData);
         const allSelected = processedData.length > 0 && selectedItems.size === processedData.length;
