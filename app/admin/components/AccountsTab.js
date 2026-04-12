@@ -1035,6 +1035,23 @@ ${sigHtml}
                             is_primary: true
                         }];
                     }
+                    
+                    // Map pseudo-keys back accurately corresponding to DB Schema
+                    if (row.customer_description) {
+                        row.mailing_address = row.customer_description;
+                    }
+                    
+                    // Delete flat pseudo-keys so Supabase doesn't throw a Column Doesn't Exist error
+                    delete row.property_name;
+                    delete row.flat_wing;
+                    delete row.building_name;
+                    delete row.street_address;
+                    delete row.locality;
+                    delete row.pincode;
+                    delete row.property_type;
+                    delete row.customer_description;
+                    delete row.price_level;
+
                     await accountsAPI.create(row);
                 } else if (activeTab === 'amc') {
                     await amcAPI.createActive(row);
