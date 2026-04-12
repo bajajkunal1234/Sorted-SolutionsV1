@@ -969,7 +969,34 @@ ${sigHtml}
 
     const getTemplateConfig = () => {
         if (activeTab === 'accounts') return {
-            dummyRow: { name: 'Acme Corp', under: 'customers', type: 'asset', opening_balance: 5000, balance_type: 'dr', mobile: '9876543210', email: 'acme@example.com', gstin: '27AABCU9603R1ZX' }
+            dummyRow: { 
+                name: 'Acme Corp', 
+                under: 'customers', 
+                type: 'asset', 
+                opening_balance: 5000, 
+                balance_type: 'dr', 
+                as_on_date: '2024-04-01',
+                mobile: '9876543210', 
+                email: 'acme@example.com', 
+                contact_person: 'John Doe',
+                gstin: '27AABCU9603R1ZX',
+                pan: 'AABCU9603R',
+                state_name: 'Maharashtra',
+                country: 'India',
+                credit_limit: 100000,
+                credit_period: 30,
+                price_level: 'retail',
+                customer_description: 'Key corporate client',
+                acquisition_source: 'Referral',
+                referred_by: 'Jane Smith',
+                property_name: 'HQ Office',
+                flat_wing: 'A-402',
+                building_name: 'Tech Park',
+                street_address: 'Main Road',
+                locality: 'Andheri West',
+                pincode: '400053',
+                property_type: 'commercial'
+            }
         };
         if (['sales', 'purchases', 'quotations', 'receipts', 'payments'].includes(activeTab)) return {
             dummyRow: { account_id: 'db-id-here', amount: 1500, payment_mode: 'Cash', date: '2024-04-12', reference_number: 'REF-123', notes: 'Bulk test entry' }
@@ -995,6 +1022,19 @@ ${sigHtml}
         for (const row of parsedRows) {
             try {
                 if (activeTab === 'accounts') {
+                    // Extract flat property fields into a properties array if they exist in the row
+                    if (row.property_name || row.flat_wing || row.building_name || row.locality || row.pincode) {
+                        row.properties = [{
+                            name: row.property_name || 'Primary Site',
+                            address: row.street_address || '',
+                            flat_number: row.flat_wing || '',
+                            building_name: row.building_name || '',
+                            locality: row.locality || '',
+                            pincode: row.pincode ? String(row.pincode) : '',
+                            property_type: row.property_type || 'residential',
+                            is_primary: true
+                        }];
+                    }
                     await accountsAPI.create(row);
                 } else if (activeTab === 'amc') {
                     await amcAPI.createActive(row);
