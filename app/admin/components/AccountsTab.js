@@ -967,6 +967,22 @@ ${sigHtml}
         return getProcessedTransactionData();
     };
 
+    const getTemplateConfig = () => {
+        if (activeTab === 'accounts') return {
+            dummyRow: { name: 'Acme Corp', under: 'customers', type: 'asset', opening_balance: 5000, balance_type: 'dr', mobile: '9876543210', email: 'acme@example.com', gstin: '27AABCU9603R1ZX' }
+        };
+        if (['sales', 'purchases', 'quotations', 'receipts', 'payments'].includes(activeTab)) return {
+            dummyRow: { account_id: 'db-id-here', amount: 1500, payment_mode: 'Cash', date: '2024-04-12', reference_number: 'REF-123', notes: 'Bulk test entry' }
+        };
+        if (activeTab === 'amc') return {
+            dummyRow: { customer_id: 'db-customer-id', plan_id: 'db-plan-id', product_id: 'db-product-id', start_date: '2024-04-12', status: 'Active' }
+        };
+        if (activeTab === 'rentals') return {
+            dummyRow: { customer_id: 'db-customer-id', product_id: 'db-product-id', start_date: '2024-04-12', status: 'Active' }
+        };
+        return null;
+    };
+
     const handleBulkImport = async (parsedRows) => {
         if (!parsedRows || parsedRows.length === 0) return;
         
@@ -1492,6 +1508,7 @@ ${sigHtml}
                     columns={tabColumns[activeTab]?.filter(c => visibleColumns[activeTab]?.has(c.id))} 
                     exportFilename={`SortedSolutions_${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
                     onImport={handleBulkImport}
+                    templateConfig={getTemplateConfig()}
                 />
 
                 {/* Refresh + Count */}

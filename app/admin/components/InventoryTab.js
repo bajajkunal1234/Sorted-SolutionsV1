@@ -167,6 +167,12 @@ function InventoryTab() {
         { id: 'hsnCode', label: 'HSN Code' }
     ];
 
+    const getTemplateConfig = () => {
+       return {
+           dummyRow: { name: 'Premium Sensor', sku: 'SENS-001', type: 'product', category: 'Sensors', brand: 'TechBrand', currentStock: 50, minStockLevel: 10, salePrice: 1200, purchasePrice: 800, unitOfMeasure: 'pcs', hsnCode: '8536' }
+       };
+    };
+
     const handleBulkImport = async (parsedRows) => {
         if (!parsedRows || parsedRows.length === 0) return;
         
@@ -425,6 +431,7 @@ function InventoryTab() {
                     columns={inventoryColumns} 
                     exportFilename="SortedSolutions_Inventory"
                     onImport={handleBulkImport}
+                    templateConfig={getTemplateConfig()}
                 />
             </div>
 

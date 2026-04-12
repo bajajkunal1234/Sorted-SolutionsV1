@@ -8,22 +8,28 @@ import * as XLSX from 'xlsx';
  * @param {Array} data - The array of current data objects for export.
  * @param {Array} columns - The array of column definitions (e.g. {id, label}) for export mapping.
  * @param {String} exportFilename - Base name for the exported file.
- * @param {Function} onImport - Async callback invoked with parsed JSON array of uploaded rows.
+ * @param {Object} templateConfig - Optional configuration mapping fields and dummy data for the template download. e.g. { dummyRow: { key: value } }
  */
-export default function ImportExportButtons({ data = [], columns = [], exportFilename = 'export', onImport }) {
+export default function ImportExportButtons({ data = [], columns = [], exportFilename = 'export', onImport, templateConfig = null }) {
     const fileInputRef = useRef(null);
     const [isImporting, setIsImporting] = useState(false);
 
     const handleDownloadTemplate = () => {
-        if (!columns.length) return alert('No template columns available.');
+        let finalData = [];
         
-        // Generate a single empty row mapping to column headers
-        const templateRow = {};
-        columns.forEach(col => {
-            templateRow[col.label || col.id] = '';
-        });
+        if (templateConfig && templateConfig.dummyRow) {
+            finalData = [templateConfig.dummyRow];
+        } else {
+            if (!columns.length) return alert('No template columns available.');
+            // Generate a single empty row mapping to column headers
+            const templateRow = {};
+            columns.forEach(col => {
+                templateRow[col.label || col.id] = '';
+            });
+            finalData = [templateRow];
+        }
 
-        const worksheet = XLSX.utils.json_to_sheet([templateRow]);
+        const worksheet = XLSX.utils.json_to_sheet(finalData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
         
