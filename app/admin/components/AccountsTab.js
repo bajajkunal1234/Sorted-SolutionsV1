@@ -331,6 +331,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     useEffect(() => {
         const fetchData = async () => {
+            if (activeTab === '__reset__') return;
             try {
                 setTabLoading(prev => ({ ...prev, [activeTab]: true }));
                 setSelectedItems(new Set()); // clear selection on tab change
@@ -1018,8 +1019,10 @@ ${sigHtml}
         
         let successCount = 0;
         let failCount = 0;
+        const errorDetails = [];
         
-        for (const row of parsedRows) {
+        for (let i = 0; i < parsedRows.length; i++) {
+            const row = parsedRows[i];
             try {
                 if (activeTab === 'accounts') {
                     // Extract flat property fields into a properties array if they exist in the row
@@ -1063,12 +1066,17 @@ ${sigHtml}
                 }
                 successCount++;
             } catch (err) {
-                console.error('Import row failed:', err);
+                console.error(`Import row ${i + 1} failed:`, err);
                 failCount++;
+                errorDetails.push(`Row ${i + 2} (${row.name || row.mobile || 'Unknown'}): ${err.message || 'Validation Failed'}`);
             }
         }
         
-        alert(`Import Complete!\n\nSuccessful: ${successCount}\nFailed: ${failCount}`);
+        let finalMessage = `Import Complete!\n\nSuccessful: ${successCount}\nFailed: ${failCount}`;
+        if (failCount > 0) {
+            finalMessage += `\n\nErrors:\n${errorDetails.slice(0, 5).join('\n')}${errorDetails.length > 5 ? `\n...and ${errorDetails.length - 5} more.` : ''}`;
+        }
+        alert(finalMessage);
         
         // Refresh Current Tab
         const tmpTab = activeTab;
@@ -1511,22 +1519,18 @@ ${sigHtml}
             {/* Row 3: View Type Toggles + Columns + Refresh + Count */}
             <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* View toggles */}
-                <div style={{ display: 'flex', gap: '4px' }}>
-                    {activeTab === 'accounts'
-                        ? [{ type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'kanban', Icon: Columns, label: 'Kanban' }, { type: 'details', Icon: Layers, label: 'Details' }].map(({ type, Icon, label }) => (
-                            <button key={type} onClick={() => setViewType(type)} title={label}
-                                style={{ padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: viewType === type ? '#6366f1' : 'transparent', color: viewType === type ? 'white' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
-                                <Icon size={13} />{label}
-                            </button>
-                        ))
-                        : [{ type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'kanban', Icon: Columns, label: 'Kanban' }].map(({ type, Icon, label }) => (
-                            <button key={type} onClick={() => setTxViewType(type)} title={label}
-                                style={{ padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: txViewType === type ? '#6366f1' : 'transparent', color: txViewType === type ? 'white' : '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
-                                <Icon size={13} />{label}
-                            </button>
-                        ))
-                    }
-                </div>
+                <select 
+                    value={activeTab === 'accounts' ? viewType : txViewType}
+                    onChange={(e) => activeTab === 'accounts' ? setViewType(e.target.value) : setTxViewType(e.target.value)}
+                    style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                    title="Change View Type"
+                >
+                    <option value="table">Table View</option>
+                    <option value="list">List View</option>
+                    <option value="card">Cards View</option>
+                    <option value="kanban">Kanban View</option>
+                    {activeTab === 'accounts' && <option value="details">Details View</option>}
+                </select>
 
                 {/* Column Picker */}
                 {(activeTab === 'accounts' || ['sales','purchases','quotations','receipts','payments'].includes(activeTab)) && (
