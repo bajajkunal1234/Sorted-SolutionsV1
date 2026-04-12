@@ -1181,12 +1181,12 @@ ${sigHtml}
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                    <th style={{ padding: 'var(--spacing-sm)', width: '40px' }}>
+                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', width: '40px' }}>
                                         <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(filteredLedgers)} />
                                     </th>
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Ledger Name</th>
-                                    {activeCols.map(col => <th key={col.id} style={{ padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{col.label}</th>)}
-                                    <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
+                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Ledger Name</th>
+                                    {activeCols.map(col => <th key={col.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{col.label}</th>)}
+                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1258,8 +1258,8 @@ ${sigHtml}
                     <div style={{ flex: 1, overflow: 'auto' }}>
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                {activeCols.map(c => <th key={c.id} style={{ padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
+                                {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
+                                <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                             </tr></thead>
                             <tbody>
                                 {amcFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No AMC subscriptions found.</td></tr> :
@@ -1327,8 +1327,8 @@ ${sigHtml}
                     <div style={{ flex: 1, overflow: 'auto' }}>
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                {activeCols.map(c => <th key={c.id} style={{ padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
+                                {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
+                                <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                             </tr></thead>
                             <tbody>
                                 {rentFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No rental agreements found.</td></tr> :
