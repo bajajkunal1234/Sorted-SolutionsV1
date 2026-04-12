@@ -1071,7 +1071,9 @@ ${sigHtml}
         alert(`Import Complete!\n\nSuccessful: ${successCount}\nFailed: ${failCount}`);
         
         // Refresh Current Tab
-        setActiveTab(t => { const tmp = t; setActiveTab('__reset__'); setTimeout(() => setActiveTab(tmp), 0); });
+        const tmpTab = activeTab;
+        setActiveTab('__reset__');
+        setTimeout(() => setActiveTab(tmpTab), 0);
     };
 
     const renderTable = () => {
@@ -1570,7 +1572,7 @@ ${sigHtml}
 
                 {/* Refresh + Count */}
                 <button
-                    onClick={() => setActiveTab(t => { const tmp = t; setActiveTab('__reset__'); setTimeout(() => setActiveTab(tmp), 0); })}
+                    onClick={() => { const tmp = activeTab; setActiveTab('__reset__'); setTimeout(() => setActiveTab(tmp), 0); }}
                     title="Refresh"
                     style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s' }}
                     onMouseEnter={e => e.currentTarget.style.color = '#e2e8f0'}

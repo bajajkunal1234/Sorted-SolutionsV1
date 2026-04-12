@@ -246,15 +246,10 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
         try {
             setDeleting(true);
-            const response = await accountsAPI.delete(account.id);
-
-            if (response.success) {
-                alert('Account deleted successfully.');
-                onUpdate('deleted'); // Special signal to parent that account was deleted
-                onClose();
-            } else {
-                alert(response.error || 'Failed to delete account.');
-            }
+            await accountsAPI.delete(account.id); // It throws if it fails!
+            alert('Account deleted successfully.');
+            onUpdate('deleted'); // Special signal to parent that account was deleted
+            onClose();
         } catch (err) {
             console.error('Error deleting account:', err);
             alert(err.message || 'An error occurred while deleting the account.');
