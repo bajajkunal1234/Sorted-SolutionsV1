@@ -538,11 +538,14 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         if (!searchTerm) return data;
         return data.filter(item => {
             const s = searchTerm.toLowerCase();
+            const sDig = s.replace(/\D/g, '');
             const ledger = ledgers.find(l => l.id === (item.account_id || item.customer_id || item.id));
             const phoneStr = (item.mobile || item.phone || ledger?.mobile || ledger?.phone || '').toLowerCase();
+            const pDig = phoneStr.replace(/\D/g, '');
+            const pMatch = phoneStr.includes(s) || (sDig && pDig.includes(sDig));
             switch (activeTab) {
-                case 'accounts': return item.name?.toLowerCase().includes(s) || item.sku?.toLowerCase().includes(s) || phoneStr.includes(s);
-                default: return item.invoice_number?.toLowerCase().includes(s) || item.quote_number?.toLowerCase().includes(s) || item.account_name?.toLowerCase().includes(s) || item.receipt_number?.toLowerCase().includes(s) || item.payment_number?.toLowerCase().includes(s) || phoneStr.includes(s);
+                case 'accounts': return item.name?.toLowerCase().includes(s) || item.sku?.toLowerCase().includes(s) || pMatch;
+                default: return item.invoice_number?.toLowerCase().includes(s) || item.quote_number?.toLowerCase().includes(s) || item.account_name?.toLowerCase().includes(s) || item.receipt_number?.toLowerCase().includes(s) || item.payment_number?.toLowerCase().includes(s) || pMatch;
             }
         });
     };
@@ -639,7 +642,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         let data = ledgers;
         if (searchTerm) {
             const s = searchTerm.toLowerCase();
-            data = data.filter(l => l.name.toLowerCase().includes(s) || l.sku?.toLowerCase().includes(s) || (l.mobile || '').toLowerCase().includes(s) || (l.phone || '').toLowerCase().includes(s));
+            const sDig = s.replace(/\D/g, '');
+            data = data.filter(l => {
+                const phoneStr = (l.mobile || l.phone || '').toLowerCase();
+                const pDig = phoneStr.replace(/\D/g, '');
+                const pMatch = phoneStr.includes(s) || (sDig && pDig.includes(sDig));
+                return l.name.toLowerCase().includes(s) || l.sku?.toLowerCase().includes(s) || pMatch;
+            });
         }
         data = applyAccTags(data, activeTags);
         return [...data].sort((a, b) => {
@@ -964,11 +973,23 @@ ${sigHtml}
         if (activeTab === 'accounts') return filteredLedgers;
         if (activeTab === 'amc') {
             const st = searchTerm.toLowerCase();
-            return amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase().includes(st));
+            const sDig = st.replace(/\D/g, '');
+            return amcSubscriptions.filter(a => {
+                const pStr = (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase();
+                const pDig = pStr.replace(/\D/g, '');
+                const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
+                return !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || pMatch;
+            });
         }
         if (activeTab === 'rentals') {
             const st = searchTerm.toLowerCase();
-            return rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase().includes(st));
+            const sDig = st.replace(/\D/g, '');
+            return rentalAgreements.filter(r => {
+                const pStr = (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase();
+                const pDig = pStr.replace(/\D/g, '');
+                const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
+                return !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || pMatch;
+            });
         }
         return getProcessedTransactionData();
     };
@@ -1208,11 +1229,14 @@ ${sigHtml}
 
         // AMC Subscriptions tab
         if (activeTab === 'amc') {
-            const amcFiltered = amcSubscriptions.filter(a =>
-                !searchTerm || (a.plan_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (a.accounts?.name || a.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            const st = searchTerm.toLowerCase();
+            const sDig = st.replace(/\D/g, '');
+            const amcFiltered = amcSubscriptions.filter(a => {
+                const pStr = (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase();
+                const pDig = pStr.replace(/\D/g, '');
+                const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
+                return !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || pMatch;
+            });
             const totalAMC = amcSubscriptions.length;
             const monthlyRev = amcSubscriptions.reduce((s, a) => s + (Number(a.amc_amount || 0) / 12), 0);
             const soonExpiring = amcSubscriptions.filter(a => {
@@ -1278,11 +1302,14 @@ ${sigHtml}
 
         // Rentals tab
         if (activeTab === 'rentals') {
-            const rentFiltered = rentalAgreements.filter(r =>
-                !searchTerm || (r.product_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (r.accounts?.name || r.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            const st = searchTerm.toLowerCase();
+            const sDig = st.replace(/\D/g, '');
+            const rentFiltered = rentalAgreements.filter(r => {
+                const pStr = (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase();
+                const pDig = pStr.replace(/\D/g, '');
+                const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
+                return !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || pMatch;
+            });
             const totalRentals = rentalAgreements.length;
             const monthlyIncome = rentalAgreements.reduce((s, r) => s + (Number(r.monthly_rent || 0)), 0);
             const overdue = rentalAgreements.filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
@@ -1599,13 +1626,25 @@ ${sigHtml}
                         : activeTab === 'amc'
                         ? (() => {
                             const st = searchTerm.toLowerCase();
-                            const f = amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase().includes(st));
+                            const sDig = st.replace(/\D/g, '');
+                            const f = amcSubscriptions.filter(a => {
+                                const pStr = (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase();
+                                const pDig = pStr.replace(/\D/g, '');
+                                const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
+                                return !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || pMatch;
+                            });
                             return `${f.length} / ${amcSubscriptions.length} amc`;
                           })()
                         : activeTab === 'rentals'
                         ? (() => {
                             const st = searchTerm.toLowerCase();
-                            const f = rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase().includes(st));
+                            const sDig = st.replace(/\D/g, '');
+                            const f = rentalAgreements.filter(r => {
+                                const pStr = (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase();
+                                const pDig = pStr.replace(/\D/g, '');
+                                const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
+                                return !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || pMatch;
+                            });
                             return `${f.length} / ${rentalAgreements.length} rentals`;
                           })()
                         : (() => {
