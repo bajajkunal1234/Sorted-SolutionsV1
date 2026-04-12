@@ -538,9 +538,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         if (!searchTerm) return data;
         return data.filter(item => {
             const s = searchTerm.toLowerCase();
+            const ledger = ledgers.find(l => l.id === (item.account_id || item.customer_id || item.id));
+            const phoneStr = (item.mobile || item.phone || ledger?.mobile || ledger?.phone || '').toLowerCase();
             switch (activeTab) {
-                case 'accounts': return item.name?.toLowerCase().includes(s) || item.sku?.toLowerCase().includes(s);
-                default: return item.invoice_number?.toLowerCase().includes(s) || item.quote_number?.toLowerCase().includes(s) || item.account_name?.toLowerCase().includes(s) || item.receipt_number?.toLowerCase().includes(s) || item.payment_number?.toLowerCase().includes(s);
+                case 'accounts': return item.name?.toLowerCase().includes(s) || item.sku?.toLowerCase().includes(s) || phoneStr.includes(s);
+                default: return item.invoice_number?.toLowerCase().includes(s) || item.quote_number?.toLowerCase().includes(s) || item.account_name?.toLowerCase().includes(s) || item.receipt_number?.toLowerCase().includes(s) || item.payment_number?.toLowerCase().includes(s) || phoneStr.includes(s);
             }
         });
     };
@@ -635,7 +637,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     const filteredLedgers = activeTab === 'accounts' ? (() => {
         let data = ledgers;
-        if (searchTerm) data = data.filter(l => l.name.toLowerCase().includes(searchTerm.toLowerCase()) || l.sku?.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (searchTerm) {
+            const s = searchTerm.toLowerCase();
+            data = data.filter(l => l.name.toLowerCase().includes(s) || l.sku?.toLowerCase().includes(s) || (l.mobile || '').toLowerCase().includes(s) || (l.phone || '').toLowerCase().includes(s));
+        }
         data = applyAccTags(data, activeTags);
         return [...data].sort((a, b) => {
             if (sortBy === 'balance_desc') return (b.closing_balance||b.closingBalance||0) - (a.closing_balance||a.closingBalance||0);
@@ -959,11 +964,11 @@ ${sigHtml}
         if (activeTab === 'accounts') return filteredLedgers;
         if (activeTab === 'amc') {
             const st = searchTerm.toLowerCase();
-            return amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st));
+            return amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase().includes(st));
         }
         if (activeTab === 'rentals') {
             const st = searchTerm.toLowerCase();
-            return rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st));
+            return rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase().includes(st));
         }
         return getProcessedTransactionData();
     };
@@ -1205,7 +1210,8 @@ ${sigHtml}
         if (activeTab === 'amc') {
             const amcFiltered = amcSubscriptions.filter(a =>
                 !searchTerm || (a.plan_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (a.accounts?.name || a.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+                (a.accounts?.name || a.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase().includes(searchTerm.toLowerCase())
             );
             const totalAMC = amcSubscriptions.length;
             const monthlyRev = amcSubscriptions.reduce((s, a) => s + (Number(a.amc_amount || 0) / 12), 0);
@@ -1274,7 +1280,8 @@ ${sigHtml}
         if (activeTab === 'rentals') {
             const rentFiltered = rentalAgreements.filter(r =>
                 !searchTerm || (r.product_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (r.accounts?.name || r.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+                (r.accounts?.name || r.customer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase().includes(searchTerm.toLowerCase())
             );
             const totalRentals = rentalAgreements.length;
             const monthlyIncome = rentalAgreements.reduce((s, r) => s + (Number(r.monthly_rent || 0)), 0);
@@ -1592,13 +1599,13 @@ ${sigHtml}
                         : activeTab === 'amc'
                         ? (() => {
                             const st = searchTerm.toLowerCase();
-                            const f = amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st));
+                            const f = amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase().includes(st));
                             return `${f.length} / ${amcSubscriptions.length} amc`;
                           })()
                         : activeTab === 'rentals'
                         ? (() => {
                             const st = searchTerm.toLowerCase();
-                            const f = rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st));
+                            const f = rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase().includes(st));
                             return `${f.length} / ${rentalAgreements.length} rentals`;
                           })()
                         : (() => {
