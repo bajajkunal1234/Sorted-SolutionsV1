@@ -12,6 +12,7 @@ import InventoryDetailsView from './inventory/InventoryDetailsView';
 import ProductDetailModal from './ProductDetailModal';
 import NewProductForm from './inventory/NewProductForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+import ImportExportButtons from './shared/ImportExportButtons';
 
 function InventoryTab() {
     const [products, setProducts] = useState([]);
@@ -150,6 +151,51 @@ function InventoryTab() {
             console.error('Error updating product:', err);
             alert('Failed to update product');
         }
+    };
+
+    const inventoryColumns = [
+        { id: 'name', label: 'Item Name' },
+        { id: 'sku', label: 'SKU' },
+        { id: 'type', label: 'Type' },
+        { id: 'category', label: 'Category' },
+        { id: 'brand', label: 'Brand' },
+        { id: 'currentStock', label: 'Current Stock' },
+        { id: 'minStockLevel', label: 'Min Stock Level' },
+        { id: 'salePrice', label: 'Sale Price' },
+        { id: 'purchasePrice', label: 'Purchase Price' },
+        { id: 'unitOfMeasure', label: 'Unit' },
+        { id: 'hsnCode', label: 'HSN Code' }
+    ];
+
+    const handleBulkImport = async (parsedRows) => {
+        if (!parsedRows || parsedRows.length === 0) return;
+        
+        const confirmMsg = `Are you sure you want to import ${parsedRows.length} items into Inventory?`;
+        if (!window.confirm(confirmMsg)) return;
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (const row of parsedRows) {
+            try {
+                // Ensure required minimal bindings and snake_case mapping for API if needed
+                const payload = { ...row };
+                if (payload.currentStock !== undefined) payload.current_stock = payload.currentStock;
+                if (payload.minStockLevel !== undefined) payload.min_stock_level = payload.minStockLevel;
+                if (payload.salePrice !== undefined) payload.sale_price = payload.salePrice;
+                if (payload.purchasePrice !== undefined) payload.purchase_price = payload.purchasePrice;
+                if (payload.unitOfMeasure !== undefined) payload.unit_of_measure = payload.unitOfMeasure;
+                if (payload.hsnCode !== undefined) payload.hsn_code = payload.hsnCode;
+                
+                await handleCreateProduct(payload);
+                successCount++;
+            } catch (err) {
+                console.error('Import row failed:', err);
+                failCount++;
+            }
+        }
+        
+        alert(`Import Complete!\n\nSuccessful: ${successCount}\nFailed: ${failCount}`);
     };
 
     const handleCreateProduct = async (newProduct) => {
@@ -371,6 +417,15 @@ function InventoryTab() {
                         <option value="sku">Sort: SKU</option>
                     </select>
                 </div>
+
+                <div style={{ flex: 1 }} />
+                
+                <ImportExportButtons 
+                    data={filteredProducts} 
+                    columns={inventoryColumns} 
+                    exportFilename="SortedSolutions_Inventory"
+                    onImport={handleBulkImport}
+                />
             </div>
 
             {/* Content Area */}

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw, Edit2, Shield, Package } from 'lucide-react';
 import AccountsSearchPanel from '@/components/shared/AccountsSearchPanel';
+import ImportExportButtons from './shared/ImportExportButtons';
 import { accountsAPI, transactionsAPI, accountGroupsAPI, amcAPI, rentalsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import AccountDetailModal from './AccountDetailModal';
 import AccountsCardView from './accounts/AccountsCardView';
@@ -953,6 +954,53 @@ ${sigHtml}
         return <span style={{ padding: '2px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: 600, backgroundColor: bg, color: c }}>{status || '—'}</span>;
     };
 
+    const getExportData = () => {
+        if (activeTab === 'accounts') return filteredLedgers;
+        if (activeTab === 'amc') {
+            const st = searchTerm.toLowerCase();
+            return amcSubscriptions.filter(a => !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st));
+        }
+        if (activeTab === 'rentals') {
+            const st = searchTerm.toLowerCase();
+            return rentalAgreements.filter(r => !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st));
+        }
+        return getProcessedTransactionData();
+    };
+
+    const handleBulkImport = async (parsedRows) => {
+        if (!parsedRows || parsedRows.length === 0) return;
+        
+        const confirmMsg = `Are you sure you want to import ${parsedRows.length} rows into ${activeTab}?`;
+        if (!window.confirm(confirmMsg)) return;
+        
+        let successCount = 0;
+        let failCount = 0;
+        
+        for (const row of parsedRows) {
+            try {
+                if (activeTab === 'accounts') {
+                    await accountsAPI.create(row);
+                } else if (activeTab === 'amc') {
+                    await amcAPI.createActive(row);
+                } else if (activeTab === 'rentals') {
+                    await rentalsAPI.createActive(row);
+                } else {
+                    const type = tabToTypeMap[activeTab];
+                    await transactionsAPI.create(row, type);
+                }
+                successCount++;
+            } catch (err) {
+                console.error('Import row failed:', err);
+                failCount++;
+            }
+        }
+        
+        alert(`Import Complete!\n\nSuccessful: ${successCount}\nFailed: ${failCount}`);
+        
+        // Refresh Current Tab
+        setActiveTab(t => { const tmp = t; setActiveTab('__reset__'); setTimeout(() => setActiveTab(tmp), 0); });
+    };
+
     const renderTable = () => {
         if (tabLoading[activeTab]) return (
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
@@ -1438,6 +1486,13 @@ ${sigHtml}
                 )}
 
                 <div style={{ flex: 1 }} />
+
+                <ImportExportButtons 
+                    data={getExportData()} 
+                    columns={tabColumns[activeTab]?.filter(c => visibleColumns[activeTab]?.has(c.id))} 
+                    exportFilename={`SortedSolutions_${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}`}
+                    onImport={handleBulkImport}
+                />
 
                 {/* Refresh + Count */}
                 <button
