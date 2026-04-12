@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Download, Upload, Loader2 } from 'lucide-react';
+import { Download, Upload, Loader2, FileDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 /**
@@ -13,6 +13,22 @@ import * as XLSX from 'xlsx';
 export default function ImportExportButtons({ data = [], columns = [], exportFilename = 'export', onImport }) {
     const fileInputRef = useRef(null);
     const [isImporting, setIsImporting] = useState(false);
+
+    const handleDownloadTemplate = () => {
+        if (!columns.length) return alert('No template columns available.');
+        
+        // Generate a single empty row mapping to column headers
+        const templateRow = {};
+        columns.forEach(col => {
+            templateRow[col.label || col.id] = '';
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet([templateRow]);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+        
+        XLSX.writeFile(workbook, `${exportFilename}_Template.xlsx`);
+    };
 
     const handleExport = () => {
         if (!data.length || !columns.length) return alert('No data to export.');
@@ -120,6 +136,29 @@ export default function ImportExportButtons({ data = [], columns = [], exportFil
                 onChange={handleFileChange} 
                 style={{ display: 'none' }} 
             />
+            
+            <button
+                onClick={handleDownloadTemplate}
+                disabled={isImporting}
+                title="Download Import Template"
+                style={{ 
+                    padding: '5px 10px', 
+                    fontSize: '12px', 
+                    cursor: isImporting ? 'not-allowed' : 'pointer', 
+                    border: '1px solid var(--border-primary)', 
+                    borderRadius: '6px', 
+                    backgroundColor: 'transparent', 
+                    color: isImporting ? '#64748b' : '#8b5cf6', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px', 
+                    transition: 'all 0.15s' 
+                }}
+                onMouseEnter={e => !isImporting && (e.currentTarget.style.backgroundColor = '#8b5cf615')}
+                onMouseLeave={e => !isImporting && (e.currentTarget.style.backgroundColor = 'transparent')}
+            >
+                <FileDown size={13} /> Template
+            </button>
             
             <button
                 onClick={() => fileInputRef.current?.click()}
