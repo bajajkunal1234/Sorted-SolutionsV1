@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X } from 'lucide-react';
+import { Search, Plus, Grid, Columns, Table as TableIcon, List, ChevronDown, X, SlidersHorizontal, RefreshCw } from 'lucide-react';
 import { inventoryAPI, inventoryCategoriesAPI, inventoryBrandsAPI, inventoryLogsAPI, printTemplatesAPI } from '@/lib/adminAPI';
 import { productCategories, stockStatuses } from '@/lib/data/inventoryData';
 import { filterProducts, sortProducts, getUniqueBrands, getStockStatus } from '@/lib/utils/inventoryHelpers';
@@ -26,6 +26,21 @@ function InventoryTab() {
     const [groupBy, setGroupBy] = useState('none');
     const [sortBy, setSortBy] = useState('name');
     const [activeTags, setActiveTags] = useState([]);
+    
+    // UI Utility states
+    const [showColumnPicker, setShowColumnPicker] = useState(false);
+    const defaultVisibleCols = ['sku', 'name', 'type', 'category', 'brand', 'currentStock', 'salePrice', 'status'];
+    const [visibleColumns, setVisibleColumns] = useState(new Set(defaultVisibleCols));
+
+    const toggleColumn = (colId) => {
+        setVisibleColumns(prev => {
+            const next = new Set(prev);
+            if (next.has(colId)) next.delete(colId);
+            else next.add(colId);
+            return next;
+        });
+    };
+
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -378,18 +393,9 @@ function InventoryTab() {
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Header: Title + Search Panel + View Dropdown + Import/Export + Create */}
-            <div style={{
-                padding: 'var(--spacing-sm) var(--spacing-md)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                flexWrap: 'wrap'
-            }}>
+            {/* Row 1: Header */}
+            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Inventory</span>
-                
                 <InventorySearchPanel
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
@@ -408,40 +414,73 @@ function InventoryTab() {
                     saveStatus={saveStatus}
                     onResetView={() => { setSearchTerm(''); setActiveTags([]); setGroupBy('none'); setSortBy('name'); }}
                 />
+                <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}
+                    style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+                    <Plus size={15} /> Create
+                </button>
+            </div>
 
-                {/* View Dropdown */}
+            {/* Row 2: View Type Toggles + Columns + Refresh + Count */}
+            <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <select
+                    value={viewType}
+                    onChange={(e) => setViewType(e.target.value)}
+                    style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                >
+                    <option value="table">Table View</option>
+                    <option value="card">Card View</option>
+                    <option value="kanban">Kanban View</option>
+                    <option value="details">Details View</option>
+                </select>
+
                 <div style={{ position: 'relative' }}>
-                    <select
-                        value={viewType}
-                        onChange={(e) => setViewType(e.target.value)}
-                        className="form-select"
-                        style={{ padding: '6px 28px 6px 12px', fontSize: 'var(--font-size-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '6px', cursor: 'pointer' }}
-                    >
-                        <option value="table">Table View</option>
-                        <option value="card">Card View</option>
-                        <option value="kanban">Kanban View</option>
-                        <option value="details">Details View</option>
-                    </select>
+                    <button onClick={() => setShowColumnPicker(p => !p)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: showColumnPicker ? '#6366f1' : 'transparent', color: showColumnPicker ? 'white' : '#94a3b8', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
+                        <SlidersHorizontal size={13} /> Columns
+                    </button>
+                    {showColumnPicker && (
+                        <div style={{ position: 'absolute', top: '110%', left: 0, zIndex: 200, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '10px 0', minWidth: '220px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', maxHeight: '350px', overflowY: 'auto' }}>
+                            <div style={{ padding: '4px 14px 8px', fontSize: 11, color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Toggle Columns</div>
+                            {inventoryColumns.map((col) => (
+                                <div key={col.id} style={{ display: 'flex', alignItems: 'center', padding: '5px 14px' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, flex: 1, margin: 0 }}>
+                                        <input type="checkbox" checked={visibleColumns.has(col.id)} onChange={() => toggleColumn(col.id)}
+                                            style={{ accentColor: '#6366f1', width: 14, height: 14, margin: 0, cursor: 'pointer' }} />
+                                        {col.label}
+                                    </label>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                <span style={{ borderLeft: '1px solid var(--border-primary)', height: '20px', margin: '0 4px' }} />
+                <div style={{ flex: 1 }} />
 
                 <ImportExportButtons 
                     data={processedProducts} 
-                    columns={inventoryColumns} 
+                    columns={inventoryColumns.filter(c => visibleColumns.has(c.id))} 
                     exportFilename="SortedSolutions_Inventory"
                     onImport={handleBulkImport}
                     templateConfig={getTemplateConfig()}
                 />
 
                 <button
-                    className="btn btn-primary"
-                    onClick={() => setShowCreateForm(true)}
-                    style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
+                    onClick={() => { const tmp = viewType; setViewType('__reset__'); setTimeout(() => setViewType(tmp), 0); }}
+                    title="Refresh"
+                    style={{ padding: '5px 10px', fontSize: '12px', cursor: 'pointer', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s' }}
                 >
-                    <Plus size={16} />
-                    Create
+                    <RefreshCw size={13} /> Refresh
                 </button>
+                <div style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span>{processedProducts.length} / {products.length} entries</span>
+                    {totalPages > 1 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
+                            <span style={{ fontSize: '11px' }}>{currentPage} / {totalPages}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === totalPages ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Next</button>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* Content Area */}
@@ -461,7 +500,7 @@ function InventoryTab() {
                     </div>
                 ) : (
                     <>
-                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
+                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} />}
                         {viewType === 'card' && <InventoryCardView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
                         {viewType === 'kanban' && (
                             <InventoryKanbanView
@@ -475,59 +514,6 @@ function InventoryTab() {
                     </>
                 )}
             </div>
-
-            {/* Summary & Pagination Footer */}
-            {!loading && !error && (
-                <div style={{
-                    padding: '8px var(--spacing-md)',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderTop: '1px solid var(--border-primary)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: 'var(--font-size-sm)'
-                }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                        <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{processedProducts.length}</span> entries 
-                        {activeTags.length > 0 && ` (filtered from ${products.length})`}
-                        <span style={{ marginLeft: '16px', color: 'var(--text-secondary)' }}>| Total Stock: {totalStock}</span>
-                    </span>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {totalPages > 1 && (
-                            <>
-                                <button 
-                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                    disabled={currentPage === 1}
-                                    style={{
-                                        padding: '4px 12px', fontSize: '13px', border: '1px solid var(--border-primary)', 
-                                        borderRadius: '6px', backgroundColor: currentPage === 1 ? 'transparent' : 'var(--bg-elevated)',
-                                        color: currentPage === 1 ? 'var(--text-disabled)' : 'var(--text-primary)',
-                                        cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    Previous
-                                </button>
-                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-                                    {currentPage} / {totalPages}
-                                </span>
-                                <button 
-                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                    disabled={currentPage === totalPages}
-                                    style={{
-                                        padding: '4px 12px', fontSize: '13px', border: '1px solid var(--border-primary)', 
-                                        borderRadius: '6px', backgroundColor: currentPage === totalPages ? 'transparent' : 'var(--bg-elevated)',
-                                        color: currentPage === totalPages ? 'var(--text-disabled)' : 'var(--text-primary)',
-                                        cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    Next
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </div>
-            )}
 
             {/* Product Detail Modal */}
             {selectedProduct && (

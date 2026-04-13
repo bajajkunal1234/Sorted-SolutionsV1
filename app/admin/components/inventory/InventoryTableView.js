@@ -4,11 +4,17 @@ import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusColor, getStockStatusLabel, formatStock } from '@/lib/utils/inventoryHelpers';
 import { productCategories } from '@/lib/data/inventoryData';
 
-function InventoryTableView({ products, onProductClick, categories = [] }) {
+function InventoryTableView({ products, onProductClick, categories = [], visibleColumns }) {
     const getCategoryName = (categoryId) => {
         const category = categories.find(c => c.id === categoryId);
         return category?.name || categoryId;
     };
+
+    const isVisible = (col) => !visibleColumns || visibleColumns.has(col);
+
+    const thStyle = { padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600, resize: 'horizontal', overflow: 'hidden', minWidth: '80px', position: 'relative' };
+    const thStyleRight = { ...thStyle, textAlign: 'right' };
+    const thStyleCenter = { ...thStyle, textAlign: 'center' };
 
     return (
         <div style={{ padding: 'var(--spacing-md)' }}>
@@ -22,30 +28,14 @@ function InventoryTableView({ products, onProductClick, categories = [] }) {
                         backgroundColor: 'var(--bg-secondary)',
                         borderBottom: '2px solid var(--border-primary)'
                     }}>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>
-                            SKU
-                        </th>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>
-                            Name
-                        </th>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>
-                            Type
-                        </th>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>
-                            Category
-                        </th>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>
-                            Brand
-                        </th>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                            Stock
-                        </th>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                            Price
-                        </th>
-                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
-                            Status
-                        </th>
+                        {isVisible('sku') && <th style={thStyle}>SKU</th>}
+                        {isVisible('name') && <th style={thStyle}>Name</th>}
+                        {isVisible('type') && <th style={thStyle}>Type</th>}
+                        {isVisible('category') && <th style={thStyle}>Category</th>}
+                        {isVisible('brand') && <th style={thStyle}>Brand</th>}
+                        {isVisible('currentStock') && <th style={thStyleRight}>Stock</th>}
+                        {isVisible('salePrice') && <th style={thStyleRight}>Price</th>}
+                        {isVisible('status') && <th style={thStyleCenter}>Status</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -66,7 +56,7 @@ function InventoryTableView({ products, onProductClick, categories = [] }) {
                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                             >
-                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                {isVisible('sku') && <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <span style={{
                                         fontFamily: 'monospace',
                                         fontSize: 'var(--font-size-xs)',
@@ -74,8 +64,8 @@ function InventoryTableView({ products, onProductClick, categories = [] }) {
                                     }}>
                                         {product.sku}
                                     </span>
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                </td>}
+                                {isVisible('name') && <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
                                         {product.name}
                                     </div>
@@ -84,8 +74,8 @@ function InventoryTableView({ products, onProductClick, categories = [] }) {
                                             HSN: {product.hsnCode}
                                         </div>
                                     )}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                </td>}
+                                {isVisible('type') && <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <span style={{
                                         padding: '2px 8px',
                                         borderRadius: 'var(--radius-sm)',
@@ -95,18 +85,18 @@ function InventoryTableView({ products, onProductClick, categories = [] }) {
                                     }}>
                                         {product.type}
                                     </span>
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                </td>}
+                                {isVisible('category') && <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                                         {getCategoryName(product.category)}
                                     </span>
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                </td>}
+                                {isVisible('brand') && <td style={{ padding: 'var(--spacing-sm)' }}>
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                                         {product.brand || '-'}
                                     </span>
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>
+                                </td>}
+                                {isVisible('currentStock') && <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>
                                     {product.type === 'service' ? (
                                         <span style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>N/A</span>
                                     ) : (
@@ -114,13 +104,13 @@ function InventoryTableView({ products, onProductClick, categories = [] }) {
                                             {formatStock(product.currentStock, product.unitOfMeasure)}
                                         </span>
                                     )}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>
+                                </td>}
+                                {isVisible('salePrice') && <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>
                                     <span style={{ fontWeight: 600 }}>
                                         {formatCurrency(product.salePrice)}
                                     </span>
-                                </td>
-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                </td>}
+                                {isVisible('status') && <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                     <span style={{
                                         display: 'inline-block',
                                         width: '10px',
@@ -130,7 +120,7 @@ function InventoryTableView({ products, onProductClick, categories = [] }) {
                                     }}
                                         title={statusLabel}
                                     />
-                                </td>
+                                </td>}
                             </tr>
                         );
                     })}
