@@ -463,7 +463,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             {/* Job Details */}
                             <div className="card mb-md">
                                 <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Job Details</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--spacing-md)' }}>
                                     
                                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                                         <label className="form-label">Job Name / Description</label>
@@ -550,7 +550,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             {/* Linked Agreements */}
                             <div className="card mb-md" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
                                 <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Linked Agreements</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--spacing-md)' }}>
                                     <div className="form-group">
                                         <label className="form-label">Rental Agreement</label>
                                         <select
@@ -595,7 +595,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             
                             <div className="card mb-md" style={{ backgroundColor: 'var(--bg-secondary)' }}>
                                 <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Appliance Info (Read Only)</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-sm)' }}>
                                     <div className="form-group">
                                         <label className="form-label">Category</label>
                                         <input type="text" className="form-input" value={product.name || editedJob.category || editedJob.appliance || ''} readOnly />
@@ -617,7 +617,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
                                         Service Feedback &amp; Arrival
                                     </h3>
-                                    <div style={{ display: 'grid', gridTemplateColumns: editedJob.arrived_at && editedJob.customer_rating ? '1fr 1fr' : '1fr', gap: 'var(--spacing-md)' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
                                         {editedJob.arrived_at && (() => {
                                             const arrivedDt = new Date(editedJob.arrived_at);
                                             let onTime = null;
@@ -744,7 +744,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Activity size={18} color="#3b82f6" /> Status & Priority
                                 </h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
                                     <div className="form-group">
                                         <label className="form-label">Job Status</label>
                                         <select
