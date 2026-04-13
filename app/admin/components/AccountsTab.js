@@ -72,12 +72,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [txGroupBy, setTxGroupBy] = useState('none');
     const [txActiveTags, setTxActiveTags] = useState([]);
 
-    const [visibleCount, setVisibleCount] = useState(25);
-    useEffect(() => { setVisibleCount(25); }, [searchTerm, activeTab, txActiveTags, activeTags, txSortBy, sortBy, txGroupBy, groupBy]);
-    const handleTableScroll = (e) => {
-        const { scrollTop, scrollHeight, clientHeight } = e.target;
-        if (scrollHeight - scrollTop <= clientHeight * 1.5) setVisibleCount(prev => prev + 25);
-    };
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 25;
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, activeTab, txActiveTags, activeTags, txSortBy, sortBy, txGroupBy, groupBy]);
+    const handleTableScroll = () => {}; // deprecated in favor of explicit pagination
 
     // Saved views
     const [savedViews, setSavedViews] = useState([]);
@@ -1197,7 +1195,7 @@ ${sigHtml}
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredLedgers.slice(0, visibleCount).map(ledger => {
+                                {filteredLedgers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map(ledger => {
                                     const isNewOrganic = ledger.source === 'Customer Signup' && new Date(ledger.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000);
                                     const rowBg = selectedItems.has(ledger.id) ? 'rgba(99,102,241,0.08)' : (isNewOrganic ? 'rgba(16,185,129,0.05)' : 'transparent');
                                     return (
@@ -1270,7 +1268,7 @@ ${sigHtml}
                             </tr></thead>
                             <tbody>
                                 {amcFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No AMC subscriptions found.</td></tr> :
-                                amcFiltered.slice(0, visibleCount).map(amc => {
+                                amcFiltered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map(amc => {
                                     const isExpiring = amc.end_date && new Date(amc.end_date) <= new Date(Date.now() + 30*24*60*60*1000);
                                     return (
                                         <tr key={amc.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -1339,7 +1337,7 @@ ${sigHtml}
                             </tr></thead>
                             <tbody>
                                 {rentFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No rental agreements found.</td></tr> :
-                                rentFiltered.slice(0, visibleCount).map(rental => {
+                                rentFiltered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map(rental => {
                                     const isOverdue = rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date();
                                     return (
                                         <tr key={rental.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -1381,7 +1379,7 @@ ${sigHtml}
         if (!tabColumns[activeTab]) return null;
 
         const processedData = getProcessedTransactionData();
-        const visibleTxData = processedData.slice(0, visibleCount);
+        const visibleTxData = processedData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
         const groupedData = getGroupedTransactionData(visibleTxData);
         const allSelected = processedData.length > 0 && selectedItems.size === processedData.length;
 
@@ -1628,9 +1626,24 @@ ${sigHtml}
                 >
                     <RefreshCw size={13} /> Refresh
                 </button>
-                <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' }}>
                     {activeTab === 'accounts'
-                        ? `${filteredLedgers.length} / ${ledgers.length} accounts`
+                        ? (() => {
+                            const totalItems = filteredLedgers.length;
+                            const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span>{totalItems} / {ledgers.length} accounts</span>
+                                    {totalPages > 1 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
+                                            <span style={{ fontSize: '11px' }}>{currentPage} / {totalPages}</span>
+                                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === totalPages ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Next</button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                          })()
                         : activeTab === 'amc'
                         ? (() => {
                             const st = searchTerm.toLowerCase();
@@ -1641,7 +1654,19 @@ ${sigHtml}
                                 const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
                                 return !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || pMatch;
                             });
-                            return `${f.length} / ${amcSubscriptions.length} amc`;
+                            const totalPages = Math.ceil(f.length / PAGE_SIZE) || 1;
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span>{f.length} / {amcSubscriptions.length} amc</span>
+                                    {totalPages > 1 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
+                                            <span style={{ fontSize: '11px' }}>{currentPage} / {totalPages}</span>
+                                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === totalPages ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Next</button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
                           })()
                         : activeTab === 'rentals'
                         ? (() => {
@@ -1653,12 +1678,36 @@ ${sigHtml}
                                 const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
                                 return !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || pMatch;
                             });
-                            return `${f.length} / ${rentalAgreements.length} rentals`;
+                            const totalPages = Math.ceil(f.length / PAGE_SIZE) || 1;
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span>{f.length} / {rentalAgreements.length} rentals</span>
+                                    {totalPages > 1 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
+                                            <span style={{ fontSize: '11px' }}>{currentPage} / {totalPages}</span>
+                                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === totalPages ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Next</button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
                           })()
                         : (() => {
                             const all = getCurrentData();
                             const filtered = getProcessedTransactionData();
-                            return `${filtered.length} / ${all.length} ${activeTab}`;
+                            const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+                            return (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <span>{filtered.length} / {all.length} {activeTab}</span>
+                                    {totalPages > 1 && (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
+                                            <span style={{ fontSize: '11px' }}>{currentPage} / {totalPages}</span>
+                                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === totalPages ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Next</button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
                           })()
                     }
                 </span>
