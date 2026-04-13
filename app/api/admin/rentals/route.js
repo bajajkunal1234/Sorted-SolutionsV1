@@ -23,7 +23,14 @@ export async function GET(request) {
                 .select('*, rental_plans(product_name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')  // only join rental_plans (has FK) and jobs
                 .order('created_at', { ascending: false })
 
-            if (customerId) query = query.eq('customer_id', customerId)
+            if (customerId) {
+                let lookupIds = [customerId];
+                const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', customerId);
+                if (authCustomers && authCustomers.length > 0) {
+                    lookupIds = [...lookupIds, ...authCustomers.map(c => c.id)];
+                }
+                query = query.in('customer_id', lookupIds);
+            }
             if (status) query = query.eq('status', status)
 
             const { data, error } = await query

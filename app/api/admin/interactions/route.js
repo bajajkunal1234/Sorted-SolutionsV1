@@ -22,7 +22,14 @@ export async function GET(request) {
             .order('timestamp', { ascending: false })
             .limit(limit)
 
-        if (customerId) query = query.eq('customer_id', customerId)
+        if (customerId) {
+            let lookupIds = [customerId];
+            const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', customerId);
+            if (authCustomers && authCustomers.length > 0) {
+                lookupIds = [...lookupIds, ...authCustomers.map(c => c.id)];
+            }
+            query = query.in('customer_id', lookupIds);
+        }
         if (jobId) query = query.eq('job_id', jobId)
         if (productId) query = query.eq('product_id', productId)
         if (propertyId) query = query.eq('property_id', propertyId)

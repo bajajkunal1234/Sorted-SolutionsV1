@@ -76,17 +76,24 @@ export async function GET(request) {
 
         // Properties for a specific customer (admin view: query both customer_id and account_id)
         if (customerId) {
+            // Admin passes ledger_id. We need to find real Auth Customer IDs mapped to it
+            let lookupIds = [customerId];
+            const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', customerId);
+            if (authCustomers && authCustomers.length > 0) {
+                lookupIds = [...lookupIds, ...authCustomers.map(c => c.id)];
+            }
+
             // Fetch by customer_id OR account_id to cover both customer-app and admin-added links
             const { data: byCustomer } = await supabase
                 .from('customer_properties')
                 .select('*, property:properties(*)')
-                .eq('customer_id', customerId)
+                .in('customer_id', lookupIds)
                 .eq('is_active', true)
                 .order('linked_at', { ascending: false })
             const { data: byAccount } = await supabase
                 .from('customer_properties')
                 .select('*, property:properties(*)')
-                .eq('account_id', customerId)
+                .in('account_id', lookupIds)
                 .eq('is_active', true)
                 .order('linked_at', { ascending: false })
                 

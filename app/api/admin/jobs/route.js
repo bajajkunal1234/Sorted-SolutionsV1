@@ -27,7 +27,12 @@ export async function GET(request) {
             query = query.eq('status', status)
         }
         if (customerId) {
-            query = query.eq('customer_id', customerId)
+            let lookupIds = [customerId];
+            const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', customerId);
+            if (authCustomers && authCustomers.length > 0) {
+                lookupIds = [...lookupIds, ...authCustomers.map(c => c.id)];
+            }
+            query = query.in('customer_id', lookupIds);
         }
         if (technicianId) {
             query = query.eq('assigned_to', technicianId)
