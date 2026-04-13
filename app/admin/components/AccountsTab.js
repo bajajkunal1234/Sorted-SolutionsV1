@@ -72,6 +72,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [txGroupBy, setTxGroupBy] = useState('none');
     const [txActiveTags, setTxActiveTags] = useState([]);
 
+    const [visibleCount, setVisibleCount] = useState(25);
+    useEffect(() => { setVisibleCount(25); }, [searchTerm, activeTab, txActiveTags, activeTags, txSortBy, sortBy, txGroupBy, groupBy]);
+    const handleTableScroll = (e) => {
+        const { scrollTop, scrollHeight, clientHeight } = e.target;
+        if (scrollHeight - scrollTop <= clientHeight * 1.5) setVisibleCount(prev => prev + 25);
+    };
+
     // Saved views
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
@@ -1190,7 +1197,7 @@ ${sigHtml}
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredLedgers.map(ledger => {
+                                {filteredLedgers.slice(0, visibleCount).map(ledger => {
                                     const isNewOrganic = ledger.source === 'Customer Signup' && new Date(ledger.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000);
                                     const rowBg = selectedItems.has(ledger.id) ? 'rgba(99,102,241,0.08)' : (isNewOrganic ? 'rgba(16,185,129,0.05)' : 'transparent');
                                     return (
@@ -1255,7 +1262,7 @@ ${sigHtml}
                             </div>
                         ))}
                     </div>
-                    <div style={{ flex: 1, overflow: 'auto' }}>
+                    <div style={{ flex: 1, overflow: 'auto' }} onScroll={handleTableScroll}>
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                 {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
@@ -1263,7 +1270,7 @@ ${sigHtml}
                             </tr></thead>
                             <tbody>
                                 {amcFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No AMC subscriptions found.</td></tr> :
-                                amcFiltered.map(amc => {
+                                amcFiltered.slice(0, visibleCount).map(amc => {
                                     const isExpiring = amc.end_date && new Date(amc.end_date) <= new Date(Date.now() + 30*24*60*60*1000);
                                     return (
                                         <tr key={amc.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -1324,7 +1331,7 @@ ${sigHtml}
                             </div>
                         ))}
                     </div>
-                    <div style={{ flex: 1, overflow: 'auto' }}>
+                    <div style={{ flex: 1, overflow: 'auto' }} onScroll={handleTableScroll}>
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                 {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
@@ -1332,7 +1339,7 @@ ${sigHtml}
                             </tr></thead>
                             <tbody>
                                 {rentFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No rental agreements found.</td></tr> :
-                                rentFiltered.map(rental => {
+                                rentFiltered.slice(0, visibleCount).map(rental => {
                                     const isOverdue = rental.next_rent_due_date && new Date(rental.next_rent_due_date) < new Date();
                                     return (
                                         <tr key={rental.id} style={{ borderBottom: '1px solid var(--border-primary)' }} onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'} onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
@@ -1374,13 +1381,14 @@ ${sigHtml}
         if (!tabColumns[activeTab]) return null;
 
         const processedData = getProcessedTransactionData();
-        const groupedData = getGroupedTransactionData(processedData);
+        const visibleTxData = processedData.slice(0, visibleCount);
+        const groupedData = getGroupedTransactionData(visibleTxData);
         const allSelected = processedData.length > 0 && selectedItems.size === processedData.length;
 
         if (txViewType === 'card') return (
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, overflow: 'auto' }} onScroll={handleTableScroll}>
                 <TransactionsCardView 
-                    items={processedData} 
+                    items={visibleTxData} 
                     activeTab={activeTab} 
                     groupBy={txGroupBy} 
                     onItemClick={handleTransactionClick} 
@@ -1390,17 +1398,17 @@ ${sigHtml}
         );
 
         if (txViewType === 'kanban') return (
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, overflow: 'auto' }} onScroll={handleTableScroll}>
                 {TransactionsKanbanView
-                    ? <TransactionsKanbanView items={processedData} tab={activeTab} onItemClick={handleTransactionClick} groupBy={txGroupBy} />
+                    ? <TransactionsKanbanView items={visibleTxData} tab={activeTab} onItemClick={handleTransactionClick} groupBy={txGroupBy} />
                     : <div style={{ padding: 40, color: 'var(--text-tertiary)', textAlign: 'center' }}>Kanban view coming soon</div>}
             </div>
         );
 
         if (txViewType === 'list') return (
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, overflow: 'auto' }} onScroll={handleTableScroll}>
                 {TransactionsListView
-                    ? <TransactionsListView items={processedData} tab={activeTab} onItemClick={handleTransactionClick} groupBy={txGroupBy} />
+                    ? <TransactionsListView items={visibleTxData} tab={activeTab} onItemClick={handleTransactionClick} groupBy={txGroupBy} />
                     : <div style={{ padding: 40, color: 'var(--text-tertiary)', textAlign: 'center' }}>List view coming soon</div>}
             </div>
         );
@@ -1410,7 +1418,7 @@ ${sigHtml}
         const tdBase = { padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', cursor: 'pointer' };
 
         return (
-            <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+            <div style={{ flex: 1, overflow: 'auto', position: 'relative' }} onScroll={handleTableScroll}>
                 <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>
