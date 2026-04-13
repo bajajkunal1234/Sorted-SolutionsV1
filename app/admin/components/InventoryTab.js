@@ -11,7 +11,7 @@ import InventoryKanbanView from './inventory/InventoryKanbanView';
 import InventoryDetailsView from './inventory/InventoryDetailsView';
 import ProductDetailModal from './ProductDetailModal';
 import NewProductForm from './inventory/NewProductForm';
-import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+import InventorySearchPanel from '@/components/shared/InventorySearchPanel';
 import ImportExportButtons from './shared/ImportExportButtons';
 
 function InventoryTab() {
@@ -23,11 +23,20 @@ function InventoryTab() {
     const [error, setError] = useState(null);
     const [viewType, setViewType] = useState('table');
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState('all');
-    const [filterCategory, setFilterCategory] = useState('all');
-    const [filterBrand, setFilterBrand] = useState('all');
-    const [filterStockStatus, setFilterStockStatus] = useState('all');
+    const [groupBy, setGroupBy] = useState('none');
     const [sortBy, setSortBy] = useState('name');
+    const [activeTags, setActiveTags] = useState([]);
+    const [savedViews, setSavedViews] = useState([]);
+    const [saveStatus, setSaveStatus] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const PAGE_SIZE = 25;
+
+    useEffect(() => {
+        const saved = localStorage.getItem('sorted_inventory_views');
+        if (saved) {
+            try { setSavedViews(JSON.parse(saved)); } catch (e) {}
+        }
+    }, []);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showCreateForm, setShowCreateForm] = useState(false);
 
@@ -97,18 +106,128 @@ function InventoryTab() {
         fetchInventory();
     }, []);
 
-    const brands = getUniqueBrands(products);
+    const applyInventoryTags = (data, tags) => {
+        if (!tags || tags.length === 0) return data;
+        let res = [...data];
+        tags.forEach(tag => {
+            if (tag.filter) {
+                const [k, v] = Object.entries(tag.filter)[0];
+                if (k === 'stock_status') res = res.filter(d => d.stockStatus === v);
+                else res = res.filter(d => String(d[k]) === String(v));
+            }
+            if (tag.conditions) {
+                tag.conditions.forEach(c => {
+                    res = res.filter(d => {
+                        const val = String(d[c.field] || '').toLowerCase();
+                        const filterVal = c.value.toLowerCase();
+                        if (c.operator === 'contains') return val.includes(filterVal);
+                        if (c.operator === 'not_contains') return !val.includes(filterVal);
+                        if (c.operator === 'is') return val === filterVal;
+                        if (c.operator === 'is_not') return val !== filterVal;
+                        
+                        const numVal = parseFloat(d[c.field]);
+                        const numFilter = parseFloat(c.value);
+                        if (!isNaN(numVal) && !isNaN(numFilter)) {
+                            if (c.operator === 'gte') return numVal >= numFilter;
+                            if (c.operator === 'lte') return numVal <= numFilter;
+                            if (c.operator === 'eq') return numVal === numFilter;
+                        }
+                        return true;
+                    });
+                });
+            }
+        });
+        return res;
+    };
 
-    const filteredProducts = sortProducts(
-        filterProducts(products, {
-            type: filterType,
-            category: filterCategory,
-            brand: filterBrand,
-            stockStatus: filterStockStatus,
-            search: searchTerm
-        }),
-        sortBy
-    );
+    const processedProducts = (() => {
+        let res = [...products];
+        // 1. Search term match
+        if (searchTerm) {
+            const s = searchTerm.toLowerCase();
+            res = res.filter(p => 
+                (p.name && p.name.toLowerCase().includes(s)) || 
+                (p.sku && p.sku.toLowerCase().includes(s)) ||
+                (p.category && p.category.toLowerCase().includes(s)) ||
+                (p.brand && p.brand.toLowerCase().includes(s))
+            );
+        }
+        // 2. Active filter tags
+        res = applyInventoryTags(res, activeTags);
+        // 3. Sort
+        return res.sort((a, b) => {
+            if (sortBy === 'name_desc') return (b.name || '').localeCompare(a.name || '');
+            if (sortBy === 'stock_desc') return (b.currentStock || 0) - (a.currentStock || 0);
+            if (sortBy === 'stock_asc') return (a.currentStock || 0) - (b.currentStock || 0);
+            if (sortBy === 'price_desc') return (b.salePrice || 0) - (a.salePrice || 0);
+            if (sortBy === 'price_asc') return (a.salePrice || 0) - (b.salePrice || 0);
+            return (a.name || '').localeCompare(b.name || '');
+        });
+    })();
+
+    // Apply pagination properly (25 elements)
+    const totalPages = Math.max(1, Math.ceil(processedProducts.length / PAGE_SIZE));
+    useEffect(() => { if (currentPage > totalPages) setCurrentPage(1); }, [processedProducts.length, currentPage, totalPages]);
+    
+    const visibleProducts = processedProducts.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+    const getGroupedProducts = (data) => {
+        if (groupBy === 'none') return [{ label: null, items: data }];
+        const map = new Map();
+        data.forEach(item => {
+            let key = 'Other';
+            if (groupBy === 'category') key = item.category || 'Uncategorized';
+            else if (groupBy === 'brand') key = item.brand || 'No Brand';
+            else if (groupBy === 'type') key = item.type || 'Unknown';
+            else if (groupBy === 'stock') key = item.stockStatus || 'Unknown';
+            
+            if (!map.has(key)) map.set(key, []);
+            map.get(key).push(item);
+        });
+        return Array.from(map.entries())
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+            .map(([label, items]) => ({ label, items }));
+    };
+
+    const handleSaveNamedView = (name) => {
+        setSaveStatus('saving');
+        setTimeout(() => {
+            const newView = {
+                id: Date.now().toString(),
+                name,
+                searchTerm,
+                groupBy,
+                sortBy,
+                activeTags,
+                isDefault: false
+            };
+            const updated = [...savedViews, newView];
+            setSavedViews(updated);
+            localStorage.setItem('sorted_inventory_views', JSON.stringify(updated));
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus(null), 1500);
+        }, 400); // UI feedback delay imitation
+    };
+
+    const handleApplyView = (view) => {
+        setSearchTerm(view.searchTerm || '');
+        setGroupBy(view.groupBy || 'none');
+        setSortBy(view.sortBy || 'name');
+        setActiveTags(view.activeTags || []);
+        setCurrentPage(1);
+    };
+
+    const handleDeleteView = (id) => {
+        const updated = savedViews.filter(v => v.id !== id);
+        setSavedViews(updated);
+        localStorage.setItem('sorted_inventory_views', JSON.stringify(updated));
+    };
+
+    const handleSetDefaultView = (id) => {
+        const updated = savedViews.map(v => ({ ...v, isDefault: v.id === id ? !v.isDefault : false }));
+        setSavedViews(updated);
+        localStorage.setItem('sorted_inventory_views', JSON.stringify(updated));
+    };
 
     const viewIcons = {
         card: Grid,
@@ -259,49 +378,61 @@ function InventoryTab() {
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Row 1: Tab Name + Search + Create Button */}
+            {/* Header: Title + Search Panel + View Dropdown + Import/Export + Create */}
             <div style={{
                 padding: 'var(--spacing-sm) var(--spacing-md)',
                 backgroundColor: 'var(--bg-elevated)',
                 borderBottom: '1px solid var(--border-primary)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 'var(--spacing-md)',
+                gap: '10px',
                 flexWrap: 'wrap'
             }}>
-                <h2 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, minWidth: '100px' }}>
-                    Inventory
-                </h2>
+                <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Inventory</span>
+                
+                <InventorySearchPanel
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    groupBy={groupBy}
+                    onGroupByChange={setGroupBy}
+                    sortBy={sortBy}
+                    onSortByChange={setSortBy}
+                    activeTags={activeTags}
+                    onAddTag={t => setActiveTags(p => [...p.filter(x => x.id !== t.id), t])}
+                    onRemoveTag={id => setActiveTags(p => p.filter(t => t.id !== id))}
+                    savedViews={savedViews}
+                    onSaveNamedView={handleSaveNamedView}
+                    onApplyView={handleApplyView}
+                    onDeleteView={handleDeleteView}
+                    onSetDefaultView={handleSetDefaultView}
+                    saveStatus={saveStatus}
+                    onResetView={() => { setSearchTerm(''); setActiveTags([]); setGroupBy('none'); setSortBy('name'); }}
+                />
 
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                    <AutocompleteSearch
-                        placeholder="Search products, SKUs, brands..."
-                        value={searchTerm}
-                        onChange={setSearchTerm}
-                        suggestions={products}
-                        onSelect={(item) => setSearchTerm(item.name || item.sku)}
-                        searchKey="name"
-                        renderSuggestion={(product) => (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                                        {product.name}
-                                    </span>
-                                    <span style={{
-                                        fontSize: 'var(--font-size-xs)',
-                                        fontWeight: 600,
-                                        color: product.current_stock <= (product.min_stock_level || 5) ? '#ef4444' : 'inherit'
-                                    }}>
-                                        {product.current_stock} in stock
-                                    </span>
-                                </div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                    {product.sku && `${product.sku} • `}{product.brand} • {product.category}
-                                </div>
-                            </div>
-                        )}
-                    />
+                {/* View Dropdown */}
+                <div style={{ position: 'relative' }}>
+                    <select
+                        value={viewType}
+                        onChange={(e) => setViewType(e.target.value)}
+                        className="form-select"
+                        style={{ padding: '6px 28px 6px 12px', fontSize: 'var(--font-size-sm)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '6px', cursor: 'pointer' }}
+                    >
+                        <option value="table">Table View</option>
+                        <option value="card">Card View</option>
+                        <option value="kanban">Kanban View</option>
+                        <option value="details">Details View</option>
+                    </select>
                 </div>
+
+                <span style={{ borderLeft: '1px solid var(--border-primary)', height: '20px', margin: '0 4px' }} />
+
+                <ImportExportButtons 
+                    data={processedProducts} 
+                    columns={inventoryColumns} 
+                    exportFilename="SortedSolutions_Inventory"
+                    onImport={handleBulkImport}
+                    templateConfig={getTemplateConfig()}
+                />
 
                 <button
                     className="btn btn-primary"
@@ -311,128 +442,6 @@ function InventoryTab() {
                     <Plus size={16} />
                     Create
                 </button>
-            </div>
-
-            {/* Row 2: View Buttons + Compact Filter Buttons */}
-            <div style={{
-                padding: 'var(--spacing-xs) var(--spacing-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-                alignItems: 'center'
-            }}>
-                {/* View Type Buttons */}
-                {Object.entries(viewIcons).map(([type, Icon]) => (
-                    <button
-                        key={type}
-                        onClick={() => setViewType(type)}
-                        title={type.charAt(0).toUpperCase() + type.slice(1)}
-                        style={{
-                            padding: '6px 10px',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: '6px',
-                            backgroundColor: viewType === type ? '#6366f1' : '#334155',
-                            color: viewType === type ? 'white' : '#cbd5e1',
-                            display: 'flex',
-                            alignItems: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s ease'
-                        }}
-                    >
-                        <Icon size={16} />
-                    </button>
-                ))}
-
-                <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
-
-                {/* Type Filter Button */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        className="form-select"
-                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
-                    >
-                        <option value="all">All Types</option>
-                        <option value="product">Products</option>
-                        <option value="service">Services</option>
-                    </select>
-                </div>
-
-                {/* Category Filter Button */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        className="form-select"
-                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
-                    >
-                        <option value="all">All Categories</option>
-                        {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Brand Filter Button */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={filterBrand}
-                        onChange={(e) => setFilterBrand(e.target.value)}
-                        className="form-select"
-                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
-                    >
-                        <option value="all">All Brands</option>
-                        {brands.map(brand => (
-                            <option key={brand} value={brand}>{brand}</option>
-                        ))}
-                    </select>
-                </div>
-
-                {/* Stock Status Filter Button */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={filterStockStatus}
-                        onChange={(e) => setFilterStockStatus(e.target.value)}
-                        className="form-select"
-                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
-                    >
-                        <option value="all">All Stock</option>
-                        <option value={stockStatuses.IN_STOCK}>In Stock</option>
-                        <option value={stockStatuses.LOW_STOCK}>Low Stock</option>
-                        <option value={stockStatuses.OUT_OF_STOCK}>Out of Stock</option>
-                    </select>
-                </div>
-
-                <span style={{ borderLeft: '1px solid var(--border-primary)', height: '16px', margin: '0 4px' }} />
-
-                {/* Sort Button */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="form-select"
-                        style={{ padding: '4px 24px 4px 8px', fontSize: 'var(--font-size-xs)', backgroundColor: '#334155', color: '#cbd5e1' }}
-                    >
-                        <option value="name">Sort: Name</option>
-                        <option value="stock">Sort: Stock</option>
-                        <option value="price">Sort: Price</option>
-                        <option value="category">Sort: Category</option>
-                        <option value="sku">Sort: SKU</option>
-                    </select>
-                </div>
-
-                <div style={{ flex: 1 }} />
-                
-                <ImportExportButtons 
-                    data={filteredProducts} 
-                    columns={inventoryColumns} 
-                    exportFilename="SortedSolutions_Inventory"
-                    onImport={handleBulkImport}
-                    templateConfig={getTemplateConfig()}
-                />
             </div>
 
             {/* Content Area */}
@@ -452,38 +461,71 @@ function InventoryTab() {
                     </div>
                 ) : (
                     <>
-                        {viewType === 'table' && <InventoryTableView products={filteredProducts} onProductClick={setSelectedProduct} categories={categories} />}
-                        {viewType === 'card' && <InventoryCardView products={filteredProducts} onProductClick={setSelectedProduct} categories={categories} />}
+                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
+                        {viewType === 'card' && <InventoryCardView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
                         {viewType === 'kanban' && (
                             <InventoryKanbanView
-                                products={filteredProducts}
+                                products={visibleProducts}
                                 onProductClick={setSelectedProduct}
                                 onProductUpdate={handleUpdateProduct}
                                 categories={categories}
                             />
                         )}
-                        {viewType === 'details' && <InventoryDetailsView products={filteredProducts} onProductClick={setSelectedProduct} categories={categories} />}
+                        {viewType === 'details' && <InventoryDetailsView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
                     </>
                 )}
             </div>
 
-            {/* Summary Footer */}
+            {/* Summary & Pagination Footer */}
             {!loading && !error && (
                 <div style={{
-                    padding: 'var(--spacing-xs) var(--spacing-md)',
+                    padding: '8px var(--spacing-md)',
                     backgroundColor: 'var(--bg-secondary)',
                     borderTop: '1px solid var(--border-primary)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    fontSize: 'var(--font-size-xs)'
+                    fontSize: 'var(--font-size-sm)'
                 }}>
                     <span style={{ color: 'var(--text-secondary)' }}>
-                        Showing {filteredProducts.length} of {products.length} items
+                        <span style={{ fontWeight: 500, color: 'var(--text-primary)' }}>{processedProducts.length}</span> entries 
+                        {activeTags.length > 0 && ` (filtered from ${products.length})`}
+                        <span style={{ marginLeft: '16px', color: 'var(--text-secondary)' }}>| Total Stock: {totalStock}</span>
                     </span>
-                    <span style={{ fontWeight: 600 }}>
-                        Total Stock: {totalStock} units
-                    </span>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {totalPages > 1 && (
+                            <>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    style={{
+                                        padding: '4px 12px', fontSize: '13px', border: '1px solid var(--border-primary)', 
+                                        borderRadius: '6px', backgroundColor: currentPage === 1 ? 'transparent' : 'var(--bg-elevated)',
+                                        color: currentPage === 1 ? 'var(--text-disabled)' : 'var(--text-primary)',
+                                        cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Previous
+                                </button>
+                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    {currentPage} / {totalPages}
+                                </span>
+                                <button 
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    style={{
+                                        padding: '4px 12px', fontSize: '13px', border: '1px solid var(--border-primary)', 
+                                        borderRadius: '6px', backgroundColor: currentPage === totalPages ? 'transparent' : 'var(--bg-elevated)',
+                                        color: currentPage === totalPages ? 'var(--text-disabled)' : 'var(--text-primary)',
+                                        cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                                    }}
+                                >
+                                    Next
+                                </button>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
 
