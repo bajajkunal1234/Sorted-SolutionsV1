@@ -335,73 +335,105 @@ function InventoryTab() {
 
     const handleBulkImport = async (parsedRows) => {
         if (!parsedRows || parsedRows.length === 0) return;
-        
-        const confirmMsg = `Are you sure you want to import ${parsedRows.length} items into Inventory?`;
+
+        const confirmMsg = `Import ${parsedRows.length} item(s) into Inventory?`;
         if (!window.confirm(confirmMsg)) return;
-        
+
         let successCount = 0;
-        let failCount = 0;
-        
+        const errors = []; // collect { rowName, message } for each failure
+        const newItems = [];
+
         for (const row of parsedRows) {
+            const rowName = row.name || row['Item Name'] || `Row ${successCount + errors.length + 1}`;
             try {
-                // Ensure required minimal bindings and snake_case mapping for API if needed
-                const payload = { ...row };
-                if (payload.currentStock !== undefined) payload.current_stock = payload.currentStock;
-                if (payload.minStockLevel !== undefined) payload.min_stock_level = payload.minStockLevel;
-                if (payload.salePrice !== undefined) payload.sale_price = payload.salePrice;
-                if (payload.purchasePrice !== undefined) payload.purchase_price = payload.purchasePrice;
-                if (payload.unitOfMeasure !== undefined) payload.unit_of_measure = payload.unitOfMeasure;
-                if (payload.hsnCode !== undefined) payload.hsn_code = payload.hsnCode;
-                
-                await handleCreateProduct(payload);
+                // Call API directly — do NOT go through handleCreateProduct
+                // (that function swallows errors and shows its own alert)
+                const result = await inventoryAPI.create(row);
+
+                // Create initial stock log if applicable
+                if (result.type === 'product' && result.current_stock > 0) {
+                    try {
+                        await inventoryLogsAPI.create({
+                            inventory_id: result.id,
+                            type: 'initial',
+                            quantity_changed: result.current_stock,
+                            previous_quantity: 0,
+                            new_quantity: result.current_stock,
+                            reference_type: 'manual',
+                            notes: 'Initial stock on bulk import'
+                        });
+                    } catch (logErr) {
+                        console.warn('Stock log failed (non-fatal):', logErr);
+                    }
+                }
+
+                // Normalise for state
+                newItems.push({
+                    ...result,
+                    currentStock: result.current_stock,
+                    minStockLevel: result.min_stock_level,
+                    reorderLevel: result.min_stock_level,
+                    salePrice: result.sale_price,
+                    purchasePrice: result.purchase_price,
+                    unitOfMeasure: result.unit_of_measure,
+                    hsnCode: result.hsn_code,
+                    stockStatus: getStockStatus(result.current_stock, result.min_stock_level, result.type === 'service')
+                });
                 successCount++;
             } catch (err) {
-                console.error('Import row failed:', err);
-                failCount++;
+                console.error(`Import failed for "${rowName}":`, err);
+                errors.push(`• ${rowName}: ${err.message || 'Unknown error'}`);
             }
         }
-        
-        alert(`Import Complete!\n\nSuccessful: ${successCount}\nFailed: ${failCount}`);
+
+        // Batch-add all successfully imported items to state
+        if (newItems.length > 0) {
+            setProducts(prev => [...prev, ...newItems]);
+        }
+
+        // Summary
+        let summary = `Import Complete!\n\n✅ Successful: ${successCount}\n❌ Failed: ${errors.length}`;
+        if (errors.length > 0) {
+            summary += `\n\nFailed rows:\n${errors.slice(0, 10).join('\n')}`;
+            if (errors.length > 10) summary += `\n…and ${errors.length - 10} more (check console).`;
+        }
+        alert(summary);
     };
 
     const handleCreateProduct = async (newProduct) => {
-        try {
-            const result = await inventoryAPI.create(newProduct);
+        // NOTE: this function re-throws on failure so callers (incl. bulk import) can detect errors.
+        const result = await inventoryAPI.create(newProduct);
 
-            // Create initial stock log if it's a product with stock
-            if (result.type === 'product' && result.current_stock > 0) {
-                try {
-                    await inventoryLogsAPI.create({
-                        inventory_id: result.id,
-                        type: 'initial',
-                        quantity_changed: result.current_stock,
-                        previous_quantity: 0,
-                        new_quantity: result.current_stock,
-                        reference_type: 'manual',
-                        notes: 'Initial stock on creation'
-                    });
-                } catch (logErr) {
-                    console.error('Failed to create initial stock log:', logErr);
-                }
+        // Create initial stock log if it's a product with stock
+        if (result.type === 'product' && result.current_stock > 0) {
+            try {
+                await inventoryLogsAPI.create({
+                    inventory_id: result.id,
+                    type: 'initial',
+                    quantity_changed: result.current_stock,
+                    previous_quantity: 0,
+                    new_quantity: result.current_stock,
+                    reference_type: 'manual',
+                    notes: 'Initial stock on creation'
+                });
+            } catch (logErr) {
+                console.error('Failed to create initial stock log:', logErr);
             }
-
-            const normalizedResult = {
-                ...result,
-                currentStock: result.current_stock,
-                minStockLevel: result.min_stock_level,
-                reorderLevel: result.min_stock_level,
-                salePrice: result.sale_price,
-                purchasePrice: result.purchase_price,
-                unitOfMeasure: result.unit_of_measure,
-                hsnCode: result.hsn_code,
-                stockStatus: getStockStatus(result.current_stock, result.min_stock_level, result.type === 'service')
-            };
-            setProducts(prevProducts => [...prevProducts, normalizedResult]);
-            setShowCreateForm(false);
-        } catch (err) {
-            console.error('Error creating product:', err);
-            alert('Failed to create product');
         }
+
+        const normalizedResult = {
+            ...result,
+            currentStock: result.current_stock,
+            minStockLevel: result.min_stock_level,
+            reorderLevel: result.min_stock_level,
+            salePrice: result.sale_price,
+            purchasePrice: result.purchase_price,
+            unitOfMeasure: result.unit_of_measure,
+            hsnCode: result.hsn_code,
+            stockStatus: getStockStatus(result.current_stock, result.min_stock_level, result.type === 'service')
+        };
+        setProducts(prevProducts => [...prevProducts, normalizedResult]);
+        setShowCreateForm(false);
     };
 
     const handleDeleteProduct = async (id) => {
