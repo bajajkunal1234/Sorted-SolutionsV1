@@ -291,6 +291,7 @@ function InventoryTab() {
         { id: 'name',             label: 'Item Name' },
         { id: 'sku',              label: 'SKU' },
         { id: 'type',             label: 'Type' },
+        { id: 'job_type',         label: 'Job Type' },
         { id: 'category',         label: 'Category' },
         { id: 'brand',            label: 'Brand' },
         { id: 'current_stock',    label: 'Current Stock' },
@@ -311,8 +312,9 @@ function InventoryTab() {
        return {
            dummyRow: {
                name: 'Example Product',
-               sku: '',                   // leave blank — auto-generated on import
-               type: 'product',          // 'product' or 'service'
+               sku: '',                    // leave blank — auto-generated on import
+               type: 'product',           // 'product' or 'service'
+               job_type: 'repair',        // 'install_uninstall' | 'service_maintenance' | 'repair' | (leave blank)
                category: 'Air Conditioners',
                brand: 'Samsung',
                current_stock: 50,
@@ -321,12 +323,12 @@ function InventoryTab() {
                purchase_price: 800,
                dealer_price: 1000,
                retail_price: 1500,
-               unit_of_measure: 'pcs',   // pcs / kg / ltr / mtr / box / set / unit
+               unit_of_measure: 'pcs',    // pcs / kg / ltr / mtr / box / set / unit
                hsn_code: '8415',
                hsn_description: 'Air Conditioning Machines',
                gst_applicable: true,
-               gst_rate: 18,
-               status: 'active'
+               gst_rate: 18,              // 0 / 5 / 12 / 18 / 28
+               status: 'active'           // 'active' or 'inactive'
            }
        };
     };
