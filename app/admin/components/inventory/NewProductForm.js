@@ -47,8 +47,7 @@ function NewProductForm({
         // Service fields
         serviceTermsTemplate: '',
 
-        // GST fields
-        gstApplicable: false,
+        // GST fields — always required
         gstRate: '',
         hsnCode: '',
         hsnDescription: '',
@@ -149,7 +148,7 @@ function NewProductForm({
                 sale_price: parseFloat(formData.salePrice) || 0,
                 dealer_price: parseFloat(formData.dealerPrice) || 0,
                 retail_price: parseFloat(formData.retailPrice) || 0,
-                gst_applicable: formData.gstApplicable,
+                gst_applicable: true,                       // always mandatory
                 gst_rate: parseFloat(formData.gstRate) || 0,
                 hsn_code: formData.hsnCode || null,
                 hsn_description: formData.hsnDescription || null,
@@ -518,72 +517,58 @@ function NewProductForm({
                             </div>
                         )}
 
-                        {/* ── 5. GST Information ───────────────────────────── */}
+                        {/* ── 5. GST Information — mandatory for all ──────── */}
                         <div className="card mb-md">
-                            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>GST Information</h3>
-
-                            <div className="form-group">
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={formData.gstApplicable}
-                                        onChange={(e) => setFormData({ ...formData, gstApplicable: e.target.checked })}
-                                        style={{ width: '18px', height: '18px' }}
-                                    />
-                                    <span className="form-label" style={{ margin: 0 }}>GST Applicable</span>
-                                </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--spacing-md)' }}>
+                                <h3 style={{ margin: 0 }}>GST Information</h3>
+                                <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', backgroundColor: 'rgba(99,102,241,0.1)', color: '#6366f1', borderRadius: '999px' }}>Required</span>
                             </div>
 
-                            {formData.gstApplicable && (
-                                <>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                        <div className="form-group">
-                                            <label className="form-label">GST Rate (%) *</label>
-                                            <select
-                                                className="form-select"
-                                                value={formData.gstRate}
-                                                onChange={(e) => setFormData({ ...formData, gstRate: e.target.value })}
-                                                required={formData.gstApplicable}
-                                            >
-                                                <option value="">Select Rate</option>
-                                                <option value="0">0%</option>
-                                                <option value="5">5%</option>
-                                                <option value="12">12%</option>
-                                                <option value="18">18%</option>
-                                                <option value="28">28%</option>
-                                            </select>
-                                        </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div className="form-group">
+                                    <label className="form-label">GST Rate (%) *</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.gstRate}
+                                        onChange={(e) => setFormData({ ...formData, gstRate: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">Select Rate</option>
+                                        <option value="0">0% (Exempt)</option>
+                                        <option value="5">5%</option>
+                                        <option value="12">12%</option>
+                                        <option value="18">18%</option>
+                                        <option value="28">28%</option>
+                                    </select>
+                                </div>
 
-                                        <div className="form-group">
-                                            <label className="form-label">
-                                                HSN Code {formData.type === 'product' && '*'}
-                                            </label>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                value={formData.hsnCode}
-                                                onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
-                                                placeholder="e.g., 8415"
-                                                required={formData.gstApplicable && formData.type === 'product'}
-                                            />
-                                        </div>
-
-                                        <div className="form-group">
-                                            <label className="form-label">
-                                                HSN Description
-                                            </label>
-                                            <input
-                                                type="text"
-                                                className="form-input"
-                                                value={formData.hsnDescription}
-                                                onChange={(e) => setFormData({ ...formData, hsnDescription: e.target.value })}
-                                                placeholder="e.g., Air Conditioning Machines"
-                                            />
-                                            <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Official goods/service description for GST filing</div>
-                                        </div>
+                                <div className="form-group">
+                                    <label className="form-label">HSN / SAC Code *</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.hsnCode}
+                                        onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                                        placeholder={formData.type === 'service' ? 'e.g., 998519' : 'e.g., 8415'}
+                                        required
+                                    />
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                        {formData.type === 'service' ? 'SAC code for services' : 'HSN code for goods'}
                                     </div>
-                                </>
-                            )}
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">HSN Description</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={formData.hsnDescription}
+                                        onChange={(e) => setFormData({ ...formData, hsnDescription: e.target.value })}
+                                        placeholder="e.g., Air Conditioning Machines"
+                                    />
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Official description for GST filing</div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* ── 6. Pricing ───────────────────────────────────── */}
