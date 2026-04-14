@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react';
-import { X, Upload, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Upload, Plus, Trash2, Sparkles } from 'lucide-react';
 import { generateProductSKU } from '@/lib/utils/inventoryHelpers';
 import { inventoryCategoriesAPI, inventoryBrandsAPI } from '@/lib/adminAPI';
+import { lookupHSN } from '@/lib/data/hsnData';
 
 
 async function uploadImage(file) {
@@ -62,6 +63,40 @@ function NewProductForm({
     const [imagePreview, setImagePreview] = useState([]);
     const [saving, setSaving] = useState(false);
     const [uploadingImages, setUploadingImages] = useState(false);
+
+    // HSN auto-fill
+    const [hsnAutoFilled, setHsnAutoFilled] = useState(false); // true when desc was set by lookup
+    const [hsnLookupStatus, setHsnLookupStatus] = useState(null); // null | 'found' | 'partial' | 'not_found'
+    const hsnDebounceRef = useRef(null);
+
+    useEffect(() => {
+        // Clear if code is wiped
+        if (!formData.hsnCode) {
+            setHsnLookupStatus(null);
+            if (hsnAutoFilled) {
+                setFormData(prev => ({ ...prev, hsnDescription: '' }));
+                setHsnAutoFilled(false);
+            }
+            return;
+        }
+        // Debounce 400ms
+        clearTimeout(hsnDebounceRef.current);
+        hsnDebounceRef.current = setTimeout(() => {
+            const result = lookupHSN(formData.hsnCode);
+            if (result) {
+                // Only auto-fill if user hasn't manually typed a description
+                if (!formData.hsnDescription || hsnAutoFilled) {
+                    setFormData(prev => ({ ...prev, hsnDescription: result.description }));
+                    setHsnAutoFilled(true);
+                }
+                setHsnLookupStatus(result.partial ? 'partial' : 'found');
+            } else {
+                setHsnLookupStatus('not_found');
+            }
+        }, 400);
+        return () => clearTimeout(hsnDebounceRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.hsnCode]);
 
     // Auto-generate SKU from type + existing products
     const autoSKU = generateProductSKU(formData.type, existingProducts);
@@ -524,7 +559,8 @@ function NewProductForm({
                                 <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', backgroundColor: 'rgba(99,102,241,0.1)', color: '#6366f1', borderRadius: '999px' }}>Required</span>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
+                            {/* Row 1: GST Rate + HSN Code */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
                                 <div className="form-group">
                                     <label className="form-label">GST Rate (%) *</label>
                                     <select
@@ -548,25 +584,61 @@ function NewProductForm({
                                         type="text"
                                         className="form-input"
                                         value={formData.hsnCode}
-                                        onChange={(e) => setFormData({ ...formData, hsnCode: e.target.value })}
+                                        onChange={(e) => {
+                                            setHsnAutoFilled(false);
+                                            setFormData({ ...formData, hsnCode: e.target.value });
+                                        }}
                                         placeholder={formData.type === 'service' ? 'e.g., 998519' : 'e.g., 8415'}
                                         required
+                                        style={{
+                                            borderColor: hsnLookupStatus === 'found' ? '#10b981' : undefined,
+                                            transition: 'border-color 0.2s'
+                                        }}
                                     />
-                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                        {formData.type === 'service' ? 'SAC code for services' : 'HSN code for goods'}
+                                    <div style={{ marginTop: '4px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        {hsnLookupStatus === 'found' && (
+                                            <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                <Sparkles size={10} /> Match found — description auto-filled
+                                            </span>
+                                        )}
+                                        {hsnLookupStatus === 'partial' && (
+                                            <span style={{ color: '#f59e0b' }}>Partial match — try the full code</span>
+                                        )}
+                                        {hsnLookupStatus === 'not_found' && formData.hsnCode && (
+                                            <span style={{ color: 'var(--text-tertiary)' }}>Not in lookup — enter description manually</span>
+                                        )}
+                                        {!hsnLookupStatus && (
+                                            <span style={{ color: 'var(--text-tertiary)' }}>
+                                                {formData.type === 'service' ? 'SAC code for services' : 'HSN code for goods'}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
+                            </div>
 
-                                <div className="form-group">
-                                    <label className="form-label">HSN Description</label>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        value={formData.hsnDescription}
-                                        onChange={(e) => setFormData({ ...formData, hsnDescription: e.target.value })}
-                                        placeholder="e.g., Air Conditioning Machines"
-                                    />
-                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Official description for GST filing</div>
+                            {/* Row 2: HSN Description — full width */}
+                            <div className="form-group">
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <label className="form-label" style={{ margin: 0 }}>HSN Description</label>
+                                    {hsnAutoFilled && (
+                                        <span style={{ fontSize: '10px', fontWeight: 600, color: '#10b981', display: 'flex', alignItems: 'center', gap: '3px', padding: '1px 6px', backgroundColor: 'rgba(16,185,129,0.08)', borderRadius: '999px', border: '1px solid rgba(16,185,129,0.2)' }}>
+                                            <Sparkles size={9} /> Auto-filled
+                                        </span>
+                                    )}
+                                </div>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.hsnDescription}
+                                    onChange={(e) => {
+                                        setHsnAutoFilled(false);
+                                        setFormData({ ...formData, hsnDescription: e.target.value });
+                                    }}
+                                    placeholder="Auto-fills when HSN code is recognised, or type manually"
+                                    style={hsnAutoFilled ? { borderColor: 'rgba(16,185,129,0.4)', backgroundColor: 'rgba(16,185,129,0.02)' } : {}}
+                                />
+                                <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                    Official goods/service description used in GST filings
                                 </div>
                             </div>
                         </div>
