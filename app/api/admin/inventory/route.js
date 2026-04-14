@@ -39,7 +39,7 @@ export async function POST(request) {
         // ── Column allowlist: only DB columns go to Supabase ──────────────────
         // This prevents camelCase keys from bulk-import from causing 400 errors.
         const ALLOWED_COLUMNS = [
-            'name', 'sku', 'type', 'category', 'brand', 'description', 'images',
+            'name', 'sku', 'type', 'job_type', 'category', 'brand', 'description', 'images',
             'unit_of_measure', 'opening_balance_qty', 'opening_balance_date',
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',

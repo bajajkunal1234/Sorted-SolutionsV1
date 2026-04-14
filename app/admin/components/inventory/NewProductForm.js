@@ -32,6 +32,7 @@ function NewProductForm({
     const [formData, setFormData] = useState({
         name: '',
         type: 'product',
+        jobType: '',          // 'install_uninstall' | 'service_maintenance' | 'repair'
         category: '',
         brand: '',
         description: '',
@@ -188,6 +189,7 @@ function NewProductForm({
                 hsn_code: formData.hsnCode || null,
                 hsn_description: formData.hsnDescription || null,
                 service_terms_template: formData.serviceTermsTemplate || null,
+                job_type: formData.jobType || null,
                 status: 'active'
             };
 
@@ -299,20 +301,39 @@ function NewProductForm({
                         <div className="card mb-md">
                             <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Basic Information</h3>
 
-                            {/* Type Selection */}
-                            <div className="form-group">
-                                <label className="form-label">Type *</label>
-                                <select
-                                    className="form-select"
-                                    value={formData.type}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                    required
-                                >
-                                    <option value="product">Product</option>
-                                    <option value="service">Service</option>
-                                </select>
-                                <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                    Select type first — form fields will adapt accordingly
+                            {/* Type + Job Type in one row */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div className="form-group">
+                                    <label className="form-label">Item Type *</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.type}
+                                        onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                        required
+                                    >
+                                        <option value="product">Product</option>
+                                        <option value="service">Service</option>
+                                    </select>
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                        Form fields adapt based on this selection
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Job Type</label>
+                                    <select
+                                        className="form-select"
+                                        value={formData.jobType}
+                                        onChange={(e) => setFormData({ ...formData, jobType: e.target.value })}
+                                    >
+                                        <option value="">— Select job type —</option>
+                                        <option value="install_uninstall">Install / Uninstall</option>
+                                        <option value="service_maintenance">Service / Maintenance</option>
+                                        <option value="repair">Repair</option>
+                                    </select>
+                                    <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                        Used to categorise jobs &amp; filter reports
+                                    </div>
                                 </div>
                             </div>
 
