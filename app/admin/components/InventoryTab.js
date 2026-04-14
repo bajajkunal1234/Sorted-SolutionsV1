@@ -29,7 +29,7 @@ function InventoryTab() {
     
     // UI Utility states
     const [showColumnPicker, setShowColumnPicker] = useState(false);
-    const defaultVisibleCols = ['sku', 'name', 'type', 'category', 'brand', 'currentStock', 'salePrice', 'status'];
+    const defaultVisibleCols = ['sku', 'name', 'type', 'category', 'brand', 'current_stock', 'sale_price', 'status'];
     const [visibleColumns, setVisibleColumns] = useState(new Set(defaultVisibleCols));
 
     const toggleColumn = (colId) => {
@@ -288,22 +288,46 @@ function InventoryTab() {
     };
 
     const inventoryColumns = [
-        { id: 'name', label: 'Item Name' },
-        { id: 'sku', label: 'SKU' },
-        { id: 'type', label: 'Type' },
-        { id: 'category', label: 'Category' },
-        { id: 'brand', label: 'Brand' },
-        { id: 'currentStock', label: 'Current Stock' },
-        { id: 'minStockLevel', label: 'Min Stock Level' },
-        { id: 'salePrice', label: 'Sale Price' },
-        { id: 'purchasePrice', label: 'Purchase Price' },
-        { id: 'unitOfMeasure', label: 'Unit' },
-        { id: 'hsnCode', label: 'HSN Code' }
+        { id: 'name',             label: 'Item Name' },
+        { id: 'sku',              label: 'SKU' },
+        { id: 'type',             label: 'Type' },
+        { id: 'category',         label: 'Category' },
+        { id: 'brand',            label: 'Brand' },
+        { id: 'current_stock',    label: 'Current Stock' },
+        { id: 'min_stock_level',  label: 'Min Stock Level' },
+        { id: 'sale_price',       label: 'Sale Price' },
+        { id: 'purchase_price',   label: 'Purchase Price' },
+        { id: 'dealer_price',     label: 'Dealer Price' },
+        { id: 'retail_price',     label: 'Retail Price' },
+        { id: 'unit_of_measure',  label: 'Unit' },
+        { id: 'hsn_code',         label: 'HSN Code' },
+        { id: 'hsn_description',  label: 'HSN Description' },
+        { id: 'gst_applicable',   label: 'GST Applicable' },
+        { id: 'gst_rate',         label: 'GST Rate' },
+        { id: 'status',           label: 'Status' },
     ];
 
     const getTemplateConfig = () => {
        return {
-           dummyRow: { name: 'Premium Sensor', sku: 'SENS-001', type: 'product', category: 'Sensors', brand: 'TechBrand', currentStock: 50, minStockLevel: 10, salePrice: 1200, purchasePrice: 800, unitOfMeasure: 'pcs', hsnCode: '8536' }
+           dummyRow: {
+               name: 'Example Product',
+               sku: '',                   // leave blank — auto-generated on import
+               type: 'product',          // 'product' or 'service'
+               category: 'Air Conditioners',
+               brand: 'Samsung',
+               current_stock: 50,
+               min_stock_level: 10,
+               sale_price: 1200,
+               purchase_price: 800,
+               dealer_price: 1000,
+               retail_price: 1500,
+               unit_of_measure: 'pcs',   // pcs / kg / ltr / mtr / box / set / unit
+               hsn_code: '8415',
+               hsn_description: 'Air Conditioning Machines',
+               gst_applicable: true,
+               gst_rate: 18,
+               status: 'active'
+           }
        };
     };
 

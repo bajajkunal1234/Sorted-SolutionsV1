@@ -51,7 +51,7 @@ function NewProductForm({
         gstApplicable: false,
         gstRate: '',
         hsnCode: '',
-        sacCode: '',
+        hsnDescription: '',
 
         // Pricing (4 prices)
         purchasePrice: '',
@@ -152,7 +152,7 @@ function NewProductForm({
                 gst_applicable: formData.gstApplicable,
                 gst_rate: parseFloat(formData.gstRate) || 0,
                 hsn_code: formData.hsnCode || null,
-                sac_code: formData.sacCode || null,
+                hsn_description: formData.hsnDescription || null,
                 service_terms_template: formData.serviceTermsTemplate || null,
                 status: 'active'
             };
@@ -570,16 +570,16 @@ function NewProductForm({
 
                                         <div className="form-group">
                                             <label className="form-label">
-                                                SAC Code {formData.type === 'service' && '*'}
+                                                HSN Description
                                             </label>
                                             <input
                                                 type="text"
                                                 className="form-input"
-                                                value={formData.sacCode}
-                                                onChange={(e) => setFormData({ ...formData, sacCode: e.target.value })}
-                                                placeholder="e.g., 998519"
-                                                required={formData.gstApplicable && formData.type === 'service'}
+                                                value={formData.hsnDescription}
+                                                onChange={(e) => setFormData({ ...formData, hsnDescription: e.target.value })}
+                                                placeholder="e.g., Air Conditioning Machines"
                                             />
+                                            <div style={{ marginTop: 'var(--spacing-xs)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Official goods/service description for GST filing</div>
                                         </div>
                                     </div>
                                 </>
