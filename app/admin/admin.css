@@ -109,30 +109,102 @@
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
     --bg-elevated: #1e293b;
+    --bg-tertiary: #334155;
     --bg-hover: #334155;
     --border-primary: #334155;
     --border-secondary: #475569;
     --text-primary: #f1f5f9;
     --text-secondary: #cbd5e1;
     --text-tertiary: #94a3b8;
+    --text-disabled: #475569;
     --text-inverse: #0f172a;
     --color-primary: #6366f1;
     --color-primary-hover: #4f46e5;
     --color-success: #10b981;
     --color-warning: #f59e0b;
     --color-danger: #ef4444;
+    --color-success-bg: rgba(16, 185, 129, 0.15);
+    --color-danger-bg: rgba(239, 68, 68, 0.15);
 }
 
 [data-theme="light"] {
     --bg-primary: #ffffff;
     --bg-secondary: #f9fafb;
     --bg-elevated: #ffffff;
+    --bg-tertiary: #f3f4f6;
     --bg-hover: #f3f4f6;
     --border-primary: #e5e7eb;
     --border-secondary: #d1d5db;
     --text-primary: #111827;
     --text-secondary: #6b7280;
     --text-tertiary: #9ca3af;
+    --text-disabled: #d1d5db;
+    --color-success-bg: rgba(16, 185, 129, 0.1);
+    --color-danger-bg: rgba(239, 68, 68, 0.1);
+}
+
+/* Force all modals to use admin dark-mode variables explicitly.
+   Prevents white-background bleedthrough from index.css :root light defaults
+   when AccountDetailModal / other modals are opened from JobDetailModal on mobile. */
+.modal-overlay,
+.modal-container,
+.modal-content,
+.modal-header,
+.modal-tabs,
+.modal-body,
+.modal-footer,
+.modal {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.modal-container {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+}
+
+.modal-header {
+    background-color: var(--bg-elevated);
+    border-bottom-color: var(--border-primary);
+}
+
+.modal-tabs {
+    background-color: var(--bg-secondary);
+    border-bottom-color: var(--border-primary);
+}
+
+.modal-content {
+    background-color: var(--bg-primary);
+}
+
+.modal-tab {
+    color: var(--text-secondary);
+    background: none;
+}
+
+.modal-tab.active {
+    color: var(--color-primary);
+    background-color: var(--bg-primary);
+}
+
+/* Ensure form inputs inside modals inherit dark theme */
+.modal-container .form-input,
+.modal-container .form-select,
+.modal-container .form-textarea {
+    background-color: var(--bg-elevated);
+    color: var(--text-primary);
+    border-color: var(--border-primary);
+}
+
+.modal-container .form-input:disabled,
+.modal-container .form-select:disabled,
+.modal-container .form-textarea:disabled {
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.modal-container .form-label {
+    color: var(--text-primary);
 }
 
 /* Responsive - Removed "modern" centering to keep it stretched */
