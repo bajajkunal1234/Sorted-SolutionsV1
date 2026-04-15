@@ -303,8 +303,7 @@ function InventoryTab() {
         { id: 'unit_of_measure',  label: 'Unit' },
         { id: 'hsn_code',         label: 'HSN Code' },
         { id: 'hsn_description',  label: 'HSN Description' },
-        { id: 'gst_applicable',   label: 'GST Applicable' },
-        { id: 'gst_rate',         label: 'GST Rate' },
+        { id: 'gst_rate',         label: 'GST Rate (%)' },
         { id: 'status',           label: 'Status' },
     ];
 
@@ -326,8 +325,7 @@ function InventoryTab() {
                unit_of_measure: 'pcs',    // pcs / kg / ltr / mtr / box / set / unit
                hsn_code: '8415',
                hsn_description: 'Air Conditioning Machines',
-               gst_applicable: true,
-               gst_rate: 18,              // 0 / 5 / 12 / 18 / 28
+               gst_rate: 18,              // 0 / 5 / 12 / 18 / 28  (GST always applicable)
                status: 'active'           // 'active' or 'inactive'
            }
        };
