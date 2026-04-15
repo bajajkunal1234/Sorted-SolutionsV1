@@ -78,8 +78,8 @@ function TechnicianApp() {
 
     // Check authentication and get technician ID
     useEffect(() => {
-        const session = localStorage.getItem('technicianSession');
-        const storedTechData = localStorage.getItem('technicianData');
+        const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+        const storedTechData = localStorage.getItem('technicianData') || sessionStorage.getItem('technicianData');
 
         if (!session) {
             router.push('/login');

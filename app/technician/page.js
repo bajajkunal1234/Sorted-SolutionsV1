@@ -8,7 +8,7 @@ export default function TechnicianPage() {
 
     useEffect(() => {
         // Check if technician is logged in
-        const session = localStorage.getItem('technicianSession')
+        const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession')
         if (session) {
             router.push('/technician/dashboard')
         } else {

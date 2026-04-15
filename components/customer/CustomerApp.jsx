@@ -41,10 +41,10 @@ export default function CustomerApp() {
         setMounted(true)
         // Check if this is a first-time user who hasn't completed their profile
         try {
-            const raw = localStorage.getItem('customerData')
+            const raw = localStorage.getItem('customerData') || sessionStorage.getItem('customerData')
             if (raw) {
                 const session = JSON.parse(raw)
-                const customerId = session.id || localStorage.getItem('customerId') || ''
+                const customerId = session.id || localStorage.getItem('customerId') || sessionStorage.getItem('customerId') || ''
                 const name = session.name || ''
                 // Show onboarding wizard only if profile_complete is explicitly false
                 if (session.profile_complete === false) {

@@ -9,8 +9,8 @@ export default function CustomerDashboard() {
     const [customerId, setCustomerId] = useState(null);
 
     useEffect(() => {
-        // Read session from localStorage (set by login flow)
-        const id = localStorage.getItem('customerId');
+        // Read session from storage (set by login flow)
+        const id = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
         if (id) setCustomerId(id);
     }, []);
 
