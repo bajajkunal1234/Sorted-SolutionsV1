@@ -459,6 +459,21 @@ function InventoryTab() {
         }
     };
 
+    const handleDeleteMany = async (ids) => {
+        let failed = 0;
+        for (const id of ids) {
+            try {
+                await inventoryAPI.delete(id);
+            } catch (err) {
+                console.error('Delete failed for id:', id, err);
+                failed++;
+            }
+        }
+        // Remove all successfully deleted ids from state
+        setProducts(prev => prev.filter(p => !ids.includes(p.id)));
+        if (failed > 0) alert(`${failed} item(s) could not be deleted.`);
+    };
+
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Row 1: Header */}
@@ -568,7 +583,7 @@ function InventoryTab() {
                     </div>
                 ) : (
                     <>
-                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} />}
+                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} onDelete={handleDeleteProduct} onDeleteMany={handleDeleteMany} />}
                         {viewType === 'card' && <InventoryCardView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
                         {viewType === 'kanban' && (
                             <InventoryKanbanView
