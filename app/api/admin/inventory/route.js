@@ -144,10 +144,29 @@ export async function POST(request) {
         if (!payload.status) payload.status = 'active';
         payload.gst_applicable = true; // always mandatory
 
+        // ── 5. Duplicate check — skip if same name already exists ─────────────
+        if (payload.name) {
+            const { data: dupe } = await supabase
+                .from('inventory')
+                .select('id, name, sku')
+                .ilike('name', payload.name.trim())
+                .limit(1)
+                .single();
+            if (dupe) {
+                return NextResponse.json({
+                    success: true,
+                    data: dupe,
+                    skipped_duplicate: true,
+                    message: `Skipped — "${dupe.name}" already exists (${dupe.sku})`
+                });
+            }
+        }
+
         const { data, error } = await supabase
             .from('inventory')
             .insert([payload])
             .select()
+
             .single()
 
         if (error) throw error

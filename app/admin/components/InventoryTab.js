@@ -337,15 +337,26 @@ function InventoryTab() {
         const confirmMsg = `Import ${parsedRows.length} item(s) into Inventory?`;
         if (!window.confirm(confirmMsg)) return;
 
+        // Build a set of existing names (case-insensitive) to skip duplicates
+        const existingNames = new Set(products.map(p => (p.name || '').toLowerCase().trim()));
+
         let successCount = 0;
-        const errors = []; // collect { rowName, message } for each failure
+        let skippedCount = 0;
+        const errors = [];
         const newItems = [];
 
         for (const row of parsedRows) {
-            const rowName = row.name || row['Item Name'] || `Row ${successCount + errors.length + 1}`;
+            const rowName = row.name || row['Item Name'] || `Row ${successCount + errors.length + skippedCount + 1}`;
+            const rowNameKey = rowName.toLowerCase().trim();
+
+            // Skip if name already exists in DB or in this same import batch
+            if (existingNames.has(rowNameKey)) {
+                skippedCount++;
+                console.log(`Import skipped (duplicate): "${rowName}"`);
+                continue;
+            }
+
             try {
-                // Call API directly — do NOT go through handleCreateProduct
-                // (that function swallows errors and shows its own alert)
                 const result = await inventoryAPI.create(row);
 
                 // Create initial stock log if applicable
@@ -365,7 +376,9 @@ function InventoryTab() {
                     }
                 }
 
-                // Normalise for state
+                // Track this name so duplicates within same file are also caught
+                existingNames.add(rowNameKey);
+
                 newItems.push({
                     ...result,
                     currentStock: result.current_stock,
@@ -389,8 +402,7 @@ function InventoryTab() {
             setProducts(prev => [...prev, ...newItems]);
         }
 
-        // Summary
-        let summary = `Import Complete!\n\n✅ Successful: ${successCount}\n❌ Failed: ${errors.length}`;
+        let summary = `Import Complete!\n\n✅ Imported: ${successCount}\n⏭️ Skipped (already exist): ${skippedCount}\n❌ Failed: ${errors.length}`;
         if (errors.length > 0) {
             summary += `\n\nFailed rows:\n${errors.slice(0, 10).join('\n')}`;
             if (errors.length > 10) summary += `\n…and ${errors.length - 10} more (check console).`;
