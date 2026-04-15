@@ -108,10 +108,44 @@ function InventoryTab() {
                     inventoryCategoriesAPI.getAll(),
                     inventoryBrandsAPI.getAll(),
                     printTemplatesAPI.getAll()
-                ]).then(([catData, brandData, tempData]) => {
+                ]).then(async ([catData, brandData, tempData]) => {
                     setCategories(catData || []);
                     setManagedBrands(brandData || []);
                     setTermsTemplates(tempData || []);
+
+                    // ── Auto-sync missing categories/brands from existing inventory ──
+                    // Inventory items store category/brand as plain text. On first load
+                    // after a bulk import, the lookup tables may be missing entries.
+                    // Silently upsert any that are missing so the Create form is complete.
+                    try {
+                        const knownCats = new Set((catData || []).map(c => (c.name || '').toLowerCase()));
+                        const knownBrands = new Set((brandData || []).map(b => (b.name || '').toLowerCase()));
+
+                        const missingCats = [...new Set(
+                            normalizedProducts.map(p => p.category).filter(Boolean)
+                        )].filter(name => !knownCats.has(name.toLowerCase()));
+
+                        const missingBrands = [...new Set(
+                            normalizedProducts.map(p => p.brand).filter(Boolean)
+                        )].filter(name => !knownBrands.has(name.toLowerCase()));
+
+                        if (missingCats.length > 0 || missingBrands.length > 0) {
+                            await Promise.all([
+                                ...missingCats.map(name => inventoryCategoriesAPI.create({ name }).catch(() => null)),
+                                ...missingBrands.map(name => inventoryBrandsAPI.create({ name }).catch(() => null))
+                            ]);
+                            // Refresh with newly created entries
+                            const [freshCats, freshBrands] = await Promise.all([
+                                inventoryCategoriesAPI.getAll(),
+                                inventoryBrandsAPI.getAll()
+                            ]);
+                            setCategories(freshCats || []);
+                            setManagedBrands(freshBrands || []);
+                            console.log(`Synced ${missingCats.length} categories, ${missingBrands.length} brands from inventory.`);
+                        }
+                    } catch (syncErr) {
+                        console.warn('Background category/brand sync failed (non-fatal):', syncErr);
+                    }
                 }).catch(err => console.error('Secondary fetching failed:', err));
             } catch (err) {
                 console.error('Error fetching inventory:', err);

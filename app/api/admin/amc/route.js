@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { fireNotification } from '@/lib/fire-notification'
 
 // GET - Fetch AMCs or plans
 export async function GET(request) {
@@ -67,6 +68,14 @@ export async function POST(request) {
             .single()
 
         if (error) throw error
+
+        // Notify customer when a new AMC contract is activated
+        if (type === 'amc' && data && data.account_id) {
+            await fireNotification('rental_contract_created', {
+                customer_id: String(data.account_id),
+                customer_name: data.customer_name || undefined,
+            }).catch(err => console.error('[amc/fireNotification]:', err.message));
+        }
 
         return NextResponse.json({ success: true, data })
     } catch (error) {

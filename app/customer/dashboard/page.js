@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import CustomerApp from '@/components/customer/CustomerApp';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import PWAPrompt from '@/components/common/PWAPrompt';
 
 export default function CustomerDashboard() {
     const [customerId, setCustomerId] = useState(null);
@@ -13,8 +14,19 @@ export default function CustomerDashboard() {
         if (id) setCustomerId(id);
     }, []);
 
-    // Request notification permission and register FCM token for this customer
+    // Silently refresh FCM token when permission is already granted
     usePushNotifications({ userType: 'customer', userId: customerId });
 
-    return <CustomerApp />;
+    return (
+        <>
+            {/* PWA install + notification permission prompt — shown once on first load */}
+            <PWAPrompt
+                appName="Sorted App"
+                appColor="#3b82f6"
+                userType="customer"
+                userId={customerId}
+            />
+            <CustomerApp />
+        </>
+    );
 }

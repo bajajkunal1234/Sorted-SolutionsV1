@@ -3,13 +3,40 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-// Fetch recent notifications for a user
+// Fetch recent notifications for a user, or admin overview of all notifications
 export async function GET(request) {
     const supabase = createServerSupabase();
     try {
         const { searchParams } = new URL(request.url);
         const recipient_id = searchParams.get('recipient_id');
         const recipient_type = searchParams.get('recipient_type');
+        const overview = searchParams.get('overview') === 'true';
+
+        // ── Admin overview mode: returns all recent notifications grouped by type ──
+        if (overview) {
+            const { data, error } = await supabase
+                .from('app_notifications')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(200);
+
+            if (error) {
+                if (error.message.includes('relation "app_notifications" does not exist')) {
+                    return NextResponse.json({ success: true, data: [], unreadCount: 0, byType: {} });
+                }
+                throw error;
+            }
+
+            // Group by recipient_type
+            const byType = {};
+            (data || []).forEach(n => {
+                if (!byType[n.recipient_type]) byType[n.recipient_type] = [];
+                byType[n.recipient_type].push(n);
+            });
+
+            const unreadCount = (data || []).filter(n => !n.is_read).length;
+            return NextResponse.json({ success: true, data: data || [], unreadCount, byType });
+        }
 
         if (!recipient_id || !recipient_type) {
             return NextResponse.json({ success: false, error: 'recipient_id and recipient_type required' }, { status: 400 });
@@ -50,6 +77,7 @@ export async function GET(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
+
 
 // Mark notifications as read
 export async function PUT(request) {

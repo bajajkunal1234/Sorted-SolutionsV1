@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
+import { fireNotification } from '@/lib/fire-notification'
 
 // Map transaction types to Supabase tables
 const tableMap = {
@@ -181,6 +182,20 @@ export async function POST(request) {
                 description: `${info.label} created: ${data.reference || data.invoice_number || data.id}`,
                 source: 'Admin',
             });
+        }
+
+        // Fire in-app + push notification for customer-facing document types
+        const notifEventMap = {
+            sales:     'sales_invoice_created',
+            quotation: 'quotation_sent',
+        };
+        const notifEvent = notifEventMap[type];
+        if (notifEvent && data.account_id) {
+            await fireNotification(notifEvent, {
+                job_id: data.job_id ? String(data.job_id) : undefined,
+                customer_id: String(data.account_id),
+                customer_name: data.account_name || undefined,
+            }).catch(err => console.error(`[transactions/${type}/fireNotification]:`, err.message));
         }
 
         return NextResponse.json({ success: true, data })

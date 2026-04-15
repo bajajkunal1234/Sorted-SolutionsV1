@@ -11,6 +11,7 @@ import NotificationBell from '@/components/common/NotificationBell';
 import { logInteraction, logNavigation } from '@/lib/interactions';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import PWAPrompt from '@/components/common/PWAPrompt';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -1025,6 +1026,14 @@ function TechnicianApp() {
     );
 
     return (
+        <>
+        {/* PWA install + notification permission prompt — shown once on first load */}
+        <PWAPrompt
+            appName="Sorted Technician"
+            appColor="#f59e0b"
+            userType="technician"
+            userId={technicianId}
+        />
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
             {/* Top Bar */}
             <div style={{
@@ -1233,6 +1242,7 @@ function TechnicianApp() {
                 />
             )}
         </div>
+        </>
     );
 }
 

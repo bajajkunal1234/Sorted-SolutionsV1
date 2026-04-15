@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
+import { fireNotification } from '@/lib/fire-notification'
 
 export async function GET(request) {
     try {
@@ -81,52 +82,24 @@ export async function POST(request) {
         if (type === 'rental' && data) {
             const customerName = data.customer_name || `Customer #${data.customer_id}`
             const productName = data.product_name || `Rental #${data.id}`
+            const customerId = data.customer_id ? String(data.customer_id) : undefined
 
-            // 1. Immediately: rental contract created
+            // 1. Immediately: rental contract created — notifies customer + logs
+            await fireNotification('rental_contract_created', {
+                customer_id: customerId,
+                customer_name: customerName,
+            }).catch(err => console.error('[rentals/fireNotification] rental_contract_created:', err.message))
+
+            // Also log to interactions for the activity feed
             logInteractionServer({
                 type: 'rental_contract_created',
                 category: 'rental',
                 jobId: String(data.id),
                 customerName,
                 description: `New rental contract created for ${productName} — ${customerName}`,
-                metadata: {
-                    rentalId: data.id,
-                    startDate: data.start_date,
-                    endDate: data.end_date,
-                    monthlyRent: data.monthly_rent,
-                },
+                metadata: { rentalId: data.id, startDate: data.start_date, endDate: data.end_date, monthlyRent: data.monthly_rent },
                 source: 'Admin',
             })
-
-            // 2. Schedule: rent due reminder (1 month from now)
-            const rentDueDate = new Date(data.start_date || new Date())
-            rentDueDate.setMonth(rentDueDate.getMonth() + 1)
-            logInteractionServer({
-                type: 'rent_due_reminder',
-                category: 'rental',
-                jobId: String(data.id),
-                customerName,
-                description: `Rent due on ${rentDueDate.toLocaleDateString('en-GB')} for ${productName}`,
-                metadata: { rentalId: data.id, dueDate: rentDueDate.toISOString().split('T')[0] },
-                source: 'System',
-            })
-
-            // 3. Schedule: contract expiry warning (30 days before end)
-            if (data.end_date) {
-                const expiryWarn = new Date(data.end_date)
-                expiryWarn.setDate(expiryWarn.getDate() - 30)
-                if (expiryWarn > new Date()) {
-                    logInteractionServer({
-                        type: 'rental_contract_expiring',
-                        category: 'rental',
-                        jobId: String(data.id),
-                        customerName,
-                        description: `Rental contract for ${productName} expires on ${data.end_date}`,
-                        metadata: { rentalId: data.id, endDate: data.end_date },
-                        source: 'System',
-                    })
-                }
-            }
         }
 
         return NextResponse.json({ success: true, data })

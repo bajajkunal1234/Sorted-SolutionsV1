@@ -5,7 +5,54 @@
  * Handles background push notifications (tab closed / not focused).
  * This file MUST stay in /public so it is served at the root URL (/firebase-messaging-sw.js).
  * Service workers cannot access Next.js env vars — values are hardcoded here.
+ *
+ * Also provides:
+ *   - install / activate lifecycle events (PWA installability)
+ *   - Lightweight app-shell caching so the app works on poor connections
  */
+
+// ─── Cache config ─────────────────────────────────────────────────────────────
+const CACHE_NAME = 'sorted-app-v1';
+const APP_SHELL_URLS = [
+    '/technician/dashboard',
+    '/customer/dashboard',
+    '/manifest.json',
+    '/icons/icon-192x192.png',
+    '/icons/icon-512x512.png',
+];
+
+// ─── Install — pre-cache app shell ────────────────────────────────────────────
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL_URLS))
+    );
+    // Skip waiting so the new SW takes control immediately
+    self.skipWaiting();
+});
+
+// ─── Activate — clean up old caches ──────────────────────────────────────────
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then(keys =>
+            Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+        )
+    );
+    // Take control of all open clients immediately
+    self.clients.claim();
+});
+
+// ─── Fetch — network-first (falls back to cache) ─────────────────────────────
+// Only intercept navigation requests to our app-shell URLs.
+self.addEventListener('fetch', (event) => {
+    const { request } = event;
+    if (request.mode !== 'navigate') return; // Only HTML navigation
+    const url = new URL(request.url);
+    if (!APP_SHELL_URLS.some(p => url.pathname.startsWith(p.split('?')[0]))) return;
+
+    event.respondWith(
+        fetch(request).catch(() => caches.match(request))
+    );
+});
 
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');

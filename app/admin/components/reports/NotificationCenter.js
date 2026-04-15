@@ -5,8 +5,8 @@ import {
     Bell, MessageSquare, Smartphone, Users, Zap, Clock,
     Plus, Trash2, Edit2, Check, X, Loader2, Save,
     CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp,
-    Send, Star, Eye, EyeOff, RefreshCw, Toggle, PenLine
-} from 'lucide-react';
+    Send, Star, Eye, EyeOff, RefreshCw, Toggle, PenLine, Inbox
+} from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -837,6 +837,218 @@ function ComposeTab() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Inbox Tab — shows all app_notifications grouped by recipient type
+// ─────────────────────────────────────────────────────────────────────────────
+const RECIPIENT_META = {
+    admin:      { label: 'Admin Bell',      color: '#ef4444', emoji: '🔴' },
+    technician: { label: 'Technician Bell', color: '#f59e0b', emoji: '🟡' },
+    customer:   { label: 'Customer Bell',   color: '#3b82f6', emoji: '🔵' },
+};
+
+function InboxTab() {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [filterType, setFilterType] = useState('all');
+    const [marking, setMarking] = useState(false);
+
+    const load = async () => {
+        setLoading(true); setError(null);
+        try {
+            const r = await fetch('/api/notifications/inbox?overview=true');
+            const j = await r.json();
+            if (j.success) setData(j);
+            else setError(j.error || 'Failed to load');
+        } catch (e) { setError(e.message); }
+        finally { setLoading(false); }
+    };
+
+    useEffect(() => { load(); }, []);
+
+    const markAllRead = async (recipientType) => {
+        setMarking(true);
+        try {
+            // Mark all for this type as read by calling PUT for a sentinel value
+            // Since the PUT endpoint needs recipient_id, we do it row-by-row via
+            // the server using mark_all_read=true per-type.
+            // We need per-id, so we'll call update on IDs in batch.
+            const items = (data?.byType?.[recipientType] || []).filter(n => !n.is_read);
+            for (const item of items) {
+                await fetch('/api/notifications/inbox', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        recipient_id: item.recipient_id,
+                        recipient_type: item.recipient_type,
+                        notification_id: item.id,
+                    })
+                });
+            }
+            await load();
+        } catch { /* no-op */ }
+        finally { setMarking(false); }
+    };
+
+    const allTypes = data ? Object.keys(data.byType || {}) : [];
+    const displayTypes = filterType === 'all' ? allTypes : [filterType];
+    const totalUnread = data ? (data.data || []).filter(n => !n.is_read).length : 0;
+
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px', gap: '12px', color: 'var(--text-secondary)' }}>
+            <Loader2 size={20} className="animate-spin" />
+            Loading inbox...
+        </div>
+    );
+
+    if (error) return (
+        <div style={{ padding: '24px', textAlign: 'center', color: '#ef4444' }}>
+            <XCircle size={32} style={{ marginBottom: '8px' }} />
+            <p>{error}</p>
+            <button className="btn btn-secondary" onClick={load}>Retry</button>
+        </div>
+    );
+
+    return (
+        <div>
+            {/* Header strip */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px',
+                        backgroundColor: totalUnread > 0 ? '#ef444415' : 'var(--bg-secondary)',
+                        borderRadius: '99px', border: `1px solid ${totalUnread > 0 ? '#ef4444' : 'var(--border-primary)'}`
+                    }}>
+                        <Bell size={14} style={{ color: totalUnread > 0 ? '#ef4444' : 'var(--text-secondary)' }} />
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: totalUnread > 0 ? '#ef4444' : 'var(--text-secondary)' }}>
+                            {totalUnread} unread
+                        </span>
+                        <span style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>· {(data?.data || []).length} total</span>
+                    </div>
+
+                    {/* Filter pills */}
+                    {['all', ...allTypes].map(t => {
+                        const meta = RECIPIENT_META[t] || { label: 'All', color: 'var(--color-primary)', emoji: '🔔' };
+                        const count = t === 'all' ? allTypes.length : (data?.byType?.[t] || []).length;
+                        return (
+                            <button key={t} onClick={() => setFilterType(t)} style={{
+                                padding: '6px 14px', borderRadius: '99px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                                border: `1.5px solid ${filterType === t ? meta.color : 'var(--border-primary)'}`,
+                                backgroundColor: filterType === t ? `${meta.color}20` : 'transparent',
+                                color: filterType === t ? meta.color : 'var(--text-secondary)',
+                                transition: 'all 0.2s ease'
+                            }}>
+                                {t === 'all' ? '📬 All Types' : `${meta.emoji} ${meta.label}`}
+                                <span style={{ marginLeft: '6px', opacity: 0.7 }}>({count})</span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <button className="btn btn-secondary" onClick={load} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
+                    <RefreshCw size={14} />
+                    Refresh
+                </button>
+            </div>
+
+            {allTypes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-tertiary)' }}>
+                    <Inbox size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
+                    <p style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>No notifications yet</p>
+                    <p style={{ margin: '8px 0 0', fontSize: '13px' }}>In-app notifications will appear here once job events fire.</p>
+                </div>
+            ) : (
+                displayTypes.map(recipientType => {
+                    const meta = RECIPIENT_META[recipientType] || { label: recipientType, color: '#6b7280', emoji: '📬' };
+                    const items = (data?.byType?.[recipientType] || []);
+                    const unread = items.filter(n => !n.is_read).length;
+
+                    return (
+                        <div key={recipientType} style={{
+                            marginBottom: '24px', border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)', overflow: 'hidden',
+                            borderLeft: `4px solid ${meta.color}`
+                        }}>
+                            {/* Group header */}
+                            <div style={{
+                                padding: '14px 20px', backgroundColor: 'var(--bg-elevated)',
+                                borderBottom: '1px solid var(--border-primary)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                            }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <span style={{ fontSize: '18px' }}>{meta.emoji}</span>
+                                    <div>
+                                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>{meta.label}</h4>
+                                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                            {items.length} notification{items.length !== 1 ? 's' : ''}
+                                            {unread > 0 && <span style={{ color: meta.color, fontWeight: 700, marginLeft: '6px' }}>· {unread} unread</span>}
+                                        </p>
+                                    </div>
+                                </div>
+                                {unread > 0 && (
+                                    <button
+                                        onClick={() => markAllRead(recipientType)}
+                                        disabled={marking}
+                                        style={{
+                                            fontSize: '12px', padding: '6px 12px', border: `1px solid ${meta.color}`,
+                                            borderRadius: 'var(--radius-md)', backgroundColor: `${meta.color}15`,
+                                            color: meta.color, cursor: 'pointer', fontWeight: 600
+                                        }}>
+                                        {marking ? <Loader2 size={12} className="animate-spin" /> : '✓ Mark All Read'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Notification rows */}
+                            <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+                                {items.slice(0, 30).map((notif, i) => (
+                                    <div key={notif.id || i} style={{
+                                        padding: '12px 20px',
+                                        borderBottom: i < items.length - 1 ? '1px solid var(--border-primary)' : 'none',
+                                        backgroundColor: notif.is_read ? 'transparent' : `${meta.color}08`,
+                                        display: 'flex', alignItems: 'flex-start', gap: '12px'
+                                    }}>
+                                        <div style={{
+                                            width: '8px', height: '8px', borderRadius: '50%', marginTop: '6px', flexShrink: 0,
+                                            backgroundColor: notif.is_read ? 'var(--border-primary)' : meta.color
+                                        }} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                                <span style={{ fontSize: '13px', fontWeight: notif.is_read ? 500 : 700, color: 'var(--text-primary)' }}>
+                                                    {notif.title}
+                                                </span>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>
+                                                    {new Date(notif.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                            <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                                                {notif.message}
+                                            </p>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                                <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>
+                                                    ID: {notif.recipient_id?.slice(0, 8)}…
+                                                </span>
+                                                {notif.is_read && (
+                                                    <span style={{ fontSize: '11px', color: '#10b981' }}>✓ Read</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {items.length > 30 && (
+                                    <div style={{ padding: '12px 20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                        Showing 30 of {items.length} — oldest not shown
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })
+            )}
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main NotificationCenter
 // ─────────────────────────────────────────────────────────────────────────────
 export default function NotificationCenter() {
@@ -850,6 +1062,7 @@ export default function NotificationCenter() {
         { id: 'triggers', label: 'Triggers', icon: Zap },
         { id: 'compose', label: 'Compose & Send', icon: PenLine },
         { id: 'logs', label: 'Logs', icon: Clock },
+        { id: 'inbox', label: 'Inbox', icon: Inbox },
     ];
 
     return (
@@ -875,6 +1088,7 @@ export default function NotificationCenter() {
             {activeTab === 'triggers' && <TriggersTab />}
             {activeTab === 'compose' && <ComposeTab />}
             {activeTab === 'logs' && <LogsTab />}
+            {activeTab === 'inbox' && <InboxTab />}
 
             <style jsx>{`
                 .form-control {
