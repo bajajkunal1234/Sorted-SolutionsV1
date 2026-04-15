@@ -7,6 +7,7 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url)
         const category = searchParams.get('category')
         const lowStock = searchParams.get('low_stock')
+        const includeArchived = searchParams.get('include_archived') === 'true'
 
         let query = supabase
             .from('inventory')
@@ -18,6 +19,9 @@ export async function GET(request) {
         }
         if (lowStock === 'true') {
             query = query.or('current_stock.lt.min_stock_level,quantity.lt.reorder_level')
+        }
+        if (!includeArchived) {
+            query = query.neq('status', 'archived')
         }
 
         const { data, error } = await query
@@ -45,7 +49,7 @@ export async function POST(request) {
             'service_terms_template', 'status'
         ];
 
-        // camelCase → snake_case aliases (form submissions & legacy imports)
+        // camelCase → snake_case aliases
         const ALIAS_MAP = {
             currentStock:      'current_stock',
             minStockLevel:     'min_stock_level',
@@ -57,13 +61,12 @@ export async function POST(request) {
             unitOfMeasure:     'unit_of_measure',
             hsnCode:           'hsn_code',
             hsnDescription:    'hsn_description',
-            sacCode:           'hsn_code',      // legacy alias
+            sacCode:           'hsn_code',
             gstApplicable:     'gst_applicable',
             gstRate:           'gst_rate',
             openingBalanceQty: 'opening_balance_qty',
         };
 
-        // Apply alias mapping
         const aliased = { ...body };
         for (const [camel, snake] of Object.entries(ALIAS_MAP)) {
             if (aliased[camel] !== undefined && aliased[snake] === undefined) {
@@ -72,20 +75,17 @@ export async function POST(request) {
             delete aliased[camel];
         }
 
-        // Filter to allowed columns only
         const payload = {};
         for (const col of ALLOWED_COLUMNS) {
             if (aliased[col] !== undefined) payload[col] = aliased[col];
         }
 
-        // ── 1. Normalise type to lowercase ────────────────────────────────────
-        // Excel may have "Service", "Product", "SERVICE" etc.
+        // ── 1. Normalise type ─────────────────────────────────────────────────
         payload.type = payload.type
             ? String(payload.type).toLowerCase().trim()
             : 'product';
 
-        // ── 2. Normalise job_type display labels → DB keys ────────────────────
-        // Spreadsheets use "Service / Maintenance"; DB stores "service_maintenance"
+        // ── 2. Normalise job_type labels → DB keys ────────────────────────────
         if (payload.job_type) {
             const JOB_TYPE_MAP = {
                 'install / uninstall':   'install_uninstall',
@@ -103,7 +103,6 @@ export async function POST(request) {
         }
 
         // ── 3. Coerce empty strings → null for numeric columns ────────────────
-        // Services often leave purchase_price blank; Postgres rejects "" for numeric.
         const NUMERIC_COLS = [
             'current_stock', 'min_stock_level', 'opening_balance_qty',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
@@ -126,7 +125,7 @@ export async function POST(request) {
             payload.opening_balance_qty = null;
         }
 
-        // ── 4. Auto-generate SKU if missing ───────────────────────────────────
+        // ── 4. Auto-generate SKU ──────────────────────────────────────────────
         if (!payload.sku) {
             const prefix = payload.type === 'service' ? 'SVC' : 'PRD';
             const { data: existing } = await supabase
@@ -142,9 +141,9 @@ export async function POST(request) {
 
         // Defaults
         if (!payload.status) payload.status = 'active';
-        payload.gst_applicable = true; // always mandatory
+        payload.gst_applicable = true;
 
-        // ── 5. Duplicate check — skip if same name already exists ─────────────
+        // ── 5. Duplicate name check ───────────────────────────────────────────
         if (payload.name) {
             const { data: dupe } = await supabase
                 .from('inventory')
@@ -166,7 +165,6 @@ export async function POST(request) {
             .from('inventory')
             .insert([payload])
             .select()
-
             .single()
 
         if (error) throw error
@@ -177,7 +175,7 @@ export async function POST(request) {
     }
 }
 
-// PUT - Update inventory item
+// PUT - Update inventory item (also used for archive)
 export async function PUT(request) {
     try {
         const body = await request.json()
@@ -198,11 +196,72 @@ export async function PUT(request) {
     }
 }
 
-// DELETE - Delete inventory item
+// DELETE - Delete inventory item (with dependency check)
 export async function DELETE(request) {
     try {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
+        const force = searchParams.get('force') === 'true'
+
+        if (!id) {
+            return NextResponse.json({ success: false, error: 'Missing id' }, { status: 400 })
+        }
+
+        // ── Dependency check ──────────────────────────────────────────────────
+        // Check if this inventory item appears in any transaction's line items.
+        // Line items are stored as JSONB arrays with product_id or inventory_id.
+        if (!force) {
+            const TRANSACTION_TABLES = [
+                { table: 'sales_invoices',    label: 'Sales Invoice' },
+                { table: 'purchase_invoices', label: 'Purchase Invoice' },
+                { table: 'quotations',        label: 'Quotation' },
+                { table: 'receipt_vouchers',  label: 'Receipt Voucher' },
+                { table: 'payment_vouchers',  label: 'Payment Voucher' },
+            ];
+
+            const blocking = [];
+
+            for (const { table, label } of TRANSACTION_TABLES) {
+                // Try direct inventory_id FK match
+                try {
+                    const { data: fkRows } = await supabase
+                        .from(table)
+                        .select('id, invoice_number, voucher_number, quotation_number, date')
+                        .or(`items.cs.[{"inventory_id":"${id}"}],items.cs.[{"product_id":"${id}"}]`)
+                        .limit(5);
+
+                    if (fkRows && fkRows.length > 0) {
+                        fkRows.forEach(row => {
+                            const ref = row.invoice_number || row.voucher_number || row.quotation_number || row.id;
+                            blocking.push({ table: label, ref, date: row.date });
+                        });
+                    }
+                } catch (_) {
+                    // table may not exist or column pattern differs — skip silently
+                }
+            }
+
+            // Also check inventory_logs (stock movements)
+            try {
+                const { data: logRows, count } = await supabase
+                    .from('inventory_logs')
+                    .select('id', { count: 'exact' })
+                    .eq('inventory_id', id)
+                    .limit(1);
+                if (count && count > 0) {
+                    blocking.push({ table: 'Stock Logs', ref: `${count} movement record(s)`, date: null });
+                }
+            } catch (_) {}
+
+            if (blocking.length > 0) {
+                return NextResponse.json({
+                    success: false,
+                    blocking: true,
+                    dependencies: blocking,
+                    error: `This item is used in ${blocking.length} record(s) and cannot be deleted.`
+                }, { status: 409 })
+            }
+        }
 
         const { error } = await supabase
             .from('inventory')

@@ -31,6 +31,9 @@ function InventoryTab() {
     const [showColumnPicker, setShowColumnPicker] = useState(false);
     const defaultVisibleCols = ['sku', 'name', 'type', 'category', 'brand', 'current_stock', 'sale_price', 'status'];
     const [visibleColumns, setVisibleColumns] = useState(new Set(defaultVisibleCols));
+    const [statusFilter, setStatusFilter] = useState('active'); // 'active' | 'archived' | 'all'
+    // Dependency modal state
+    const [dependencyModal, setDependencyModal] = useState(null); // { product, dependencies[] }
 
     const toggleColumn = (colId) => {
         setVisibleColumns(prev => {
@@ -157,6 +160,10 @@ function InventoryTab() {
 
     const processedProducts = (() => {
         let res = [...products];
+        // 0. Status filter (active / archived / all)
+        if (statusFilter === 'active') res = res.filter(p => p.status !== 'archived');
+        else if (statusFilter === 'archived') res = res.filter(p => p.status === 'archived');
+        // 'all' → no filter
         // 1. Search term match
         if (searchTerm) {
             const s = searchTerm.toLowerCase();
@@ -447,31 +454,64 @@ function InventoryTab() {
     };
 
     const handleDeleteProduct = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this item?')) return;
-
         try {
             await inventoryAPI.delete(id);
             setProducts(prevProducts => prevProducts.filter(p => p.id !== id));
             setSelectedProduct(null);
         } catch (err) {
+            // Blocking dependency error — show modal instead of plain alert
+            if (err.blocking && err.blocking.length > 0) {
+                const product = products.find(p => p.id === id);
+                setDependencyModal({ product, dependencies: err.blocking });
+                return;
+            }
             console.error('Error deleting product:', err);
-            alert('Failed to delete product');
+            alert('Failed to delete product: ' + err.message);
+        }
+    };
+
+    const handleArchiveProduct = async (id) => {
+        try {
+            await inventoryAPI.update(id, { status: 'archived' });
+            setProducts(prev => prev.map(p => p.id === id ? { ...p, status: 'archived' } : p));
+            setSelectedProduct(null);
+            setDependencyModal(null);
+        } catch (err) {
+            console.error('Error archiving product:', err);
+            alert('Failed to archive: ' + err.message);
+        }
+    };
+
+    const handleRestoreProduct = async (id) => {
+        try {
+            await inventoryAPI.update(id, { status: 'active' });
+            setProducts(prev => prev.map(p => p.id === id ? { ...p, status: 'active' } : p));
+        } catch (err) {
+            console.error('Error restoring product:', err);
+            alert('Failed to restore: ' + err.message);
         }
     };
 
     const handleDeleteMany = async (ids) => {
-        let failed = 0;
+        const blockedItems = [];
+        const deletedIds = [];
         for (const id of ids) {
             try {
                 await inventoryAPI.delete(id);
+                deletedIds.push(id);
             } catch (err) {
-                console.error('Delete failed for id:', id, err);
-                failed++;
+                if (err.blocking) {
+                    const p = products.find(x => x.id === id);
+                    blockedItems.push(p?.name || id);
+                } else {
+                    console.error('Delete failed for id:', id, err);
+                }
             }
         }
-        // Remove all successfully deleted ids from state
-        setProducts(prev => prev.filter(p => !ids.includes(p.id)));
-        if (failed > 0) alert(`${failed} item(s) could not be deleted.`);
+        setProducts(prev => prev.filter(p => !deletedIds.includes(p.id)));
+        if (blockedItems.length > 0) {
+            alert(`${blockedItems.length} item(s) could not be deleted because they are in use:\n• ${blockedItems.join('\n• ')}\n\nArchive them instead.`);
+        }
     };
 
     return (
@@ -514,6 +554,17 @@ function InventoryTab() {
                     <option value="card">Card View</option>
                     <option value="kanban">Kanban View</option>
                     <option value="details">Details View</option>
+                </select>
+
+                {/* Status filter */}
+                <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                    style={{ padding: '4px 8px', fontSize: '12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: statusFilter === 'archived' ? 'rgba(239,68,68,0.08)' : 'var(--bg-primary)', color: statusFilter === 'archived' ? '#ef4444' : 'var(--text-secondary)', cursor: 'pointer' }}
+                >
+                    <option value="active">Active Items</option>
+                    <option value="archived">🗄️ Archived</option>
+                    <option value="all">All Items</option>
                 </select>
 
                 <div style={{ position: 'relative' }}>
@@ -583,7 +634,7 @@ function InventoryTab() {
                     </div>
                 ) : (
                     <>
-                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} onDelete={handleDeleteProduct} onDeleteMany={handleDeleteMany} />}
+                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} onDelete={handleDeleteProduct} onDeleteMany={handleDeleteMany} onArchive={handleArchiveProduct} onRestore={handleRestoreProduct} showArchived={statusFilter === 'archived'} />}
                         {viewType === 'card' && <InventoryCardView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
                         {viewType === 'kanban' && (
                             <InventoryKanbanView
@@ -622,6 +673,41 @@ function InventoryTab() {
                     onCategoryAdded={handleCategoryAdded}
                     onBrandAdded={handleBrandAdded}
                 />
+            )}
+            {/* Dependency / Archive Modal */}
+            {dependencyModal && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: '12px', border: '1px solid var(--border-primary)', padding: '24px', maxWidth: '480px', width: '100%', boxShadow: '0 24px 80px rgba(0,0,0,0.5)' }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
+                            <div style={{ fontSize: '24px' }}>⚠️</div>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)', marginBottom: '4px' }}>Cannot Delete — Item In Use</div>
+                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    <strong style={{ color: 'var(--text-primary)' }}>{dependencyModal.product?.name}</strong> is referenced in the following records:
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', padding: '12px', marginBottom: '20px', maxHeight: '200px', overflowY: 'auto' }}>
+                            {dependencyModal.dependencies.map((dep, i) => (
+                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: i < dependencyModal.dependencies.length - 1 ? '1px solid var(--border-primary)' : 'none', fontSize: '12px' }}>
+                                    <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>{dep.table}</span>
+                                    <span style={{ color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{dep.ref}{dep.date ? ` · ${new Date(dep.date).toLocaleDateString('en-IN')}` : ''}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '20px' }}>
+                            To remove this item permanently, first clear it from all linked transactions. Or you can <strong>archive</strong> it — it will be hidden from active inventory but preserved for historical records.
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setDependencyModal(null)}
+                                style={{ padding: '8px 18px', border: '1px solid var(--border-primary)', borderRadius: '8px', backgroundColor: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', fontSize: '13px' }}
+                            >Cancel</button>
+                            <button onClick={() => handleArchiveProduct(dependencyModal.product?.id)}
+                                style={{ padding: '8px 18px', border: 'none', borderRadius: '8px', backgroundColor: '#f59e0b', color: 'white', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
+                            >🗃️ Archive Instead</button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

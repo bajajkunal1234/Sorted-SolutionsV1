@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react';
-import { Trash2, CheckSquare } from 'lucide-react';
+import { Trash2, CheckSquare, Archive, ArchiveRestore } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import { getStockStatus, getStockStatusColor, getStockStatusLabel, formatStock } from '@/lib/utils/inventoryHelpers';
 
@@ -15,7 +15,7 @@ import { getStockStatus, getStockStatusColor, getStockStatusLabel, formatStock }
  * onDelete(id)          — delete a single item
  * onDeleteMany(ids[])   — bulk delete
  */
-function InventoryTableView({ products, onProductClick, categories = [], visibleColumns, onDelete, onDeleteMany }) {
+function InventoryTableView({ products, onProductClick, categories = [], visibleColumns, onDelete, onDeleteMany, onArchive, onRestore, showArchived = false }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
 
     const isVisible = (col) => !visibleColumns || visibleColumns.has(col);
@@ -44,12 +44,15 @@ function InventoryTableView({ products, onProductClick, categories = [], visible
         setSelectedIds(new Set());
     };
 
-    const handleSingleDelete = async (e, id) => {
-        e.stopPropagation();
-        if (!window.confirm('Delete this item? This cannot be undone.')) return;
-        if (onDelete) await onDelete(id);
-        setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
+    const handleBulkArchive = async () => {
+        if (!selectedIds.size) return;
+        if (!window.confirm(`Archive ${selectedIds.size} selected item(s)?`)) return;
+        for (const id of [...selectedIds]) {
+            if (onArchive) await onArchive(id);
+        }
+        setSelectedIds(new Set());
     };
+
 
     const thBase = {
         padding: '8px 10px',
@@ -99,6 +102,22 @@ function InventoryTableView({ products, onProductClick, categories = [], visible
                     >
                         <Trash2 size={12} /> Delete Selected
                     </button>
+                    {onArchive && !showArchived && (
+                        <button
+                            onClick={handleBulkArchive}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '5px',
+                                padding: '4px 12px', fontSize: '12px', fontWeight: 600,
+                                backgroundColor: 'rgba(245,158,11,0.1)', color: '#f59e0b',
+                                border: '1px solid rgba(245,158,11,0.25)', borderRadius: '6px',
+                                cursor: 'pointer', transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.2)'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.1)'}
+                        >
+                            <Archive size={12} /> Archive Selected
+                        </button>
+                    )}
                     <button
                         onClick={() => setSelectedIds(new Set())}
                         style={{ fontSize: '12px', color: 'var(--text-tertiary)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px' }}
@@ -331,21 +350,47 @@ function InventoryTableView({ products, onProductClick, categories = [], visible
                                         </td>
                                     )}
 
-                                    {/* Per-row delete button */}
-                                    <td style={tdCenter} onClick={e => handleSingleDelete(e, product.id)}>
-                                        <button
-                                            title="Delete"
-                                            style={{
-                                                padding: '3px 5px', border: 'none', borderRadius: '4px',
-                                                backgroundColor: 'transparent', cursor: 'pointer',
-                                                color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center',
-                                                transition: 'all 0.15s'
-                                            }}
-                                            onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'; }}
-                                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                        >
-                                            <Trash2 size={13} />
-                                        </button>
+                                    {/* Per-row action buttons */}
+                                    <td style={tdCenter} onClick={e => e.stopPropagation()}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                                            {showArchived ? (
+                                                // Archived view: show Restore button
+                                                <button
+                                                    title="Restore to Active"
+                                                    onClick={() => onRestore?.(product.id)}
+                                                    style={{ padding: '3px 5px', border: 'none', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+                                                    onMouseEnter={e => { e.currentTarget.style.color = '#10b981'; e.currentTarget.style.backgroundColor = 'rgba(16,185,129,0.08)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                >
+                                                    <ArchiveRestore size={13} />
+                                                </button>
+                                            ) : (
+                                                <>
+                                                    {/* Archive */}
+                                                    {onArchive && (
+                                                        <button
+                                                            title="Archive"
+                                                            onClick={() => { if (window.confirm(`Archive "${product.name}"?`)) onArchive(product.id); }}
+                                                            style={{ padding: '3px 5px', border: 'none', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+                                                            onMouseEnter={e => { e.currentTarget.style.color = '#f59e0b'; e.currentTarget.style.backgroundColor = 'rgba(245,158,11,0.08)'; }}
+                                                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                        >
+                                                            <Archive size={13} />
+                                                        </button>
+                                                    )}
+                                                    {/* Delete */}
+                                                    <button
+                                                        title="Delete"
+                                                        onClick={() => onDelete?.(product.id)}
+                                                        style={{ padding: '3px 5px', border: 'none', borderRadius: '4px', backgroundColor: 'transparent', cursor: 'pointer', color: 'var(--text-tertiary)', display: 'flex', alignItems: 'center', transition: 'all 0.15s' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.08)'; }}
+                                                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-tertiary)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </td>
                                 </tr>
                             );
