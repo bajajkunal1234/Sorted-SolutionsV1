@@ -483,6 +483,10 @@ function InventoryTab() {
     };
 
     const handleDeleteProduct = async (id) => {
+        const product = products.find(p => p.id === id);
+        const name = product?.name || 'this item';
+        if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+
         try {
             await inventoryAPI.delete(id);
             setProducts(prevProducts => prevProducts.filter(p => p.id !== id));
@@ -490,7 +494,6 @@ function InventoryTab() {
         } catch (err) {
             // Blocking dependency error — err.blocking is the dependencies array
             if (Array.isArray(err.blocking) && err.blocking.length > 0) {
-                const product = products.find(p => p.id === id);
                 setDependencyModal({ product, dependencies: err.blocking });
                 return;
             }
@@ -522,25 +525,35 @@ function InventoryTab() {
     };
 
     const handleDeleteMany = async (ids) => {
-        const blockedItems = [];
-        const deletedIds = [];
+        const willDelete = [];
+        const willBlock = [];
+
         for (const id of ids) {
+            const p = products.find(x => x.id === id);
             try {
                 await inventoryAPI.delete(id);
-                deletedIds.push(id);
+                willDelete.push({ id, name: p?.name || id });
             } catch (err) {
                 if (Array.isArray(err.blocking)) {
-                    const p = products.find(x => x.id === id);
-                    blockedItems.push(p?.name || id);
+                    willBlock.push({ id, name: p?.name || id });
                 } else {
                     console.error('Delete failed for id:', id, err);
+                    willBlock.push({ id, name: p?.name || id }); // treat general errors as failed too
                 }
             }
         }
+
+        // Update state
+        const deletedIds = willDelete.map(i => i.id);
         setProducts(prev => prev.filter(p => !deletedIds.includes(p.id)));
-        if (blockedItems.length > 0) {
-            alert(`${blockedItems.length} item(s) could not be deleted because they are in use:\n• ${blockedItems.join('\n• ')}\n\nArchive them instead.`);
+
+        // Always show a clear summary
+        let msg = `Delete Summary\n\n✅ Deleted: ${willDelete.length}\n❌ Could not delete: ${willBlock.length}`;
+        if (willBlock.length > 0) {
+            msg += `\n\nThese items are used in transactions and were skipped:\n• ${willBlock.map(i => i.name).join('\n• ')}`;
+            msg += `\n\nUse the Archive option for items that are in use.`;
         }
+        alert(msg);
     };
 
     return (
