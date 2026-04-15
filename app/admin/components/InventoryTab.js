@@ -488,8 +488,8 @@ function InventoryTab() {
             setProducts(prevProducts => prevProducts.filter(p => p.id !== id));
             setSelectedProduct(null);
         } catch (err) {
-            // Blocking dependency error — show modal instead of plain alert
-            if (err.blocking && err.blocking.length > 0) {
+            // Blocking dependency error — err.blocking is the dependencies array
+            if (Array.isArray(err.blocking) && err.blocking.length > 0) {
                 const product = products.find(p => p.id === id);
                 setDependencyModal({ product, dependencies: err.blocking });
                 return;
@@ -529,7 +529,7 @@ function InventoryTab() {
                 await inventoryAPI.delete(id);
                 deletedIds.push(id);
             } catch (err) {
-                if (err.blocking) {
+                if (Array.isArray(err.blocking)) {
                     const p = products.find(x => x.id === id);
                     blockedItems.push(p?.name || id);
                 } else {

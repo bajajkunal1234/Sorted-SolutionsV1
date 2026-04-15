@@ -241,23 +241,10 @@ export async function DELETE(request) {
                 }
             }
 
-            // Also check inventory_logs (stock movements)
-            try {
-                const { data: logRows, count } = await supabase
-                    .from('inventory_logs')
-                    .select('id', { count: 'exact' })
-                    .eq('inventory_id', id)
-                    .limit(1);
-                if (count && count > 0) {
-                    blocking.push({ table: 'Stock Logs', ref: `${count} movement record(s)`, date: null });
-                }
-            } catch (_) {}
-
             if (blocking.length > 0) {
                 return NextResponse.json({
                     success: false,
-                    blocking: true,
-                    dependencies: blocking,
+                    blocking: blocking,
                     error: `This item is used in ${blocking.length} record(s) and cannot be deleted.`
                 }, { status: 409 })
             }
