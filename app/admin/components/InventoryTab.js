@@ -407,6 +407,35 @@ function InventoryTab() {
         // Batch-add all successfully imported items to state
         if (newItems.length > 0) {
             setProducts(prev => [...prev, ...newItems]);
+
+            // ── Sync new categories/brands into lookup tables ─────────────────
+            // Bulk import saves category/brand as text on the item row, but the
+            // Create form pulls from inventory_categories / inventory_brands tables.
+            // Auto-create any new ones so the form dropdowns stay up to date.
+            try {
+                const existingCatNames = new Set((categories || []).map(c => (c.name || '').toLowerCase()));
+                const existingBrandNames = new Set((managedBrands || []).map(b => (b.name || '').toLowerCase()));
+
+                const newCatNames = [...new Set(newItems.map(i => i.category).filter(Boolean))]
+                    .filter(name => !existingCatNames.has(name.toLowerCase()));
+                const newBrandNames = [...new Set(newItems.map(i => i.brand).filter(Boolean))]
+                    .filter(name => !existingBrandNames.has(name.toLowerCase()));
+
+                await Promise.all([
+                    ...newCatNames.map(name => inventoryCategoriesAPI.create({ name }).catch(() => null)),
+                    ...newBrandNames.map(name => inventoryBrandsAPI.create({ name }).catch(() => null))
+                ]);
+
+                // Refresh dropdowns
+                const [freshCats, freshBrands] = await Promise.all([
+                    inventoryCategoriesAPI.getAll(),
+                    inventoryBrandsAPI.getAll()
+                ]);
+                setCategories(freshCats || []);
+                setManagedBrands(freshBrands || []);
+            } catch (syncErr) {
+                console.warn('Category/brand sync after import failed (non-fatal):', syncErr);
+            }
         }
 
         let summary = `Import Complete!\n\n✅ Imported: ${successCount}\n⏭️ Skipped (already exist): ${skippedCount}\n❌ Failed: ${errors.length}`;
