@@ -301,7 +301,7 @@ function InventoryTab() {
         { id: 'dealer_price',     label: 'Dealer Price' },
         { id: 'retail_price',     label: 'Retail Price' },
         { id: 'unit_of_measure',  label: 'Unit' },
-        { id: 'hsn_code',         label: 'HSN Code' },
+        { id: 'hsn_code',         label: 'HSN / SAC Code' },
         { id: 'hsn_description',  label: 'HSN Description' },
         { id: 'gst_rate',         label: 'GST Rate (%)' },
         { id: 'status',           label: 'Status' },
