@@ -14,7 +14,11 @@ function AMCDetailsModal({ amc, onClose, onViewAccount }) {
     
     // Extracted account details
     const mobileNum    = amc.accounts?.mobile || amc.accounts?.phone || '';
-    const address      = amc.accounts?.mailing_address || '';
+    let address      = amc.accounts?.mailing_address || '';
+    if (amc.accounts?.property && amc.accounts.property.length > 0) {
+        const prop = amc.accounts.property[0];
+        address = [prop.address, prop.locality, prop.city].filter(Boolean).join(', ');
+    }
 
     const isExpiring   = endDate && new Date(endDate) <= new Date(Date.now() + 30*24*60*60*1000);
     const isExpired    = endDate && new Date(endDate) < new Date();

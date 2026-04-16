@@ -24,7 +24,11 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
     
     // Extracted account details
     const mobileNum = rental.accounts?.mobile || rental.accounts?.phone || '';
-    const address = rental.accounts?.mailing_address || '';
+    let address = rental.accounts?.mailing_address || '';
+    if (rental.accounts?.property && rental.accounts.property.length > 0) {
+        const prop = rental.accounts.property[0];
+        address = [prop.address, prop.locality, prop.city].filter(Boolean).join(', ');
+    }
 
     const fmtAmt  = n  => `₹${n.toLocaleString()}`;
     const fmtDate = d  => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';

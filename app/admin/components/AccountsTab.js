@@ -399,8 +399,27 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     useEffect(() => {
         if (customerToOpen && ledgers.length > 0) {
             const customerAccount = ledgers.find(l => l.name === customerToOpen.name || l.id === customerToOpen.id);
-            if (customerAccount) setSelectedAccount(customerAccount);
-            if (onCustomerOpened) onCustomerOpened();
+            if (customerAccount) {
+                setSelectedAccount(customerAccount);
+                if (onCustomerOpened) onCustomerOpened();
+            } else if (customerToOpen.id) {
+                // If the account isn't in the current loaded ledgers (e.g. paginated/filtered), fetch it directly
+                fetch(`/api/admin/accounts?id=${customerToOpen.id}`)
+                    .then(r => r.json())
+                    .then(res => {
+                        if (res.success && res.data) {
+                            setSelectedAccount(res.data);
+                            if (onCustomerOpened) onCustomerOpened();
+                        } else {
+                            if (onCustomerOpened) onCustomerOpened(); // clear on fail too
+                        }
+                    })
+                    .catch(() => {
+                        if (onCustomerOpened) onCustomerOpened();
+                    });
+            } else {
+                if (onCustomerOpened) onCustomerOpened();
+            }
         }
     }, [customerToOpen, ledgers, onCustomerOpened]);
 

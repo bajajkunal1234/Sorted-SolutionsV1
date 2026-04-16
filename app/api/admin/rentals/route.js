@@ -48,7 +48,25 @@ export async function GET(request) {
                         .from('accounts')
                         .select('id, name, mobile, phone, email, mailing_address')
                         .in('id', customerIds)
-                    const accountMap = Object.fromEntries((accounts || []).map(a => [a.id, a]))
+
+                    const { data: props } = await supabase
+                        .from('customer_properties')
+                        .select('customer_id, properties(address, locality, city)')
+                        .in('customer_id', customerIds)
+                        
+                    const accountMap = Object.fromEntries((accounts || []).map(a => [a.id, {...a, property: null}]))
+                    
+                    if (props) {
+                        props.forEach(p => {
+                            if (accountMap[p.customer_id] && p.properties) {
+                                // Just pick the first property for display
+                                if (!accountMap[p.customer_id].property) {
+                                    accountMap[p.customer_id].property = p.properties;
+                                }
+                            }
+                        })
+                    }
+
                     data.forEach(r => {
                         r.accounts = accountMap[r.customer_id] || null
                     })
