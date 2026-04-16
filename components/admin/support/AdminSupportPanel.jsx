@@ -209,9 +209,10 @@ export default function AdminSupportPanel() {
                                         </div>
                                         <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setSelectedArticle(article)}>
                                             <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '3px' }}>{article.title}</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                                 <span style={{ fontSize: '11px', color: cat.color, fontWeight: 600, textTransform: 'uppercase' }}>{cat.icon} {cat.label}</span>
-                                                {article.admin_content && <span style={{ fontSize: '10px', color: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', padding: '1px 6px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '3px' }}><Lock size={9} /> Admin section</span>}
+                                                {article.audience === 'admin' && <span style={{ fontSize: '10px', color: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', padding: '1px 7px', borderRadius: '10px', fontWeight: 700 }}>🔒 Admin Only</span>}
+                                                {article.admin_content && article.audience !== 'admin' && <span style={{ fontSize: '10px', color: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', padding: '1px 6px', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '3px' }}><Lock size={9} /> Admin section</span>}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>

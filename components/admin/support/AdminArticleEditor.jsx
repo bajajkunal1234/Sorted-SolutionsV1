@@ -30,6 +30,7 @@ export default function AdminArticleEditor({ article, onClose, onSaved }) {
         tags: (article?.tags || []).join(', '),
         content: article?.content || '',
         admin_content: article?.admin_content || '',
+        audience: article?.audience || 'all',
         is_published: article?.is_published !== false,
         order_index: article?.order_index || 0,
     })
@@ -184,6 +185,34 @@ export default function AdminArticleEditor({ article, onClose, onSaved }) {
                                 <label style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>ORDER</label>
                                 <input type="number" className="form-input" value={form.order_index} onChange={e => fld('order_index', parseInt(e.target.value) || 0)} style={{ width: '100%', fontSize: '13px' }} />
                             </div>
+                        </div>
+
+                        {/* Audience toggle */}
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'stretch' }}>
+                            <button
+                                onClick={() => fld('audience', 'all')}
+                                style={{
+                                    flex: 1, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
+                                    border: form.audience === 'all' ? '2px solid #3b82f6' : '2px solid var(--border-primary)',
+                                    backgroundColor: form.audience === 'all' ? 'rgba(59,130,246,0.1)' : 'var(--bg-secondary)',
+                                    color: form.audience === 'all' ? '#3b82f6' : 'var(--text-secondary)',
+                                }}
+                            >
+                                🌐 Visible to All<br/>
+                                <span style={{ fontSize: '10px', fontWeight: 400 }}>Technicians + Admin</span>
+                            </button>
+                            <button
+                                onClick={() => fld('audience', 'admin')}
+                                style={{
+                                    flex: 1, padding: '8px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700,
+                                    border: form.audience === 'admin' ? '2px solid #8b5cf6' : '2px solid var(--border-primary)',
+                                    backgroundColor: form.audience === 'admin' ? 'rgba(139,92,246,0.1)' : 'var(--bg-secondary)',
+                                    color: form.audience === 'admin' ? '#8b5cf6' : 'var(--text-secondary)',
+                                }}
+                            >
+                                🔒 Admin Only<br/>
+                                <span style={{ fontSize: '10px', fontWeight: 400 }}>Hidden from technicians</span>
+                            </button>
                         </div>
 
                         {/* Tags */}

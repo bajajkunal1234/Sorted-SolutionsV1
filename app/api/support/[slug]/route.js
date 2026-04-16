@@ -2,25 +2,31 @@ import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
 // GET — single article by slug
-// ?role=admin → include admin_content
+// ?role=admin → include admin_content + admin-audience articles
 export async function GET(request, { params }) {
     try {
         const { slug } = params
         const { searchParams } = new URL(request.url)
         const role = searchParams.get('role')
+        const isAdmin = role === 'admin'
 
-        const { data, error } = await supabase
+        let query = supabase
             .from('support_articles')
             .select('*')
             .eq('slug', slug)
             .eq('is_published', true)
-            .single()
+
+        if (!isAdmin) {
+            query = query.neq('audience', 'admin')
+        }
+
+        const { data, error } = await query.single()
 
         if (error || !data) {
             return NextResponse.json({ success: false, error: 'Article not found' }, { status: 404 })
         }
 
-        if (role !== 'admin') {
+        if (!isAdmin) {
             const { admin_content, ...safe } = data
             return NextResponse.json({ success: true, article: safe })
         }

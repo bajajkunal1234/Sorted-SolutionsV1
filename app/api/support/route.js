@@ -16,19 +16,23 @@ export async function GET(request) {
 
         let query = supabase
             .from('support_articles')
-            .select('id, slug, title, icon, category, tags, content, admin_content, is_published, order_index, updated_at')
+            .select('id, slug, title, icon, category, tags, content, admin_content, is_published, order_index, updated_at, audience')
             .eq('is_published', true)
             .order('order_index', { ascending: true })
 
         if (category) query = query.eq('category', category)
         if (slug) query = query.eq('slug', slug)
+        
+        const isAdmin = role === 'admin'
+        if (!isAdmin) {
+            query = query.neq('audience', 'admin')
+        }
 
         const { data, error } = await query
 
         if (error) throw error
 
         // Strip admin_content for non-admin callers
-        const isAdmin = role === 'admin'
         const articles = (data || []).map(article => {
             if (!isAdmin) {
                 const { admin_content, ...safe } = article
@@ -47,7 +51,7 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json()
-        const { slug, title, icon, category, tags, content, admin_content, is_published, order_index } = body
+        const { slug, title, icon, category, tags, content, admin_content, is_published, order_index, audience } = body
 
         if (!slug || !title || !category || !content) {
             return NextResponse.json({ success: false, error: 'slug, title, category, and content are required' }, { status: 400 })
@@ -65,6 +69,7 @@ export async function POST(request) {
                 admin_content: admin_content || '',
                 is_published: is_published !== false,
                 order_index: order_index || 0,
+                audience: audience || 'all',
             })
             .select()
             .single()
