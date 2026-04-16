@@ -1248,11 +1248,12 @@ function TechnicianApp() {
                 </div>
             )}
 
-            {/* Support Overlay */}
+            {/* Support Overlay — zIndex 10000 to sit above the top bar (9999) */}
             {showSupport && (
                 <div style={{
                     position: 'fixed', inset: 0, backgroundColor: 'var(--bg-primary)',
-                    zIndex: 2000, display: 'flex', flexDirection: 'column',
+                    zIndex: 10000, display: 'flex', flexDirection: 'column',
+                    paddingTop: 'env(safe-area-inset-top)',
                 }}>
                     {/* Support Header */}
                     <div style={{
@@ -1260,6 +1261,7 @@ function TechnicianApp() {
                         backgroundColor: 'var(--bg-elevated)',
                         borderBottom: '1px solid var(--border-primary)',
                         display: 'flex', alignItems: 'center', gap: '10px',
+                        flexShrink: 0,
                     }}>
                         <button
                             onClick={() => setShowSupport(false)}
@@ -1273,7 +1275,7 @@ function TechnicianApp() {
                             </div>
                         </div>
                     </div>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <TechSupportTab />
                     </div>
                 </div>
