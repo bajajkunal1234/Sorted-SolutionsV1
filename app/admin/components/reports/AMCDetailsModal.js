@@ -1,30 +1,23 @@
 'use client'
 
-import { X, Calendar, Package, User, CheckCircle, XCircle, Clock, MapPin, Phone, ExternalLink } from 'lucide-react';
+import { X, Calendar, Package, User, CheckCircle, XCircle, Clock, MapPin, Phone, ExternalLink, PenTool } from 'lucide-react';
 
-function RentalDetailsModal({ rental, onClose, onViewAccount }) {
+function AMCDetailsModal({ amc, onClose, onViewAccount }) {
     // Support both camelCase (old) and snake_case (Supabase)
-    const customerName = rental.customer_name || rental.customerName || 'N/A';
-    const productName  = rental.product_name  || rental.productName  || 'N/A';
-    const serialNum    = rental.serial_number || rental.serialNumber  || 'N/A';
-    const startDate    = rental.start_date    || rental.tenure?.startDate;
-    const endDate      = rental.end_date      || rental.tenure?.endDate;
-    const monthlyRent  = Number(rental.monthly_rent  || rental.monthlyRent  || 0);
-    const secDeposit   = Number(rental.security_deposit || rental.securityDeposit || 0);
-    const setupFee     = Number(rental.setup_fee  || rental.setupFee  || 0);
-    const depositAmt   = Number(rental.deposit_amount || 0);
-    const rentAdv      = Number(rental.rent_advance   || 0);
-    const depositPaid  = rental.deposit_paid;
-    const rentsPaid    = Number(rental.rents_paid     || 0);
-    const rentsRem     = Number(rental.rents_remaining || 0);
-    const totalRents   = rentsPaid + rentsRem;
-    const progress     = totalRents > 0 ? Math.round((rentsPaid / totalRents) * 100) : 0;
-    const nextDue      = rental.next_rent_due_date || rental.nextRentDueDate;
-    const isOverdue    = nextDue && new Date(nextDue) < new Date();
+    const customerName = amc.accounts?.name || amc.customer_name || amc.customerName || 'N/A';
+    const planName     = amc.plan_name || amc.amc_plans?.name || 'Custom Plan';
+    const productName  = `${amc.product_brand || ''} ${amc.product_model || ''}`.trim() || 'N/A';
+    const startDate    = amc.start_date;
+    const endDate      = amc.end_date;
+    const amount       = Number(amc.amc_amount || 0);
+    const jobsCount    = amc.jobs?.length || 0;
     
     // Extracted account details
-    const mobileNum = rental.accounts?.mobile || rental.accounts?.phone || '';
-    const address = rental.accounts?.mailing_address || '';
+    const mobileNum    = amc.accounts?.mobile || amc.accounts?.phone || '';
+    const address      = amc.accounts?.mailing_address || '';
+
+    const isExpiring   = endDate && new Date(endDate) <= new Date(Date.now() + 30*24*60*60*1000);
+    const isExpired    = endDate && new Date(endDate) < new Date();
 
     const fmtAmt  = n  => `₹${n.toLocaleString()}`;
     const fmtDate = d  => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -49,13 +42,13 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
 
                 <div className="modal-header" style={{ flexShrink: 0 }}>
                     <div>
-                        <h2 className="modal-title">Rental Agreement Details</h2>
+                        <h2 className="modal-title">AMC Agreement Details</h2>
                         <span style={{
                             display: 'inline-block', marginTop: 4, padding: '2px 10px', fontSize: 11, fontWeight: 700,
                             borderRadius: 20, textTransform: 'uppercase',
-                            backgroundColor: rental.status === 'active' ? '#10b98120' : '#ef444420',
-                            color: rental.status === 'active' ? '#10b981' : '#ef4444'
-                        }}>{rental.status || 'unknown'}</span>
+                            backgroundColor: amc.status === 'active' ? '#10b98120' : '#ef444420',
+                            color: amc.status === 'active' ? '#10b981' : '#ef4444'
+                        }}>{amc.status === 'active' ? 'Active AMC' : (amc.status || 'unknown')}</span>
                     </div>
                     <button className="btn-icon" onClick={onClose}><X size={20} /></button>
                 </div>
@@ -70,9 +63,9 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
                                     <User size={14} color="var(--text-secondary)" />
                                     <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Customer</span>
                                 </div>
-                                {onViewAccount && rental.customer_id && (
+                                {onViewAccount && amc.account_id && (
                                     <button 
-                                        onClick={() => { onClose(); onViewAccount(rental.customer_id); }}
+                                        onClick={() => { onClose(); onViewAccount(amc.account_id); }}
                                         style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                                     >
                                         <ExternalLink size={12} /> View Account
@@ -102,18 +95,18 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
                                 <span style={{ fontSize: 11, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Product</span>
                             </div>
                             <div style={{ fontSize: 15, fontWeight: 700 }}>{productName}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>SN: {serialNum}</div>
+                            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>Plan: {planName}</div>
                         </Card>
                     </div>
 
                     {/* Contract Dates */}
                     <Card style={{ marginBottom: 16 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            Contract Period
+                            AMC Duration Options
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
                             {[
-                                ['Duration', rental.tenure?.duration ? `${rental.tenure.duration} ${rental.tenure.unit}` : '—'],
+                                ['Plan Value', fmtAmt(amount)],
                                 ['Start Date', fmtDate(startDate)],
                                 ['End Date',   fmtDate(endDate)],
                             ].map(([label, value]) => (
@@ -125,76 +118,55 @@ function RentalDetailsModal({ rental, onClose, onViewAccount }) {
                         </div>
                     </Card>
 
-                    {/* Financial Details */}
+                    {/* Expiry Warning */}
+                    {isExpired || isExpiring ? (
+                        <div style={{
+                            padding: '14px 16px', borderRadius: 'var(--radius-md)', marginBottom: 16,
+                            backgroundColor: isExpired ? '#ef444410' : '#f59e0b10',
+                            border: `1px solid ${isExpired ? '#ef4444' : '#f59e0b'}`
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                {isExpired ? <XCircle size={15} color="#ef4444" /> : <Clock size={15} color="#f59e0b" />}
+                                <span style={{ fontSize: 13, fontWeight: 600, color: isExpired ? '#ef4444' : '#f59e0b' }}>
+                                    {isExpired ? 'AMC Expired' : 'AMC Expiring Soon'}
+                                </span>
+                            </div>
+                            <div style={{ fontSize: 15, fontWeight: 700 }}>
+                                {fmtDate(endDate)} 
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {/* Service Progress */}
                     <Card style={{ marginBottom: 16 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            Financial Summary
+                            Service Summary
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
-                            <Row label="Monthly Rent"        value={fmtAmt(monthlyRent)} highlight="#10b981" />
-                            <Row label="Security Deposit"   value={fmtAmt(secDeposit)} />
-                            {setupFee > 0 && <Row label="Setup Fee" value={fmtAmt(setupFee)} />}
-                            <div style={{ borderTop: '1px solid var(--border-primary)', margin: '6px 0', gridColumn: '1/-1' }} />
-                            <Row label="Deposit Collected"  value={depositAmt > 0 ? fmtAmt(depositAmt) : '—'} />
-                            <Row label="Deposit Status"     value={
-                                depositPaid
-                                    ? <span style={{ display:'flex', alignItems:'center', gap:4, color:'#10b981' }}><CheckCircle size={12}/> Paid</span>
-                                    : secDeposit > depositAmt
-                                        ? <span style={{ color:'#f59e0b' }}>Partial (₹{(secDeposit - depositAmt).toLocaleString()} pending)</span>
-                                        : <span style={{ color:'var(--text-tertiary)' }}>—</span>
-                            } />
-                            {rentAdv > 0 && <Row label="Rent Advance" value={fmtAmt(rentAdv)} highlight="#6366f1" />}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                             <PenTool size={16} color="#6366f1" />
+                             <div>
+                                 <div style={{ fontSize: 14, fontWeight: 600 }}>{jobsCount} Linked Job{jobsCount === 1 ? '' : 's'}</div>
+                                 <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Service records created against this contract</div>
+                             </div>
                         </div>
                     </Card>
-
-                    {/* Payment Progress */}
-                    <Card style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 10, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            Payment Progress
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                            <span style={{ fontSize: 13 }}>{rentsPaid} of {totalRents || '?'} payments made</span>
-                            <span style={{ fontSize: 13, fontWeight: 700 }}>{progress}%</span>
-                        </div>
-                        <div style={{ height: 8, backgroundColor: 'var(--bg-primary)', borderRadius: 4, overflow: 'hidden', marginBottom: 12 }}>
-                            <div style={{ height: '100%', width: `${progress}%`, backgroundColor: '#10b981', transition: 'width 0.3s' }} />
-                        </div>
-                        <Row label="Total Paid" value={fmtAmt(rentsPaid * monthlyRent)} highlight="#10b981" />
-                        <Row label="Remaining"  value={rentsRem > 0 ? fmtAmt(rentsRem * monthlyRent) : '—'} />
-                    </Card>
-
-                    {/* Next Due */}
-                    <div style={{
-                        padding: '14px 16px', borderRadius: 'var(--radius-md)',
-                        backgroundColor: isOverdue ? '#ef444410' : '#3b82f610',
-                        border: `1px solid ${isOverdue ? '#ef4444' : '#3b82f6'}`
-                    }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                            {isOverdue ? <XCircle size={15} color="#ef4444" /> : <Clock size={15} color="#3b82f6" />}
-                            <span style={{ fontSize: 13, fontWeight: 600, color: isOverdue ? '#ef4444' : '#3b82f6' }}>
-                                {isOverdue ? 'Overdue' : 'Next Payment Due'}
-                            </span>
-                        </div>
-                        <div style={{ fontSize: 15, fontWeight: 700 }}>
-                            {nextDue ? fmtDate(nextDue) : 'Not set'} &nbsp;·&nbsp; {fmtAmt(monthlyRent)}
-                        </div>
-                    </div>
-
+                    
                     {/* Notes */}
-                    {rental.notes && (
+                    {amc.notes && (
                         <div style={{ marginTop: 16, padding: '12px 14px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', fontSize: 13 }}>
                             <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginBottom: 4, textTransform: 'uppercase' }}>Notes</div>
-                            {rental.notes}
+                            {amc.notes}
                         </div>
                     )}
                 </div>
 
                 <div className="modal-footer" style={{ flexShrink: 0 }}>
                     <button className="btn btn-secondary" onClick={onClose}>Close</button>
+                    <button className="btn btn-primary" onClick={() => { alert('Schedule routing not implemented in modal directly yet.'); onClose(); }}>Schedule Service</button>
                 </div>
             </div>
         </div>
     );
 }
 
-export default RentalDetailsModal;
+export default AMCDetailsModal;

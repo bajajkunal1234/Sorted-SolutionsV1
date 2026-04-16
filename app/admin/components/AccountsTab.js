@@ -22,8 +22,8 @@ import TransactionsListView from './accounts/TransactionsListView';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 import NewAMCForm from './reports/NewAMCForm';
 import NewRentalForm from './reports/NewRentalForm';
-import PrintAgreementModal from './reports/PrintAgreementModal';
 import RentalDetailsModal from './reports/RentalDetailsModal';
+import AMCDetailsModal from './reports/AMCDetailsModal';
 import RentReceiptsModal from './reports/RentReceiptsModal';
 import WhatsAppShareModal from './accounts/WhatsAppShareModal';
 
@@ -46,6 +46,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [selectedAgreementType, setSelectedAgreementType] = useState(null);
     const [showRentalDetails, setShowRentalDetails] = useState(false);
     const [selectedRentalForDetails, setSelectedRentalForDetails] = useState(null);
+    const [showAMCDetails, setShowAMCDetails] = useState(false);
+    const [selectedAMCForDetails, setSelectedAMCForDetails] = useState(null);
     const [showRentReceipts, setShowRentReceipts] = useState(false);
     const [selectedRentalForPayment, setSelectedRentalForPayment] = useState(null);
     const printSettingsRef = useRef(null);
@@ -1368,6 +1370,7 @@ ${sigHtml}
                                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
                                                                 <button onClick={() => { setSelectedAgreementItem(amc); setSelectedAgreementType('amc'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /> Print</button>
                                                                 <button onClick={() => alert(`Schedule next service for ${amc.accounts?.name || 'Customer'}`)} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Schedule</button>
+                                                                <button onClick={() => { setSelectedAMCForDetails({ ...amc, customerName: amc.accounts?.name || amc.customer_name }); setShowAMCDetails(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#3b82f615', color: '#3b82f6', cursor: 'pointer', fontSize: '11px' }}>Details</button>
                                                             </div>
                                                         </td>
                                                     );
@@ -1928,6 +1931,16 @@ ${sigHtml}
                 <RentalDetailsModal
                     rental={selectedRentalForDetails}
                     onClose={() => { setShowRentalDetails(false); setSelectedRentalForDetails(null); }}
+                    onViewAccount={(id) => handleOpenAccount({ id })}
+                />
+            )}
+            
+            {/* AMC Details Modal */}
+            {showAMCDetails && selectedAMCForDetails && (
+                <AMCDetailsModal
+                    amc={selectedAMCForDetails}
+                    onClose={() => { setShowAMCDetails(false); setSelectedAMCForDetails(null); }}
+                    onViewAccount={(id) => handleOpenAccount({ id })}
                 />
             )}
 

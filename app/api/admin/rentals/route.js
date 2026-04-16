@@ -46,7 +46,7 @@ export async function GET(request) {
                 if (customerIds.length > 0) {
                     const { data: accounts } = await supabase
                         .from('accounts')
-                        .select('id, name')
+                        .select('id, name, mobile, phone, email, mailing_address')
                         .in('id', customerIds)
                     const accountMap = Object.fromEntries((accounts || []).map(a => [a.id, a]))
                     data.forEach(r => {

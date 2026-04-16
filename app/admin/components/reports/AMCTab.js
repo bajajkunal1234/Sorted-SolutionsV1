@@ -8,6 +8,7 @@ import NewAMCForm from './NewAMCForm';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
 import PrintAgreementModal from './PrintAgreementModal';
 import TerminationModal from './TerminationModal';
+import AMCDetailsModal from './AMCDetailsModal';
 
 function AMCTab() {
     const [activeView, setActiveView] = useState('active'); // active, plans, analytics
@@ -16,6 +17,8 @@ function AMCTab() {
     const [editingPlan, setEditingPlan] = useState(null);
     const [showPrintAgreement, setShowPrintAgreement] = useState(false);
     const [selectedAmcForPrint, setSelectedAmcForPrint] = useState(null);
+    const [showAMCDetails, setShowAMCDetails] = useState(false);
+    const [selectedAmcForDetails, setSelectedAmcForDetails] = useState(null);
     const [terminateTarget, setTerminateTarget] = useState(null);
     const [plans, setPlans] = useState([]);
     const [activeAMCs, setActiveAMCs] = useState([]);
@@ -280,7 +283,7 @@ function AMCTab() {
                                         <button
                                             className="btn btn-secondary"
                                             style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                                            onClick={() => alert(`AMC Details: ${amc.id}\n\nCustomer: ${amc.accounts?.name}\nPlan: ${amc.plan_name}\nProduct: ${amc.product_brand} ${amc.product_model}\nContract: ${new Date(amc.start_date).toLocaleDateString('en-GB')} - ${new Date(amc.end_date).toLocaleDateString('en-GB')}\nAmount: ₹${amc.amc_amount}\n\nThis will open a detailed view modal.`)}
+                                            onClick={() => { setSelectedAmcForDetails({ ...amc, customerName: amc.accounts?.name || amc.customer_name }); setShowAMCDetails(true); }}
                                         >
                                             View Details
                                         </button>
@@ -557,6 +560,14 @@ function AMCTab() {
                     type="amc"
                     data={selectedAmcForPrint}
                     onClose={() => setShowPrintAgreement(false)}
+                />
+            )}
+
+            {showAMCDetails && selectedAmcForDetails && (
+                <AMCDetailsModal
+                    amc={selectedAmcForDetails}
+                    onClose={() => { setShowAMCDetails(false); setSelectedAmcForDetails(null); }}
+                    onViewAccount={(id) => window.openCustomerAccount({ id })}
                 />
             )}
 

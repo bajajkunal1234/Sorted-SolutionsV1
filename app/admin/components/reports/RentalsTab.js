@@ -634,6 +634,7 @@ function RentalsTab() {
                         setShowRentalDetails(false);
                         setSelectedRentalForDetails(null);
                     }}
+                    onViewAccount={(id) => window.openCustomerAccount({ id })}
                 />
             )}
 

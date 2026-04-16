@@ -21,7 +21,7 @@ export async function GET(request) {
         } else if (type === 'active') {
             let query = supabase
                 .from('active_amcs')
-                .select('*, amc_plans(name), accounts(name, phone, gstin), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')
+                .select('*, amc_plans(name), accounts(id, name, phone, mobile, email, mailing_address, gstin), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')
                 .order('created_at', { ascending: false })
 
             if (customerId) {
