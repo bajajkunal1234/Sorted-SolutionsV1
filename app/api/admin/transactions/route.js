@@ -77,6 +77,9 @@ export async function GET(request) {
         if (endDate) query = query.lte('date', endDate)
         if (jobId) query = query.eq('job_id', jobId)
 
+        const includeArchived = searchParams.get('include_archived') === '1' || searchParams.get('include_archived') === 'true';
+        if (!includeArchived) query = query.neq('status', 'archived');
+
         const { data, error } = await query
 
         if (error) throw error

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw, Edit2, Shield, Package } from 'lucide-react';
+import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw, Edit2, Shield, Package, Archive } from 'lucide-react';
 import AccountsSearchPanel from '@/components/shared/AccountsSearchPanel';
 import ImportExportButtons from './shared/ImportExportButtons';
 import { accountsAPI, transactionsAPI, accountGroupsAPI, amcAPI, rentalsAPI, printSettingsAPI } from '@/lib/adminAPI';
@@ -85,10 +85,32 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     // Unique id generator
     const uid = () => Math.random().toString(36).slice(2, 9);
 
+    const applyView = (view, targetTab = view.tab || activeTab) => {
+        const c = view.config || {};
+        if (targetTab === 'accounts') {
+            if (c.viewType)    setViewType(c.viewType);
+            if (c.sortBy)      setSortBy(c.sortBy);
+            if (c.groupBy)     setGroupBy(c.groupBy);
+            if (c.activeTags)  setActiveTags(c.activeTags);
+        } else {
+            if (c.txViewType)   setTxViewType(c.txViewType);
+            if (c.txSortBy)     setTxSortBy(c.txSortBy);
+            if (c.txGroupBy)    setTxGroupBy(c.txGroupBy);
+            if (c.txActiveTags) setTxActiveTags(c.txActiveTags);
+        }
+    };
+
     // Fetch saved views once
     useEffect(() => {
-        fetch('/api/admin/account-views').then(r => r.json()).then(d => { if (d.success) setSavedViews(d.data || []); }).catch(() => {});
-    }, []);
+        fetch('/api/admin/account-views').then(r => r.json()).then(d => { 
+            if (d.success) {
+                const views = d.data || [];
+                setSavedViews(views); 
+                const defaultView = views.find(v => v.tab === 'accounts' && v.isDefault);
+                if (defaultView) applyView(defaultView, 'accounts');
+            }
+        }).catch(() => {});
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // -- Saved Views helpers ------------------------------------------
     const persistViews = async (views) => {
@@ -113,21 +135,6 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         await persistViews(updated);
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(null), 2000);
-    };
-
-    const applyView = (view) => {
-        const c = view.config || {};
-        if (activeTab === 'accounts') {
-            if (c.viewType)    setViewType(c.viewType);
-            if (c.sortBy)      setSortBy(c.sortBy);
-            if (c.groupBy)     setGroupBy(c.groupBy);
-            if (c.activeTags)  setActiveTags(c.activeTags);
-        } else {
-            if (c.txViewType)   setTxViewType(c.txViewType);
-            if (c.txSortBy)     setTxSortBy(c.txSortBy);
-            if (c.txGroupBy)    setTxGroupBy(c.txGroupBy);
-            if (c.txActiveTags) setTxActiveTags(c.txActiveTags);
-        }
     };
 
     const deleteView = async (id) => {
@@ -165,7 +172,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: false },
             { id: 'balance_type',    label: 'Bal Type',      align: 'center', defaultOn: false },
             { id: 'is_claimed',      label: 'Claimed',       align: 'center', defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
         sales: [
             { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
@@ -174,7 +182,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
             { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
         purchases: [
             { id: 'number',          label: 'Invoice No',    align: 'left',   defaultOn: true },
@@ -183,7 +192,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
             { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
         quotations: [
             { id: 'number',          label: 'Quote No',      align: 'left',   defaultOn: true },
@@ -192,7 +202,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
             { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
         receipts: [
             { id: 'number',          label: 'Receipt No',    align: 'left',   defaultOn: true },
@@ -201,7 +212,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
             { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
         payments: [
             { id: 'number',          label: 'Payment No',    align: 'left',   defaultOn: true },
@@ -210,7 +222,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Method',        align: 'center', defaultOn: true },
             { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
         amc: [
             { id: 'plan_name',       label: 'Plan',          align: 'left',   defaultOn: true },
@@ -220,7 +233,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'end_date',        label: 'End',           align: 'center', defaultOn: true },
             { id: 'amc_amount',      label: 'Amount',        align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
         rentals: [
             { id: 'product_name',    label: 'Product',       align: 'left',   defaultOn: true },
@@ -230,7 +244,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'next_due',        label: 'Next Due',      align: 'center', defaultOn: true },
             { id: 'security_deposit',label: 'Deposit',       align: 'right',  defaultOn: true },
             { id: 'status',          label: 'Status',        align: 'center', defaultOn: true },
-            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true }
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ]
     };
 
@@ -333,6 +348,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     // Multi-select state
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [bulkDeleting, setBulkDeleting] = useState(false);
+    const [bulkArchiving, setBulkArchiving] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -341,20 +357,20 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 setTabLoading(prev => ({ ...prev, [activeTab]: true }));
                 setSelectedItems(new Set()); // clear selection on tab change
                 if (activeTab === 'accounts') {
-                    const [ledgerData, groupData] = await Promise.all([accountsAPI.getAll(), accountGroupsAPI.getAll()]);
+                    const [ledgerData, groupData] = await Promise.all([accountsAPI.getAll('all', true), accountGroupsAPI.getAll()]);
                     setLedgers(ledgerData || []);
                     setGroups(groupData || []);
                 } else if (activeTab === 'amc') {
-                    const [subscriptions, plans] = await Promise.all([amcAPI.getActive(), amcAPI.getPlans()]);
+                    const [subscriptions, plans] = await Promise.all([amcAPI.getActive({ include_archived: true }), amcAPI.getPlans()]);
                     setAmcSubscriptions(subscriptions || []);
                     setAmcPlans(plans || []);
                 } else if (activeTab === 'rentals') {
-                    const [agreements, plans] = await Promise.all([rentalsAPI.getActive(), rentalsAPI.getPlans()]);
+                    const [agreements, plans] = await Promise.all([rentalsAPI.getActive({ include_archived: true }), rentalsAPI.getPlans()]);
                     setRentalAgreements(agreements || []);
                     setRentalPlans(plans || []);
                 } else {
                     const type = tabToTypeMap[activeTab];
-                    const data = await transactionsAPI.getAll({ type });
+                    const data = await transactionsAPI.getAll({ type, include_archived: true });
                     switch (activeTab) {
                         case 'sales': setSalesInvoices(data || []); break;
                         case 'purchases': setPurchaseInvoices(data || []); break;
@@ -452,6 +468,60 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             setSelectedItems(new Set());
         } else {
             setSelectedItems(new Set(items.map(i => i.id)));
+        }
+    };
+
+    const handleBulkArchive = async () => {
+        if (selectedItems.size === 0) return;
+        const count = selectedItems.size;
+        if (!window.confirm(`Archive ${count} selected item(s)?`)) return;
+        try {
+            setBulkArchiving(true);
+            const ids = Array.from(selectedItems);
+
+            const results = await Promise.allSettled(ids.map(id => {
+                if (activeTab === 'accounts') return accountsAPI.update(id, { status: 'archived' });
+                if (activeTab === 'amc') return fetch(`/api/admin/amc?type=amc`, { method: 'PUT', body: JSON.stringify({ id, status: 'archived' }) });
+                if (activeTab === 'rentals') return fetch(`/api/admin/rentals?type=rental`, { method: 'PUT', body: JSON.stringify({ id, status: 'archived' }) });
+                return transactionsAPI.update(id, tabToTypeMap[activeTab], { status: 'archived' });
+            }));
+
+            const failed = [];
+            results.forEach((result, i) => {
+                if (result.status === 'rejected' || (result.value && !result.value.success)) {
+                    failed.push(`${ids[i]}`);
+                }
+            });
+
+            // Refresh
+            if (activeTab === 'accounts') {
+                const data = await accountsAPI.getAll();
+                setLedgers(data || []);
+            } else if (activeTab === 'amc') {
+                fetch('/api/admin/amc?type=active').then(r => r.json()).then(d => { if (d.success) setAmcSubscriptions(d.data || []); });
+            } else if (activeTab === 'rentals') {
+                fetch('/api/admin/rentals?type=active').then(r => r.json()).then(d => { if (d.success) setRentalAgreements(d.data || []); });
+            } else {
+                const data = await transactionsAPI.getAll({ type: tabToTypeMap[activeTab] });
+                switch (activeTab) {
+                    case 'sales': setSalesInvoices(data || []); break;
+                    case 'purchases': setPurchaseInvoices(data || []); break;
+                    case 'quotations': setQuotations(data || []); break;
+                    case 'receipts': setReceipts(data || []); break;
+                    case 'payments': setPayments(data || []); break;
+                }
+            }
+            setSelectedItems(new Set());
+
+            if (failed.length === 0) {
+                alert(`✅ ${count} item(s) archived successfully.`);
+            } else {
+                alert(`Archived ${count - failed.length}. Failed: ${failed.length}`);
+            }
+        } catch (err) {
+            alert(`Bulk archive failed: ${err.message}`);
+        } finally {
+            setBulkArchiving(false);
         }
     };
 
@@ -558,6 +628,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     // Apply activeTags filter conditions to transaction data
     const applyTxTags = (data, tags) => {
         let result = [...data];
+        const wantsArchived = tags.some(t => t.type === 'preset' && t.filter?.status === 'archived');
+        if (!wantsArchived) result = result.filter(i => i.status !== 'archived');
         for (const tag of tags) {
             if (tag.type === 'preset' && tag.filter) {
                 const f = tag.filter;
@@ -596,6 +668,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     const applyAccTags = (data, tags) => {
         let result = [...data];
+        const wantsArchived = tags.some(t => t.type === 'preset' && t.filter?.status === 'archived');
+        if (!wantsArchived) result = result.filter(l => l.status !== 'archived');
         for (const tag of tags) {
             if (tag.type === 'preset' && tag.filter) {
                 const f = tag.filter;
@@ -1179,6 +1253,14 @@ ${sigHtml}
                                     const d = ledger.created_at ? new Date(ledger.created_at) : null;
                                     return <td key={col.id} style={{ ...tdBase, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                 }
+                                case 'actions': return (
+                                    <td key={col.id} style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                            <button title="New Receipt" onClick={e => { e.stopPropagation(); setActiveTab('receipts'); setActiveForm('receipt-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }} style={{ background: '#10b98115', border: 'none', borderRadius: '4px', color: '#10b981', padding: '4px', cursor: 'pointer' }}>Rec</button>
+                                            <button title="New Payment" onClick={e => { e.stopPropagation(); setActiveTab('payments'); setActiveForm('payment-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }} style={{ background: '#ef444415', border: 'none', borderRadius: '4px', color: '#ef4444', padding: '4px', cursor: 'pointer' }}>Pay</button>
+                                        </div>
+                                    </td>
+                                );
                                 default: return null;
                             }
                         };
@@ -1191,7 +1273,6 @@ ${sigHtml}
                                     </th>
                                     <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Ledger Name</th>
                                     {activeCols.map(col => <th key={col.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: col.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{col.label}</th>)}
-                                    <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1214,12 +1295,6 @@ ${sigHtml}
                                             </div>
                                         </td>
                                         {activeCols.map(col => renderCell(col, ledger))}
-                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                                <button title="New Receipt" onClick={e => { e.stopPropagation(); setActiveTab('receipts'); setActiveForm('receipt-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }} style={{ background: '#10b98115', border: 'none', borderRadius: '4px', color: '#10b981', padding: '4px', cursor: 'pointer' }}>Rec</button>
-                                                <button title="New Payment" onClick={e => { e.stopPropagation(); setActiveTab('payments'); setActiveForm('payment-voucher'); setSelectedTransaction({ account_id: ledger.id, account_name: ledger.name }); }} style={{ background: '#ef444415', border: 'none', borderRadius: '4px', color: '#ef4444', padding: '4px', cursor: 'pointer' }}>Pay</button>
-                                            </div>
-                                        </td>
                                     </tr>
                                     );
                                 })}
@@ -1236,12 +1311,15 @@ ${sigHtml}
         if (activeTab === 'amc') {
             const st = searchTerm.toLowerCase();
             const sDig = st.replace(/\D/g, '');
-            const amcFiltered = amcSubscriptions.filter(a => {
+            const wantsArchived = txActiveTags.some(t => t.type === 'preset' && t.filter?.status === 'archived');
+            let amcFiltered = amcSubscriptions.filter(a => {
+                if (!wantsArchived && a.status === 'archived') return false;
                 const pStr = (a.accounts?.phone || a.accounts?.mobile || '').toLowerCase();
                 const pDig = pStr.replace(/\D/g, '');
                 const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
                 return !st || (a.plan_name || '').toLowerCase().includes(st) || (a.accounts?.name || a.customer_name || '').toLowerCase().includes(st) || pMatch;
             });
+            amcFiltered = applyTxTags(amcFiltered, txActiveTags);
             const totalAMC = amcSubscriptions.length;
             const monthlyRev = amcSubscriptions.reduce((s, a) => s + (Number(a.amc_amount || 0) / 12), 0);
             const soonExpiring = amcSubscriptions.filter(a => {
@@ -1264,7 +1342,6 @@ ${sigHtml}
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                 {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
-                                <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                             </tr></thead>
                             <tbody>
                                 {amcFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No AMC subscriptions found.</td></tr> :
@@ -1286,15 +1363,17 @@ ${sigHtml}
                                                         const d = amc.created_at ? new Date(amc.created_at) : null;
                                                         return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                     }
+                                                    case 'actions': return (
+                                                        <td key={col.id} style={{ padding: 'var(--spacing-sm)' }}>
+                                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                <button onClick={() => { setSelectedAgreementItem(amc); setSelectedAgreementType('amc'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /> Print</button>
+                                                                <button onClick={() => alert(`Schedule next service for ${amc.accounts?.name || 'Customer'}`)} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Schedule</button>
+                                                            </div>
+                                                        </td>
+                                                    );
                                                     default: return null;
                                                 }
                                             })}
-                                            <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                                    <button onClick={() => { setSelectedAgreementItem(amc); setSelectedAgreementType('amc'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /> Print</button>
-                                                    <button onClick={() => alert(`Schedule next service for ${amc.accounts?.name || 'Customer'}`)} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Schedule</button>
-                                                </div>
-                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -1309,12 +1388,16 @@ ${sigHtml}
         if (activeTab === 'rentals') {
             const st = searchTerm.toLowerCase();
             const sDig = st.replace(/\D/g, '');
-            const rentFiltered = rentalAgreements.filter(r => {
+            const wantsArchived = txActiveTags.some(t => t.type === 'preset' && t.filter?.status === 'archived');
+            let rentFiltered = rentalAgreements.filter(r => {
+                if (!wantsArchived && r.status === 'archived') return false;
                 const pStr = (r.accounts?.phone || r.accounts?.mobile || '').toLowerCase();
                 const pDig = pStr.replace(/\D/g, '');
                 const pMatch = pStr.includes(st) || (sDig && pDig.includes(sDig));
                 return !st || (r.product_name || '').toLowerCase().includes(st) || (r.accounts?.name || r.customer_name || '').toLowerCase().includes(st) || pMatch;
             });
+            // Apply txActiveTags conditionally
+            rentFiltered = applyTxTags(rentFiltered, txActiveTags);
             const totalRentals = rentalAgreements.length;
             const monthlyIncome = rentalAgreements.reduce((s, r) => s + (Number(r.monthly_rent || 0)), 0);
             const overdue = rentalAgreements.filter(r => r.next_rent_due_date && new Date(r.next_rent_due_date) < new Date()).length;
@@ -1333,7 +1416,6 @@ ${sigHtml}
                         <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead><tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                 {activeCols.map(c => <th key={c.id} style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: c.align, fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>{c.label}</th>)}
-                                <th style={{ position: 'sticky', top: 0, zIndex: 10, backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', padding: 'var(--spacing-sm)', textAlign: 'center', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Actions</th>
                             </tr></thead>
                             <tbody>
                                 {rentFiltered.length === 0 ? <tr><td colSpan={activeCols.length + 1} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No rental agreements found.</td></tr> :
@@ -1355,16 +1437,18 @@ ${sigHtml}
                                                         const d = rental.created_at ? new Date(rental.created_at) : null;
                                                         return <td key={col.id} style={{ ...td, textAlign: 'center' }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                     }
+                                                    case 'actions': return (
+                                                        <td key={col.id} style={{ padding: 'var(--spacing-sm)' }}>
+                                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                <button onClick={() => { setSelectedRentalForPayment({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name, monthlyRent: Number(rental.monthly_rent), securityDeposit: Number(rental.security_deposit) }); setShowRentReceipts(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Receipts</button>
+                                                                <button onClick={() => { setSelectedRentalForDetails({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name }); setShowRentalDetails(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#3b82f615', color: '#3b82f6', cursor: 'pointer', fontSize: '11px' }}>Details</button>
+                                                                <button onClick={() => { setSelectedAgreementItem({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name }); setSelectedAgreementType('rental'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /></button>
+                                                            </div>
+                                                        </td>
+                                                    );
                                                     default: return null;
                                                 }
                                             })}
-                                            <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                                    <button onClick={() => { setSelectedRentalForPayment({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name, monthlyRent: Number(rental.monthly_rent), securityDeposit: Number(rental.security_deposit) }); setShowRentReceipts(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#10b98115', color: '#10b981', cursor: 'pointer', fontSize: '11px' }}>Receipts</button>
-                                                    <button onClick={() => { setSelectedRentalForDetails({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name }); setShowRentalDetails(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#3b82f615', color: '#3b82f6', cursor: 'pointer', fontSize: '11px' }}>Details</button>
-                                                    <button onClick={() => { setSelectedAgreementItem({ ...rental, productName: rental.product_name, customerName: rental.accounts?.name || rental.customer_name }); setSelectedAgreementType('rental'); setShowPrintAgreement(true); }} style={{ padding: '4px 8px', border: 'none', borderRadius: '4px', backgroundColor: '#6366f115', color: '#6366f1', cursor: 'pointer', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '3px' }}><Printer size={12} /></button>
-                                                </div>
-                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -1424,7 +1508,6 @@ ${sigHtml}
                                 <input type="checkbox" style={chkStyle} checked={allSelected} onChange={() => toggleSelectAll(processedData)} />
                             </th>
                             {activeTxCols.map(col => <th key={col.id} style={{ ...thBase, textAlign: col.align }}>{col.label}</th>)}
-                            <th style={{ ...thBase, textAlign: 'center', width: '110px' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1471,41 +1554,43 @@ ${sigHtml}
                                                     const d = item.created_at ? new Date(item.created_at) : null;
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;
                                                 }
+                                                case 'actions': return (
+                                                    <td key={col.id} style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
+                                                        <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
+                                                            <button
+                                                                title="Edit"
+                                                                onClick={e => { e.stopPropagation(); handleTransactionClick(item); }}
+                                                                style={{ background: 'rgba(99,102,241,0.1)', border: 'none', borderRadius: '6px', color: '#6366f1', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Edit2 size={13} />
+                                                            </button>
+                                                            <button
+                                                                title="Print"
+                                                                onClick={e => { e.stopPropagation(); handlePrintItem(item, activeTab); }}
+                                                                style={{ background: 'rgba(16,185,129,0.1)', border: 'none', borderRadius: '6px', color: '#10b981', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Printer size={13} />
+                                                            </button>
+                                                            <button
+                                                                title="Share via WhatsApp"
+                                                                onClick={e => { e.stopPropagation(); handleShareItem(item, activeTab); }}
+                                                                style={{ background: 'rgba(245,158,11,0.1)', border: 'none', borderRadius: '6px', color: '#f59e0b', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Share2 size={13} />
+                                                             </button>
+                                                            <button
+                                                                title="Delete"
+                                                                onClick={e => { e.stopPropagation(); handleDeleteTransaction(item, activeTab); }}
+                                                                style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Trash2 size={13} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                );
                                                 default: return null;
                                             }
                                         })}
-                                        <td style={{ padding: '4px 8px', textAlign: 'center', whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
-                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', alignItems: 'center' }}>
-                                                <button
-                                                    title="Edit"
-                                                    onClick={e => { e.stopPropagation(); handleTransactionClick(item); }}
-                                                    style={{ background: 'rgba(99,102,241,0.1)', border: 'none', borderRadius: '6px', color: '#6366f1', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                >
-                                                    <Edit2 size={13} />
-                                                </button>
-                                                <button
-                                                    title="Print"
-                                                    onClick={e => { e.stopPropagation(); handlePrintItem(item, activeTab); }}
-                                                    style={{ background: 'rgba(16,185,129,0.1)', border: 'none', borderRadius: '6px', color: '#10b981', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                >
-                                                    <Printer size={13} />
-                                                </button>
-                                                <button
-                                                    title="Share via WhatsApp"
-                                                    onClick={e => { e.stopPropagation(); handleShareItem(item, activeTab); }}
-                                                    style={{ background: 'rgba(245,158,11,0.1)', border: 'none', borderRadius: '6px', color: '#f59e0b', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                >
-                                                    <Share2 size={13} />
-                                                 </button>
-                                                <button
-                                                    title="Delete"
-                                                    onClick={e => { e.stopPropagation(); handleDeleteTransaction(item, activeTab); }}
-                                                    style={{ background: 'rgba(239,68,68,0.1)', border: 'none', borderRadius: '6px', color: '#ef4444', padding: '5px 7px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                >
-                                                    <Trash2 size={13} />
-                                                </button>
-                                            </div>
-                                        </td>
                                     </tr>
                                 ))}
                             </>
@@ -1633,7 +1718,7 @@ ${sigHtml}
                             const totalPages = Math.ceil(totalItems / PAGE_SIZE) || 1;
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span>{totalItems} / {ledgers.length} accounts</span>
+                                    <span>{Math.min(currentPage * PAGE_SIZE, totalItems)} / {totalItems} accounts</span>
                                     {totalPages > 1 && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
@@ -1657,7 +1742,7 @@ ${sigHtml}
                             const totalPages = Math.ceil(f.length / PAGE_SIZE) || 1;
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span>{f.length} / {amcSubscriptions.length} amc</span>
+                                    <span>{Math.min(currentPage * PAGE_SIZE, f.length)} / {f.length} amc</span>
                                     {totalPages > 1 && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
@@ -1681,7 +1766,7 @@ ${sigHtml}
                             const totalPages = Math.ceil(f.length / PAGE_SIZE) || 1;
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span>{f.length} / {rentalAgreements.length} rentals</span>
+                                    <span>{Math.min(currentPage * PAGE_SIZE, f.length)} / {f.length} rentals</span>
                                     {totalPages > 1 && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
@@ -1698,7 +1783,7 @@ ${sigHtml}
                             const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
                             return (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                    <span>{filtered.length} / {all.length} {activeTab}</span>
+                                    <span>{Math.min(currentPage * PAGE_SIZE, filtered.length)} / {filtered.length} {activeTab}</span>
                                     {totalPages > 1 && (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>
@@ -1726,6 +1811,10 @@ ${sigHtml}
                     </span>
                     <button onClick={() => setSelectedItems(new Set())} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '12px' }}>Clear</button>
                     <div style={{ width: '1px', height: '20px', backgroundColor: '#334155' }} />
+                    <button onClick={handleBulkArchive} disabled={bulkArchiving} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', cursor: bulkArchiving ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 600, opacity: bulkArchiving ? 0.7 : 1 }}>
+                        {bulkArchiving ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
+                        {bulkArchiving ? 'Archiving...' : 'Archive Selected'}
+                    </button>
                     <button onClick={handleBulkDelete} disabled={bulkDeleting} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: bulkDeleting ? 'not-allowed' : 'pointer', fontSize: '13px', fontWeight: 600, opacity: bulkDeleting ? 0.7 : 1 }}>
                         {bulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                         {bulkDeleting ? 'Deleting...' : 'Delete Selected'}

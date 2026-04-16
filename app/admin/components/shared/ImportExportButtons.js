@@ -23,9 +23,11 @@ export default function ImportExportButtons({ data = [], columns = [], exportFil
             if (!columns.length) return alert('No template columns available.');
             // Generate a single empty row mapping to column headers
             const templateRow = {};
-            columns.forEach(col => {
-                templateRow[col.label || col.id] = '';
-            });
+            columns
+                .filter(col => col.id !== 'actions' && col.id !== '__selection__')
+                .forEach(col => {
+                    templateRow[col.label || col.id] = '';
+                });
             finalData = [templateRow];
         }
 
@@ -42,7 +44,9 @@ export default function ImportExportButtons({ data = [], columns = [], exportFil
         // Transform the data array into a format matching the visible columns
         const exportData = data.map(item => {
             const row = {};
-            columns.forEach(col => {
+            columns
+                .filter(col => col.id !== 'actions' && col.id !== '__selection__')
+                .forEach(col => {
                 // Get value loosely. Fallback to extracting from item directly by col.id
                 let val = item[col.id];
                 
@@ -112,7 +116,9 @@ export default function ImportExportButtons({ data = [], columns = [], exportFil
                     const colConfig = columns.find(c => c.label === key || c.id === key);
                     
                     if (colConfig) {
-                        mappedRow[colConfig.id] = val;
+                        if (colConfig.id !== 'actions' && colConfig.id !== '__selection__') {
+                            mappedRow[colConfig.id] = val;
+                        }
                     } else {
                          // Preserve unrecognized columns just in case the importer explicitly needs them
                          const slugKey = key.toLowerCase().replace(/[^a-z0-9]/g, '_');

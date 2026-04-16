@@ -34,6 +34,9 @@ export async function GET(request) {
             }
             if (status) query = query.eq('status', status)
 
+            const includeArchived = searchParams.get('include_archived') === '1' || searchParams.get('include_archived') === 'true';
+            if (!includeArchived) query = query.neq('status', 'archived');
+
             const { data, error } = await query
             if (error) throw error
 
@@ -158,6 +161,23 @@ export async function DELETE(request) {
             const { error } = await supabase.from('rental_plans').update({ is_active: false }).eq('id', id)
             if (error) throw error
             return NextResponse.json({ success: true })
+        }
+
+        // ── Dependency check ──────────────────────────────────────────────────
+        if (type === 'rental') {
+            const { data: jobDeps } = await supabase
+                .from('jobs')
+                .select('id, job_number')
+                .eq('contract_id', id)
+                .limit(5);
+
+            if (jobDeps && jobDeps.length > 0) {
+                return NextResponse.json({
+                    success: false,
+                    error: `Cannot delete rental — ${jobDeps.length} job(s) are dependent on it (e.g., ${jobDeps.map(j => j.job_number || j.id).join(', ')}).`,
+                    blocking: [{ type: 'Jobs', records: jobDeps.map(j => j.job_number || j.id) }]
+                }, { status: 400 });
+            }
         }
 
         // Hard delete rental agreement (in case of mistakes)

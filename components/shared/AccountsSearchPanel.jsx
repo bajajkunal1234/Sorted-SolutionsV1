@@ -37,6 +37,7 @@ const ACCOUNT_PRESETS = [
     { id: 'cash',       label: '💰 Cash / Bank',     filter: { type: 'cash' } },
     { id: 'expense',    label: '📉 Expenses',        filter: { type: 'expense' } },
     { id: 'has_bal',    label: '⚖️ Has Balance',     filter: { has_balance: 'yes' } },
+    { id: 'archived',   label: '📦 Archived',        filter: { status: 'archived' } },
 ];
 
 const TX_PRESETS = {
@@ -46,18 +47,21 @@ const TX_PRESETS = {
         { id: 'overdue', label: '⚠️ Overdue',   filter: { status: 'Overdue' } },
         { id: 'draft',   label: '📄 Draft',     filter: { status: 'Draft' } },
         { id: 'partial', label: '🔶 Partial',   filter: { status: 'Partial' } },
+        { id: 'archived',label: '📦 Archived',  filter: { status: 'archived' } },
     ],
     purchases: [
         { id: 'paid',    label: '✅ Paid',      filter: { status: 'Paid' } },
         { id: 'pending', label: '⏳ Pending',   filter: { status: 'Pending' } },
         { id: 'overdue', label: '⚠️ Overdue',   filter: { status: 'Overdue' } },
         { id: 'draft',   label: '📄 Draft',     filter: { status: 'Draft' } },
+        { id: 'archived',label: '📦 Archived',  filter: { status: 'archived' } },
     ],
     quotations: [
         { id: 'draft',    label: '📄 Draft',     filter: { status: 'Draft' } },
         { id: 'sent',     label: '📧 Sent',       filter: { status: 'Sent' } },
         { id: 'accepted', label: '✅ Accepted',  filter: { status: 'Accepted' } },
         { id: 'declined', label: '❌ Declined',  filter: { status: 'Declined' } },
+        { id: 'archived', label: '📦 Archived',  filter: { status: 'archived' } },
     ],
     receipts: [
         { id: 'cash',  label: '💵 Cash',         filter: { payment_mode: 'Cash' } },
@@ -65,12 +69,14 @@ const TX_PRESETS = {
         { id: 'card',  label: '💳 Card',         filter: { payment_mode: 'Card' } },
         { id: 'bank',  label: '🏦 Bank Transfer',filter: { payment_mode: 'Bank Transfer' } },
         { id: 'online',label: '🌐 Online',       filter: { payment_mode: 'Online' } },
+        { id: 'archived',label:'📦 Archived',    filter: { status: 'archived' } },
     ],
     payments: [
         { id: 'cash',  label: '💵 Cash',         filter: { payment_mode: 'Cash' } },
         { id: 'upi',   label: '📱 UPI',          filter: { payment_mode: 'UPI' } },
         { id: 'card',  label: '💳 Card',         filter: { payment_mode: 'Card' } },
         { id: 'bank',  label: '🏦 Bank Transfer',filter: { payment_mode: 'Bank Transfer' } },
+        { id: 'archived',label:'📦 Archived',    filter: { status: 'archived' } },
     ],
 };
 

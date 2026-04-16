@@ -38,6 +38,11 @@ export async function GET(request) {
             }
         }
 
+        const includeArchived = searchParams.get('include_archived') === '1' || searchParams.get('include_archived') === 'true';
+        if (!includeArchived) {
+            query = query.neq('status', 'archived');
+        }
+
         const { data, error } = await query
 
         if (error) throw error
