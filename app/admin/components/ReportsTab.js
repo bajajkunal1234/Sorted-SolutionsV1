@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
 import PrevisitRequirements from './reports/PrevisitRequirements';
@@ -21,6 +21,7 @@ import TechnicianManagement from './reports/TechnicianManagement';
 import AdminPropertiesTab from './reports/AdminPropertiesTab';
 import CustomerAppSettings from './reports/CustomerAppSettings';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+import AdminSupportPanel from '@/components/admin/support/AdminSupportPanel';
 
 import { settingsByCategory } from '@/lib/data/websiteSettingsData';
 
@@ -51,7 +52,8 @@ function ReportsTab() {
         { id: 'notifications', label: 'Notification Center', icon: Bell, component: NotificationCenter, color: '#f59e0b', description: 'Manage push, WhatsApp notifications, templates and triggers' },
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
         { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' },
-        { id: 'bank-reconciler', label: 'Bank Reconciler', icon: FileText, component: BankStatementReconciler, color: '#3b82f6', description: 'Reconcile bank statements with accounting' }
+        { id: 'bank-reconciler', label: 'Bank Reconciler', icon: FileText, component: BankStatementReconciler, color: '#3b82f6', description: 'Reconcile bank statements with accounting' },
+        { id: 'support-sops', label: 'Support SOPs', icon: BookOpen, component: AdminSupportPanel, color: '#8b5cf6', description: 'View and manage technician SOP knowledge base and guides' },
     ];
 
     // Create searchable index of all settings

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import RepairCalculator from '@/components/common/RepairCalculator';
@@ -12,6 +12,7 @@ import { logInteraction, logNavigation } from '@/lib/interactions';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import PWAPrompt from '@/components/common/PWAPrompt';
+import TechSupportTab from '@/components/technician/TechSupportTab';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -56,6 +57,7 @@ function TechnicianApp() {
         }
     }, [darkMode]);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
+    const [showSupport, setShowSupport] = useState(false);
     const [leaveStartDate, setLeaveStartDate] = useState('');
     const [leaveEndDate, setLeaveEndDate] = useState('');
     const [leaveReason, setLeaveReason] = useState('');
@@ -1014,6 +1016,34 @@ function TechnicianApp() {
                 </div>
             </div>
 
+            {/* Support SOPs */}
+            <div style={{
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                marginBottom: 'var(--spacing-md)',
+                overflow: 'hidden'
+            }}>
+                <button
+                    onClick={() => setShowSupport(true)}
+                    style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)',
+                        border: 'none', cursor: 'pointer', gap: 'var(--spacing-sm)'
+                    }}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                        <div style={{ padding: '8px', borderRadius: '8px', backgroundColor: 'rgba(139,92,246,0.15)', display: 'flex' }}>
+                            <BookOpen size={18} color="#8b5cf6" />
+                        </div>
+                        <div style={{ textAlign: 'left' }}>
+                            <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>Support &amp; SOPs</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>Guides, policies, and how-tos</div>
+                        </div>
+                    </div>
+                    <ChevronRight size={16} color="var(--text-tertiary)" />
+                </button>
+            </div>
+
             {/* Logout */}
             <button
                 onClick={handleLogout}
@@ -1214,6 +1244,37 @@ function TechnicianApp() {
                                 Submit Request
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Support Overlay */}
+            {showSupport && (
+                <div style={{
+                    position: 'fixed', inset: 0, backgroundColor: 'var(--bg-primary)',
+                    zIndex: 2000, display: 'flex', flexDirection: 'column',
+                }}>
+                    {/* Support Header */}
+                    <div style={{
+                        padding: 'var(--spacing-sm) var(--spacing-md)',
+                        backgroundColor: 'var(--bg-elevated)',
+                        borderBottom: '1px solid var(--border-primary)',
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                    }}>
+                        <button
+                            onClick={() => setShowSupport(false)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#8b5cf6', fontWeight: 600, fontSize: '13px', padding: '4px 8px', borderRadius: '6px' }}
+                        >
+                            <ChevronLeft size={16} /> Settings
+                        </button>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <BookOpen size={18} color="#8b5cf6" /> Support &amp; SOPs
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <TechSupportTab />
                     </div>
                 </div>
             )}
