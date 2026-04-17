@@ -65,11 +65,12 @@ function PrintSetup() {
     const [previewType, setPreviewType] = useState('invoice');
 
     const templateStyles = [
-        { id: 'modern-boxes', name: 'Modern (Dark Header)', description: 'Dark navy header with white company text — clean and professional' },
-        { id: 'classic-lines', name: 'Classic Lines', description: 'Traditional line separators, light and minimal' },
-        { id: 'minimal-clean', name: 'Minimal Clean', description: 'Ultra-minimal with subtle borders, great for modern businesses' },
-        { id: 'professional-grid', name: 'Professional Grid', description: 'Structured two-column header, grid-based layout' }
+        { id: 'modern-boxes',      name: '🌑 Eclipse',       description: 'Midnight gradient header with gold accents — premium and bold' },
+        { id: 'classic-lines',     name: '🟠 Saffron Pro',   description: 'Warm saffron/orange — inspired by Indian business aesthetics' },
+        { id: 'minimal-clean',     name: '🩵 Arctic',         description: 'Ultra-clean, white space first, with a cool cyan accent' },
+        { id: 'professional-grid', name: '🔴 Crimson Grid',  description: 'Structured two-column layout with a bold crimson red accent' }
     ];
+
 
 
     const handleSave = async () => {
