@@ -4,7 +4,8 @@ import { NextResponse } from 'next/server';
 // Columns that actually exist in the print_settings table
 const ALLOWED_COLUMNS = [
     'company_name', 'company_address', 'company_phone', 'company_email',
-    'gst_number', 'logo_url', 'show_logo', 'show_gst', 'show_terms',
+    'gst_number', 'pan', 'website', 'logo_url',
+    'show_logo', 'show_gst', 'show_terms',
     'paper_size', 'font_size', 'include_signature', 'template_style',
     'gst_breakdown', 'invoice_terms', 'quotation_terms', 'rental_terms', 'amc_terms'
 ];
