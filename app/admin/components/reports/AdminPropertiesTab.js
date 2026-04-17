@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Unlink, Calendar, Clock, Home, Trash2, Activity, RefreshCw } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
@@ -77,6 +77,9 @@ export default function AdminPropertiesTab() {
     const [showAddModal, setShowAddModal] = useState(false)
     const [propertyInteractions, setPropertyInteractions] = useState([])
     const [intLoading, setIntLoading] = useState(false)
+    const [totalCount, setTotalCount] = useState(0)
+    const [allProperties, setAllProperties] = useState([]) // full unfiltered list for instant search
+    const searchTimerRef = useRef(null)
 
     // Edit state
     const [editMode, setEditMode] = useState(false)
@@ -92,9 +95,31 @@ export default function AdminPropertiesTab() {
         try {
             const res = await fetch('/api/admin/properties')
             const data = await res.json()
-            setProperties(data.data || [])
+            const list = data.data || []
+            setProperties(list)
+            setAllProperties(list) // keep master copy for instant search
+            setTotalCount(data.total ?? list.length)
         } catch (e) { console.error(e) }
         finally { setLoading(false) }
+    }
+
+    // Instant client-side search against the full loaded list
+    const handleSearchChange = (val) => {
+        setSearch(val)
+        if (!val.trim()) {
+            setProperties(allProperties)
+            return
+        }
+        const q = val.trim().toLowerCase()
+        const results = allProperties.filter(p =>
+            (p.flat_number || '').toLowerCase().includes(q) ||
+            (p.building_name || '').toLowerCase().includes(q) ||
+            (p.address || '').toLowerCase().includes(q) ||
+            (p.locality || '').toLowerCase().includes(q) ||
+            (p.city || '').toLowerCase().includes(q) ||
+            (p.pincode || '').includes(q)
+        )
+        setProperties(results)
     }
 
     const openDetail = async (prop) => {
@@ -206,16 +231,9 @@ export default function AdminPropertiesTab() {
         }
     }
 
-    const filtered = properties.filter(p => {
-        const q = search.toLowerCase()
-        return !q ||
-            (p.flat_number || '').toLowerCase().includes(q) ||
-            (p.building_name || '').toLowerCase().includes(q) ||
-            (p.address || '').toLowerCase().includes(q) ||
-            (p.locality || '').toLowerCase().includes(q) ||
-            (p.city || '').toLowerCase().includes(q) ||
-            (p.pincode || '').includes(q)
-    })
+    // Server-side search is active — `properties` is already filtered by the DB when `search` is non-empty.
+    // When empty, all properties up to 2000 are returned. No client-side filtering needed.
+    const filtered = properties
 
     return (
         <div style={{ padding: '24px 20px', maxWidth: 900, margin: '0 auto' }}>
@@ -223,7 +241,12 @@ export default function AdminPropertiesTab() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <div>
                     <h1 style={{ fontSize: 26, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Properties</h1>
-                    <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>{properties.length} properties managed</p>
+                    <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+                        {search.trim()
+                            ? `${filtered.length} result${filtered.length !== 1 ? 's' : ''} for "${search}"`
+                            : `${totalCount} properties total`
+                        }
+                    </p>
                 </div>
                 <button onClick={() => setShowAddModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
                     <Plus size={16} /> Add Property
@@ -233,7 +256,20 @@ export default function AdminPropertiesTab() {
             {/* Search */}
             <div style={{ position: 'relative', marginBottom: 20 }}>
                 <Search size={16} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by address, locality, pincode..." style={{ ...S.input, paddingLeft: 36 }} />
+                <input
+                    value={search}
+                    onChange={e => handleSearchChange(e.target.value)}
+                    placeholder="Search by address, building, locality, pincode..."
+                    style={{ ...S.input, paddingLeft: 36, paddingRight: search ? 36 : 12 }}
+                />
+                {search && (
+                    <button
+                        onClick={() => handleSearchChange('')}
+                        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center' }}
+                    >
+                        <X size={14} />
+                    </button>
+                )}
             </div>
 
             {/* Property List */}

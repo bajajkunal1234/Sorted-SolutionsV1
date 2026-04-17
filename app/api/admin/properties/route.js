@@ -11,6 +11,7 @@ export async function GET(request) {
         const id = searchParams.get('id')
         const search = searchParams.get('search') // pincode or address fragment
         const customerId = searchParams.get('customer_id')
+        const q = searchParams.get('q') // admin full-text filter (address, building, locality, pincode)
 
         // Single property by ID
         if (id) {
@@ -151,36 +152,25 @@ export async function GET(request) {
             return NextResponse.json({ success: true, data: enriched })
         }
 
-        // List all properties with last job + active tenant count
-        const { data: all, error } = await supabase
+        // List all properties (with optional server-side text filter)
+        // NOTE: limit raised to 2000 to avoid truncation. Use `q` param for DB-side filtering.
+        let listQuery = supabase
             .from('properties')
-            .select('*')
+            .select('*', { count: 'exact' })
             .order('created_at', { ascending: false })
-            .limit(200)
+
+        if (q && q.trim()) {
+            const term = q.trim()
+            listQuery = listQuery.or(
+                `flat_number.ilike.%${term}%,building_name.ilike.%${term}%,address.ilike.%${term}%,locality.ilike.%${term}%,city.ilike.%${term}%,pincode.eq.${term}`
+            )
+        }
+
+        const { data: all, count: totalCount, error } = await listQuery.limit(2000)
         if (error) throw error
 
-        const enriched = await Promise.all((all || []).map(async (prop) => {
-            const { data: lastJobs } = await supabase
-                .from('jobs')
-                .select('id, category, created_at, status, customer_name')
-                .eq('property_id', prop.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-
-            const { data: currentTenants } = await supabase
-                .from('customer_properties')
-                .select('customer:customers(id, name, full_name, phone)')
-                .eq('property_id', prop.id)
-                .eq('is_active', true)
-
-            return {
-                ...prop,
-                lastJob: lastJobs?.[0] || null,
-                currentTenants: currentTenants?.map(r => r.customer).filter(Boolean) || [],
-            }
-        }))
-
-        return NextResponse.json({ success: true, data: enriched })
+        // Return raw rows — no N+1 enrichment on list view (that's done in the detail panel GET ?id=)
+        return NextResponse.json({ success: true, data: all || [], total: totalCount ?? (all || []).length })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }

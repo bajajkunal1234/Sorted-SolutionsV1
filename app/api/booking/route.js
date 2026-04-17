@@ -186,21 +186,44 @@ export async function POST(request) {
             }
 
             // Link customer to property if both exist
+            // customerId here is the accounts.id (ledger account), so store in account_id
+            // to avoid FK constraint on customers table and match admin lookup patterns.
             if (customerId && propertyId) {
-                // Check if link already exists
-                const { data: linkExist } = await supabase
+                // Check if link already exists (check both account_id and customer_id columns)
+                const { data: linkExistByAccount } = await supabase
+                    .from('customer_properties')
+                    .select('id, is_active')
+                    .eq('account_id', customerId)
+                    .eq('property_id', propertyId)
+                    .maybeSingle()
+
+                const { data: linkExistByCustomer } = await supabase
                     .from('customer_properties')
                     .select('id, is_active')
                     .eq('customer_id', customerId)
                     .eq('property_id', propertyId)
                     .maybeSingle()
+
+                const linkExist = linkExistByAccount || linkExistByCustomer
                 
                 if (!linkExist) {
-                    await supabase.from('customer_properties').insert({
-                        customer_id: customerId,
+                    // Use account_id to avoid FK constraint on customers table
+                    const insertResult = await supabase.from('customer_properties').insert({
+                        account_id: customerId,
                         property_id: propertyId,
-                        is_active: true
+                        is_active: true,
+                        linked_at: new Date().toISOString(),
                     })
+                    if (insertResult.error) {
+                        // Fallback: try storing in both columns (some schemas may need this)
+                        await supabase.from('customer_properties').insert({
+                            account_id: customerId,
+                            customer_id: customerId,
+                            property_id: propertyId,
+                            is_active: true,
+                            linked_at: new Date().toISOString(),
+                        }).catch(err => console.warn('[booking] property link fallback failed:', err.message))
+                    }
                 } else if (!linkExist.is_active) {
                     await supabase.from('customer_properties').update({
                         is_active: true,
