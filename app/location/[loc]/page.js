@@ -259,20 +259,9 @@ export default async function LocationPage({ params }) {
     );
 }
 
-// Generate static params for all locations
-export async function generateStaticParams() {
-    return [
-        { loc: 'andheri' },
-        { loc: 'malad' },
-        { loc: 'ghatkopar' },
-        { loc: 'bandra' },
-        { loc: 'kurla' },
-        { loc: 'parel' },
-        { loc: 'dadar' },
-        { loc: 'borivali' },
-        { loc: 'goregaon' },
-    ]
-}
+// NOTE: generateStaticParams intentionally removed.
+// This page uses `force-dynamic` + noStore() — generateStaticParams causes Vercel to
+// CDN-cache a static snapshot that goes stale and overrides admin-saved content.
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }) {

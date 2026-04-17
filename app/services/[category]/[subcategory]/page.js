@@ -323,42 +323,10 @@ export default async function SubCategoryPage({ params }) {
     );
 }
 
-// Generate static params for all subcategories
-export async function generateStaticParams() {
-    // Fetch subcategories from DB so new appliances added via admin are included at build time
-    const supabase = createServerSupabase()
-    if (!supabase) return [];
-
-    try {
-        const { data: categories } = await supabase
-            .from('booking_categories')
-            .select('slug')
-        const { data: subcategories } = await supabase
-            .from('booking_subcategories')
-            .select('slug, booking_categories(slug)')
-
-        if (subcategories && subcategories.length > 0) {
-            return subcategories
-                .filter(s => s.slug && s.booking_categories?.slug)
-                .map(s => ({
-                    category: s.booking_categories.slug,
-                    subcategory: s.slug
-                }))
-        }
-    } catch (e) {
-        console.error('generateStaticParams subcategory error:', e)
-    }
-
-    // Fallback to hardcoded list
-    return [
-        { category: 'ac-repair', subcategory: 'window-ac' },
-        { category: 'ac-repair', subcategory: 'split-ac' },
-        { category: 'ac-repair', subcategory: 'cassette-ac' },
-        { category: 'oven-repair', subcategory: 'microwave-oven' },
-        { category: 'oven-repair', subcategory: 'otg-oven' },
-        { category: 'oven-repair', subcategory: 'deck-oven' },
-    ]
-}
+// NOTE: generateStaticParams intentionally removed.
+// This page uses `force-dynamic` + noStore() to always fetch live content from Supabase.
+// Having generateStaticParams pre-builds static snapshots that Vercel CDN caches and serves
+// stale, overriding admin edits after the edge cache TTL expires.
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }) {

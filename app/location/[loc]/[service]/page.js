@@ -256,40 +256,9 @@ export default async function SubLocationPage({ params }) {
     );
 }
 
-// Generate static params for all location × service combinations
-export async function generateStaticParams() {
-    // Fetch live appliance slugs from DB so new appliances are included at build
-    try {
-        const supabase = createServerSupabase();
-        if (!supabase) throw new Error('No supabase client');
-        const { data: categories } = await supabase
-            .from('booking_categories')
-            .select('slug')
-            .not('slug', 'is', null)
-
-        if (categories && categories.length > 0) {
-            const params = []
-            LOCATIONS.forEach(loc => {
-                categories.forEach(cat => {
-                    params.push({ loc, service: cat.slug })
-                })
-            })
-            return params
-        }
-    } catch (e) {
-        console.error('generateStaticParams sub-location error:', e)
-    }
-
-    // Fallback
-    const services = ['ac-repair', 'refrigerator-repair', 'washing-machine-repair', 'water-purifier-repair', 'oven-repair', 'hob-repair']
-    const params = []
-    LOCATIONS.forEach(loc => {
-        services.forEach(service => {
-            params.push({ loc, service })
-        })
-    })
-    return params
-}
+// NOTE: generateStaticParams intentionally removed.
+// This page uses `force-dynamic` + noStore() — generateStaticParams causes Vercel to
+// CDN-cache a static snapshot that goes stale and overrides admin-saved content.
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }) {

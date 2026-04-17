@@ -257,17 +257,9 @@ export default async function CategoryPage({ params }) {
     );
 }
 
-// Generate static params for all categories
-export async function generateStaticParams() {
-    return [
-        { category: 'ac-repair' },
-        { category: 'refrigerator-repair' },
-        { category: 'oven-repair' },
-        { category: 'hob-repair' },
-        { category: 'washing-machine-repair' },
-        { category: 'water-purifier-repair' },
-    ]
-}
+// NOTE: generateStaticParams intentionally removed.
+// This page uses `force-dynamic` + noStore() — generateStaticParams causes Vercel to
+// CDN-cache a static snapshot that goes stale and overrides admin-saved content.
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }) {
