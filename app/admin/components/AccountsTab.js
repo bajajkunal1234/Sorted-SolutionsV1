@@ -882,19 +882,30 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     // Print a beautifully branded invoice/quotation using Print Setup settings
     const handlePrintItem = (item, tab) => {
         const ref        = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
-        const acct       = item.account_name || '';
-        const acctPhone  = item.account_phone || item.account_mobile || '';
-        const acctMobile = item.account_mobile || item.account_phone || '';
-        const acctEmail  = item.account_email || '';
-        const acctGSTIN  = item.account_gstin || '';
-        // account_address = property address (built at form-save time); billing_address = fallback
-        const acctAddr   = item.account_address || item.billing_address || '';
+        // ── Live account fallback — fills in fields missing on invoices saved before the migration ──
+        const liveLedger  = (ledgers || []).find(l => l.id === item.account_id) || {};
+        const buildAddr   = (acc) => {
+            const props = acc.properties || [];
+            const p = props[0];
+            if (p) return [p.flat_number, p.building_name, p.address, p.locality, p.pincode ? '- ' + p.pincode : ''].filter(Boolean).join(', ');
+            const a = acc.mailing_address || acc.address || {};
+            if (typeof a === 'string') return a;
+            return [a.street, a.city, a.state, a.pincode].filter(Boolean).join(', ');
+        };
+        const acct       = item.account_name || liveLedger.name || '';
+        const acctPhone  = item.account_phone  || item.account_mobile || liveLedger.mobile || liveLedger.phone || '';
+        const acctMobile = item.account_mobile || item.account_phone  || liveLedger.mobile || liveLedger.phone || '';
+        const acctEmail  = item.account_email  || liveLedger.email || '';
+        const acctGSTIN  = item.account_gstin  || liveLedger.gstin || '';
+        const acctAddr   = item.account_address || item.billing_address || buildAddr(liveLedger);
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
 
+
         const ps           = printSettingsRef.current || {};
         const companyName  = ps.company_name    || 'Your Company';
+
         const companyAddr  = ps.company_address || '';
         const companyPhone = ps.company_phone   || '';
         const companyEmail = ps.company_email   || '';
@@ -1093,22 +1104,20 @@ ${body}
         const saffronPro = () => {
             const S = '#ea580c', W = '#fff7ed', L = '#fed7aa', D = '#431407';
             return wrap('', `
-<div style="background:linear-gradient(90deg,${S},#c2410c);padding:18px 32px;display:flex;justify-content:space-between;align-items:center">
-  <div style="display:flex;align-items:center;gap:14px">
+<div style="background:linear-gradient(90deg,${S},#c2410c);padding:18px 32px;display:flex;justify-content:space-between;align-items:flex-start">
+  <div style="display:flex;align-items:flex-start;gap:14px">
     ${logoTag(true)}
     <div>
       <div style="font-size:20px;font-weight:900;color:#fff">${companyName}</div>
-      ${showGST && companyGstin ? `<div style="font-size:9px;color:rgba(255,255,255,0.8);font-family:monospace">GSTIN: ${companyGstin}</div>` : ''}
+      ${companyAddr ? `<div style="font-size:9.5px;color:rgba(255,255,255,0.75);margin-top:4px;line-height:1.5;max-width:280px">${companyAddr}</div>` : ''}
+      <div style="font-size:9.5px;color:rgba(255,255,255,0.7);margin-top:3px">${[companyPhone, companyEmail].filter(Boolean).join(' &middot; ')}</div>
+      ${showGST && companyGstin ? `<div style="font-size:9px;color:rgba(255,255,255,0.8);font-family:monospace;margin-top:2px">GSTIN: ${companyGstin}</div>` : ''}
     </div>
   </div>
   <div style="background:rgba(255,255,255,0.16);border-radius:6px;padding:6px 14px;border:1px solid rgba(255,255,255,0.3);text-align:right">
     <div style="font-size:17px;font-weight:900;color:#fff;letter-spacing:1.5px">${docTitle}</div>
     <div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px">${ref} &middot; ${date}</div>
   </div>
-</div>
-<div style="background:#fff8f0;border-top:3px solid ${L};padding:8px 32px;font-size:9.5px;color:#92400e;display:flex;gap:20px;flex-wrap:wrap">
-  <span>${companyAddr}</span>
-  <span>${[companyPhone, companyEmail].filter(Boolean).join(' &middot; ')}</span>
 </div>
 <div style="background:${W};border-bottom:2px solid ${L};padding:12px 32px;display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
   <div>${billToBlock(D, '#78350f', '#92400e')}</div>
