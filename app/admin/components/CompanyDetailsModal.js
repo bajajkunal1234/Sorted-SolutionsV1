@@ -8,7 +8,6 @@ function CompanyDetailsModal({ onClose, onSaved }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
-    const [settingsId, setSettingsId] = useState(null);
     const [uploadingLogo, setUploadingLogo] = useState(false);
 
     const [data, setData] = useState({
@@ -26,7 +25,6 @@ function CompanyDetailsModal({ onClose, onSaved }) {
         printSettingsAPI.get()
             .then(ps => {
                 if (ps) {
-                    setSettingsId(ps.id);
                     setData({
                         company_name:    ps.company_name    || '',
                         company_address: ps.company_address || '',
@@ -66,13 +64,10 @@ function CompanyDetailsModal({ onClose, onSaved }) {
     const handleSave = async () => {
         try {
             setSaving(true);
-            const payload = { ...data };
-            if (settingsId) payload.id = settingsId;
-            const result = await printSettingsAPI.update(payload);
-            setSettingsId(result.id);
+            await printSettingsAPI.update(data);
             setSaved(true);
             setTimeout(() => setSaved(false), 2500);
-            if (onSaved) onSaved(result);
+            if (onSaved) onSaved(data);
         } catch (err) {
             alert('Failed to save: ' + err.message);
         } finally {

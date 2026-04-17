@@ -48,7 +48,6 @@ function PrintSetup() {
             setIsLoading(true);
             const data = await printSettingsAPI.get();
             if (data) {
-                setSettingsId(data.id);
                 setSettings({
                     companyName: data.company_name || '',
                     companyAddress: data.company_address || '',
@@ -134,10 +133,7 @@ function PrintSetup() {
                 amc_terms: amcTerms
             };
 
-            if (settingsId) payload.id = settingsId;
-
-            const saved = await printSettingsAPI.update(payload);
-            setSettingsId(saved.id);
+            await printSettingsAPI.update(payload);
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
         } catch (error) {
