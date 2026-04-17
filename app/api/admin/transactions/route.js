@@ -213,13 +213,30 @@ export async function PUT(request) {
         const { searchParams } = new URL(request.url)
         const type = searchParams.get('type')
         const body = await request.json()
-        const { id, ...updates } = body
+        const { id, ...rawUpdates } = body
 
         if (!type || !tableMap[type]) {
             return NextResponse.json({ success: false, error: 'Invalid or missing transaction type' }, { status: 400 });
         }
 
         const tableName = tableMap[type];
+
+        // ── Same column allowlist as POST — strip any computed/UI-only fields ──
+        const tableColumns = {
+            sales:    ['invoice_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','paid_amount','status','notes','terms','job_id'],
+            purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
+            quotation:['quote_number','reference','account_id','account_name','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
+            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
+            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
+        };
+
+        const allowedCols = tableColumns[type];
+        const updates = {};
+        if (allowedCols) {
+            allowedCols.forEach(col => { if (rawUpdates[col] !== undefined) updates[col] = rawUpdates[col]; });
+        } else {
+            Object.assign(updates, rawUpdates);
+        }
 
         const { data, error } = await supabase
             .from(tableName)
