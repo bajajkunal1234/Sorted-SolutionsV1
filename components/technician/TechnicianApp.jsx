@@ -1087,12 +1087,39 @@ function TechnicianApp() {
                 )}
             </div>
 
-            {/* Tab Content */}
+            {/* Tab Content — Support view intercepts here so bottom nav stays visible */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                {activeTab === 'jobs' && renderJobsTab()}
-                {activeTab === 'expenses' && <ExpensesList technicianId={technicianId} />}
-                {activeTab === 'incentives' && renderIncentivesTab()}
-                {activeTab === 'settings' && renderSettingsTab()}
+                {showSupport ? (
+                    <>
+                        {/* Support Header */}
+                        <div style={{
+                            padding: 'var(--spacing-sm) var(--spacing-md)',
+                            backgroundColor: 'var(--bg-elevated)',
+                            borderBottom: '1px solid var(--border-primary)',
+                            display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0,
+                        }}>
+                            <button
+                                onClick={() => setShowSupport(false)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#8b5cf6', fontWeight: 600, fontSize: '13px', padding: '4px 8px', borderRadius: '6px' }}
+                            >
+                                <ChevronLeft size={16} /> Settings
+                            </button>
+                            <div style={{ flex: 1, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <BookOpen size={18} color="#8b5cf6" /> Support &amp; SOPs
+                            </div>
+                        </div>
+                        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                            <TechSupportTab />
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        {activeTab === 'jobs' && renderJobsTab()}
+                        {activeTab === 'expenses' && <ExpensesList technicianId={technicianId} />}
+                        {activeTab === 'incentives' && renderIncentivesTab()}
+                        {activeTab === 'settings' && renderSettingsTab()}
+                    </>
+                )}
             </div>
 
             {/* Bottom Tabs */}
@@ -1248,38 +1275,7 @@ function TechnicianApp() {
                 </div>
             )}
 
-            {/* Support Overlay — zIndex 10000 to sit above the top bar (9999) */}
-            {showSupport && (
-                <div style={{
-                    position: 'fixed', inset: 0, backgroundColor: 'var(--bg-primary)',
-                    zIndex: 10000, display: 'flex', flexDirection: 'column',
-                    paddingTop: 'env(safe-area-inset-top)',
-                }}>
-                    {/* Support Header */}
-                    <div style={{
-                        padding: 'var(--spacing-sm) var(--spacing-md)',
-                        backgroundColor: 'var(--bg-elevated)',
-                        borderBottom: '1px solid var(--border-primary)',
-                        display: 'flex', alignItems: 'center', gap: '10px',
-                        flexShrink: 0,
-                    }}>
-                        <button
-                            onClick={() => setShowSupport(false)}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#8b5cf6', fontWeight: 600, fontSize: '13px', padding: '4px 8px', borderRadius: '6px' }}
-                        >
-                            <ChevronLeft size={16} /> Settings
-                        </button>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <BookOpen size={18} color="#8b5cf6" /> Support &amp; SOPs
-                            </div>
-                        </div>
-                    </div>
-                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <TechSupportTab />
-                    </div>
-                </div>
-            )}
+
 
             {/* Job Detail Modal */}
             {selectedJob && (
