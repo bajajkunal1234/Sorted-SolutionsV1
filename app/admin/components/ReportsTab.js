@@ -204,6 +204,7 @@ function ReportsTab() {
                     <button
                         className="btn btn-secondary"
                         onClick={() => setShowCompanyDetails(true)}
+                        data-company-details-btn
                         style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}
                     >
                         <Building2 size={16} />

@@ -1,22 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Printer, Save, Eye, Upload, X, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { Printer, Save, Eye, Plus, Trash2, CheckCircle, Building2, ExternalLink } from 'lucide-react';
 import { printSettingsAPI } from '@/lib/adminAPI';
 
 function PrintSetup() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [isUploadingLogo, setIsUploadingLogo] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
-    const [settingsId, setSettingsId] = useState(null);
+    // Company info is read-only here — edit via Company Details button
+    const [companyPreview, setCompanyPreview] = useState({ name: '', email: '', gst: '' });
     const [settings, setSettings] = useState({
-        companyName: '',
-        companyAddress: '',
-        companyPhone: '',
-        companyEmail: '',
-        gstNumber: '',
-        logoUrl: null,
         showLogo: true,
         showGST: true,
         showTerms: true,
@@ -48,13 +42,13 @@ function PrintSetup() {
             setIsLoading(true);
             const data = await printSettingsAPI.get();
             if (data) {
+                // Store company info for the preview card only
+                setCompanyPreview({
+                    name: data.company_name || '',
+                    email: data.company_email || '',
+                    gst: data.gst_number || ''
+                });
                 setSettings({
-                    companyName: data.company_name || '',
-                    companyAddress: data.company_address || '',
-                    companyPhone: data.company_phone || '',
-                    companyEmail: data.company_email || '',
-                    gstNumber: data.gst_number || '',
-                    logoUrl: data.logo_url || null,
                     showLogo: data.show_logo ?? true,
                     showGST: data.show_gst ?? true,
                     showTerms: data.show_terms ?? true,
@@ -88,37 +82,14 @@ function PrintSetup() {
         { id: 'professional-grid', name: 'Professional Grid', description: 'Structured two-column header, grid-based layout' }
     ];
 
-    // ── Logo upload — now uses /api/upload, NOT base64 ───────────────────────
-    const handleLogoUpload = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        try {
-            setIsUploadingLogo(true);
-            const fd = new FormData();
-            fd.append('file', file);
-            fd.append('bucket', 'media');
-            fd.append('folder', 'branding');
-            const res = await fetch('/api/upload', { method: 'POST', body: fd });
-            const json = await res.json();
-            if (!json.success) throw new Error(json.error || 'Upload failed');
-            setSettings(prev => ({ ...prev, logoUrl: json.url }));
-        } catch (err) {
-            alert('Logo upload failed: ' + err.message);
-        } finally {
-            setIsUploadingLogo(false);
-        }
-    };
 
     const handleSave = async () => {
         try {
             setIsSaving(true);
+            // Merge layout prefs on top of existing saved data (preserves company info)
+            const existing = await printSettingsAPI.get() || {};
             const payload = {
-                company_name: settings.companyName,
-                company_address: settings.companyAddress,
-                company_phone: settings.companyPhone,
-                company_email: settings.companyEmail,
-                gst_number: settings.gstNumber,
-                logo_url: settings.logoUrl,
+                ...existing,
                 show_logo: settings.showLogo,
                 show_gst: settings.showGST,
                 show_terms: settings.showTerms,
@@ -132,7 +103,6 @@ function PrintSetup() {
                 rental_terms: rentalTerms,
                 amc_terms: amcTerms
             };
-
             await printSettingsAPI.update(payload);
             setSaveSuccess(true);
             setTimeout(() => setSaveSuccess(false), 3000);
@@ -252,59 +222,26 @@ function PrintSetup() {
                     {/* ── LEFT COLUMN ──────────────────────────────────────── */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
 
-                        {/* Company Information */}
-                        <div style={card}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Company Information</h4>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-
-                                {/* Logo Upload — now uses /api/upload */}
-                                <div>
-                                    {label('Company Logo')}
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', flexWrap: 'wrap' }}>
-                                        <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: 'none' }} id="logo-upload" disabled={isUploadingLogo} />
-                                        <label htmlFor="logo-upload" className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', cursor: isUploadingLogo ? 'wait' : 'pointer', margin: 0, display: 'flex', alignItems: 'center', gap: '6px', opacity: isUploadingLogo ? 0.7 : 1 }}>
-                                            <Upload size={14} />
-                                            {isUploadingLogo ? 'Uploading...' : 'Upload Logo'}
-                                        </label>
-                                        {settings.logoUrl && (
-                                            <>
-                                                <img src={settings.logoUrl} alt="Logo" style={{ height: '44px', maxWidth: '120px', objectFit: 'contain', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', backgroundColor: '#fff', padding: '4px' }} />
-                                                <button onClick={() => setSettings(prev => ({ ...prev, logoUrl: null }))} style={{ padding: '4px', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }} title="Remove logo">
-                                                    <X size={16} />
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                    <p style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                        Saved as a URL — no base64 bloat. Recommended: PNG with transparent background, max 500KB.
-                                    </p>
+                        {/* Company Info — read-only summary, edited via Company Details button */}
+                        <div style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)', backgroundColor: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                            <Building2 size={28} style={{ color: '#6366f1', flexShrink: 0, marginTop: 2 }} />
+                            <div style={{ flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>Company Information</h4>
+                                    <a
+                                        href="#"
+                                        onClick={e => { e.preventDefault(); document.querySelector('[data-company-details-btn]')?.click(); }}
+                                        style={{ fontSize: 'var(--font-size-xs)', color: '#6366f1', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500, textDecoration: 'none' }}
+                                    >
+                                        <ExternalLink size={12} /> Edit in Company Details
+                                    </a>
                                 </div>
-
-                                <div>
-                                    {label('Company Name', true)}
-                                    <input type="text" value={settings.companyName} onChange={e => setSettings(p => ({ ...p, companyName: e.target.value }))} className="form-input" style={{ width: '100%' }} placeholder="e.g. Sorted Solutions" />
-                                </div>
-
-                                <div>
-                                    {label('Address')}
-                                    <textarea value={settings.companyAddress} onChange={e => setSettings(p => ({ ...p, companyAddress: e.target.value }))} className="form-input" style={{ width: '100%', minHeight: '60px', resize: 'vertical' }} placeholder="Full business address..." />
-                                </div>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                    <div>
-                                        {label('Phone')}
-                                        <input type="text" value={settings.companyPhone} onChange={e => setSettings(p => ({ ...p, companyPhone: e.target.value }))} className="form-input" style={{ width: '100%' }} placeholder="+91 98765 43210" />
-                                    </div>
-                                    <div>
-                                        {label('Email')}
-                                        <input type="email" value={settings.companyEmail} onChange={e => setSettings(p => ({ ...p, companyEmail: e.target.value }))} className="form-input" style={{ width: '100%' }} placeholder="info@company.com" />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    {label('GSTIN')}
-                                    <input type="text" value={settings.gstNumber} onChange={e => setSettings(p => ({ ...p, gstNumber: e.target.value.toUpperCase() }))} className="form-input" style={{ width: '100%', fontFamily: 'monospace', letterSpacing: '0.08em' }} placeholder="27AABCU9603R1ZM" maxLength={15} />
-                                </div>
+                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
+                                    {companyPreview.name
+                                        ? <><strong style={{ color: 'var(--text-primary)' }}>{companyPreview.name}</strong>{companyPreview.email && ` · ${companyPreview.email}`}{companyPreview.gst && ` · GSTIN: ${companyPreview.gst}`}</>
+                                        : <span style={{ fontStyle: 'italic', color: 'var(--text-tertiary)' }}>No company details saved yet. Click "Company Details" in the top-right of this page.</span>
+                                    }
+                                </p>
                             </div>
                         </div>
 
