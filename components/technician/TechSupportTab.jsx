@@ -253,7 +253,7 @@ export default function TechSupportTab() {
                 </div>
             </div>
 
-            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: '16px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
                 {/* Category Scroll */}
                 {!searchTerm && (
                     <div style={{ overflowX: 'auto', display: 'flex', gap: '8px', padding: '12px 16px', scrollbarWidth: 'none' }}>
@@ -363,7 +363,7 @@ function ArticleReader({ article, onBack }) {
             </div>
 
             {/* Content */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 40px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
                 {/* Article Title */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '16px' }}>
                     <div style={{ fontSize: '32px', lineHeight: 1, flexShrink: 0 }}>{article.icon || cat.icon}</div>

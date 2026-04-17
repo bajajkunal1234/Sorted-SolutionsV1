@@ -772,7 +772,7 @@ function TechnicianApp() {
 
     // Incentives Tab Content
     const renderIncentivesTab = () => (
-        <div style={{ padding: 'var(--spacing-md)', overflow: 'auto', paddingBottom: '80px' }}>
+        <div style={{ padding: 'var(--spacing-md)', overflow: 'auto', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
             <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                 <TrendingUp size={24} color="#10b981" />
                 My Incentives
