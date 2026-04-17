@@ -18,14 +18,6 @@ function PrintSetup() {
         fontSize: 'medium',
         includeSignature: true,
         templateStyle: 'modern-boxes',
-        gstBreakdown: {
-            showCGST: true,
-            showSGST: true,
-            showIGST: false,
-            cgstRate: 9,
-            sgstRate: 9,
-            igstRate: 18
-        }
     });
 
     const [invoiceTerms, setInvoiceTerms] = useState([]);
@@ -56,9 +48,6 @@ function PrintSetup() {
                     fontSize: data.font_size || 'medium',
                     includeSignature: data.include_signature ?? true,
                     templateStyle: data.template_style || 'modern-boxes',
-                    gstBreakdown: data.gst_breakdown || {
-                        showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18
-                    }
                 });
                 setInvoiceTerms(data.invoice_terms || []);
                 setQuotationTerms(data.quotation_terms || []);
@@ -97,7 +86,6 @@ function PrintSetup() {
                 font_size: settings.fontSize,
                 include_signature: settings.includeSignature,
                 template_style: settings.templateStyle,
-                gst_breakdown: settings.gstBreakdown,
                 invoice_terms: invoiceTerms,
                 quotation_terms: quotationTerms,
                 rental_terms: rentalTerms,
@@ -245,39 +233,6 @@ function PrintSetup() {
                             </div>
                         </div>
 
-                        {/* GST Breakdown */}
-                        <div style={card}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>GST Breakdown on Invoices</h4>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                {[
-                                    { key: 'showCGST', rateKey: 'cgstRate', label: 'Show CGST (Central GST)' },
-                                    { key: 'showSGST', rateKey: 'sgstRate', label: 'Show SGST (State GST)' },
-                                    { key: 'showIGST', rateKey: 'igstRate', label: 'Show IGST (Integrated GST)' }
-                                ].map(({ key, rateKey, label: l }) => (
-                                    <div key={key}>
-                                        {checkRow(
-                                            settings.gstBreakdown[key],
-                                            e => setSettings(p => ({ ...p, gstBreakdown: { ...p.gstBreakdown, [key]: e.target.checked } })),
-                                            l
-                                        )}
-                                        {settings.gstBreakdown[key] && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginLeft: '28px', marginTop: '4px' }}>
-                                                <input
-                                                    type="number"
-                                                    value={settings.gstBreakdown[rateKey]}
-                                                    onChange={e => setSettings(p => ({ ...p, gstBreakdown: { ...p.gstBreakdown, [rateKey]: parseFloat(e.target.value) || 0 } }))}
-                                                    className="form-input"
-                                                    style={{ width: '90px' }}
-                                                    min="0" max="100" step="0.5"
-                                                    placeholder="Rate %"
-                                                />
-                                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>%</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
 
                         {/* Print Options */}
                         <div style={card}>

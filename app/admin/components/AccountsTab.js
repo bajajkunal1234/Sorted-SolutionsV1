@@ -901,7 +901,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         const tStyle        = ps.template_style  || 'modern-boxes';
         const fontSize      = ps.font_size === 'small' ? '12px' : ps.font_size === 'large' ? '16px' : '14px';
         const paperSize     = ps.paper_size      || 'A4';
-        const gstB          = ps.gst_breakdown   || { showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18 };
+        // gst_breakdown from Print Setup is intentionally NOT used here.
+        // GST is calculated per product/service tax rate by the invoice form
+        // (Tally-style: each line item has its own taxRate, CGST = rate/2, SGST = rate/2 or IGST = rate)
 
         // Pick T&C based on tab
         const termsMap = { sales: 'invoice_terms', purchases: 'invoice_terms', quotations: 'quotation_terms', rentals: 'rental_terms', amc: 'amc_terms' };
@@ -930,14 +932,25 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
               <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700">&#8377;${Number(it.total || it.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
             </tr>`).join('');
 
-        const cgstAmt = item.cgst > 0 ? item.cgst : (gstB.showCGST ? subtotal * gstB.cgstRate / 100 : 0);
-        const sgstAmt = item.sgst > 0 ? item.sgst : (gstB.showSGST ? subtotal * gstB.sgstRate / 100 : 0);
-        const igstAmt = item.igst > 0 ? item.igst : (gstB.showIGST ? subtotal * gstB.igstRate / 100 : 0);
+        // Use saved cgst/sgst/igst from the invoice record (calculated per line item during form save)
+        const cgstAmt = Number(item.cgst || 0);
+        const sgstAmt = Number(item.sgst || 0);
+        const igstAmt = Number(item.igst || 0);
+
+        // Derive effective rates from line items for display labels (e.g. "CGST (9%)")
+        // Sum taxAmount per item, then CGST rate = (cgst / taxable) * 100
+        const totalTaxable = itemsList.reduce((s, it) => {
+            const taxable = (Number(it.qty || it.quantity || 1) * Number(it.rate || it.unit_price || 0)) - Number(it.discount || 0);
+            return s + taxable;
+        }, 0);
+        const effectiveCGSTRate = (cgstAmt > 0 && totalTaxable > 0) ? ((cgstAmt / totalTaxable) * 100).toFixed(1).replace(/\.0$/, '') : '';
+        const effectiveSGSTRate = (sgstAmt > 0 && totalTaxable > 0) ? ((sgstAmt / totalTaxable) * 100).toFixed(1).replace(/\.0$/, '') : '';
+        const effectiveIGSTRate = (igstAmt > 0 && totalTaxable > 0) ? ((igstAmt / totalTaxable) * 100).toFixed(1).replace(/\.0$/, '') : '';
 
         const taxRows = showGST ? [
-            (gstB.showCGST || item.cgst > 0) ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">CGST (${gstB.cgstRate}%)</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${cgstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : '',
-            (gstB.showSGST || item.sgst > 0) ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">SGST (${gstB.sgstRate}%)</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${sgstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : '',
-            (gstB.showIGST || item.igst > 0) ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">IGST (${gstB.igstRate}%)</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${igstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : ''
+            cgstAmt > 0 ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">CGST${effectiveCGSTRate ? ` (${effectiveCGSTRate}%)` : ''}</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${cgstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : '',
+            sgstAmt > 0 ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">SGST${effectiveSGSTRate ? ` (${effectiveSGSTRate}%)` : ''}</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${sgstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : '',
+            igstAmt > 0 ? `<tr><td style="padding:6px 0;color:#64748b;font-size:13px">IGST${effectiveIGSTRate ? ` (${effectiveIGSTRate}%)` : ''}</td><td style="padding:6px 0;text-align:right;font-size:13px">&#8377;${igstAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</td></tr>` : ''
         ].join('') : '';
 
         const termsHtml = showTerms && terms.length > 0 ? `
