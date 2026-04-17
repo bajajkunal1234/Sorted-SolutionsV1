@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Plus, Grid, Table as TableIcon, Loader2, Trash2, CheckSquare, SlidersHorizontal, Printer, Share2, List, Columns, Layers, RefreshCw, Edit2, Shield, Package, Archive } from 'lucide-react';
@@ -881,11 +881,14 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     // Print a beautifully branded invoice/quotation using Print Setup settings
     const handlePrintItem = (item, tab) => {
-        const ref       = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
-        const acct      = item.account_name || '';
-        const acctPhone = item.account_phone || '';
-        const acctGSTIN = item.account_gstin || '';
-        const acctAddr  = item.billing_address || '';
+        const ref        = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+        const acct       = item.account_name || '';
+        const acctPhone  = item.account_phone || item.account_mobile || '';
+        const acctMobile = item.account_mobile || item.account_phone || '';
+        const acctEmail  = item.account_email || '';
+        const acctGSTIN  = item.account_gstin || '';
+        // account_address = property address (built at form-save time); billing_address = fallback
+        const acctAddr   = item.account_address || item.billing_address || '';
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
@@ -951,12 +954,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             ? `<img src="${logoUrl}" alt="Logo" style="height:44px;max-width:140px;object-fit:contain;margin-bottom:8px;display:block${inv ? ';filter:brightness(0) invert(1)' : ''}">`
             : '';
 
-        const billToBlock = (nameColor, phoneColor, addrColor) => `
+        const billToBlock = (nameColor, contactColor, addrColor) => `
   <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:5px">Bill To</div>
   <div style="font-size:14px;font-weight:800;color:${nameColor}">${acct}</div>
-  ${acctPhone ? `<div style="font-size:11px;color:${phoneColor};margin-top:3px">&#128222; ${acctPhone}</div>` : ''}
-  ${acctAddr  ? `<div style="font-size:10px;color:${addrColor};margin-top:3px;line-height:1.5">${acctAddr}</div>` : ''}
-  ${acctGSTIN ? `<div style="font-size:9.5px;color:${addrColor};margin-top:3px;font-family:monospace">GSTIN: ${acctGSTIN}</div>` : ''}`;
+  ${acctMobile ? `<div style="font-size:11px;color:${contactColor};margin-top:4px">&#128222; ${acctMobile}</div>` : (acctPhone ? `<div style="font-size:11px;color:${contactColor};margin-top:4px">&#128222; ${acctPhone}</div>` : '')}
+  ${acctEmail  ? `<div style="font-size:11px;color:${contactColor};margin-top:2px">&#9993; ${acctEmail}</div>` : ''}
+  ${acctAddr   ? `<div style="font-size:10px;color:${addrColor};margin-top:4px;line-height:1.6;max-width:240px">${acctAddr}</div>` : ''}
+  ${acctGSTIN  ? `<div style="font-size:9.5px;color:${addrColor};margin-top:3px;font-family:monospace">GSTIN: ${acctGSTIN}</div>` : ''}`;
 
         const thead = (bg, color) => `
   <thead><tr style="background:${bg};color:${color}">

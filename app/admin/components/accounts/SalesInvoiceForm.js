@@ -52,8 +52,11 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         account_id: existingInvoice?.account_id || defaultAccount?.id || null,
         account_name: existingInvoice?.account_name || defaultAccount?.name || '',
         account_phone: existingInvoice?.account_phone || defaultAccount?.phone || defaultAccount?.mobile || '',
+        account_mobile: existingInvoice?.account_mobile || defaultAccount?.mobile || defaultAccount?.phone || '',
+        account_email: existingInvoice?.account_email || defaultAccount?.email || '',
         account_gstin: existingInvoice?.account_gstin || defaultAccount?.gstin || '',
         account_state: existingInvoice?.account_state || defaultAccount?.address?.state || defaultAccount?.state || 'Maharashtra',
+        account_address: existingInvoice?.account_address || '',
         accountGSTIN: existingInvoice?.accountGSTIN || defaultAccount?.gstin || '',
         accountState: existingInvoice?.accountState || defaultAccount?.state || 'Maharashtra',
         property: existingInvoice?.property || null,
@@ -138,6 +141,25 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
 
     const totals = calculateTotals();
 
+    // Build a formatted address string from an account's first property or mailing address
+    const buildAccountAddress = (account) => {
+        const props = account.properties || account.customer_properties || [];
+        const p = props[0];
+        if (p) {
+            return [
+                p.flat_number,
+                p.building_name,
+                p.address,
+                p.locality,
+                p.pincode ? `- ${p.pincode}` : ''
+            ].filter(Boolean).join(', ');
+        }
+        // Fall back to mailing/billing address object
+        const addr = account.mailing_address || account.address || {};
+        if (typeof addr === 'string') return addr;
+        return [addr.street, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
+    };
+
     const handleAccountChange = (account) => {
         if (!account) return;
         setFormData(prev => ({
@@ -145,8 +167,11 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             account_id: account.id,
             account_name: account.name,
             account_phone: account.phone || account.mobile || '',
+            account_mobile: account.mobile || account.phone || '',
+            account_email: account.email || '',
             account_gstin: account.gstin || '',
             account_state: account.address?.state || account.state || 'Maharashtra',
+            account_address: buildAccountAddress(account),
             accountGSTIN: account.gstin || '',
             accountState: account.address?.state || account.state || 'Maharashtra',
             property: null,
