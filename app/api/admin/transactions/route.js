@@ -93,13 +93,7 @@ async function syncJournalEntry(type, txData) {
         }
     }
 }
-const tableMap = {
-    'sales': 'sales_invoices',
-    'purchase': 'purchase_invoices',
-    'quotation': 'quotations',
-    'receipt': 'receipt_vouchers',
-    'payment': 'payment_vouchers'
-};
+
 
 // Interaction type maps
 const createdInteractionMap = {
