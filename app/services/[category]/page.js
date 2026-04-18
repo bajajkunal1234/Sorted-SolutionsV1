@@ -3,6 +3,7 @@ import HeroSection from '@/components/services/HeroSection'
 import ServicesGrid from '@/components/services/ServicesGrid'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
 import QuickBookingEmbed from '@/components/services/QuickBookingEmbed'
 import CategoryCards from '@/components/services/CategoryCards'
 import ProblemsSection from '@/components/services/ProblemsSection'
@@ -18,10 +19,13 @@ import ServiceFooter from '@/components/services/ServiceFooter'
 
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 import { unstable_noStore as noStore } from 'next/cache';
+import { headers } from 'next/headers';
 import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
 
 export default async function CategoryPage({ params }) {
-    noStore(); // Opt out of caching to ensure real-time Admin updates
+    // Force dynamic — belt-and-suspenders: noStore() + headers() + revalidate=0
+    noStore();
+    headers(); // Reading headers opts this route into dynamic rendering at the Vercel routing layer
     const { category } = params
     const categoryName = category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 

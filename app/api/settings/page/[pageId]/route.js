@@ -246,7 +246,18 @@ export async function PUT(request, { params }) {
         const { error: syncError } = await supabase.rpc('exec_sql', { sql_query: syncSql });
 
         if (syncError) {
-            logToFile(`[API-PUT] Sync ERROR for ${newPageId}: ${syncError.message}`);
+            const errMsg = `[API-PUT] CRITICAL: Raw SQL Sync FAILED for ${newPageId}: ${syncError.message}`;
+            logToFile(errMsg);
+            console.error(errMsg);
+            // Return failure — the main page_settings row saved, but related tables (problems,
+            // services, localities, FAQs) could not be synced. Without this error, the admin
+            // would see 'saved' but the live page would show empty sections.
+            return NextResponse.json({
+                success: false,
+                error: 'Related data sync failed. Main page settings were saved, but problems/services/localities/FAQs may not have updated.',
+                details: syncError.message,
+                code: syncError.code
+            }, { status: 500 });
         } else {
             logToFile(`[API-PUT] Raw SQL Sync SUCCESS for ${newPageId}`);
         }

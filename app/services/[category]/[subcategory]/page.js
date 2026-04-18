@@ -4,6 +4,8 @@ import IssuesSection from '@/components/services/IssuesSection'
 import ServicesGrid from '@/components/services/ServicesGrid'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 import CategoryCards from '@/components/services/CategoryCards'
 import ProblemsSection from '@/components/services/ProblemsSection'
 import HowItWorksSection from '@/components/homepage/HowItWorksSection'
@@ -20,10 +22,14 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
 import { unstable_noStore as noStore } from 'next/cache';
+import { headers } from 'next/headers';
 import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
 
 export default async function SubCategoryPage({ params }) {
-    noStore(); // Opt out of caching to ensure real-time Admin updates
+    // Force dynamic — call noStore() AND read request headers to opt fully out of
+    // Next.js Full Route Cache and Vercel Edge CDN caching for ALL requests.
+    noStore();
+    headers(); // Reading headers opts this route into dynamic rendering at the Vercel routing layer
     const { category, subcategory } = params
 
     // Format names for display
