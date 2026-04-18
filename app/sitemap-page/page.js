@@ -1,7 +1,7 @@
 /**
  * Human-readable sitemap at /sitemap-page
- * Server Component — fetches data, passes to SitemapViewer client component.
- * Google uses /sitemap.xml — this page is for humans.
+ * Server Component — fetches ONLY ACTIVE pages directly from page_settings table.
+ * No hardcoded logic here — if it's not in the DB, it won't render.
  */
 
 import { createServerSupabase } from '@/lib/supabase-server';
@@ -16,21 +16,6 @@ export const metadata = {
     description: 'Complete sitemap of all pages on Sorted Solutions — appliance repair services across Mumbai.',
 };
 
-const LOCATIONS = [
-    'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
-    'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim',
-    'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla',
-];
-
-const FALLBACK_APPLIANCES = [
-    { name: 'AC Repair',          slug: 'ac-repair',              subcategories: [{ name: 'Split AC', slug: 'split-ac' }, { name: 'Window AC', slug: 'window-ac' }, { name: 'Cassette AC', slug: 'cassette-ac' }] },
-    { name: 'Washing Machine',    slug: 'washing-machine-repair', subcategories: [{ name: 'Front Load', slug: 'front-load' }, { name: 'Top Load', slug: 'top-load' }] },
-    { name: 'Refrigerator',       slug: 'refrigerator-repair',    subcategories: [{ name: 'Single Door', slug: 'single-door' }, { name: 'Double Door', slug: 'double-door' }] },
-    { name: 'Oven Repair',        slug: 'oven-repair',            subcategories: [{ name: 'Microwave Oven', slug: 'microwave-oven' }, { name: 'OTG Oven', slug: 'otg-oven' }] },
-    { name: 'Water Purifier',     slug: 'water-purifier-repair',  subcategories: [{ name: 'Domestic RO', slug: 'domestic-ro' }, { name: 'Commercial RO', slug: 'commercial-ro' }] },
-    { name: 'HOB Repair',         slug: 'hob-repair',             subcategories: [{ name: 'Gas Stove', slug: 'gas-stove' }, { name: 'Built-in HOB', slug: 'built-in-hob' }] },
-];
-
 const STATIC_LINKS = [
     { label: 'Home',                  url: '/' },
     { label: 'Book a Repair',         url: '/booking' },
@@ -40,44 +25,72 @@ const STATIC_LINKS = [
     { label: 'Accessibility',         url: '/accessibility' },
 ];
 
-async function fetchAppliances() {
-    try {
-        const supabase = createServerSupabase();
-        if (!supabase) return FALLBACK_APPLIANCES;
+const KNOWN_CATS = [
+    'ac-repair', 'washing-machine-repair', 'refrigerator-repair',
+    'oven-repair', 'hob-repair', 'water-purifier-repair',
+];
 
-        const { data: cats } = await supabase
-            .from('booking_categories')
-            .select('id, name, slug')
-            .order('display_order', { ascending: true });
-
-        if (!cats?.length) return FALLBACK_APPLIANCES;
-
-        const { data: subs } = await supabase
-            .from('booking_subcategories')
-            .select('id, name, slug, category_id')
-            .order('display_order', { ascending: true });
-
-        return cats.map(cat => ({
-            name: cat.name,
-            slug: cat.slug,
-            subcategories: (subs || [])
-                .filter(s => s.category_id === cat.id)
-                .map(s => ({ name: s.name, slug: s.slug || s.name.toLowerCase().replace(/\s+/g, '-') })),
-        }));
-    } catch {
-        return FALLBACK_APPLIANCES;
-    }
-}
+const KNOWN_LOCS = [
+    'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
+    'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim',
+    'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla',
+];
 
 export default async function SitemapPage() {
     noStore();
-    const appliances = await fetchAppliances();
+
+    const supabase = createServerSupabase();
+    let categories = [];
+    let subcategories = [];
+    let locations = [];
+    let sublocations = [];
+
+    if (supabase) {
+        // Source of truth: only active pages in the DB
+        const { data, error } = await supabase
+            .from('page_settings')
+            .select('page_id')
+            .limit(2000);
+
+        if (data && !error) {
+            data.forEach(page => {
+                const id = page.page_id;
+                
+                if (id.startsWith('cat-')) {
+                    const slug = id.replace('cat-', '');
+                    categories.push({ label: slug, url: `/services/${slug}`, slug });
+                } 
+                else if (id.startsWith('sub-')) {
+                    const rest = id.replace('sub-', '');
+                    const cat = KNOWN_CATS.find(c => rest.startsWith(c + '-'));
+                    if (cat) {
+                        const subSlug = rest.slice(cat.length + 1);
+                        subcategories.push({ catSlug: cat, label: subSlug, url: `/services/${cat}/${subSlug}`, slug: subSlug });
+                    }
+                }
+                else if (id.startsWith('loc-')) {
+                    const slug = id.replace('loc-', '');
+                    locations.push({ label: slug, url: `/location/${slug}`, slug });
+                }
+                else if (id.startsWith('sloc-')) {
+                    const rest = id.replace('sloc-', '');
+                    const loc = KNOWN_LOCS.find(l => rest.startsWith(l + '-'));
+                    if (loc) {
+                        const catSlug = rest.slice(loc.length + 1);
+                        sublocations.push({ locSlug: loc, catSlug, label: `${catSlug} in ${loc}`, url: `/location/${loc}/${catSlug}` });
+                    }
+                }
+            });
+        }
+    }
 
     return (
         <SitemapViewer
             staticLinks={STATIC_LINKS}
-            appliances={appliances}
-            locations={LOCATIONS}
+            categories={categories}
+            subcategories={subcategories}
+            locations={locations}
+            sublocations={sublocations}
         />
     );
 }
