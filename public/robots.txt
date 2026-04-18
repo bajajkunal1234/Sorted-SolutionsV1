@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+
+# Block admin panel from indexing
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /technician
+Disallow: /technician/
+Disallow: /customer/dashboard
+Disallow: /tech
+
+# Allow Google to crawl important paths
+Allow: /services/
+Allow: /location/
+Allow: /booking
+Allow: /contact
+
+Sitemap: https://www.sorted.solutions/sitemap.xml
