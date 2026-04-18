@@ -22,6 +22,7 @@ import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 import { unstable_noStore as noStore } from 'next/cache';
 import { headers } from 'next/headers';
 import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
+import { notFound } from 'next/navigation';
 
 export default async function CategoryPage({ params }) {
     // Force dynamic — belt-and-suspenders: noStore() + headers() + revalidate=0
@@ -38,6 +39,11 @@ export default async function CategoryPage({ params }) {
 
     try {
         const apiData = await getFullPageData(pageId);
+        // If no page_settings row exists for this page, return 404.
+        // This ensures deleted pages stop loading and stay out of the sitemap.
+        if (!apiData.success || !apiData.data) {
+            notFound();
+        }
         if (apiData.success && apiData.data) {
             const d = apiData.data;
             const r = apiData.related || {};

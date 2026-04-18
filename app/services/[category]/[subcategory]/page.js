@@ -21,10 +21,10 @@ import AnchorScrollHandler from '@/components/common/AnchorScrollHandler'
 
 import { createServerSupabase } from '@/lib/supabase-server'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
-
 import { unstable_noStore as noStore } from 'next/cache';
 import { headers } from 'next/headers';
 import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
+import { notFound } from 'next/navigation';
 
 export default async function SubCategoryPage({ params }) {
     // Force dynamic — call noStore() AND read request headers to opt fully out of
@@ -47,7 +47,14 @@ export default async function SubCategoryPage({ params }) {
         console.log(`[SubcatPage] Fetching settings for ${pageId} natively`);
         const apiData = await getFullPageData(pageId);
 
+        // If no page_settings row exists, return 404.
+        // Deleted pages will stop loading and won't appear in the sitemap.
+        if (!apiData.success || !apiData.data) {
+            notFound();
+        }
+
         if (apiData.success && apiData.data) {
+
             const d = apiData.data;
             const r = apiData.related || {};
 
