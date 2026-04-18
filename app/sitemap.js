@@ -20,13 +20,17 @@ export const revalidate = 3600; // Regenerate at most once per hour
 
 const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in').replace(/\/$/, '');
 
-// Known category slugs — used to correctly split page_ids like
-// 'sub-water-purifier-repair-domestic-ro-water-purifier'
-// Keep in sync with booking_categories table.
+// Known category slugs — used ONLY to correctly parse page_ids like
+// 'sub-water-purifier-repair-domestic-ro-water-purifier' into
+// /services/water-purifier-repair/domestic-ro-water-purifier
+// Keep in sync with actual rows in booking_categories DB table.
 const KNOWN_CATS = [
-    'ac-repair', 'washing-machine-repair', 'refrigerator-repair',
-    'oven-repair', 'hob-repair', 'water-purifier-repair',
-    'dishwasher-repair', 'microwave-repair', 'dryer-repair',
+    'ac-repair',
+    'washing-machine-repair',
+    'refrigerator-repair',
+    'oven-repair',
+    'hob-repair',
+    'water-purifier-repair',
 ];
 
 const KNOWN_LOCS = [
