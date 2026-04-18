@@ -149,10 +149,11 @@ export default function PageBuilderTool({ onEditPage, onPageCreated }) {
             if (data.success) {
                 setActivePages(prev => prev.filter(p => p.page_id !== pageId));
             } else {
-                alert('Delete failed: ' + data.error);
+                alert(`❌ Delete failed for "${pageId}":\n\n${data.error || 'Unknown error'}`);
+                // Do NOT remove from UI — the page still exists in DB
             }
         } catch (e) {
-            alert('Error: ' + e.message);
+            alert('Network error: ' + e.message);
         } finally {
             setDeletingId(null);
         }
