@@ -1,0 +1,125 @@
+import { supabase } from '@/lib/supabase'
+import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
+
+export const dynamic = 'force-dynamic'
+
+// GET - Fetch all journal entries with lines
+export async function GET(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const id = searchParams.get('id')
+        const type = searchParams.get('type')
+        const startDate = searchParams.get('start_date')
+        const endDate = searchParams.get('end_date')
+
+        let query = supabase
+            .from('journal_entries')
+            .select(`
+                *,
+                lines:journal_entry_lines(
+                    *,
+                    account:accounts(id, name, under, sku)
+                )
+            `)
+            .order('date', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(100)
+
+        if (id) {
+            query = query.eq('id', id).single()
+            const { data, error } = await query
+            if (error) throw error
+            return NextResponse.json({ success: true, data })
+        }
+
+        if (type) query = query.eq('reference_type', type)
+        if (startDate) query = query.gte('date', startDate)
+        if (endDate) query = query.lte('date', endDate)
+
+        const { data, error } = await query
+        if (error) throw error
+
+        return NextResponse.json({ success: true, data })
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+}
+
+// POST - Create manual journal entry
+export async function POST(request) {
+    try {
+        const body = await request.json()
+        const { date, reference_type = 'manual', notes, lines } = body
+
+        if (!lines || !Array.isArray(lines) || lines.length < 2) {
+            return NextResponse.json({ success: false, error: 'A journal entry requires at least two lines' }, { status: 400 })
+        }
+
+        // Validate Balance
+        const totalDebit = lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0)
+        const totalCredit = lines.reduce((sum, l) => sum + (parseFloat(l.credit) || 0), 0)
+        
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+            return NextResponse.json({ success: false, error: `Journal is unbalanced. Debits: ${totalDebit}, Credits: ${totalCredit}` }, { status: 400 })
+        }
+
+        if (totalDebit <= 0) {
+            return NextResponse.json({ success: false, error: 'Journal must have a non-zero value' }, { status: 400 })
+        }
+
+        // Generate ID
+        const dateObj = new Date(date || Date.now());
+        const yy = String(dateObj.getFullYear()).slice(-2);
+        const { count } = await supabase.from('journal_entries').select('*', { count: 'exact', head: true });
+        const entry_number = `JE-${yy}-${String((count || 0) + 1).padStart(4, '0')}`;
+
+        // Insert Header
+        const { data: header, error: headerErr } = await supabase
+            .from('journal_entries')
+            .insert([{
+                entry_number,
+                date: date || new Date().toISOString(),
+                reference_type,
+                notes
+            }])
+            .select()
+            .single()
+
+        if (headerErr) throw headerErr
+
+        // Insert Lines
+        const linePayloads = lines.map(l => ({
+            journal_entry_id: header.id,
+            account_id: l.account_id,
+            debit: parseFloat(l.debit) || 0,
+            credit: parseFloat(l.credit) || 0,
+            description: l.description || ''
+        }))
+
+        const { error: linesErr } = await supabase
+            .from('journal_entry_lines')
+            .insert(linePayloads)
+
+        if (linesErr) {
+            // rollback
+            await supabase.from('journal_entries').delete().eq('id', header.id)
+            throw linesErr
+        }
+
+        // Log interaction for manual
+        if (reference_type === 'manual') {
+            logInteractionServer({
+                type: 'journal-created',
+                category: 'account',
+                performedByName: 'Admin',
+                description: `Created Manual Journal ${entry_number} for ₹${totalDebit}`,
+                source: 'Admin App'
+            });
+        }
+
+        return NextResponse.json({ success: true, data: header })
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+}

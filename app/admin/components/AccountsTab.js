@@ -19,6 +19,7 @@ import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import TransactionsCardView from './accounts/TransactionsCardView';
 import TransactionsKanbanView from './accounts/TransactionsKanbanView';
 import TransactionsListView from './accounts/TransactionsListView';
+import JournalEntryForm from './accounts/JournalEntryForm';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
 import NewAMCForm from './reports/NewAMCForm';
 import NewRentalForm from './reports/NewRentalForm';
@@ -37,6 +38,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [quotations, setQuotations] = useState([]);
     const [receipts, setReceipts] = useState([]);
     const [payments, setPayments] = useState([]);
+    const [journals, setJournals] = useState([]);
     const [amcSubscriptions, setAmcSubscriptions] = useState([]);
     const [amcPlans, setAmcPlans] = useState([]);
     const [rentalAgreements, setRentalAgreements] = useState([]);
@@ -55,10 +57,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [showShareModal, setShowShareModal] = useState(false);
     const [shareItem, setShareItem] = useState(null);
     const [shareTab, setShareTab] = useState(null);
-    const [tabLoading, setTabLoading] = useState({ accounts: true, sales: false, purchases: false, quotations: false, receipts: false, payments: false, amc: false, rentals: false });
+    const [tabLoading, setTabLoading] = useState({ accounts: true, sales: false, purchases: false, quotations: false, receipts: false, payments: false, amc: false, rentals: false, journals: false });
     const [error, setError] = useState(null);
 
-    const tabToTypeMap = { sales: 'sales', purchases: 'purchase', quotations: 'quotation', receipts: 'receipt', payments: 'payment' };
+    const tabToTypeMap = { sales: 'sales', purchases: 'purchase', quotations: 'quotation', receipts: 'receipt', payments: 'payment', journals: 'journal' };
 
     const [viewType, setViewType] = useState('table');
     const [searchTerm, setSearchTerm] = useState('');
@@ -227,6 +229,15 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
             { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
         ],
+        journals: [
+            { id: 'entry_number',    label: 'Entry No',      align: 'left',   defaultOn: true },
+            { id: 'date',            label: 'Date',          align: 'center', defaultOn: true },
+            { id: 'reference_type',  label: 'Type',          align: 'center', defaultOn: true },
+            { id: 'amount',          label: 'Amount',        align: 'right',  defaultOn: true },
+            { id: 'created_by',      label: 'Created By',    align: 'left',   defaultOn: true },
+            { id: 'created_at',      label: 'Created On',    align: 'center', defaultOn: true },
+            { id: 'actions',         label: 'Actions',       align: 'center', defaultOn: true }
+        ],
         amc: [
             { id: 'plan_name',       label: 'Plan',          align: 'left',   defaultOn: true },
             { id: 'account_name',    label: 'Customer',      align: 'left',   defaultOn: true },
@@ -370,6 +381,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     const [agreements, plans] = await Promise.all([rentalsAPI.getActive({ include_archived: true }), rentalsAPI.getPlans()]);
                     setRentalAgreements(agreements || []);
                     setRentalPlans(plans || []);
+                } else if (activeTab === 'journals') {
+                    const res = await fetch('/api/admin/journals').then(r => r.json());
+                    if(res.success) {
+                        setJournals((res.data || []).map(j => ({ ...j, amount: j.lines?.filter(l => l.debit > 0).reduce((s, l) => s + Number(l.debit), 0) || 0 })));
+                    }
                 } else {
                     const type = tabToTypeMap[activeTab];
                     const data = await transactionsAPI.getAll({ type, include_archived: true });
@@ -430,6 +446,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         quotations: { label: 'Quotations',  searchPlaceholder: 'Search Quotations...',       createButtonText: 'Create Quotation',         formType: 'quotation' },
         receipts:   { label: 'Receipts',    searchPlaceholder: 'Search Receipts...',         createButtonText: 'Create Receipt Voucher',   formType: 'receipt-voucher' },
         payments:   { label: 'Payments',    searchPlaceholder: 'Search Payments...',         createButtonText: 'Create Payment Voucher',   formType: 'payment-voucher' },
+        journals:   { label: 'Journals',    searchPlaceholder: 'Search Journal Entries...',  createButtonText: 'Create Journal Entry',     formType: 'journal-entry' },
         amc:        { label: 'AMC',         searchPlaceholder: 'Search AMC Subscriptions...', createButtonText: 'New AMC Subscription',    formType: 'amc-subscription' },
         rentals:    { label: 'Rentals',     searchPlaceholder: 'Search Rental Agreements...', createButtonText: 'New Rental Agreement',    formType: 'rental-agreement' },
     };
@@ -625,6 +642,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             case 'quotations': return quotations;
             case 'receipts': return receipts;
             case 'payments': return payments;
+            case 'journals': return journals;
             default: return [];
         }
     };
@@ -1399,6 +1417,8 @@ ${body}
                     await amcAPI.createActive(row);
                 } else if (activeTab === 'rentals') {
                     await rentalsAPI.createActive(row);
+                } else if (activeTab === 'journals') {
+                    // Manual Journals shouldn't really be bulk imported yet, but we'll ignore for now or mock it.
                 } else {
                     const type = tabToTypeMap[activeTab];
                     await transactionsAPI.create(row, type);
@@ -1416,6 +1436,14 @@ ${body}
             finalMessage += `\n\nErrors:\n${errorDetails.slice(0, 5).join('\n')}${errorDetails.length > 5 ? `\n...and ${errorDetails.length - 5} more.` : ''}`;
         }
         alert(finalMessage);
+        if (activeTab === 'journals') {
+            setJournals(prev => {
+                const arr = [...prev];
+                const i = arr.findIndex(x => x.id === item.id);
+                if (i !== -1) arr[i] = item; else arr.unshift(item);
+                return arr;
+            });
+        }
         
         // Refresh Current Tab
         const tmpTab = activeTab;
@@ -2064,6 +2092,7 @@ ${body}
             {activeForm === 'quotation' && <QuotationForm existingQuotation={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
             {activeForm === 'receipt-voucher' && <ReceiptVoucherForm existingReceipt={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
             {activeForm === 'payment-voucher' && <PaymentVoucherForm existingPayment={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
+            {activeForm === 'journal-entry' && <JournalEntryForm onSave={handleFormSave} onCancel={handleFormClose} />}
             {activeForm === 'new-account' && <NewAccountForm onSave={handleFormSave} onClose={handleFormClose} groups={groups} onGroupCreated={refreshGroups} />}
 
             {/* AMC Subscription Form */}

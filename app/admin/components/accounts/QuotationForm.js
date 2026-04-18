@@ -5,6 +5,7 @@ import { Plus, Trash2, X, Loader2 } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
+import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
 
 function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems }) {
@@ -67,6 +68,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
+    const [showCalculator, setShowCalculator] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
     const [charges, setCharges] = useState(buildInitialCharges);
     const [services, setServices] = useState([]);
@@ -160,6 +162,26 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         newItems[index][field] = field === 'description' || field === 'hsn' ? value : parseFloat(value) || 0;
         newItems[index].total = calculateItemTotal(newItems[index]);
         setFormData({ ...formData, items: newItems });
+    };
+
+    const handleCalculatorItems = (calcItems) => {
+        const newItems = calcItems.map((it, idx) => ({
+            id: Date.now() + idx,
+            productId: it.productId || '',
+            description: it.description,
+            hsn: it.hsn || '',
+            qty: it.qty || 1,
+            rate: it.rate || 0,
+            discount: it.discount || 0,
+            taxRate: it.taxRate || 18,
+            total: (it.qty || 1) * (it.rate || 0)
+        }));
+        setFormData(prev => ({
+            ...prev,
+            // If the only item is a blank row, replace it. Otherwise append.
+            items: prev.items.length === 1 && !prev.items[0].description ? newItems : [...prev.items, ...newItems]
+        }));
+        setShowCalculator(false);
     };
 
     const addItem = () => {
@@ -500,14 +522,13 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                                 </tbody>
                             </table>
                         </div>
-                        <div style={{ padding: 'var(--spacing-sm)', borderTop: '1px solid var(--border-primary)' }}>
-                            <button
-                                onClick={addItem}
-                                className="btn btn-secondary"
-                                style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                            >
-                                <Plus size={14} />
-                                Add Item
+                        <div style={{ padding: 'var(--spacing-sm)', borderTop: '1px solid var(--border-primary)', display: 'flex', gap: '8px' }}>
+                            <button type="button" className="btn btn-secondary" onClick={addItem} style={{ fontSize: '12px', padding: '4px 10px', height: 'auto', minHeight: '30px' }}>
+                                <Plus size={14} style={{ marginRight: '4px' }} />
+                                Add Custom Row
+                            </button>
+                            <button type="button" className="btn btn-primary" onClick={() => setShowCalculator(true)} style={{ fontSize: '12px', padding: '4px 10px', height: 'auto', minHeight: '30px' }}>
+                                Add Items from Catalog
                             </button>
                         </div>
                     </div>
@@ -686,18 +707,25 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
 
             {/* New Account Form Modal */}
             {showNewAccountForm && (
-                <NewAccountForm
-                    onClose={() => setShowNewAccountForm(false)}
-                    onSave={(account) => {
-                        setFormData({
-                            ...formData,
-                            account_id: account.id,
-                            account_name: account.name,
-                            accountGSTIN: account.gstin || '',
-                            accountState: account.state || 'Maharashtra'
-                        });
-                        setShowNewAccountForm(false);
-                    }}
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1100, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '90%', maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden' }}>
+                        <NewAccountForm
+                            onClose={() => setShowNewAccountForm(false)}
+                            onSave={async (acc) => {
+                                handleAccountChange(acc);
+                                setShowNewAccountForm(false);
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {showCalculator && (
+                <RepairCalculator
+                    job={{}} 
+                    onClose={() => setShowCalculator(false)}
+                    onCreateInvoice={handleCalculatorItems}
+                    onCreateQuotation={handleCalculatorItems}
                 />
             )}
         </div>

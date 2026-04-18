@@ -12,6 +12,95 @@ const tableMap = {
     'payment': 'payment_vouchers'
 };
 
+/**
+ * Syncs double-entry journal logs for a finalized transaction.
+ * If status is 'draft' or 'cancelled', no journal is created (or existing is deleted).
+ */
+async function syncJournalEntry(type, txData) {
+    if (!['sales', 'purchase', 'receipt', 'payment'].includes(type) || !txData.account_id) return;
+    
+    // Always delete any existing journals for this transaction to allow clean replacement/reversal
+    await supabase.from('journal_entries').delete().eq('reference_id', txData.id);
+
+    if (txData.status === 'draft' || txData.status === 'cancelled') return;
+
+    const { data: accounts } = await supabase.from('accounts').select('id, name, under, gst_group_type');
+    const findAcc = (condition) => accounts?.find(condition) || null;
+
+    const salesAcc = findAcc(a => a.under?.includes('Income') && a.name?.toLowerCase().includes('sales'));
+    const purchAcc = findAcc(a => a.under?.includes('Expense') && a.name?.toLowerCase().includes('purchase'));
+    const cgstAcc = findAcc(a => a.under?.includes('Duties') && (a.gst_group_type === 'CGST' || a.name?.toUpperCase().includes('CGST')));
+    const sgstAcc = findAcc(a => a.under?.includes('Duties') && (a.gst_group_type === 'SGST' || a.name?.toUpperCase().includes('SGST')));
+    const igstAcc = findAcc(a => a.under?.includes('Duties') && (a.gst_group_type === 'IGST' || a.name?.toUpperCase().includes('IGST')));
+    const bankAcc = findAcc(a => a.under?.includes('Bank')) || findAcc(a => a.under?.includes('Cash'));
+    const cashAcc = findAcc(a => a.under?.includes('Cash'));
+
+    let lines = [];
+    const amt = (val) => parseFloat(val) || 0;
+
+    if (type === 'sales') {
+        const total = amt(txData.total_amount);
+        const cgst = amt(txData.cgst);
+        const sgst = amt(txData.sgst);
+        const igst = amt(txData.igst);
+        const base = total - cgst - sgst - igst;
+
+        lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
+        if (salesAcc) lines.push({ account_id: salesAcc.id, debit: 0, credit: base });
+        if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: 0, credit: cgst });
+        if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: 0, credit: sgst });
+        if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: 0, credit: igst });
+    } else if (type === 'purchase') {
+        const total = amt(txData.total_amount);
+        const cgst = amt(txData.cgst);
+        const sgst = amt(txData.sgst);
+        const igst = amt(txData.igst);
+        const base = total - cgst - sgst - igst;
+
+        if (purchAcc) lines.push({ account_id: purchAcc.id, debit: base, credit: 0 });
+        if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: cgst, credit: 0 });
+        if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: sgst, credit: 0 });
+        if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: igst, credit: 0 });
+        lines.push({ account_id: txData.account_id, debit: 0, credit: total });
+    } else if (type === 'receipt') {
+        const total = amt(txData.amount);
+        const recAcc = txData.payment_mode === 'cash' ? cashAcc : bankAcc;
+        if (recAcc) lines.push({ account_id: recAcc.id, debit: total, credit: 0 });
+        lines.push({ account_id: txData.account_id, debit: 0, credit: total });
+    } else if (type === 'payment') {
+        const total = amt(txData.amount);
+        const payAcc = txData.payment_mode === 'cash' ? cashAcc : bankAcc;
+        lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
+        if (payAcc) lines.push({ account_id: payAcc.id, debit: 0, credit: total });
+    }
+
+    const totalD = lines.reduce((s, l) => s + l.debit, 0);
+    const totalC = lines.reduce((s, l) => s + l.credit, 0);
+
+    // If completely balanced, persist to DB
+    if (Math.abs(totalD - totalC) < 0.01 && totalD > 0 && lines.every(l => !!l.account_id)) {
+        const yy = new Date().getFullYear().toString().slice(-2);
+        const { count } = await supabase.from('journal_entries').select('*', { count: 'exact', head: true });
+        const entry_number = `JV-${yy}-${String((count || 0) + 1).padStart(4, '0')}`;
+        
+        const { data: jeData, error } = await supabase.from('journal_entries').insert([{
+            entry_number, date: txData.date, reference_type: `${type}_invoice`, reference_id: txData.id, notes: `Auto-journal for ${type}`
+        }]).select().single();
+
+        if (jeData && !error) {
+            const finalLines = lines.filter(l => l.debit > 0 || l.credit > 0).map(l => ({ ...l, journal_entry_id: jeData.id }));
+            await supabase.from('journal_entry_lines').insert(finalLines);
+        }
+    }
+}
+const tableMap = {
+    'sales': 'sales_invoices',
+    'purchase': 'purchase_invoices',
+    'quotation': 'quotations',
+    'receipt': 'receipt_vouchers',
+    'payment': 'payment_vouchers'
+};
+
 // Interaction type maps
 const createdInteractionMap = {
     sales: { type: 'sales-invoice-created', category: 'sales', label: 'Sales Invoice' },
@@ -131,6 +220,9 @@ export async function POST(request) {
 
         if (error) throw error
 
+        // ── AUTO-JOURNAL ──
+        await syncJournalEntry(type, data);
+
         // ── Save invoice allocations (many-to-many) ──────────────────────────
         const allocations = body.allocations || [];
         if (allocations.length > 0 && (type === 'receipt' || type === 'payment')) {
@@ -246,6 +338,9 @@ export async function PUT(request) {
             .single()
 
         if (error) throw error
+
+        // ── AUTO-JOURNAL ──
+        await syncJournalEntry(type, data);
 
         // Log interaction
         const info = editedInteractionMap[type];

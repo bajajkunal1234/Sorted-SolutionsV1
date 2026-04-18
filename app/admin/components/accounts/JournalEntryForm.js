@@ -1,0 +1,199 @@
+import { useState, useEffect } from 'react';
+import { X, Save, Plus, Trash2, Loader2, ArrowRightLeft } from 'lucide-react';
+import { accountsAPI } from '@/lib/adminAPI';
+
+export default function JournalEntryForm({ onSave, onCancel }) {
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [notes, setNotes] = useState('');
+    const [lines, setLines] = useState([
+        { id: '1', type: 'debit', account_id: '', account_name: '', amount: '' },
+        { id: '2', type: 'credit', account_id: '', account_name: '', amount: '' }
+    ]);
+    const [ledgers, setLedgers] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        setLoading(true);
+        accountsAPI.getAll()
+            .then(res => {
+                // Filter out non-ledger groupings if any, or just show all
+                const data = res?.sort((a,b) => a.name.localeCompare(b.name)) || [];
+                setLedgers(data);
+            })
+            .finally(() => setLoading(false));
+    }, []);
+
+    const addLine = () => {
+        setLines([...lines, { id: Date.now().toString(), type: 'debit', account_id: '', account_name: '', amount: '' }]);
+    };
+
+    const removeLine = (id) => {
+        if (lines.length <= 2) return;
+        setLines(lines.filter(l => l.id !== id));
+    };
+
+    const updateLine = (id, field, value) => {
+        if (field === 'account_id') {
+            const acc = ledgers.find(l => l.id === value);
+            setLines(lines.map(l => l.id === id ? { ...l, account_id: value, account_name: acc?.name || '' } : l));
+        } else {
+            setLines(lines.map(l => l.id === id ? { ...l, [field]: value } : l));
+        }
+    };
+
+    const totalDebit = lines.filter(l => l.type === 'debit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+    const totalCredit = lines.filter(l => l.type === 'credit').reduce((s, l) => s + (parseFloat(l.amount) || 0), 0);
+    const diff = Math.abs(totalDebit - totalCredit);
+    const isValid = totalDebit > 0 && diff < 0.01 && lines.every(l => l.account_id && Number(l.amount) > 0);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        if (!isValid) return alert('Journal is unbalanced or missing account details.');
+
+        const payload = {
+            date,
+            reference_type: 'manual',
+            notes,
+            lines: lines.map(l => ({
+                account_id: l.account_id,
+                debit: l.type === 'debit' ? parseFloat(l.amount) : 0,
+                credit: l.type === 'credit' ? parseFloat(l.amount) : 0,
+                description: ''
+            }))
+        };
+
+        try {
+            setSaving(true);
+            const res = await fetch('/api/admin/journals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(!data.success) throw new Error(data.error);
+            onSave(data.data);
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onCancel}>
+            <div className="modal" style={{ maxWidth: '800px', backgroundColor: 'var(--bg-primary)' }} onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <ArrowRightLeft size={20} color="var(--color-primary)" />
+                        Journal Voucher
+                    </h2>
+                    <button className="btn-icon" onClick={onCancel} disabled={saving}><X size={20} /></button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    
+                    <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '16px' }}>
+                        <div className="form-group">
+                            <label className="form-label">Date</label>
+                            <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} required />
+                        </div>
+                    </div>
+
+                    {/* Lines Grid */}
+                    <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 140px 140px 40px', gap: '12px', marginBottom: '8px', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            <div>Dr / Cr</div>
+                            <div>Particulars (Ledger)</div>
+                            <div style={{ textAlign: 'right' }}>Debit (₹)</div>
+                            <div style={{ textAlign: 'right' }}>Credit (₹)</div>
+                            <div></div>
+                        </div>
+
+                        {lines.map((line, index) => (
+                            <div key={line.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 140px 140px 40px', gap: '12px', marginBottom: '12px', alignItems: 'center' }}>
+                                <select 
+                                    className="form-select" 
+                                    value={line.type} 
+                                    onChange={e => updateLine(line.id, 'type', e.target.value)}
+                                    style={{ fontWeight: 600, color: line.type === 'debit' ? '#3b82f6' : '#10b981' }}
+                                >
+                                    <option value="debit">Dr</option>
+                                    <option value="credit">Cr</option>
+                                </select>
+
+                                <select 
+                                    className="form-select" 
+                                    value={line.account_id} 
+                                    required 
+                                    onChange={e => updateLine(line.id, 'account_id', e.target.value)}
+                                    style={{ fontFamily: 'monospace', fontSize: '13px' }}
+                                >
+                                    <option value="">Select Ledger...</option>
+                                    {ledgers.map(l => (
+                                        <option key={l.id} value={l.id}>{l.name} — [{l.under}]</option>
+                                    ))}
+                                </select>
+
+                                <div>
+                                    {line.type === 'debit' ? (
+                                        <input type="number" step="0.01" min="0" required className="form-input" style={{ textAlign: 'right', fontWeight: 600 }} value={line.amount} onChange={e => updateLine(line.id, 'amount', e.target.value)} />
+                                    ) : <div style={{ textAlign: 'right', padding: '8px', color: 'var(--text-tertiary)' }}>-</div>}
+                                </div>
+
+                                <div>
+                                    {line.type === 'credit' ? (
+                                        <input type="number" step="0.01" min="0" required className="form-input" style={{ textAlign: 'right', fontWeight: 600 }} value={line.amount} onChange={e => updateLine(line.id, 'amount', e.target.value)} />
+                                    ) : <div style={{ textAlign: 'right', padding: '8px', color: 'var(--text-tertiary)' }}>-</div>}
+                                </div>
+
+                                <button type="button" onClick={() => removeLine(line.id)} className="btn-icon" style={{ color: lines.length > 2 ? 'var(--color-danger)' : 'var(--text-tertiary)' }} disabled={lines.length <= 2}>
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                        ))}
+
+                        <div style={{ marginTop: '16px' }}>
+                            <button type="button" onClick={addLine} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                                <Plus size={14} style={{ marginRight: '4px' }}/> Add Line
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Totals & Narration */}
+                    <div style={{ display: 'flex', gap: '24px' }}>
+                        <div className="form-group" style={{ flex: 1 }}>
+                            <label className="form-label">Narration</label>
+                            <textarea className="form-input" rows="3" placeholder="Being..." value={notes} onChange={e => setNotes(e.target.value)} />
+                        </div>
+                        
+                        <div style={{ width: '300px', backgroundColor: 'var(--bg-elevated)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 600 }}>
+                                <span>Total Debit:</span>
+                                <span style={{ color: '#3b82f6' }}>₹{totalDebit.toFixed(2)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 600 }}>
+                                <span>Total Credit:</span>
+                                <span style={{ color: '#10b981' }}>₹{totalCredit.toFixed(2)}</span>
+                            </div>
+                            <div style={{ height: '1px', backgroundColor: 'var(--border-primary)', margin: '8px 0' }}></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: diff > 0.01 ? '#ef4444' : 'var(--text-secondary)' }}>
+                                <span>Difference:</span>
+                                <span>₹{diff.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="modal-footer" style={{ marginTop: 0 }}>
+                        <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
+                        <button type="submit" className="btn btn-primary" disabled={saving || !isValid} style={{ opacity: isValid ? 1 : 0.5 }}>
+                            {saving ? <Loader2 size={18} className="spin" /> : <Save size={18} style={{ marginRight: '8px' }} />}
+                            {saving ? 'Saving...' : 'Save Voucher'}
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    );
+}

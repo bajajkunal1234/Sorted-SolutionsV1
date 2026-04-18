@@ -1,8 +1,7 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, ShoppingCart, FileText, Calculator, BarChart3, PieChart, Download, Calendar, Filter } from 'lucide-react';
-import { salesInvoices, purchaseInvoices, balanceSheetData, profitLossData, monthlySalesTrends } from '@/lib/data/reportsData';
 
 function FinancialReports() {
     const [activeReport, setActiveReport] = useState('sales');
@@ -10,6 +9,27 @@ function FinancialReports() {
         from: '2026-01-01',
         to: '2026-01-31'
     });
+
+    const [reportsData, setReportsData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchReports = async () => {
+            setLoading(true);
+            try {
+                const res = await fetch(`/api/admin/reports?from=${dateRange.from}&to=${dateRange.to}`);
+                const json = await res.json();
+                if (json.success) {
+                    setReportsData(json.data);
+                }
+            } catch (err) {
+                console.error("Error fetching reports", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchReports();
+    }, [dateRange]);
 
     const reports = [
         { id: 'sales', name: 'Sales Report', icon: TrendingUp, color: '#10b981' },
@@ -20,27 +40,25 @@ function FinancialReports() {
         { id: 'profitloss', name: 'Profit & Loss', icon: PieChart, color: '#ec4899' }
     ];
 
-    // Filter invoices by date range
-    const filterByDateRange = (invoices) => {
-        return invoices.filter(inv => {
-            const invDate = new Date(inv.date);
-            const from = new Date(dateRange.from);
-            const to = new Date(dateRange.to);
-            return invDate >= from && invDate <= to;
-        });
-    };
+    if (loading || !reportsData) {
+        return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>Gathering financial statements...</div>;
+    }
 
-    const filteredSales = filterByDateRange(salesInvoices);
-    const filteredPurchases = filterByDateRange(purchaseInvoices);
+    const filteredSales = reportsData.salesInvoices;
+    const filteredPurchases = reportsData.purchaseInvoices;
+    const profitLossData = reportsData.profitLossData;
+    const balanceSheetData = reportsData.balanceSheetData;
 
     // Calculate totals
-    const salesTotal = filteredSales.reduce((sum, inv) => sum + inv.total, 0);
-    const salesSubtotal = filteredSales.reduce((sum, inv) => sum + inv.subtotal, 0);
+    const salesTotal = filteredSales.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const salesSubtotal = filteredSales.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
     const salesGST = salesTotal - salesSubtotal;
 
-    const purchaseTotal = filteredPurchases.reduce((sum, inv) => sum + inv.total, 0);
-    const purchaseSubtotal = filteredPurchases.reduce((sum, inv) => sum + inv.subtotal, 0);
+    const purchaseTotal = filteredPurchases.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const purchaseSubtotal = filteredPurchases.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
     const purchaseGST = purchaseTotal - purchaseSubtotal;
+
+    const sumBal = (arr) => arr.reduce((s, a) => s + (a.balance || 0), 0);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -644,25 +662,15 @@ function FinancialReports() {
                                             Current Assets
                                         </div>
                                         <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Cash & Bank</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.assets.currentAssets.cashAndBank.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Accounts Receivable</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.assets.currentAssets.accountsReceivable.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Inventory</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.assets.currentAssets.inventory.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Prepaid Expenses</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.assets.currentAssets.prepaidExpenses.toLocaleString()}</span>
-                                            </div>
+                                            {balanceSheetData.assets.currentAssets.map(acc => (
+                                                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                    <span>{acc.name}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                                </div>
+                                            ))}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border-primary)', marginTop: '4px', fontWeight: 700 }}>
                                                 <span>Total Current Assets</span>
-                                                <span>₹{Object.values(balanceSheetData.assets.currentAssets).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                                <span>₹{sumBal(balanceSheetData.assets.currentAssets).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -673,21 +681,15 @@ function FinancialReports() {
                                             Fixed Assets
                                         </div>
                                         <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Equipment</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.assets.fixedAssets.equipment.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Vehicles</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.assets.fixedAssets.vehicles.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444' }}>
-                                                <span>Less: Depreciation</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.assets.fixedAssets.lessDepreciation.toLocaleString()}</span>
-                                            </div>
+                                            {balanceSheetData.assets.fixedAssets.map(acc => (
+                                                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                    <span>{acc.name}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                                </div>
+                                            ))}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border-primary)', marginTop: '4px', fontWeight: 700 }}>
                                                 <span>Total Fixed Assets</span>
-                                                <span>₹{Object.values(balanceSheetData.assets.fixedAssets).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                                <span>₹{sumBal(balanceSheetData.assets.fixedAssets).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -696,7 +698,7 @@ function FinancialReports() {
                                     <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(6, 182, 212, 0.1)', borderRadius: 'var(--radius-md)', marginTop: 'var(--spacing-md)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-lg)', fontWeight: 700, color: '#06b6d4' }}>
                                             <span>TOTAL ASSETS</span>
-                                            <span>₹{(Object.values(balanceSheetData.assets.currentAssets).reduce((a, b) => a + b, 0) + Object.values(balanceSheetData.assets.fixedAssets).reduce((a, b) => a + b, 0)).toLocaleString()}</span>
+                                            <span>₹{(sumBal(balanceSheetData.assets.currentAssets) + sumBal(balanceSheetData.assets.fixedAssets)).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -721,21 +723,15 @@ function FinancialReports() {
                                             Current Liabilities
                                         </div>
                                         <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Accounts Payable</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.liabilities.currentLiabilities.accountsPayable.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Short-term Loans</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.liabilities.currentLiabilities.shortTermLoans.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Outstanding Expenses</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.liabilities.currentLiabilities.outstandingExpenses.toLocaleString()}</span>
-                                            </div>
+                                            {balanceSheetData.liabilities.currentLiabilities.map(acc => (
+                                                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                    <span>{acc.name}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                                </div>
+                                            ))}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border-primary)', marginTop: '4px', fontWeight: 700 }}>
                                                 <span>Total Current Liabilities</span>
-                                                <span>₹{Object.values(balanceSheetData.liabilities.currentLiabilities).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                                <span>₹{sumBal(balanceSheetData.liabilities.currentLiabilities).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -746,13 +742,15 @@ function FinancialReports() {
                                             Long-term Liabilities
                                         </div>
                                         <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Term Loan</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.liabilities.longTermLiabilities.termLoan.toLocaleString()}</span>
-                                            </div>
+                                            {balanceSheetData.liabilities.longTermLiabilities.map(acc => (
+                                                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                    <span>{acc.name}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                                </div>
+                                            ))}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border-primary)', marginTop: '4px', fontWeight: 700 }}>
                                                 <span>Total Long-term Liabilities</span>
-                                                <span>₹{Object.values(balanceSheetData.liabilities.longTermLiabilities).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                                <span>₹{sumBal(balanceSheetData.liabilities.longTermLiabilities).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -763,17 +761,21 @@ function FinancialReports() {
                                             Equity
                                         </div>
                                         <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Capital</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.equity.capital.toLocaleString()}</span>
-                                            </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                                <span>Retained Earnings</span>
-                                                <span style={{ fontWeight: 600 }}>₹{balanceSheetData.equity.retainedEarnings.toLocaleString()}</span>
-                                            </div>
+                                            {balanceSheetData.equity.capital.map(acc => (
+                                                <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                    <span>{acc.name}</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                                </div>
+                                            ))}
+                                            {balanceSheetData.equity.retainedEarnings !== 0 && (
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                    <span>Retained Earnings (from P&L)</span>
+                                                    <span style={{ fontWeight: 600 }}>₹{balanceSheetData.equity.retainedEarnings.toLocaleString()}</span>
+                                                </div>
+                                            )}
                                             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '1px solid var(--border-primary)', marginTop: '4px', fontWeight: 700 }}>
                                                 <span>Total Equity</span>
-                                                <span>₹{Object.values(balanceSheetData.equity).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                                <span>₹{(sumBal(balanceSheetData.equity.capital) + balanceSheetData.equity.retainedEarnings).toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -782,7 +784,7 @@ function FinancialReports() {
                                     <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(236, 72, 153, 0.1)', borderRadius: 'var(--radius-md)', marginTop: 'var(--spacing-md)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-lg)', fontWeight: 700, color: '#ec4899' }}>
                                             <span>TOTAL LIABILITIES & EQUITY</span>
-                                            <span>₹{(Object.values(balanceSheetData.liabilities.currentLiabilities).reduce((a, b) => a + b, 0) + Object.values(balanceSheetData.liabilities.longTermLiabilities).reduce((a, b) => a + b, 0) + Object.values(balanceSheetData.equity).reduce((a, b) => a + b, 0)).toLocaleString()}</span>
+                                            <span>₹{(sumBal(balanceSheetData.liabilities.currentLiabilities) + sumBal(balanceSheetData.liabilities.longTermLiabilities) + sumBal(balanceSheetData.equity.capital) + balanceSheetData.equity.retainedEarnings).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -814,17 +816,18 @@ function FinancialReports() {
                                         REVENUE
                                     </div>
                                     <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Service Revenue</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.revenue.serviceRevenue.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Product Sales</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.revenue.productSales.toLocaleString()}</span>
-                                        </div>
+                                        {profitLossData.revenue?.map(acc => (
+                                            <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                <span>{acc.name}</span>
+                                                <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                        {(!profitLossData.revenue || profitLossData.revenue.length === 0) && (
+                                            <div style={{ color: 'var(--text-tertiary)' }}>No revenue entries found</div>
+                                        )}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid var(--border-primary)', marginTop: '4px', fontWeight: 700, fontSize: 'var(--font-size-base)', color: '#10b981' }}>
                                             <span>Total Revenue</span>
-                                            <span>₹{Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                            <span>₹{sumBal(profitLossData.revenue || []).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -835,17 +838,15 @@ function FinancialReports() {
                                         COST OF GOODS SOLD
                                     </div>
                                     <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Spare Parts Cost</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.costOfGoodsSold.sparePartsCost.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Direct Labor</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.costOfGoodsSold.directLabor.toLocaleString()}</span>
-                                        </div>
+                                        {profitLossData.cogs?.map(acc => (
+                                            <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                <span>{acc.name}</span>
+                                                <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                            </div>
+                                        ))}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid var(--border-primary)', marginTop: '4px', fontWeight: 700, fontSize: 'var(--font-size-base)', color: '#ef4444' }}>
                                             <span>Total COGS</span>
-                                            <span>₹{Object.values(profitLossData.costOfGoodsSold).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                            <span>₹{sumBal(profitLossData.cogs || []).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -854,10 +855,10 @@ function FinancialReports() {
                                 <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-lg)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-lg)', fontWeight: 700, color: '#10b981' }}>
                                         <span>GROSS PROFIT</span>
-                                        <span>₹{(Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) - Object.values(profitLossData.costOfGoodsSold).reduce((a, b) => a + b, 0)).toLocaleString()}</span>
+                                        <span>₹{profitLossData.grossProfit?.toLocaleString()}</span>
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                        Margin: {((Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) - Object.values(profitLossData.costOfGoodsSold).reduce((a, b) => a + b, 0)) / Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) * 100).toFixed(1)}%
+                                        Margin: {sumBal(profitLossData.revenue || []) > 0 ? ((profitLossData.grossProfit / sumBal(profitLossData.revenue)) * 100).toFixed(1) : 0}%
                                     </div>
                                 </div>
 
@@ -867,33 +868,18 @@ function FinancialReports() {
                                         OPERATING EXPENSES
                                     </div>
                                     <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Technician Salaries</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.operatingExpenses.technicianSalaries.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Fuel & Transportation</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.operatingExpenses.fuelTransportation.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Rent</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.operatingExpenses.rent.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Utilities</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.operatingExpenses.utilities.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Marketing</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.operatingExpenses.marketing.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                                            <span>Administrative</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.operatingExpenses.administrative.toLocaleString()}</span>
-                                        </div>
+                                        {profitLossData.operatingExpenses?.map(acc => (
+                                            <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                                                <span>{acc.name}</span>
+                                                <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                        {(!profitLossData.operatingExpenses || profitLossData.operatingExpenses.length === 0) && (
+                                            <div style={{ color: 'var(--text-tertiary)' }}>No expenses found</div>
+                                        )}
                                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: '2px solid var(--border-primary)', marginTop: '4px', fontWeight: 700, fontSize: 'var(--font-size-base)', color: '#f59e0b' }}>
                                             <span>Total Operating Expenses</span>
-                                            <span>₹{Object.values(profitLossData.operatingExpenses).reduce((a, b) => a + b, 0).toLocaleString()}</span>
+                                            <span>₹{sumBal(profitLossData.operatingExpenses || []).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -902,43 +888,36 @@ function FinancialReports() {
                                 <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-lg)' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-lg)', fontWeight: 700, color: '#3b82f6' }}>
                                         <span>OPERATING PROFIT</span>
-                                        <span>₹{(Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) - Object.values(profitLossData.costOfGoodsSold).reduce((a, b) => a + b, 0) - Object.values(profitLossData.operatingExpenses).reduce((a, b) => a + b, 0)).toLocaleString()}</span>
+                                        <span>₹{(profitLossData.grossProfit - sumBal(profitLossData.operatingExpenses || [])).toLocaleString()}</span>
                                     </div>
                                 </div>
 
-                                {/* Other Income/Expenses */}
+                                {/* Other Income */}
                                 <div style={{ marginBottom: 'var(--spacing-lg)' }}>
                                     <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
                                         OTHER INCOME/EXPENSES
                                     </div>
                                     <div style={{ paddingLeft: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#10b981' }}>
-                                            <span>Interest Income</span>
-                                            <span style={{ fontWeight: 600 }}>₹{profitLossData.otherIncome.interestIncome.toLocaleString()}</span>
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#ef4444' }}>
-                                            <span>Interest Expense</span>
-                                            <span style={{ fontWeight: 600 }}>-₹{profitLossData.otherExpenses.interestExpense.toLocaleString()}</span>
-                                        </div>
+                                        {profitLossData.otherIncome?.map(acc => (
+                                            <div key={acc.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', color: '#10b981' }}>
+                                                <span>{acc.name}</span>
+                                                <span style={{ fontWeight: 600 }}>₹{acc.balance.toLocaleString()}</span>
+                                            </div>
+                                        ))}
+                                        {(!profitLossData.otherIncome || profitLossData.otherIncome.length === 0) && (
+                                            <div style={{ color: 'var(--text-tertiary)' }}>No other income/expenses</div>
+                                        )}
                                     </div>
                                 </div>
 
                                 {/* Net Profit */}
                                 <div style={{ padding: 'var(--spacing-lg)', backgroundColor: 'rgba(16, 185, 129, 0.15)', borderRadius: 'var(--radius-md)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                                        <span>Net Profit Before Tax</span>
-                                        <span>₹{(Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) - Object.values(profitLossData.costOfGoodsSold).reduce((a, b) => a + b, 0) - Object.values(profitLossData.operatingExpenses).reduce((a, b) => a + b, 0) + Object.values(profitLossData.otherIncome).reduce((a, b) => a + b, 0) - Object.values(profitLossData.otherExpenses).reduce((a, b) => a + b, 0)).toLocaleString()}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-sm)', color: '#ef4444' }}>
-                                        <span>Tax Expense</span>
-                                        <span style={{ fontWeight: 600 }}>-₹{profitLossData.taxExpense.toLocaleString()}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xl)', fontWeight: 700, paddingTop: 'var(--spacing-sm)', borderTop: '2px solid #10b981', color: '#10b981' }}>
-                                        <span>NET PROFIT AFTER TAX</span>
-                                        <span>₹{(Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) - Object.values(profitLossData.costOfGoodsSold).reduce((a, b) => a + b, 0) - Object.values(profitLossData.operatingExpenses).reduce((a, b) => a + b, 0) + Object.values(profitLossData.otherIncome).reduce((a, b) => a + b, 0) - Object.values(profitLossData.otherExpenses).reduce((a, b) => a + b, 0) - profitLossData.taxExpense).toLocaleString()}</span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xl)', fontWeight: 700, paddingTop: 'var(--spacing-sm)', color: '#10b981' }}>
+                                        <span>NET PROFIT</span>
+                                        <span>₹{profitLossData.netProfit?.toLocaleString()}</span>
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                        Net Margin: {((Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) - Object.values(profitLossData.costOfGoodsSold).reduce((a, b) => a + b, 0) - Object.values(profitLossData.operatingExpenses).reduce((a, b) => a + b, 0) + Object.values(profitLossData.otherIncome).reduce((a, b) => a + b, 0) - Object.values(profitLossData.otherExpenses).reduce((a, b) => a + b, 0) - profitLossData.taxExpense) / Object.values(profitLossData.revenue).reduce((a, b) => a + b, 0) * 100).toFixed(1)}%
+                                        Net Margin: {sumBal(profitLossData.revenue || []) > 0 ? ((profitLossData.netProfit / sumBal(profitLossData.revenue)) * 100).toFixed(1) : 0}%
                                     </div>
                                 </div>
                             </div>
