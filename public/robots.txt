@@ -16,4 +16,4 @@ Allow: /location/
 Allow: /booking
 Allow: /contact
 
-Sitemap: https://www.sorted.solutions/sitemap.xml
+Sitemap: https://sortedsolutions.in/sitemap.xml

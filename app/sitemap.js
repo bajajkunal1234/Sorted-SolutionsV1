@@ -14,7 +14,7 @@ import { createServerSupabase } from '@/lib/supabase-server';
 export const dynamic = 'force-dynamic';
 export const revalidate = 3600; // Regenerate sitemap at most once per hour
 
-const BASE_URL = 'https://www.sorted.solutions';
+const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in').replace(/\/$/, '');
 
 const LOCATIONS = [
     'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
