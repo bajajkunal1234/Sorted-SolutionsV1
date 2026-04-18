@@ -68,13 +68,15 @@ export default async function sitemap() {
     const appliances = await fetchAppliances();
 
     // ── 1. Static pages ────────────────────────────────────────────────────
+    // These match the 4 pages managed in Reports > Website Settings > Static Pages Settings
+    // plus the Homepage and Booking page.
     const staticPages = [
-        { url: `${BASE_URL}/`,            lastModified: now, changeFrequency: 'weekly',  priority: 1.0 },
-        { url: `${BASE_URL}/booking`,     lastModified: now, changeFrequency: 'weekly',  priority: 0.9 },
-        { url: `${BASE_URL}/contact`,     lastModified: now, changeFrequency: 'monthly', priority: 0.6 },
-        { url: `${BASE_URL}/privacy`,     lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
-        { url: `${BASE_URL}/terms`,       lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
-        { url: `${BASE_URL}/accessibility`, lastModified: now, changeFrequency: 'yearly', priority: 0.2 },
+        { url: `${BASE_URL}/`,               lastModified: now, changeFrequency: 'weekly',  priority: 1.0 },
+        { url: `${BASE_URL}/booking`,        lastModified: now, changeFrequency: 'weekly',  priority: 0.95 },
+        { url: `${BASE_URL}/contact`,        lastModified: now, changeFrequency: 'monthly', priority: 0.7 },
+        { url: `${BASE_URL}/terms`,          lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+        { url: `${BASE_URL}/privacy`,        lastModified: now, changeFrequency: 'yearly',  priority: 0.3 },
+        { url: `${BASE_URL}/accessibility`,  lastModified: now, changeFrequency: 'yearly',  priority: 0.2 },
     ];
 
     // ── 2. Category pages — /services/[category] ──────────────────────────
