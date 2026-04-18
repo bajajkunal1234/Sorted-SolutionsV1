@@ -16,6 +16,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
+import AnchorScrollHandler from '@/components/common/AnchorScrollHandler'
 
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 import { unstable_noStore as noStore } from 'next/cache';
@@ -254,6 +255,7 @@ export default async function CategoryPage({ params }) {
 
     return (
         <div className="service-page category-page">
+            <AnchorScrollHandler />
             <Header />
             {sectionOrder.map(renderSection)}
             <ServiceFooter />

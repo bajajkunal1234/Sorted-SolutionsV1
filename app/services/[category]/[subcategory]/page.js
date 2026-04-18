@@ -17,6 +17,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
+import AnchorScrollHandler from '@/components/common/AnchorScrollHandler'
 
 import { createServerSupabase } from '@/lib/supabase-server'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
@@ -322,6 +323,7 @@ export default async function SubCategoryPage({ params }) {
 
     return (
         <div className="service-page subcategory-page">
+            <AnchorScrollHandler />
             <Header />
             {sectionOrder.map(renderSection)}
             <ServiceFooter />
