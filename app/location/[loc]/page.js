@@ -17,9 +17,9 @@ import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
 
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
-
 import { unstable_noStore as noStore } from 'next/cache';
 import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
+import { notFound } from 'next/navigation';
 
 export default async function LocationPage({ params }) {
     noStore(); // Opt out of caching to ensure real-time Admin updates
@@ -34,6 +34,9 @@ export default async function LocationPage({ params }) {
 
     try {
         const apiData = await getFullPageData(pageId);
+        if (!apiData.success || !apiData.data) {
+            notFound();
+        }
         if (apiData.success && apiData.data) {
             const d = apiData.data;
             const r = apiData.related || {};
