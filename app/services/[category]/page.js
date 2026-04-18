@@ -34,17 +34,14 @@ export default async function CategoryPage({ params }) {
     // Page ID for this category page
     const pageId = `cat-${category}`
 
-    // ── Fetch dynamic settings via internal API (avoids Supabase SDK issues in Server Components) ──
+    // ── Fetch dynamic settings ──
     let dynamicSettings = null
+    let pageFound = false
 
     try {
         const apiData = await getFullPageData(pageId);
-        // If no page_settings row exists for this page, return 404.
-        // This ensures deleted pages stop loading and stay out of the sitemap.
-        if (!apiData.success || !apiData.data) {
-            notFound();
-        }
         if (apiData.success && apiData.data) {
+            pageFound = true
             const d = apiData.data;
             const r = apiData.related || {};
 
@@ -90,7 +87,12 @@ export default async function CategoryPage({ params }) {
             };
         }
     } catch (error) {
-        console.error('[CategoryPage] Error natively fetching settings:', error.message);
+        console.error('[CategoryPage] Error fetching settings:', error.message);
+    }
+
+    // 404 if no page_settings row — must be OUTSIDE try-catch so notFound() isn't swallowed
+    if (!pageFound) {
+        notFound();
     }
 
     // Only use admin-configured data (Option B: no fallbacks)

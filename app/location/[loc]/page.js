@@ -29,15 +29,14 @@ export default async function LocationPage({ params }) {
     // Page ID for this location page
     const pageId = `loc-${loc}`
 
-    // ── Fetch dynamic settings via internal API (avoids Supabase SDK issues in Server Components) ──
+    // ── Fetch dynamic settings ──
     let dynamicSettings = null
+    let pageFound = false
 
     try {
         const apiData = await getFullPageData(pageId);
-        if (!apiData.success || !apiData.data) {
-            notFound();
-        }
         if (apiData.success && apiData.data) {
+            pageFound = true
             const d = apiData.data;
             const r = apiData.related || {};
 
@@ -83,6 +82,11 @@ export default async function LocationPage({ params }) {
         }
     } catch (error) {
         console.error('[LocationPage] Error natively fetching settings:', error.message);
+    }
+
+    // 404 if no page_settings row — must be OUTSIDE try-catch so notFound() isn't swallowed
+    if (!pageFound) {
+        notFound();
     }
 
     // Main service categories available in this location (Keep static as it's general for all locations)
