@@ -24,9 +24,19 @@ const LOCATIONS = [
 
 // ── Fetch live appliance data from Supabase ────────────────────────────────
 async function fetchAppliances() {
+    // Hardcoded fallback — used if DB is unreachable or returns empty
+    const FALLBACK = [
+        { slug: 'ac-repair',              subcategories: [{ slug: 'split-ac' }, { slug: 'window-ac' }, { slug: 'cassette-ac' }] },
+        { slug: 'washing-machine-repair', subcategories: [{ slug: 'front-load' }, { slug: 'top-load' }] },
+        { slug: 'refrigerator-repair',    subcategories: [{ slug: 'single-door' }, { slug: 'double-door' }] },
+        { slug: 'oven-repair',            subcategories: [{ slug: 'microwave-oven' }, { slug: 'otg-oven' }] },
+        { slug: 'water-purifier-repair',  subcategories: [{ slug: 'domestic-ro' }, { slug: 'commercial-ro' }] },
+        { slug: 'hob-repair',             subcategories: [{ slug: 'gas-stove' }, { slug: 'built-in-hob' }] },
+    ];
+
     try {
         const supabase = createServerSupabase();
-        if (!supabase) return [];
+        if (!supabase) return FALLBACK;
 
         // Fetch categories
         const { data: cats } = await supabase
@@ -34,7 +44,8 @@ async function fetchAppliances() {
             .select('id, name, slug')
             .order('display_order', { ascending: true });
 
-        if (!cats || cats.length === 0) return [];
+        // If DB returns nothing, use fallback so service pages always appear
+        if (!cats || cats.length === 0) return FALLBACK;
 
         // Fetch subcategories
         const { data: subs } = await supabase
@@ -51,15 +62,7 @@ async function fetchAppliances() {
         }));
     } catch (err) {
         console.error('[sitemap] Error fetching appliances:', err.message);
-        // Fallback to hardcoded slugs if DB unreachable
-        return [
-            { slug: 'ac-repair',               subcategories: [{ slug: 'split-ac' }, { slug: 'window-ac' }, { slug: 'cassette-ac' }] },
-            { slug: 'washing-machine-repair',  subcategories: [{ slug: 'front-load' }, { slug: 'top-load' }] },
-            { slug: 'refrigerator-repair',     subcategories: [{ slug: 'single-door' }, { slug: 'double-door' }] },
-            { slug: 'oven-repair',             subcategories: [{ slug: 'microwave-oven' }, { slug: 'otg-oven' }] },
-            { slug: 'water-purifier-repair',   subcategories: [{ slug: 'domestic-ro' }, { slug: 'commercial-ro' }] },
-            { slug: 'hob-repair',              subcategories: [{ slug: 'gas-stove' }, { slug: 'built-in-hob' }] },
-        ];
+        return FALLBACK;
     }
 }
 
