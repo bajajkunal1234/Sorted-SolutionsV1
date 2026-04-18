@@ -1,17 +1,14 @@
 /**
  * Dynamic Sitemap — served at /sitemap.xml by Next.js App Router.
  *
- * All page types are read from Supabase so the sitemap stays in sync
- * with the Website Page Builder automatically:
+ * Single source of truth: page_settings table (same as Website Page Builder).
+ * Every page created/deleted in Page Builder is immediately reflected here.
  *
- * - Categories    → booking_categories table
- * - Subcategories → booking_subcategories table
- * - Locations     → page_settings WHERE page_type = 'location'
- * - Sub-locations → derived: locations × categories
- * - Static pages  → hardcoded (never change without a deploy)
- *
- * Creating or deleting a page in Reports > Website Settings > Page Builder
- * is immediately reflected in the sitemap on the next request (revalidate=3600).
+ * URL derivation uses the same page_id → URL logic as PageBuilderTool.js:
+ *   cat-{slug}                  → /services/{slug}
+ *   sub-{cat-slug}-{sub-slug}   → /services/{cat-slug}/{sub-slug}
+ *   loc-{slug}                  → /location/{slug}
+ *   sloc-{loc}-{cat}-{sub}      → /location/{loc}/{cat}-{sub}  (or similar)
  *
  * Submit to Google Search Console: https://sortedsolutions.in/sitemap.xml
  */
@@ -23,77 +20,92 @@ export const revalidate = 3600; // Regenerate at most once per hour
 
 const BASE_URL = (process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in').replace(/\/$/, '');
 
-// Fallbacks used if DB is unreachable
-const FALLBACK_LOCATIONS = [
+// Known category slugs — used to correctly split page_ids like
+// 'sub-water-purifier-repair-domestic-ro-water-purifier'
+// Keep in sync with booking_categories table.
+const KNOWN_CATS = [
+    'ac-repair', 'washing-machine-repair', 'refrigerator-repair',
+    'oven-repair', 'hob-repair', 'water-purifier-repair',
+    'dishwasher-repair', 'microwave-repair', 'dryer-repair',
+];
+
+const KNOWN_LOCS = [
     'andheri', 'malad', 'jogeshwari', 'kandivali', 'goregaon',
     'ville-parle', 'santacruz', 'bandra', 'khar', 'mahim',
     'dadar', 'powai', 'saki-naka', 'ghatkopar', 'kurla',
 ];
 
-const FALLBACK_APPLIANCES = [
-    { slug: 'ac-repair',              subcategories: [{ slug: 'split-ac' }, { slug: 'window-ac' }, { slug: 'cassette-ac' }] },
-    { slug: 'washing-machine-repair', subcategories: [{ slug: 'front-load' }, { slug: 'top-load' }] },
-    { slug: 'refrigerator-repair',    subcategories: [{ slug: 'single-door' }, { slug: 'double-door' }] },
-    { slug: 'oven-repair',            subcategories: [{ slug: 'microwave-oven' }, { slug: 'otg-oven' }] },
-    { slug: 'water-purifier-repair',  subcategories: [{ slug: 'domestic-ro' }, { slug: 'commercial-ro' }] },
-    { slug: 'hob-repair',             subcategories: [{ slug: 'gas-stove' }, { slug: 'built-in-hob' }] },
-];
+/**
+ * Derives the live URL from a page_id.
+ * Must stay in sync with getPageUrl() in PageBuilderTool.js.
+ */
+function pageIdToUrl(pageId) {
+    if (!pageId) return null;
 
-async function fetchSitemapData() {
+    // Category: cat-ac-repair → /services/ac-repair
+    if (pageId.startsWith('cat-')) {
+        return `/services/${pageId.replace('cat-', '')}`;
+    }
+
+    // Subcategory: sub-water-purifier-repair-domestic-ro-water-purifier
+    //           → /services/water-purifier-repair/domestic-ro-water-purifier
+    if (pageId.startsWith('sub-')) {
+        const rest = pageId.replace('sub-', '');
+        const cat = KNOWN_CATS.find(c => rest.startsWith(c + '-'));
+        if (cat) return `/services/${cat}/${rest.slice(cat.length + 1)}`;
+        // Fallback: try splitting at midpoint
+        const parts = rest.split('-');
+        if (parts.length >= 2) {
+            const mid = Math.ceil(parts.length / 2);
+            return `/services/${parts.slice(0, mid).join('-')}/${parts.slice(mid).join('-')}`;
+        }
+        return null;
+    }
+
+    // Location: loc-andheri → /location/andheri
+    if (pageId.startsWith('loc-')) {
+        return `/location/${pageId.replace('loc-', '')}`;
+    }
+
+    // Sub-location: sloc-andheri-ac-repair → /location/andheri/ac-repair
+    if (pageId.startsWith('sloc-')) {
+        const rest = pageId.replace('sloc-', '');
+        const loc = KNOWN_LOCS.find(l => rest.startsWith(l + '-'));
+        if (loc) return `/location/${loc}/${rest.slice(loc.length + 1)}`;
+        return null;
+    }
+
+    return null;
+}
+
+async function fetchAllPages() {
     try {
         const supabase = createServerSupabase();
-        if (!supabase) return { appliances: FALLBACK_APPLIANCES, locations: FALLBACK_LOCATIONS };
+        if (!supabase) return [];
 
-        // Fetch all three sources in parallel
-        const [catsRes, subsRes, pagesRes] = await Promise.all([
-            supabase
-                .from('booking_categories')
-                .select('id, name, slug')
-                .order('display_order', { ascending: true }),
-            supabase
-                .from('booking_subcategories')
-                .select('id, name, slug, category_id')
-                .order('display_order', { ascending: true }),
-            // Locations come from page_settings — the same table Page Builder writes to
-            // page_id format: 'loc-andheri', 'loc-bandra', etc.
-            supabase
-                .from('page_settings')
-                .select('page_id')
-                .eq('page_type', 'location'),
-        ]);
+        const { data, error } = await supabase
+            .from('page_settings')
+            .select('page_id, page_type, updated_at')
+            .order('page_type', { ascending: true })
+            .limit(2000);
 
-        // ── Categories + Subcategories ────────────────────────────────────
-        const cats = catsRes.data || [];
-        const subs = subsRes.data || [];
-        const appliances = cats.length > 0
-            ? cats.map(cat => ({
-                slug: cat.slug,
-                subcategories: subs
-                    .filter(s => s.category_id === cat.id)
-                    .map(s => ({ slug: s.slug || s.name.toLowerCase().replace(/\s+/g, '-') })),
-            }))
-            : FALLBACK_APPLIANCES;
+        if (error) {
+            console.error('[sitemap] page_settings fetch error:', error.message);
+            return [];
+        }
 
-        // ── Locations from page_settings ──────────────────────────────────
-        // Strip the 'loc-' prefix to get the raw slug: 'loc-andheri' -> 'andheri'
-        const locationRows = pagesRes.data || [];
-        const locations = locationRows.length > 0
-            ? locationRows.map(p => p.page_id.replace(/^loc-/, ''))
-            : FALLBACK_LOCATIONS;
-
-        return { appliances, locations };
-
+        return data || [];
     } catch (err) {
-        console.error('[sitemap] DB fetch error:', err.message);
-        return { appliances: FALLBACK_APPLIANCES, locations: FALLBACK_LOCATIONS };
+        console.error('[sitemap] fetchAllPages error:', err.message);
+        return [];
     }
 }
 
 export default async function sitemap() {
     const now = new Date().toISOString();
-    const { appliances, locations } = await fetchSitemapData();
+    const pages = await fetchAllPages();
 
-    // ── 1. Static pages (only change with a code deploy) ──────────────────
+    // ── 1. Static pages (hardcoded — these never change without a deploy) ──
     const staticPages = [
         { url: `${BASE_URL}/`,              lastModified: now, changeFrequency: 'weekly',  priority: 1.0 },
         { url: `${BASE_URL}/booking`,       lastModified: now, changeFrequency: 'weekly',  priority: 0.95 },
@@ -103,49 +115,27 @@ export default async function sitemap() {
         { url: `${BASE_URL}/accessibility`, lastModified: now, changeFrequency: 'yearly',  priority: 0.2 },
     ];
 
-    // ── 2. Category pages — /services/[category] ──────────────────────────
-    const categoryPages = appliances.map(({ slug }) => ({
-        url: `${BASE_URL}/services/${slug}`,
-        lastModified: now,
-        changeFrequency: 'weekly',
-        priority: 0.9,
-    }));
+    // Priority map by page type
+    const priorityMap = {
+        category: 0.9, cat: 0.9,
+        subcategory: 0.85, sub: 0.85,
+        location: 0.8, loc: 0.8,
+        sublocation: 0.75, 'sub-loc': 0.75,
+    };
 
-    // ── 3. Subcategory pages — /services/[category]/[subcategory] ─────────
-    const subcategoryPages = appliances.flatMap(({ slug, subcategories }) =>
-        subcategories.map(sub => ({
-            url: `${BASE_URL}/services/${slug}/${sub.slug}`,
-            lastModified: now,
-            changeFrequency: 'weekly',
-            priority: 0.85,
-        }))
-    );
+    // ── 2. All dynamic pages from page_settings ────────────────────────────
+    const dynamicPages = pages
+        .map(page => {
+            const url = pageIdToUrl(page.page_id);
+            if (!url) return null; // Skip unrecognised page_ids
+            return {
+                url: `${BASE_URL}${url}`,
+                lastModified: page.updated_at || now,
+                changeFrequency: 'weekly',
+                priority: priorityMap[page.page_type] ?? 0.7,
+            };
+        })
+        .filter(Boolean); // Remove nulls
 
-    // ── 4. Location pages — /location/[loc] ───────────────────────────────
-    // Source: page_settings WHERE page_type='location' — updated by Page Builder
-    const locationPages = locations.map(loc => ({
-        url: `${BASE_URL}/location/${loc}`,
-        lastModified: now,
-        changeFrequency: 'weekly',
-        priority: 0.8,
-    }));
-
-    // ── 5. Sub-location pages — /location/[loc]/[service] ────────────────
-    // Auto-derived: every active location × every active service category
-    const sublocationPages = locations.flatMap(loc =>
-        appliances.map(({ slug }) => ({
-            url: `${BASE_URL}/location/${loc}/${slug}`,
-            lastModified: now,
-            changeFrequency: 'weekly',
-            priority: 0.75,
-        }))
-    );
-
-    return [
-        ...staticPages,
-        ...categoryPages,
-        ...subcategoryPages,
-        ...locationPages,
-        ...sublocationPages,
-    ];
+    return [...staticPages, ...dynamicPages];
 }
