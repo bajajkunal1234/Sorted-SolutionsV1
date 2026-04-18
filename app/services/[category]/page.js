@@ -279,14 +279,15 @@ export default async function CategoryPage({ params }) {
 export async function generateMetadata({ params }) {
     const { category } = params
     const categoryName = category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    const titleBase = categoryName.toLowerCase().endsWith('repair') ? categoryName : `${categoryName} Repair`;
 
     return {
-        title: `${categoryName} Repair in Mumbai | Same Day Service | SORTED`,
-        description: `Expert ${categoryName} repair in Mumbai.Transparent pricing, licensed technicians, 90 - day warranty.Book now! ☎ +91 - 8928895590`,
-        keywords: `${categoryName} repair Mumbai, ${categoryName} service, appliance repair near me`,
+        title: `${titleBase} in Mumbai | Same Day Service | SORTED`,
+        description: `Expert ${titleBase.toLowerCase()} in Mumbai. Transparent pricing, licensed technicians, 90-day warranty. Book now! ☎ +91-8928895590`,
+        keywords: `${titleBase.toLowerCase()} Mumbai, ${categoryName} service, appliance repair near me`,
         openGraph: {
-            title: `${categoryName} Repair in Mumbai`,
-            description: `Same day ${categoryName} repair service in Mumbai`,
+            title: `${titleBase} in Mumbai`,
+            description: `Same day ${titleBase.toLowerCase()} service in Mumbai`,
         },
     }
 }

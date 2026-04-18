@@ -132,9 +132,22 @@ export default async function sitemap() {
         .map(page => {
             const url = pageIdToUrl(page.page_id);
             if (!url) return null; // Skip unrecognised page_ids
+            
+            let lastModifiedDate = now;
+            if (page.updated_at) {
+                try {
+                    // Supabase timestamp without timezone comes as "YYYY-MM-DDTHH:mm:ss.sss"
+                    // If we don't append 'Z' or if it lacks timezone, Google rejects the date.
+                    const dateStr = page.updated_at.endsWith('Z') ? page.updated_at : `${page.updated_at}Z`;
+                    lastModifiedDate = new Date(dateStr).toISOString();
+                } catch (e) {
+                    lastModifiedDate = now;
+                }
+            }
+
             return {
                 url: `${BASE_URL}${url}`,
-                lastModified: page.updated_at || now,
+                lastModified: lastModifiedDate,
                 changeFrequency: 'weekly',
                 priority: priorityMap[page.page_type] ?? 0.7,
             };

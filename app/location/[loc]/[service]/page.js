@@ -273,10 +273,11 @@ export async function generateMetadata({ params }) {
     const { loc, service } = params
     const locationName = loc.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     const serviceName = service.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+    const titleBase = serviceName.toLowerCase().endsWith('repair') ? serviceName : `${serviceName} Repair`;
 
     return {
-        title: `${serviceName} Repair in ${locationName} | Same Day Service | SORTED`,
-        description: `Expert ${serviceName.toLowerCase()} repair services in ${locationName}. Same day service, all brands, 90-day warranty. Book now!`,
-        keywords: `${serviceName} repair ${locationName}, ${serviceName.toLowerCase()} service ${locationName}`,
+        title: `${titleBase} in ${locationName} | Same Day Service | SORTED`,
+        description: `Expert ${titleBase.toLowerCase()} services in ${locationName}. Same day service, all brands, 90-day warranty. Book now!`,
+        keywords: `${titleBase.toLowerCase()} ${locationName}, ${serviceName.toLowerCase()} service ${locationName}`,
     }
 }
