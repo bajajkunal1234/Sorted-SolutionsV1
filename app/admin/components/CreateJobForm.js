@@ -16,6 +16,7 @@ import {
 } from '@/lib/adminAPI';
 import NewAccountForm from './accounts/NewAccountForm';
 import PropertyForm from './accounts/PropertyForm';
+import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 
 const normalizeAddress = (addr) => {
@@ -69,6 +70,16 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [errors, setErrors] = useState({});
     const [showCreateModal, setShowCreateModal] = useState(null); // 'customer', 'property', 'product', 'brand', 'issue'
     const [quickFormData, setQuickFormData] = useState({}); // Data for quick creation forms
+    
+    const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+
+    useEffect(() => {
+        if (formData.customer && formData.customer.name) {
+            setCustomerSearchTerm(`${formData.customer.name} ${formData.customer.phone || formData.customer.mobile ? `- ${formData.customer.phone || formData.customer.mobile}` : ''}`);
+        } else {
+            setCustomerSearchTerm('');
+        }
+    }, [formData.customer]);
 
     // Fetch master data asynchronously
     useEffect(() => {
@@ -832,20 +843,32 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     <div className="form-group">
                         <label className="form-label">Customer *</label>
                         <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                            <select
-                                className="form-select"
-                                value={formData.customer?.id || ''}
-                                onChange={(e) => handleCustomerChange(e.target.value)}
-                                onBlur={() => { if (!formData.customer) setErrors(prev => ({ ...prev, customer: 'Customer is required' })); else setErrors(prev => { const e = {...prev}; delete e.customer; return e; }); }}
-                                style={{ flex: 1, borderColor: errors.customer ? 'var(--color-danger)' : undefined }}
-                            >
-                                <option value="">{loadingStates.customers ? 'Loading customers...' : 'Select customer...'}</option>
-                                {customers.map(customer => (
-                                    <option key={customer.id} value={customer.id}>
-                                        {customer.name} {customer.phone || customer.mobile ? `- ${customer.phone || customer.mobile}` : ''}
-                                    </option>
-                                ))}
-                            </select>
+                            <div style={{ flex: 1, border: errors.customer ? '1px solid var(--color-danger)' : undefined, borderRadius: 'var(--radius-md)' }}>
+                                <AutocompleteSearch
+                                    placeholder={loadingStates.customers ? 'Loading customers...' : 'Search customer by name or phone...'}
+                                    value={customerSearchTerm}
+                                    onChange={(val) => {
+                                        setCustomerSearchTerm(val);
+                                        if (!val && formData.customer) {
+                                            setFormData(prev => ({ ...prev, customer: null, property: null }));
+                                            if (errors.customer) {
+                                                setErrors(prev => { const e = {...prev}; delete e.customer; return e; });
+                                            }
+                                        }
+                                    }}
+                                    suggestions={customers.map(c => ({
+                                        ...c,
+                                        displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
+                                    }))}
+                                    searchKey="displayText"
+                                    onSelect={(selected) => {
+                                        setCustomerSearchTerm(selected.displayText);
+                                        handleCustomerChange(selected.id);
+                                        setErrors(prev => { const e = {...prev}; delete e.customer; return e; });
+                                    }}
+                                    loading={loadingStates.customers}
+                                />
+                            </div>
                             <button
                                 type="button"
                                 className="btn btn-secondary"
