@@ -9,6 +9,7 @@ import InvoiceAllocations from './InvoiceAllocations';
 
 function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
     const [formData, setFormData] = useState({
+        payment_number: existingPayment?.payment_number || `PAY-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
         date: existingPayment?.date || new Date().toISOString().split('T')[0],
         account_id: existingPayment?.account_id || '',
         amount: existingPayment?.amount?.toString() || '',
@@ -97,6 +98,9 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#ef4444' }}>
                             {existingPayment ? 'Edit Payment Voucher' : 'Create Payment Voucher'}
                         </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+                            Payment No: {formData.payment_number}
+                        </p>
                     </div>
                     <button
                         onClick={onClose}

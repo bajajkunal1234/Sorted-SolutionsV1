@@ -9,6 +9,7 @@ import InvoiceAllocations from './InvoiceAllocations';
 
 function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
     const [formData, setFormData] = useState({
+        receipt_number: existingReceipt?.receipt_number || `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
         date: existingReceipt?.date || new Date().toISOString().split('T')[0],
         account_id: existingReceipt?.account_id || '',
         amount: existingReceipt?.amount?.toString() || '',
@@ -97,6 +98,9 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#10b981' }}>
                             {existingReceipt ? 'Edit Receipt Voucher' : 'Create Receipt Voucher'}
                         </h3>
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
+                            Receipt No: {formData.receipt_number}
+                        </p>
                     </div>
                     <button
                         onClick={onClose}
