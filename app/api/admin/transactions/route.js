@@ -24,14 +24,14 @@ async function syncJournalEntry(type, txData) {
 
     if (txData.status === 'draft' || txData.status === 'cancelled') return;
 
-    const { data: accounts } = await supabase.from('accounts').select('id, name, under, gst_group_type');
+    const { data: accounts } = await supabase.from('accounts').select('id, name, under');
     const findAcc = (condition) => accounts?.find(condition) || null;
 
     const salesAcc = findAcc(a => a.under?.includes('Income') && a.name?.toLowerCase().includes('sales'));
     const purchAcc = findAcc(a => a.under?.includes('Expense') && a.name?.toLowerCase().includes('purchase'));
-    const cgstAcc = findAcc(a => a.under?.includes('Duties') && (a.gst_group_type === 'CGST' || a.name?.toUpperCase().includes('CGST')));
-    const sgstAcc = findAcc(a => a.under?.includes('Duties') && (a.gst_group_type === 'SGST' || a.name?.toUpperCase().includes('SGST')));
-    const igstAcc = findAcc(a => a.under?.includes('Duties') && (a.gst_group_type === 'IGST' || a.name?.toUpperCase().includes('IGST')));
+    const cgstAcc = findAcc(a => a.under?.includes('Duties') && (a.name?.toUpperCase().includes('CGST')));
+    const sgstAcc = findAcc(a => a.under?.includes('Duties') && (a.name?.toUpperCase().includes('SGST')));
+    const igstAcc = findAcc(a => a.under?.includes('Duties') && (a.name?.toUpperCase().includes('IGST')));
     const bankAcc = findAcc(a => a.under?.includes('Bank')) || findAcc(a => a.under?.includes('Cash'));
     const cashAcc = findAcc(a => a.under?.includes('Cash'));
 

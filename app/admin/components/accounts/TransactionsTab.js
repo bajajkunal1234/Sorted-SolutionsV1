@@ -30,46 +30,61 @@ function TransactionsTab({ accountId, accountName }) {
             const { supabase } = await import('@/lib/supabase');
             if (!supabase) return;
 
-            // Fetch from multiple tables
-            const tables = [
-                { name: 'sales_invoices', type: 'sales_invoice', isNonFinancial: false },
-                { name: 'purchase_invoices', type: 'purchase_invoice', isNonFinancial: false },
-                { name: 'receipt_vouchers', type: 'receipt', isNonFinancial: false },
-                { name: 'payment_vouchers', type: 'payment', isNonFinancial: false },
-                { name: 'quotations', type: 'quotation', isNonFinancial: true }
-            ];
-
             let allTransactions = [];
 
-            for (const table of tables) {
-                const { data, error } = await supabase
-                    .from(table.name)
-                    .select('*')
-                    .eq('account_id', accountId);
+            // 1. Fetch Financial Transactions from Journal Entry Lines
+            const { data: journalLines, error: jeError } = await supabase
+                .from('journal_entry_lines')
+                .select(`
+                    id, debit, credit,
+                    journal_entries!inner(id, entry_number, date, reference_type, reference_id, notes)
+                `)
+                .eq('account_id', accountId);
 
-                if (error) {
-                    console.error(`Error fetching ${table.name}:`, error);
-                    continue;
-                }
+            if (!jeError && journalLines) {
+                const financialTxns = journalLines.map(line => ({
+                    id: line.id,
+                    originalId: line.journal_entries.reference_id,
+                    date: line.journal_entries.date,
+                    type: line.journal_entries.reference_type === 'sales_invoice' ? 'sales_invoice' 
+                          : line.journal_entries.reference_type === 'purchase_invoice' ? 'purchase_invoice'
+                          : line.journal_entries.reference_type,
+                    reference: line.journal_entries.entry_number || '-',
+                    description: line.journal_entries.notes || '-',
+                    debit: Number(line.debit) || 0,
+                    credit: Number(line.credit) || 0,
+                    balance: 0,
+                    status: 'finalized',
+                    canEdit: !!line.journal_entries.reference_id, // can only edit if it came from a source doc
+                    isNonFinancial: false,
+                    rawData: null // Will be fetched lazily on Edit
+                }));
+                allTransactions = [...allTransactions, ...financialTxns];
+            }
 
-                if (data) {
-                    const formattedData = data.map(item => ({
-                        id: item.id,
-                        originalId: item.id,
-                        date: item.date,
-                        type: table.type,
-                        reference: item.invoice_number || item.receipt_number || item.payment_number || item.quote_number || item.reference || '-',
-                        description: item.notes || item.narration || item.reference || '-',
-                        debit: ['payment', 'purchase_invoice'].includes(table.type) ? (item.total_amount || item.amount || 0) : 0,
-                        credit: ['receipt', 'sales_invoice'].includes(table.type) ? (item.total_amount || item.amount || 0) : 0,
-                        balance: 0,
-                        status: item.status || 'finalized',
-                        canEdit: true,
-                        isNonFinancial: table.isNonFinancial,
-                        rawData: item
-                    }));
-                    allTransactions = [...allTransactions, ...formattedData];
-                }
+            // 2. Fetch Non-Financial Quotations
+            const { data: quotes, error: qError } = await supabase
+                .from('quotations')
+                .select('*')
+                .eq('account_id', accountId);
+                
+            if (!qError && quotes) {
+                const quoteTxns = quotes.map(item => ({
+                    id: item.id,
+                    originalId: item.id,
+                    date: item.date,
+                    type: 'quotation',
+                    reference: item.quote_number || item.reference || '-',
+                    description: item.notes || item.reference || '-',
+                    debit: 0,
+                    credit: 0,
+                    balance: 0,
+                    status: item.status || 'finalized',
+                    canEdit: true,
+                    isNonFinancial: true,
+                    rawData: item
+                }));
+                allTransactions = [...allTransactions, ...quoteTxns];
             }
 
             // Sort ascending for running balance computation
@@ -119,9 +134,40 @@ function TransactionsTab({ accountId, accountName }) {
         return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     };
 
-    const handleEdit = (transaction) => {
-        setEditingTransaction(transaction.rawData);
-        setActiveForm(transaction.type);
+    const handleEdit = async (transaction) => {
+        if (transaction.type === 'quotation' && transaction.rawData) {
+            setEditingTransaction(transaction.rawData);
+            setActiveForm(transaction.type);
+            return;
+        }
+
+        if (!transaction.originalId) {
+            alert('This transaction was created manually and cannot be edited via forms yet.');
+            return;
+        }
+
+        // Lazy fetch the original transaction to edit it
+        try {
+            const { supabase } = await import('@/lib/supabase');
+            const tableMap = {
+                'sales_invoice': 'sales_invoices',
+                'purchase_invoice': 'purchase_invoices',
+                'receipt': 'receipt_vouchers',
+                'payment': 'payment_vouchers'
+            };
+            const tableName = tableMap[transaction.type];
+            if (!tableName) return;
+
+            const { data, error } = await supabase.from(tableName).select('*').eq('id', transaction.originalId).single();
+            if (error) throw error;
+            if (data) {
+                setEditingTransaction(data);
+                setActiveForm(transaction.type);
+            }
+        } catch (e) {
+            console.error('Error fetching source data for edit', e);
+            alert('Failed to load transaction data.');
+        }
     };
 
     const handleUndo = (transaction) => {
