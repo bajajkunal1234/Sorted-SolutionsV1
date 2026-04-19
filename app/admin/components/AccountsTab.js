@@ -832,6 +832,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                         ));
                     }
                 }
+            } else if (activeForm === 'journal-entry') {
+                // Journal entries are saved internally by JournalEntryForm.
+                // It calls onSave with the completed record data.
+                // We just need to fall-through and let the state refresh.
             } else {
                 const formToTypeMap = {
                     'sales-invoice': 'sales',
