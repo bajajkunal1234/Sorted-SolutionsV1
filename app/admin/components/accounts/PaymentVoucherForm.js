@@ -12,7 +12,8 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
         date: existingPayment?.date || new Date().toISOString().split('T')[0],
         account_id: existingPayment?.account_id || '',
         amount: existingPayment?.amount?.toString() || '',
-        payment_mode: existingPayment?.payment_mode || 'cash',
+        payment_mode: existingPayment?.payment_mode || 'bank_transfer',
+        payment_account_id: existingPayment?.payment_account_id || '',
         reference_number: existingPayment?.reference_number || '',
         notes: existingPayment?.notes || existingPayment?.narration || '',
         job_id: existingPayment?.job_id || ''
@@ -31,6 +32,10 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
     const handleSubmit = () => {
         if (!formData.account_id) {
             alert('Please select an account');
+            return;
+        }
+        if (!formData.payment_account_id) {
+            alert('Please select a Payment Account');
             return;
         }
         if (!formData.amount || parseFloat(formData.amount) <= 0) {
@@ -174,18 +179,15 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                    Payment Mode *
+                                    Paid From Account *
                                 </label>
-                                <select
-                                    className="form-input"
-                                    value={formData.payment_mode}
-                                    onChange={(e) => setFormData({ ...formData, payment_mode: e.target.value })}
-                                    style={{ width: '100%' }}
-                                >
-                                    {paymentModes.map(mode => (
-                                        <option key={mode.value} value={mode.value}>{mode.label}</option>
-                                    ))}
-                                </select>
+                                <AccountSelector
+                                    value={formData.payment_account_id}
+                                    onChange={(id) => setFormData({ ...formData, payment_account_id: id })}
+                                    onCreateNew={null}
+                                    accountType="payment_method"
+                                    label="Cash / Bank Ledger"
+                                />
                             </div>
                         </div>
 

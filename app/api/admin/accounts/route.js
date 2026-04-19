@@ -33,6 +33,8 @@ export async function GET(request) {
                 query = query.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%')
             } else if (type === 'supplier' || type === 'vendor' || type === 'technician') {
                 query = query.or(`type.eq.${type},under.ilike.%${type}%,under.ilike.%creditor%`)
+            } else if (type === 'payment_method') {
+                query = query.or('type.eq.bank,type.eq.cash,under.ilike.%bank%,under.ilike.%cash%')
             } else {
                 query = query.eq('type', type)
             }

@@ -67,12 +67,14 @@ async function syncJournalEntry(type, txData) {
         lines.push({ account_id: txData.account_id, debit: 0, credit: total });
     } else if (type === 'receipt') {
         const total = amt(txData.amount);
-        const recAcc = txData.payment_mode === 'cash' ? cashAcc : bankAcc;
+        const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
+        const recAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
         if (recAcc) lines.push({ account_id: recAcc.id, debit: total, credit: 0 });
         lines.push({ account_id: txData.account_id, debit: 0, credit: total });
     } else if (type === 'payment') {
         const total = amt(txData.amount);
-        const payAcc = txData.payment_mode === 'cash' ? cashAcc : bankAcc;
+        const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
+        const payAcc = explicitAcc || (txData.payment_mode === 'cash' ? cashAcc : bankAcc);
         lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
         if (payAcc) lines.push({ account_id: payAcc.id, debit: 0, credit: total });
     }
@@ -195,8 +197,8 @@ export async function POST(request) {
             sales:    ['invoice_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','items_subtotal','charges_total','status','notes','terms','job_id'],
             purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','account_phone','account_email','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
             quotation:['quote_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
-            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
-            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
+            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','notes','status','job_id'],
+            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','notes','status','job_id'],
         };
 
         const allowedCols = tableColumns[type];
@@ -315,8 +317,8 @@ export async function PUT(request) {
             sales:    ['invoice_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','items_subtotal','charges_total','paid_amount','status','notes','terms','job_id'],
             purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','account_phone','account_email','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
             quotation:['quote_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
-            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
-            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','notes','status','job_id'],
+            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','notes','status','job_id'],
+            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','notes','status','job_id'],
         };
 
         const allowedCols = tableColumns[type];
@@ -338,6 +340,73 @@ export async function PUT(request) {
 
         // ── AUTO-JOURNAL ──
         await syncJournalEntry(type, data);
+        
+        // ── Re-calculate Allocations (PUT) ──
+        const allocations = body.allocations || [];
+        if (type === 'receipt' || type === 'payment') {
+            const allocationTable = type === 'receipt'
+                ? 'receipt_voucher_allocations'
+                : 'payment_voucher_allocations';
+            const voucherIdField = type === 'receipt' ? 'receipt_voucher_id' : 'payment_voucher_id';
+            const invoiceTable = type === 'receipt' ? 'sales_invoices' : 'purchase_invoices';
+            const invoiceIdField = type === 'receipt' ? 'invoice_id' : 'purchase_invoice_id';
+
+            // 1. Fetch existing allocations
+            const { data: existingAllocs } = await supabase
+                .from(allocationTable)
+                .select('*')
+                .eq(voucherIdField, id);
+
+            // 2. Reverse existing allocations from invoice paid_amount
+            if (existingAllocs && existingAllocs.length > 0) {
+                for (const oldAlloc of existingAllocs) {
+                    const invId = type === 'receipt' ? oldAlloc.invoice_id : oldAlloc.purchase_invoice_id;
+                    const { data: invData } = await supabase
+                        .from(invoiceTable)
+                        .select('paid_amount, total_amount')
+                        .eq('id', invId)
+                        .single();
+                        
+                    if (invData) {
+                        const reversedPaid = Math.max(0, (parseFloat(invData.paid_amount) || 0) - parseFloat(oldAlloc.amount_applied));
+                        const reversedStatus = reversedPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : (reversedPaid > 0 ? 'partial' : 'draft');
+                        await supabase.from(invoiceTable).update({ paid_amount: reversedPaid, status: reversedStatus }).eq('id', invId);
+                    }
+                }
+                // 3. Clear existing allocations in DB
+                await supabase.from(allocationTable).delete().eq(voucherIdField, id);
+            }
+
+            // 4. Apply new allocations
+            const allocationRows = allocations
+                .filter(a => a.invoice_id && parseFloat(a.amount_applied) > 0)
+                .map(a => ({
+                    [voucherIdField]: id,
+                    [invoiceIdField]: a.invoice_id,
+                    amount_applied: parseFloat(a.amount_applied),
+                    ...(type === 'payment' ? { purchase_invoice_ref: a.invoice_ref } : {}),
+                }));
+
+            if (allocationRows.length > 0) {
+                await supabase.from(allocationTable).insert(allocationRows);
+
+                // 5. Increment paid_amount on invoice
+                for (const newAlloc of allocationRows) {
+                    const invId = type === 'receipt' ? newAlloc.invoice_id : newAlloc.purchase_invoice_id;
+                    const { data: invData } = await supabase
+                        .from(invoiceTable)
+                        .select('paid_amount, total_amount')
+                        .eq('id', invId)
+                        .single();
+                        
+                    if (invData) {
+                        const newPaid = (parseFloat(invData.paid_amount) || 0) + newAlloc.amount_applied;
+                        const newStatus = newPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : 'partial';
+                        await supabase.from(invoiceTable).update({ paid_amount: newPaid, status: newStatus }).eq('id', invId);
+                    }
+                }
+            }
+        }
 
         // Log interaction
         const info = editedInteractionMap[type];
@@ -373,6 +442,37 @@ export async function DELETE(request) {
 
         const tableName = tableMap[type];
 
+        // ── Reverse Allocations Before Deletion ──
+        if (type === 'receipt' || type === 'payment') {
+            const allocationTable = type === 'receipt' ? 'receipt_voucher_allocations' : 'payment_voucher_allocations';
+            const voucherIdField = type === 'receipt' ? 'receipt_voucher_id' : 'payment_voucher_id';
+            const invoiceTable = type === 'receipt' ? 'sales_invoices' : 'purchase_invoices';
+
+            // 1. Fetch allocations to reverse
+            const { data: existingAllocs } = await supabase
+                .from(allocationTable)
+                .select('*')
+                .eq(voucherIdField, id);
+
+            if (existingAllocs && existingAllocs.length > 0) {
+                for (const oldAlloc of existingAllocs) {
+                    const invId = type === 'receipt' ? oldAlloc.invoice_id : oldAlloc.purchase_invoice_id;
+                    const { data: invData } = await supabase
+                        .from(invoiceTable)
+                        .select('paid_amount, total_amount')
+                        .eq('id', invId)
+                        .single();
+                        
+                    if (invData) {
+                        const reversedPaid = Math.max(0, (parseFloat(invData.paid_amount) || 0) - parseFloat(oldAlloc.amount_applied));
+                        const reversedStatus = reversedPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : (reversedPaid > 0 ? 'partial' : 'draft');
+                        await supabase.from(invoiceTable).update({ paid_amount: reversedPaid, status: reversedStatus }).eq('id', invId);
+                    }
+                }
+                // Automatically gets deleted due to FOREIGN KEY ON DELETE CASCADE on allocations table, but good practice to clear safely
+            }
+        }
+
         const { error } = await supabase
             .from(tableName)
             .delete()
@@ -385,3 +485,5 @@ export async function DELETE(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
+
+
