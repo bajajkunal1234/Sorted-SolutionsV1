@@ -64,12 +64,17 @@ export async function PUT(request) {
             return NextResponse.json({ success: false, error: 'fcm_token required' }, { status: 400 });
         }
 
-        // Upsert by token so same browser never gets a duplicate row
         const { error } = await supabase
             .from('admin_recipients')
             .upsert({ fcm_token, name: name || 'Admin' }, { onConflict: 'fcm_token' });
 
-        if (error) throw error;
+        if (error) {
+            if (error.code === 'PGRST205') {
+                return NextResponse.json({ success: true, warning: 'admin_recipients table not found - push notifications disabled' });
+            }
+            throw error;
+        }
+
         return NextResponse.json({ success: true });
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
