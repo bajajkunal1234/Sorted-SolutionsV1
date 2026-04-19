@@ -15,7 +15,7 @@ const getPrice = (b) => {
 
 const fmt = (n) => (n || 0).toLocaleString('en-IN');
 
-export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onClose }) {
+export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose }) {
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading]           = useState(true);

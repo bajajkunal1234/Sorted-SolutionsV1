@@ -165,7 +165,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
     };
 
     const handleCalculatorItems = (calcItems) => {
-        const newItems = calcItems.map((it, idx) => ({
+        const productItems = calcItems.filter(it => it.type !== 'service').map((it, idx) => ({
             id: Date.now() + idx,
             productId: it.productId || '',
             description: it.description,
@@ -176,11 +176,26 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             taxRate: it.taxRate || 18,
             total: (it.qty || 1) * (it.rate || 0)
         }));
+
+        const serviceItems = calcItems.filter(it => it.type === 'service').map((it, idx) => ({
+            id: Date.now() + 1000 + idx,
+            serviceId: it.productId || '',
+            name: it.description,
+            amount: (it.qty || 1) * (it.rate || 0),
+            taxRate: it.taxRate || 18
+        }));
+        
         setFormData(prev => ({
             ...prev,
-            // If the only item is a blank row, replace it. Otherwise append.
-            items: prev.items.length === 1 && !prev.items[0].description ? newItems : [...prev.items, ...newItems]
+            items: prev.items.length === 1 && !prev.items[0].description && productItems.length > 0 ? productItems : [...prev.items, ...productItems]
         }));
+
+        if (serviceItems.length > 0) {
+            setCharges(prev => {
+                const current = Array.isArray(prev) ? prev : [];
+                return current.length === 1 && !current[0].name && serviceItems.length > 0 ? serviceItems : [...current, ...serviceItems];
+            });
+        }
         setShowCalculator(false);
     };
 
@@ -383,7 +398,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                         overflow: 'hidden'
                     }}>
                         <div style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>Items & Services</h4>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>Items</h4>
                         </div>
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
@@ -717,8 +732,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 <RepairCalculator
                     job={{}} 
                     onClose={() => setShowCalculator(false)}
-                    onCreateInvoice={handleCalculatorItems}
-                    onCreateQuotation={handleCalculatorItems}
+                    onApply={handleCalculatorItems}
                 />
             )}
         </div>
@@ -726,3 +740,5 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
 }
 
 export default QuotationForm;
+
+
