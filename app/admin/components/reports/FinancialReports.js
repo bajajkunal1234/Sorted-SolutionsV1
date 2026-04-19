@@ -49,16 +49,34 @@ function FinancialReports() {
     const profitLossData = reportsData.profitLossData;
     const balanceSheetData = reportsData.balanceSheetData;
 
-    // Calculate totals
-    const salesTotal = filteredSales.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const salesSubtotal = filteredSales.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
-    const salesGST = salesTotal - salesSubtotal;
-
-    const purchaseTotal = filteredPurchases.reduce((sum, inv) => sum + (inv.total || 0), 0);
-    const purchaseSubtotal = filteredPurchases.reduce((sum, inv) => sum + (inv.subtotal || 0), 0);
-    const purchaseGST = purchaseTotal - purchaseSubtotal;
-
     const sumBal = (arr) => arr.reduce((s, a) => s + (a.balance || 0), 0);
+
+    // Derive totals dynamically from Trial Balance (Journal Entries)
+    const taxes = reportsData.trialBalance.filter(a => a.under?.toLowerCase().includes('duties'));
+
+    const getTax = (type, side) => {
+        return taxes.filter(a => a.name.toLowerCase().includes(type) && a.name.toLowerCase().includes(side))
+            .reduce((s, a) => s + (side === 'input' ? a.totalDebit : a.totalCredit), 0);
+    };
+
+    const outCGST = getTax('cgst', 'output');
+    const outSGST = getTax('sgst', 'output');
+    const outIGST = getTax('igst', 'output');
+    const totalOutGST = outCGST + outSGST + outIGST;
+
+    const inCGST = getTax('cgst', 'input');
+    const inSGST = getTax('sgst', 'input');
+    const inIGST = getTax('igst', 'input');
+    const totalInGST = inCGST + inSGST + inIGST;
+
+    const salesSubtotal = sumBal(profitLossData.revenue || []);
+    const purchaseSubtotal = sumBal(profitLossData.cogs || []) + sumBal(profitLossData.operatingExpenses || []);
+
+    const salesGST = totalOutGST;
+    const purchaseGST = totalInGST;
+
+    const salesTotal = salesSubtotal + salesGST;
+    const purchaseTotal = purchaseSubtotal + purchaseGST;
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -572,13 +590,13 @@ function FinancialReports() {
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>Outward taxable supplies (other than zero rated, nil rated and exempted)</td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>₹{salesSubtotal.toLocaleString()}</td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                    ₹{filteredSales.reduce((sum, inv) => sum + inv.cgst, 0).toLocaleString()}
+                                                    ₹{outCGST.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                    ₹{filteredSales.reduce((sum, inv) => sum + inv.sgst, 0).toLocaleString()}
+                                                    ₹{outSGST.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                    ₹{filteredSales.reduce((sum, inv) => sum + inv.igst, 0).toLocaleString()}
+                                                    ₹{outIGST.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>₹0</td>
                                             </tr>
@@ -614,13 +632,13 @@ function FinancialReports() {
                                             <tr style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                                 <td style={{ padding: 'var(--spacing-sm)' }}>Inputs</td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
-                                                    ₹{filteredPurchases.reduce((sum, inv) => sum + inv.cgst, 0).toLocaleString()}
+                                                    ₹{inCGST.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
-                                                    ₹{filteredPurchases.reduce((sum, inv) => sum + inv.sgst, 0).toLocaleString()}
+                                                    ₹{inSGST.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
-                                                    ₹{filteredPurchases.reduce((sum, inv) => sum + inv.igst, 0).toLocaleString()}
+                                                    ₹{inIGST.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>₹0</td>
                                             </tr>
