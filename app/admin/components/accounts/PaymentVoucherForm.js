@@ -133,7 +133,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
                         <div>
                             <AccountSelector
                                 value={formData.account_id}
-                                onChange={(id) => setFormData({ ...formData, account_id: id })}
+                                onChange={(acc) => setFormData({ ...formData, account_id: acc?.id || '' })}
                                 onCreateNew={() => setShowNewAccountForm(true)}
                                 accountType="vendor"
                                 label="Paid To"
@@ -183,7 +183,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
                                 </label>
                                 <AccountSelector
                                     value={formData.payment_account_id}
-                                    onChange={(id) => setFormData({ ...formData, payment_account_id: id })}
+                                    onChange={(acc) => setFormData({ ...formData, payment_account_id: acc?.id || '' })}
                                     onCreateNew={null}
                                     accountType="payment_method"
                                     label="Cash / Bank Ledger"

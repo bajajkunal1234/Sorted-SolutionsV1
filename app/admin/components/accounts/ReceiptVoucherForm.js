@@ -133,7 +133,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                         <div>
                             <AccountSelector
                                 value={formData.account_id}
-                                onChange={(id) => setFormData({ ...formData, account_id: id })}
+                                onChange={(acc) => setFormData({ ...formData, account_id: acc?.id || '' })}
                                 onCreateNew={() => setShowNewAccountForm(true)}
                                 accountType="customer"
                                 label="Received From"
@@ -183,7 +183,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                                 </label>
                                 <AccountSelector
                                     value={formData.payment_account_id}
-                                    onChange={(id) => setFormData({ ...formData, payment_account_id: id })}
+                                    onChange={(acc) => setFormData({ ...formData, payment_account_id: acc?.id || '' })}
                                     onCreateNew={null}
                                     accountType="payment_method"
                                     label="Cash / Bank Ledger"
