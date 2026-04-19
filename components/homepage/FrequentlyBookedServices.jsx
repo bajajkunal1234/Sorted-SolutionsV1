@@ -44,7 +44,7 @@ function FrequentlyBookedServices() {
             icon: Wind,
             image: '/images/services/ac_3d.png',
             keywords: 'Air conditioner cleaning Mumbai',
-            url: '/services/ac-cleaning',
+            url: '/services/ac-repair?prefillIssue=Cleaning',
             badge: 'Popular'
         },
         {
@@ -53,7 +53,7 @@ function FrequentlyBookedServices() {
             icon: Filter,
             image: '/images/services/water_purifier_3d.png',
             keywords: 'RO water purifier service',
-            url: '/services/ro-filter',
+            url: '/services/water-purifier-repair?prefillIssue=Filter',
             badge: 'Seasonal'
         },
         {
@@ -62,7 +62,7 @@ function FrequentlyBookedServices() {
             icon: Droplets,
             image: '/images/services/washing_machine_3d.png',
             keywords: 'WM spin issue repair',
-            url: '/services/wm-spin',
+            url: '/services/washing-machine-repair?prefillIssue=Spin',
             badge: null
         },
         {
@@ -71,7 +71,7 @@ function FrequentlyBookedServices() {
             icon: Refrigerator,
             image: '/images/services/fridge_3d.png',
             keywords: 'Fridge cooling problem fix',
-            url: '/services/fridge-cooling',
+            url: '/services/refrigerator-repair?prefillIssue=Cooling',
             badge: 'Emergency'
         },
         {
@@ -80,7 +80,7 @@ function FrequentlyBookedServices() {
             icon: Microwave,
             image: '/images/services/oven_3d.png',
             keywords: 'Microwave oven repair',
-            url: '/services/microwave-heating',
+            url: '/services/oven-repair?prefillIssue=Heating',
             badge: null
         },
         {
@@ -89,7 +89,7 @@ function FrequentlyBookedServices() {
             icon: Flame,
             image: '/images/services/hob_3d.png',
             keywords: 'Gas hob service Mumbai',
-            url: '/services/gas-stove',
+            url: '/services/hob-repair?prefillIssue=Burner',
             badge: null
         }
     ];

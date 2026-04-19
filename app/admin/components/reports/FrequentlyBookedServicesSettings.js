@@ -40,6 +40,7 @@ function FrequentlyBookedServicesSettings() {
         }
     };
     const [editForm, setEditForm] = useState({});
+    const [editingId, setEditingId] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
     const [newService, setNewService] = useState({
         title: '',

@@ -12,6 +12,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         receipt_number: existingReceipt?.receipt_number || `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
         date: existingReceipt?.date || new Date().toISOString().split('T')[0],
         account_id: existingReceipt?.account_id || '',
+        account_name: existingReceipt?.account_name || '',
         amount: existingReceipt?.amount?.toString() || '',
         payment_mode: existingReceipt?.payment_mode || 'bank_transfer',
         payment_account_id: existingReceipt?.payment_account_id || '',
@@ -137,7 +138,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                         <div>
                             <AccountSelector
                                 value={formData.account_id}
-                                onChange={(acc) => setFormData({ ...formData, account_id: acc?.id || '' })}
+                                onChange={(acc) => setFormData({ ...formData, account_id: acc?.id || '', account_name: acc?.name || '' })}
                                 onCreateNew={() => setShowNewAccountForm(true)}
                                 accountType="customer"
                                 label="Received From"
