@@ -36,8 +36,8 @@ function ServiceProductsGrid() {
         },
         {
             id: 'oven',
-            name: 'Microwave Oven',
-            fullName: 'Microwave Oven',
+            name: 'Oven',
+            fullName: 'Oven',
             icon: Microwave,
             image: '/images/services/oven_3d.png',
             color: '#f59e0b',
