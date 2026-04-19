@@ -233,7 +233,7 @@ function FinancialReports() {
                             }}>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Pending</div>
                                 <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#f59e0b' }}>
-                                    ₹{filteredSales.filter(inv => inv.paymentStatus !== 'paid').reduce((sum, inv) => sum + inv.total, 0).toLocaleString()}
+                                    ₹{filteredSales.filter(inv => inv.status !== 'paid').reduce((sum, inv) => sum + inv.total_amount, 0).toLocaleString()}
                                 </div>
                             </div>
                         </div>
@@ -291,21 +291,21 @@ function FinancialReports() {
                                                     ₹{(invoice.cgst + invoice.sgst + invoice.igst).toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700 }}>
-                                                    ₹{invoice.total.toLocaleString()}
+                                                    ₹{invoice.total_amount.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                     <span style={{
                                                         padding: '2px 8px',
-                                                        backgroundColor: invoice.paymentStatus === 'paid' ? 'rgba(16, 185, 129, 0.1)' :
-                                                            invoice.paymentStatus === 'pending' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                                                        color: invoice.paymentStatus === 'paid' ? '#10b981' :
-                                                            invoice.paymentStatus === 'pending' ? '#f59e0b' : '#ef4444',
+                                                        backgroundColor: invoice.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' :
+                                                            invoice.status === 'pending' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                        color: invoice.status === 'paid' ? '#10b981' :
+                                                            invoice.status === 'pending' ? '#f59e0b' : '#ef4444',
                                                         borderRadius: 'var(--radius-sm)',
                                                         fontSize: 'var(--font-size-xs)',
                                                         fontWeight: 600,
                                                         textTransform: 'capitalize'
                                                     }}>
-                                                        {invoice.paymentStatus}
+                                                        {invoice.status}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -387,19 +387,19 @@ function FinancialReports() {
                                                     ₹{(invoice.cgst + invoice.sgst + invoice.igst).toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700 }}>
-                                                    ₹{invoice.total.toLocaleString()}
+                                                    ₹{invoice.total_amount.toLocaleString()}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
                                                     <span style={{
                                                         padding: '2px 8px',
-                                                        backgroundColor: invoice.paymentStatus === 'paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
-                                                        color: invoice.paymentStatus === 'paid' ? '#10b981' : '#f59e0b',
+                                                        backgroundColor: invoice.status === 'paid' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                                        color: invoice.status === 'paid' ? '#10b981' : '#f59e0b',
                                                         borderRadius: 'var(--radius-sm)',
                                                         fontSize: 'var(--font-size-xs)',
                                                         fontWeight: 600,
                                                         textTransform: 'capitalize'
                                                     }}>
-                                                        {invoice.paymentStatus}
+                                                        {invoice.status}
                                                     </span>
                                                 </td>
                                             </tr>
@@ -423,10 +423,10 @@ function FinancialReports() {
                             }}>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>B2B Invoices</div>
                                 <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#8b5cf6' }}>
-                                    {filteredSales.filter(inv => inv.invoiceType === 'B2B').length}
+                                    {filteredSales.filter(inv => inv.account_gstin).length}
                                 </div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                    ₹{filteredSales.filter(inv => inv.invoiceType === 'B2B').reduce((sum, inv) => sum + inv.total, 0).toLocaleString()}
+                                    ₹{filteredSales.filter(inv => inv.account_gstin).reduce((sum, inv) => sum + inv.total_amount, 0).toLocaleString()}
                                 </div>
                             </div>
                             <div style={{
@@ -437,10 +437,10 @@ function FinancialReports() {
                             }}>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>B2C Invoices</div>
                                 <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#10b981' }}>
-                                    {filteredSales.filter(inv => inv.invoiceType === 'B2C').length}
+                                    {filteredSales.filter(inv => (!inv.account_gstin)).length}
                                 </div>
                                 <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                    ₹{filteredSales.filter(inv => inv.invoiceType === 'B2C').reduce((sum, inv) => sum + inv.total, 0).toLocaleString()}
+                                    ₹{filteredSales.filter(inv => (!inv.account_gstin)).reduce((sum, inv) => sum + inv.total_amount, 0).toLocaleString()}
                                 </div>
                             </div>
                             <div style={{
