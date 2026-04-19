@@ -5,10 +5,25 @@ import { TrendingUp, ShoppingCart, FileText, Calculator, BarChart3, PieChart, Do
 
 function FinancialReports() {
     const [activeReport, setActiveReport] = useState('sales');
-    const [dateRange, setDateRange] = useState({
-        from: '2026-01-01',
-        to: '2026-01-31'
-    });
+    const getInitialDateRange = () => {
+        const today = new Date();
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        
+        const formatDate = (date) => {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+        };
+        
+        return {
+            from: formatDate(firstDay),
+            to: formatDate(lastDay)
+        };
+    };
+
+    const [dateRange, setDateRange] = useState(getInitialDateRange());
 
     const [reportsData, setReportsData] = useState(null);
     const [loading, setLoading] = useState(true);
