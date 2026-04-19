@@ -1,10 +1,8 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { supabase } from '@/lib/supabase';
 import { NextResponse } from 'next/server';
 
 export async function GET(request) {
     try {
-        const supabase = createRouteHandlerClient({ cookies });
         const { searchParams } = new URL(request.url);
         const from = searchParams.get('from');
         const to = searchParams.get('to');
@@ -18,13 +16,20 @@ export async function GET(request) {
         if (from) purchaseQuery = purchaseQuery.gte('date', from);
         if (to) purchaseQuery = purchaseQuery.lte('date', to);
 
-        const [ { data: salesInvoices }, { data: purchaseInvoices } ] = await Promise.all([
+        const [ 
+            { data: salesInvoices, error: salesError }, 
+            { data: purchaseInvoices, error: pchError } 
+        ] = await Promise.all([
             salesQuery,
             purchaseQuery
         ]);
 
-        // 2. Fetch all accounts to build Trial Balance & P&L structurally
-        const { data: accounts } = await supabase.from('accounts').select('id, name, under, group_type, gst_group_type');
+        if (salesError) throw salesError;
+        if (pchError) throw pchError;
+
+        // 2. Fetch all accounts to build Trial Balance & P&L structurally (group_type doesn't exist)
+        const { data: accounts, error: accError } = await supabase.from('accounts').select('id, name, under, type');
+        if (accError) throw accError;
 
         // 3. Fetch all Journal Entry Lines within date range to build totals
         let jeQuery = supabase.from('journal_entry_lines').select(`
@@ -38,7 +43,8 @@ export async function GET(request) {
         if (from) jeQuery = jeQuery.gte('journal_entries.date', from);
         if (to) jeQuery = jeQuery.lte('journal_entries.date', to);
 
-        const { data: jeLines } = await jeQuery;
+        const { data: jeLines, error: jeError } = await jeQuery;
+        if (jeError) throw jeError;
 
         // Group balances by account
         const accountBalances = {};
@@ -59,8 +65,8 @@ export async function GET(request) {
         // Asset/Expense: Normal Debit Balance = Debit - Credit
         // Liab/Equity/Income: Normal Credit Balance = Credit - Debit
         Object.values(accountBalances).forEach(a => {
-            const isAssetOrExpense = a.under?.toLowerCase().includes('asset') || a.group_type?.toLowerCase().includes('asset') || 
-                                     a.under?.toLowerCase().includes('expense') || a.group_type?.toLowerCase().includes('expense') ||
+            const isAssetOrExpense = a.under?.toLowerCase().includes('asset') || a.type?.toLowerCase().includes('asset') || 
+                                     a.under?.toLowerCase().includes('expense') || a.type?.toLowerCase().includes('expense') ||
                                      a.under?.toLowerCase().includes('cash') || a.under?.toLowerCase().includes('bank') ||
                                      a.under?.toLowerCase().includes('debtor');
 
@@ -72,9 +78,9 @@ export async function GET(request) {
         });
 
         // Structure P&L and Balance Sheet dynamically
-        const directIncome = Object.values(accountBalances).filter(a => a.under?.includes('Income') || a.group_type?.includes('Revenue'));
-        const directExpenses = Object.values(accountBalances).filter(a => (a.under?.includes('Expense') || a.group_type?.includes('Expense')) && a.under?.includes('Direct'));
-        const indirectExpenses = Object.values(accountBalances).filter(a => (a.under?.includes('Expense') || a.group_type?.includes('Expense')) && !a.under?.includes('Direct'));
+        const directIncome = Object.values(accountBalances).filter(a => a.under?.includes('Income') || a.type?.includes('income'));
+        const directExpenses = Object.values(accountBalances).filter(a => (a.under?.includes('Expense') || a.type?.includes('expense')) && a.under?.includes('Direct'));
+        const indirectExpenses = Object.values(accountBalances).filter(a => (a.under?.includes('Expense') || a.type?.includes('expense')) && !a.under?.includes('Direct'));
         const otherIncome = Object.values(accountBalances).filter(a => a.under?.includes('Indirect Income'));
 
         const sumBal = (arr) => arr.reduce((s, a) => s + a.balance, 0);
@@ -118,6 +124,6 @@ export async function GET(request) {
 
         return NextResponse.json({ success: true, data: reportsData });
     } catch (e) {
-        return NextResponse.json({ success: false, error: e.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: e.message || 'Unknown error occurred' }, { status: 500 });
     }
 }
