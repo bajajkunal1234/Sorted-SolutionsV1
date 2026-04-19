@@ -166,7 +166,9 @@ export async function GET(request) {
         if (jobId) query = query.eq('job_id', jobId)
 
         const includeArchived = searchParams.get('include_archived') === '1' || searchParams.get('include_archived') === 'true';
-        if (!includeArchived) query = query.neq('status', 'archived');
+        if (!includeArchived && type !== 'receipt' && type !== 'payment') {
+            query = query.neq('status', 'archived');
+        }
 
         const { data, error } = await query
 

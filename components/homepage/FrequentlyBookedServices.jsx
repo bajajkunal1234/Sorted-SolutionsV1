@@ -44,7 +44,7 @@ function FrequentlyBookedServices() {
             icon: Wind,
             image: '/images/services/ac_3d.png',
             keywords: 'Air conditioner cleaning Mumbai',
-            url: '/services/ac-repair?prefillIssue=Cleaning',
+            url: '/services/ac-repair',
             badge: 'Popular'
         },
         {
@@ -53,7 +53,7 @@ function FrequentlyBookedServices() {
             icon: Filter,
             image: '/images/services/water_purifier_3d.png',
             keywords: 'RO water purifier service',
-            url: '/services/water-purifier-repair?prefillIssue=Filter',
+            url: '/services/water-purifier-repair',
             badge: 'Seasonal'
         },
         {
@@ -62,7 +62,7 @@ function FrequentlyBookedServices() {
             icon: Droplets,
             image: '/images/services/washing_machine_3d.png',
             keywords: 'WM spin issue repair',
-            url: '/services/washing-machine-repair?prefillIssue=Spin',
+            url: '/services/washing-machine-repair',
             badge: null
         },
         {
@@ -71,7 +71,7 @@ function FrequentlyBookedServices() {
             icon: Refrigerator,
             image: '/images/services/fridge_3d.png',
             keywords: 'Fridge cooling problem fix',
-            url: '/services/refrigerator-repair?prefillIssue=Cooling',
+            url: '/services/refrigerator-repair',
             badge: 'Emergency'
         },
         {
@@ -80,7 +80,7 @@ function FrequentlyBookedServices() {
             icon: Microwave,
             image: '/images/services/oven_3d.png',
             keywords: 'Microwave oven repair',
-            url: '/services/oven-repair?prefillIssue=Heating',
+            url: '/services/oven-repair',
             badge: null
         },
         {
@@ -89,7 +89,7 @@ function FrequentlyBookedServices() {
             icon: Flame,
             image: '/images/services/hob_3d.png',
             keywords: 'Gas hob service Mumbai',
-            url: '/services/hob-repair?prefillIssue=Burner',
+            url: '/services/hob-repair',
             badge: null
         }
     ];

@@ -66,7 +66,7 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
         loadData();
     }, [initialData]);
 
-// Listen for pre-selection events from IssuesSection
+    // Listen for pre-selection events from IssuesSection
     useEffect(() => {
         const handlePreselect = (e) => {
             const { categoryId, subcategoryId, issueId, issueName } = e.detail || {};
@@ -83,34 +83,6 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
         window.addEventListener('bookingPreselect', handlePreselect);
         return () => window.removeEventListener('bookingPreselect', handlePreselect);
     }, []);
-
-    // Prefill from URL query params (e.g. ?prefillIssue=Cleaning)
-    useEffect(() => {
-        if (!loading && settings && settings.categories && settings.categories.length > 0 && typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            const prefill = params.get('prefillIssue');
-            if (prefill && !formData.issue) {
-                // Find category, subcategory, issue covering this prefill text
-                for (const cat of settings.categories) {
-                    for (const sub of (cat.subcategories || [])) {
-                        for (const iss of (sub.issues || [])) {
-                            // Match by name including prefill word
-                            if (iss.name.toLowerCase().includes(prefill.toLowerCase())) {
-                                setFormData(prev => ({
-                                    ...prev,
-                                    category: String(cat.id),
-                                    subcategory: String(sub.id),
-                                    issue: String(iss.id)
-                                }));
-                                setPrefilledIssueName(iss.name);
-                                return; // Stop after first match
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }, [loading, settings.categories, formData.issue]);
 
     // Also fetch brands when initialData is supplied (server render path)
     useEffect(() => {
