@@ -430,6 +430,11 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                                 <FileText size={15} /> Invoice
                             </button>
                         )}
+                        {onApply && (
+                            <button onClick={() => onApply(buildItems())} style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                                <Plus size={15} /> Add to Document
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
