@@ -27,16 +27,16 @@ async function syncJournalEntry(type, txData) {
     const { data: accounts } = await supabase.from('accounts').select('id, name, under');
     const findAcc = (condition) => accounts?.find(condition) || null;
 
-    const salesAcc = findAcc(a => a.under?.includes('Income') && a.name?.toLowerCase().includes('sales'));
-    const purchAcc = findAcc(a => a.under?.includes('Expense') && a.name?.toLowerCase().includes('purchase'));
+    const salesAcc = findAcc(a => (a.under?.toLowerCase().includes('income') || a.under?.toLowerCase().includes('sales')) && a.name?.toLowerCase().includes('sales'));
+    const purchAcc = findAcc(a => (a.under?.toLowerCase().includes('expense') || a.under?.toLowerCase().includes('purchase')) && a.name?.toLowerCase().includes('purchase'));
     
     // Universal tax ledger resolution
     const cgstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'CGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('CGST'));
     const sgstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'SGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('SGST'));
     const igstAcc = findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().trim() === 'IGST') || findAcc(a => a.under?.toLowerCase().includes('duties') && a.name?.toUpperCase().includes('IGST'));
 
-    const bankAcc = findAcc(a => a.under?.includes('Bank')) || findAcc(a => a.under?.includes('Cash'));
-    const cashAcc = findAcc(a => a.under?.includes('Cash'));
+    const bankAcc = findAcc(a => a.under?.toLowerCase().includes('bank')) || findAcc(a => a.under?.toLowerCase().includes('cash'));
+    const cashAcc = findAcc(a => a.under?.toLowerCase().includes('cash'));
 
     let lines = [];
     const amt = (val) => parseFloat(val) || 0;
