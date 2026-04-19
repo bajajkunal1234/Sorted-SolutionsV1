@@ -1943,7 +1943,7 @@ ${body}
                 </select>
 
                 {/* Column Picker */}
-                {(activeTab === 'accounts' || ['sales','purchases','quotations','receipts','payments'].includes(activeTab)) && (
+                {(activeTab === 'accounts' || ['sales','purchases','quotations','receipts','payments','journals'].includes(activeTab)) && (
                     <div style={{ position: 'relative' }}>
                         <button onClick={() => setShowColumnPicker(p => !p)}
                             style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: showColumnPicker ? '#6366f1' : 'transparent', color: showColumnPicker ? 'white' : '#94a3b8', cursor: 'pointer', fontSize: '12px', transition: 'all 0.15s' }}>
