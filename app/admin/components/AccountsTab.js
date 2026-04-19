@@ -308,6 +308,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                         savedSet.add(c.id);
                                     }
                                 });
+                            } else {
+                                // If the tab did not exist in saved columns, turn on its defaults
+                                DEFAULT_CONFIG[tab].forEach(c => {
+                                    if (c.defaultOn) savedSet.add(c.id);
+                                });
                             }
                             hydratedVis[tab] = savedSet;
                         }
@@ -1799,6 +1804,10 @@ ${body}
                                                 case 'number': 
                                                     const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || '—';
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{no}</td>;
+                                                case 'entry_number': 
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{item.entry_number || '—'}</td>;
+                                                case 'reference_type':
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, textTransform: 'capitalize' }}>{item.reference_type?.replace('_', ' ') || 'Journal'}</td>;
                                                 case 'date':
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || '—'}</td>;
                                                 case 'account_name':
