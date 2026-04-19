@@ -31,9 +31,9 @@ async function syncJournalEntry(type, txData) {
     const purchAcc = findAcc(a => a.under?.includes('Expense') && a.name?.toLowerCase().includes('purchase'));
     
     // Universal tax ledger resolution
-    const cgstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('CGST'));
-    const sgstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('SGST'));
-    const igstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('IGST'));
+    const cgstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().trim() === 'CGST') || findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('CGST'));
+    const sgstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().trim() === 'SGST') || findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('SGST'));
+    const igstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().trim() === 'IGST') || findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('IGST'));
 
     const bankAcc = findAcc(a => a.under?.includes('Bank')) || findAcc(a => a.under?.includes('Cash'));
     const cashAcc = findAcc(a => a.under?.includes('Cash'));
