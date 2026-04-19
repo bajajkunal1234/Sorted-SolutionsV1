@@ -14,7 +14,6 @@ function TransactionsTab({ accountId, accountName }) {
     const [error, setError] = useState(null);
 
     const [filterType, setFilterType] = useState('all');
-    const [showNonFinancial, setShowNonFinancial] = useState(true);
     const [activeForm, setActiveForm] = useState(null);
     const [editingTransaction, setEditingTransaction] = useState(null);
 
@@ -111,9 +110,7 @@ function TransactionsTab({ accountId, accountName }) {
     };
 
     const filteredTransactions = transactions.filter(t => {
-        const matchesType = filterType === 'all' || t.type === filterType;
-        const matchesFinancial = showNonFinancial || !t.isNonFinancial;
-        return matchesType && matchesFinancial;
+        return filterType === 'all' || t.type === filterType;
     });
 
     const getTypeColor = (type) => {
@@ -126,6 +123,7 @@ function TransactionsTab({ accountId, accountName }) {
             case 'amc': return '#06b6d4';
             case 'job': return '#6366f1';
             case 'quotation': return '#ec4899';
+            case 'journal': return '#64748b';
             default: return 'var(--text-secondary)';
         }
     };
@@ -187,15 +185,6 @@ function TransactionsTab({ accountId, accountName }) {
                 </h3>
 
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', fontSize: 'var(--font-size-sm)' }}>
-                        <input
-                            type="checkbox"
-                            checked={showNonFinancial}
-                            onChange={(e) => setShowNonFinancial(e.target.checked)}
-                        />
-                        Show Non-Financial
-                    </label>
-
                     <select
                         value={filterType}
                         onChange={(e) => setFilterType(e.target.value)}
@@ -214,6 +203,7 @@ function TransactionsTab({ accountId, accountName }) {
                         <option value="receipt">Receipt</option>
                         <option value="payment">Payment</option>
                         <option value="quotation">Quotation</option>
+                        <option value="journal">Journal Entry</option>
                     </select>
 
                     <button
