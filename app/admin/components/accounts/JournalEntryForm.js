@@ -113,11 +113,19 @@ export default function JournalEntryForm({ existingEntry, onSave, onCancel }) {
 
                 <form onSubmit={handleSubmit} className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                     
-                    <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '16px' }}>
-                        <div className="form-group">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
+                        <div className="form-group" style={{ width: '150px' }}>
                             <label className="form-label">Date</label>
                             <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} disabled={isReadOnly} required />
                         </div>
+                        
+                        {existingEntry?.id && (
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', fontSize: '13px', backgroundColor: 'var(--bg-secondary)', padding: '10px 16px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
+                                <div><span style={{ color: 'var(--text-tertiary)' }}>Entry No:</span> <strong style={{color: 'var(--text-primary)'}}>{existingEntry.entry_number}</strong></div>
+                                <div><span style={{ color: 'var(--text-tertiary)' }}>Created By:</span> <strong style={{color: 'var(--text-primary)'}}>{existingEntry.created_by || 'Admin'}</strong></div>
+                                <div><span style={{ color: 'var(--text-tertiary)' }}>Created At:</span> <strong style={{color: 'var(--text-primary)'}}>{new Date(existingEntry.created_at).toLocaleDateString('en-IN', {day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}</strong></div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Lines Grid */}
