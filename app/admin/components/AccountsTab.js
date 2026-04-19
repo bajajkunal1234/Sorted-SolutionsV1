@@ -314,6 +314,15 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                     if (c.defaultOn) savedSet.add(c.id);
                                 });
                             }
+                            
+                            // Failsafe: if somehow the user has 0 columns visible (from bad cached state)
+                            // reset to defaults so the table isn't completely blank
+                            if (savedSet.size === 0) {
+                                DEFAULT_CONFIG[tab].forEach(c => {
+                                    if (c.defaultOn) savedSet.add(c.id);
+                                });
+                            }
+                            
                             hydratedVis[tab] = savedSet;
                         }
                         setVisibleColumns(hydratedVis);
