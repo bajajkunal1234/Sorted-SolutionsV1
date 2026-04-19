@@ -78,10 +78,10 @@ export async function GET(request) {
         });
 
         // Structure P&L and Balance Sheet dynamically
-        const directIncome = Object.values(accountBalances).filter(a => a.under?.includes('Income') || a.type?.includes('income'));
-        const directExpenses = Object.values(accountBalances).filter(a => (a.under?.includes('Expense') || a.type?.includes('expense')) && a.under?.includes('Direct'));
-        const indirectExpenses = Object.values(accountBalances).filter(a => (a.under?.includes('Expense') || a.type?.includes('expense')) && !a.under?.includes('Direct'));
-        const otherIncome = Object.values(accountBalances).filter(a => a.under?.includes('Indirect Income'));
+        const directIncome = Object.values(accountBalances).filter(a => a.under?.toLowerCase().includes('income') || a.type?.toLowerCase().includes('income') || a.under?.toLowerCase().includes('sales'));
+        const directExpenses = Object.values(accountBalances).filter(a => (a.under?.toLowerCase().includes('expense') || a.type?.toLowerCase().includes('expense') || a.under?.toLowerCase().includes('purchase')) && (a.under?.toLowerCase().includes('direct') || a.under?.toLowerCase().includes('purchase')));
+        const indirectExpenses = Object.values(accountBalances).filter(a => (a.under?.toLowerCase().includes('expense') || a.type?.toLowerCase().includes('expense')) && !a.under?.toLowerCase().includes('direct') && !a.under?.toLowerCase().includes('purchase'));
+        const otherIncome = Object.values(accountBalances).filter(a => a.under?.toLowerCase().includes('indirect income') || a.under?.toLowerCase().includes('indirect-income'));
 
         const sumBal = (arr) => arr.reduce((s, a) => s + a.balance, 0);
 
@@ -93,13 +93,13 @@ export async function GET(request) {
         const grossProfit = totalRevenue - totalCOGS;
         const netProfit = grossProfit - totalOpEx + totalOtherIn;
 
-        const currentAssets = Object.values(accountBalances).filter(a => a.under?.includes('Current Asset') || a.under?.includes('Cash') || a.under?.includes('Bank') || a.under?.includes('Debtor'));
-        const fixedAssets = Object.values(accountBalances).filter(a => a.under?.includes('Fixed Asset'));
+        const currentAssets = Object.values(accountBalances).filter(a => a.under?.toLowerCase().includes('current asset') || a.under?.toLowerCase().includes('current-asset') || a.under?.toLowerCase().includes('cash') || a.under?.toLowerCase().includes('bank') || a.under?.toLowerCase().includes('debtor'));
+        const fixedAssets = Object.values(accountBalances).filter(a => a.under?.toLowerCase().includes('fixed asset') || a.under?.toLowerCase().includes('fixed-asset'));
         
-        const currentLiabilities = Object.values(accountBalances).filter(a => a.under?.includes('Current Liabilit') || a.under?.includes('Creditor') || a.under?.includes('Duties'));
-        const longTermLiabilities = Object.values(accountBalances).filter(a => a.under?.includes('Loan') && !a.under?.includes('Asset'));
+        const currentLiabilities = Object.values(accountBalances).filter(a => a.under?.toLowerCase().includes('current liabilit') || a.under?.toLowerCase().includes('current-liabilit') || a.under?.toLowerCase().includes('creditor') || a.under?.toLowerCase().includes('duties'));
+        const longTermLiabilities = Object.values(accountBalances).filter(a => a.under?.toLowerCase().includes('loan') && !a.under?.toLowerCase().includes('asset'));
         
-        const equity = Object.values(accountBalances).filter(a => a.under?.includes('Capital'));
+        const equity = Object.values(accountBalances).filter(a => a.under?.toLowerCase().includes('capital'));
 
         const reportsData = {
             salesInvoices: salesInvoices || [],
