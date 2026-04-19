@@ -264,7 +264,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             items: combinedItems,
             ...totals,
             __formType: 'sales',
-            status: action === 'draft' ? 'draft' : 'finalized'
+            status: 'finalized'
         };
 
         // Remove UI-only fields before saving
@@ -677,13 +677,6 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                         style={{ padding: '8px 16px' }}
                     >
                         Cancel
-                    </button>
-                    <button
-                        onClick={() => handleSave('draft')}
-                        className="btn"
-                        style={{ padding: '8px 16px', backgroundColor: 'var(--color-secondary)' }}
-                    >
-                        {existingInvoice ? 'Update Draft' : 'Save Draft'}
                     </button>
                     <button
                         onClick={() => handleSave('print')}

@@ -30,19 +30,10 @@ async function syncJournalEntry(type, txData) {
     const salesAcc = findAcc(a => a.under?.includes('Income') && a.name?.toLowerCase().includes('sales'));
     const purchAcc = findAcc(a => a.under?.includes('Expense') && a.name?.toLowerCase().includes('purchase'));
     
-    // Smart Resolution: Look for Input/Output specific tax accounts, fallback to generic
-    const getTaxAcc = (taxType, ioType) => {
-        const matches = accounts?.filter(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes(taxType)) || [];
-        return matches.find(a => a.name.toUpperCase().includes(ioType)) || matches[0] || null;
-    };
-
-    const outCgstAcc = getTaxAcc('CGST', 'OUT');
-    const outSgstAcc = getTaxAcc('SGST', 'OUT');
-    const outIgstAcc = getTaxAcc('IGST', 'OUT');
-
-    const inCgstAcc = getTaxAcc('CGST', 'IN');
-    const inSgstAcc = getTaxAcc('SGST', 'IN');
-    const inIgstAcc = getTaxAcc('IGST', 'IN');
+    // Universal tax ledger resolution
+    const cgstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('CGST'));
+    const sgstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('SGST'));
+    const igstAcc = findAcc(a => a.under?.includes('Duties') && a.name?.toUpperCase().includes('IGST'));
 
     const bankAcc = findAcc(a => a.under?.includes('Bank')) || findAcc(a => a.under?.includes('Cash'));
     const cashAcc = findAcc(a => a.under?.includes('Cash'));
@@ -59,9 +50,9 @@ async function syncJournalEntry(type, txData) {
 
         lines.push({ account_id: txData.account_id, debit: total, credit: 0 });
         if (salesAcc) lines.push({ account_id: salesAcc.id, debit: 0, credit: base });
-        if (cgst > 0 && outCgstAcc) lines.push({ account_id: outCgstAcc.id, debit: 0, credit: cgst });
-        if (sgst > 0 && outSgstAcc) lines.push({ account_id: outSgstAcc.id, debit: 0, credit: sgst });
-        if (igst > 0 && outIgstAcc) lines.push({ account_id: outIgstAcc.id, debit: 0, credit: igst });
+        if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: 0, credit: cgst });
+        if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: 0, credit: sgst });
+        if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: 0, credit: igst });
     } else if (type === 'purchase') {
         const total = amt(txData.total_amount);
         const cgst = amt(txData.cgst);
@@ -70,9 +61,9 @@ async function syncJournalEntry(type, txData) {
         const base = total - cgst - sgst - igst;
 
         if (purchAcc) lines.push({ account_id: purchAcc.id, debit: base, credit: 0 });
-        if (cgst > 0 && inCgstAcc) lines.push({ account_id: inCgstAcc.id, debit: cgst, credit: 0 });
-        if (sgst > 0 && inSgstAcc) lines.push({ account_id: inSgstAcc.id, debit: sgst, credit: 0 });
-        if (igst > 0 && inIgstAcc) lines.push({ account_id: inIgstAcc.id, debit: igst, credit: 0 });
+        if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: cgst, credit: 0 });
+        if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: sgst, credit: 0 });
+        if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: igst, credit: 0 });
         lines.push({ account_id: txData.account_id, debit: 0, credit: total });
     } else if (type === 'receipt') {
         const total = amt(txData.amount);

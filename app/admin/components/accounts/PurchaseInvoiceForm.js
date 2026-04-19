@@ -157,7 +157,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
             ...formData,
             ...totals,
             __formType: 'purchase',
-            status: action === 'draft' ? 'draft' : 'finalized'
+            status: 'finalized'
         };
 
         // Remove UI-only fields
@@ -518,13 +518,6 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                         style={{ padding: '8px 16px' }}
                     >
                         Cancel
-                    </button>
-                    <button
-                        onClick={() => handleSave('draft')}
-                        className="btn"
-                        style={{ padding: '8px 16px', backgroundColor: 'var(--color-secondary)' }}
-                    >
-                        Save Draft
                     </button>
                     <button
                         onClick={() => handleSave('save')}

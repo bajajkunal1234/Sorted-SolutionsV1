@@ -237,7 +237,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             items: combinedItems,
             ...totals,
             __formType: 'quotation',
-            status: action === 'draft' ? 'draft' : 'sent'
+            status: 'sent'
         };
 
         // Remove UI-only fields
@@ -687,13 +687,6 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                         style={{ padding: '8px 16px' }}
                     >
                         Cancel
-                    </button>
-                    <button
-                        onClick={() => handleSave('draft')}
-                        className="btn"
-                        style={{ padding: '8px 16px', backgroundColor: 'var(--color-secondary)' }}
-                    >
-                        Save Draft
                     </button>
                     <button
                         onClick={() => handleSave('send')}
