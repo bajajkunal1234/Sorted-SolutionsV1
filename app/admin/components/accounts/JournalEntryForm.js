@@ -2,13 +2,29 @@ import { useState, useEffect } from 'react';
 import { X, Save, Plus, Trash2, Loader2, ArrowRightLeft } from 'lucide-react';
 import { accountsAPI } from '@/lib/adminAPI';
 
-export default function JournalEntryForm({ onSave, onCancel }) {
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [notes, setNotes] = useState('');
-    const [lines, setLines] = useState([
-        { id: '1', type: 'debit', account_id: '', account_name: '', amount: '' },
-        { id: '2', type: 'credit', account_id: '', account_name: '', amount: '' }
-    ]);
+export default function JournalEntryForm({ existingEntry, onSave, onCancel }) {
+    const isReadOnly = existingEntry?.id && existingEntry.reference_type && existingEntry.reference_type !== 'manual';
+    
+    const [date, setDate] = useState(existingEntry?.date?.split('T')[0] || new Date().toISOString().split('T')[0]);
+    const [notes, setNotes] = useState(existingEntry?.notes || '');
+    const [lines, setLines] = useState(() => {
+        if (existingEntry?.lines?.length > 0) {
+            return existingEntry.lines.map((l, idx) => {
+                const isDebit = parseFloat(l.debit) > 0;
+                return {
+                    id: Date.now().toString() + idx,
+                    type: isDebit ? 'debit' : 'credit',
+                    account_id: l.account_id,
+                    account_name: l.account?.name || '',
+                    amount: isDebit ? l.debit : l.credit
+                };
+            });
+        }
+        return [
+            { id: '1', type: 'debit', account_id: '', account_name: '', amount: '' },
+            { id: '2', type: 'credit', account_id: '', account_name: '', amount: '' }
+        ];
+    });
     const [ledgers, setLedgers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -65,10 +81,13 @@ export default function JournalEntryForm({ onSave, onCancel }) {
 
         try {
             setSaving(true);
+            const method = existingEntry?.id ? 'PUT' : 'POST';
+            const finalPayload = existingEntry?.id ? { ...payload, id: existingEntry.id } : payload;
+
             const res = await fetch('/api/admin/journals', {
-                method: 'POST',
+                method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(finalPayload)
             });
             const data = await res.json();
             if(!data.success) throw new Error(data.error);
@@ -86,7 +105,8 @@ export default function JournalEntryForm({ onSave, onCancel }) {
                 <div className="modal-header">
                     <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <ArrowRightLeft size={20} color="var(--color-primary)" />
-                        Journal Voucher
+                        {existingEntry?.id ? 'Journal Voucher Details' : 'Journal Voucher'}
+                        {isReadOnly && <span style={{ fontSize: '11px', padding: '2px 8px', backgroundColor: '#f59e0b20', color: '#f59e0b', borderRadius: '4px' }}>Auto-Generated</span>}
                     </h2>
                     <button className="btn-icon" onClick={onCancel} disabled={saving}><X size={20} /></button>
                 </div>
@@ -96,7 +116,7 @@ export default function JournalEntryForm({ onSave, onCancel }) {
                     <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr', gap: '16px' }}>
                         <div className="form-group">
                             <label className="form-label">Date</label>
-                            <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} required />
+                            <input type="date" className="form-input" value={date} onChange={e => setDate(e.target.value)} disabled={isReadOnly} required />
                         </div>
                     </div>
 
@@ -115,6 +135,7 @@ export default function JournalEntryForm({ onSave, onCancel }) {
                                 <select 
                                     className="form-select" 
                                     value={line.type} 
+                                    disabled={isReadOnly}
                                     onChange={e => updateLine(line.id, 'type', e.target.value)}
                                     style={{ fontWeight: 600, color: line.type === 'debit' ? '#3b82f6' : '#10b981' }}
                                 >
@@ -126,6 +147,7 @@ export default function JournalEntryForm({ onSave, onCancel }) {
                                     className="form-select" 
                                     value={line.account_id} 
                                     required 
+                                    disabled={isReadOnly}
                                     onChange={e => updateLine(line.id, 'account_id', e.target.value)}
                                     style={{ fontFamily: 'monospace', fontSize: '13px' }}
                                 >
@@ -137,34 +159,36 @@ export default function JournalEntryForm({ onSave, onCancel }) {
 
                                 <div>
                                     {line.type === 'debit' ? (
-                                        <input type="number" step="0.01" min="0" required className="form-input" style={{ textAlign: 'right', fontWeight: 600 }} value={line.amount} onChange={e => updateLine(line.id, 'amount', e.target.value)} />
+                                        <input type="number" step="0.01" min="0" required className="form-input" disabled={isReadOnly} style={{ textAlign: 'right', fontWeight: 600 }} value={line.amount} onChange={e => updateLine(line.id, 'amount', e.target.value)} />
                                     ) : <div style={{ textAlign: 'right', padding: '8px', color: 'var(--text-tertiary)' }}>-</div>}
                                 </div>
 
                                 <div>
                                     {line.type === 'credit' ? (
-                                        <input type="number" step="0.01" min="0" required className="form-input" style={{ textAlign: 'right', fontWeight: 600 }} value={line.amount} onChange={e => updateLine(line.id, 'amount', e.target.value)} />
+                                        <input type="number" step="0.01" min="0" required className="form-input" disabled={isReadOnly} style={{ textAlign: 'right', fontWeight: 600 }} value={line.amount} onChange={e => updateLine(line.id, 'amount', e.target.value)} />
                                     ) : <div style={{ textAlign: 'right', padding: '8px', color: 'var(--text-tertiary)' }}>-</div>}
                                 </div>
 
-                                <button type="button" onClick={() => removeLine(line.id)} className="btn-icon" style={{ color: lines.length > 2 ? 'var(--color-danger)' : 'var(--text-tertiary)' }} disabled={lines.length <= 2}>
+                                <button type="button" onClick={() => removeLine(line.id)} className="btn-icon" style={{ color: lines.length > 2 && !isReadOnly ? 'var(--color-danger)' : 'var(--text-tertiary)' }} disabled={lines.length <= 2 || isReadOnly}>
                                     <Trash2 size={16} />
                                 </button>
                             </div>
                         ))}
 
-                        <div style={{ marginTop: '16px' }}>
-                            <button type="button" onClick={addLine} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
-                                <Plus size={14} style={{ marginRight: '4px' }}/> Add Line
-                            </button>
-                        </div>
+                        {!isReadOnly && (
+                            <div style={{ marginTop: '16px' }}>
+                                <button type="button" onClick={addLine} className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '12px' }}>
+                                    <Plus size={14} style={{ marginRight: '4px' }}/> Add Line
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Totals & Narration */}
                     <div style={{ display: 'flex', gap: '24px' }}>
                         <div className="form-group" style={{ flex: 1 }}>
                             <label className="form-label">Narration</label>
-                            <textarea className="form-input" rows="3" placeholder="Being..." value={notes} onChange={e => setNotes(e.target.value)} />
+                            <textarea className="form-input" rows="3" placeholder="Being..." value={notes} onChange={e => setNotes(e.target.value)} disabled={isReadOnly} />
                         </div>
                         
                         <div style={{ width: '300px', backgroundColor: 'var(--bg-elevated)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
@@ -185,11 +209,13 @@ export default function JournalEntryForm({ onSave, onCancel }) {
                     </div>
 
                     <div className="modal-footer" style={{ marginTop: 0 }}>
-                        <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={saving || !isValid} style={{ opacity: isValid ? 1 : 0.5 }}>
-                            {saving ? <Loader2 size={18} className="spin" /> : <Save size={18} style={{ marginRight: '8px' }} />}
-                            {saving ? 'Saving...' : 'Save Voucher'}
-                        </button>
+                        <button type="button" className="btn btn-secondary" onClick={onCancel} disabled={saving}>{isReadOnly ? 'Close' : 'Cancel'}</button>
+                        {!isReadOnly && (
+                            <button type="submit" className="btn btn-primary" disabled={saving || !isValid} style={{ opacity: isValid ? 1 : 0.5 }}>
+                                {saving ? <Loader2 size={18} className="spin" /> : <Save size={18} style={{ marginRight: '8px' }} />}
+                                {saving ? 'Saving...' : 'Save Voucher'}
+                            </button>
+                        )}
                     </div>
 
                 </form>

@@ -2114,7 +2114,7 @@ ${body}
             {activeForm === 'quotation' && <QuotationForm existingQuotation={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
             {activeForm === 'receipt-voucher' && <ReceiptVoucherForm existingReceipt={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
             {activeForm === 'payment-voucher' && <PaymentVoucherForm existingPayment={selectedTransaction} onSave={handleFormSave} onClose={handleFormClose} />}
-            {activeForm === 'journal-entry' && <JournalEntryForm onSave={handleFormSave} onCancel={handleFormClose} />}
+            {activeForm === 'journal-entry' && <JournalEntryForm existingEntry={selectedTransaction} onSave={handleFormSave} onCancel={handleFormClose} />}
             {activeForm === 'new-account' && <NewAccountForm onSave={handleFormSave} onClose={handleFormClose} groups={groups} onGroupCreated={refreshGroups} />}
 
             {/* AMC Subscription Form */}

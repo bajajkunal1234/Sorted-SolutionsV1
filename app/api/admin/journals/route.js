@@ -123,3 +123,57 @@ export async function POST(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
+
+// PUT - Update manual journal entry
+export async function PUT(request) {
+    try {
+        const body = await request.json()
+        const { id, date, notes, lines } = body
+
+        if (!id) return NextResponse.json({ success: false, error: 'Journal ID required' }, { status: 400 })
+
+        const { data: current } = await supabase.from('journal_entries').select('reference_type').eq('id', id).single()
+        if (current?.reference_type !== 'manual') {
+            return NextResponse.json({ success: false, error: 'Only manual journal entries can be edited' }, { status: 400 })
+        }
+
+        if (!lines || !Array.isArray(lines) || lines.length < 2) {
+            return NextResponse.json({ success: false, error: 'A journal entry requires at least two lines' }, { status: 400 })
+        }
+
+        const totalDebit = lines.reduce((sum, l) => sum + (parseFloat(l.debit) || 0), 0)
+        const totalCredit = lines.reduce((sum, l) => sum + (parseFloat(l.credit) || 0), 0)
+        
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+            return NextResponse.json({ success: false, error: `Journal is unbalanced.` }, { status: 400 })
+        }
+
+        const { data: header, error: headerErr } = await supabase
+            .from('journal_entries')
+            .update({ date: date || new Date().toISOString(), notes })
+            .eq('id', id)
+            .select()
+            .single()
+
+        if (headerErr) throw headerErr
+
+        await supabase.from('journal_entry_lines').delete().eq('journal_entry_id', id)
+
+        const linePayloads = lines.map(l => ({
+            journal_entry_id: id,
+            account_id: l.account_id,
+            debit: parseFloat(l.debit) || 0,
+            credit: parseFloat(l.credit) || 0,
+            description: l.description || ''
+        }))
+
+        const { error: linesErr } = await supabase.from('journal_entry_lines').insert(linePayloads)
+        if (linesErr) throw linesErr
+
+        logInteractionServer({ type: 'journal-updated', category: 'account', performedByName: 'Admin', description: `Updated Manual Journal ${header.entry_number}`, source: 'Admin App' });
+
+        return NextResponse.json({ success: true, data: header })
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+}
