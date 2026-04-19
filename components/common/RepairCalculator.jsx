@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, MessageSquare, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine } from 'lucide-react';
 import { inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
 
@@ -216,7 +217,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    return (
+    const content = (
         <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', inset: 0, zIndex: 99999, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
 
             {/* ── TOP BAR ── */}
@@ -440,4 +441,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
             )}
         </div>
     );
+
+    if (typeof window === 'undefined') return content;
+    return createPortal(content, document.body);
 }
