@@ -15,7 +15,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
         payment_mode: existingReceipt?.payment_mode || 'bank_transfer',
         payment_account_id: existingReceipt?.payment_account_id || '',
         reference_number: existingReceipt?.reference_number || '',
-        notes: existingReceipt?.notes || existingReceipt?.narration || '',
+        narration: existingReceipt?.notes || existingReceipt?.narration || '',
         job_id: existingReceipt?.job_id || ''
     });
     const [allocations, setAllocations] = useState(existingReceipt?.allocations || []);
@@ -42,7 +42,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
             alert('Please enter a valid amount');
             return;
         }
-        if (!formData.notes.trim()) {
+        if (!formData.narration.trim()) {
             alert('Please enter narration');
             return;
         }
@@ -213,8 +213,8 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                             </label>
                             <textarea
                                 className="form-input"
-                                value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                value={formData.narration}
+                                onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
                                 rows="3"
                                 placeholder="Details of the payment received..."
                                 style={{ width: '100%', resize: 'vertical' }}

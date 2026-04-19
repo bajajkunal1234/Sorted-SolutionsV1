@@ -15,7 +15,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
         payment_mode: existingPayment?.payment_mode || 'bank_transfer',
         payment_account_id: existingPayment?.payment_account_id || '',
         reference_number: existingPayment?.reference_number || '',
-        notes: existingPayment?.notes || existingPayment?.narration || '',
+        narration: existingPayment?.notes || existingPayment?.narration || '',
         job_id: existingPayment?.job_id || ''
     });
     const [allocations, setAllocations] = useState(existingPayment?.allocations || []);
@@ -42,7 +42,7 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
             alert('Please enter a valid amount');
             return;
         }
-        if (!formData.notes.trim()) {
+        if (!formData.narration.trim()) {
             alert('Please enter narration');
             return;
         }
@@ -213,8 +213,8 @@ function PaymentVoucherForm({ onClose, onSave, existingPayment }) {
                             </label>
                             <textarea
                                 className="form-input"
-                                value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                value={formData.narration}
+                                onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
                                 rows="3"
                                 placeholder="Details of the payment made..."
                                 style={{ width: '100%', resize: 'vertical' }}
