@@ -19,9 +19,13 @@ import PropertyForm from './accounts/PropertyForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 
 
-const normalizeAddress = (addr) => {
-    if (!addr) return '';
-    const str = typeof addr === 'string' ? addr : `${addr.line1 || ''} ${addr.locality || ''} ${addr.city || ''} ${addr.pincode || ''}`;
+const normalizeAddress = (p) => {
+    if (!p) return '';
+    // If it's a string, we can only normalize that string
+    if (typeof p === 'string') return p.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+    
+    // Otherwise, it's a property object. Combine differentiating fields!
+    const str = `${p.flat_number || ''} ${p.building_name || ''} ${p.address || p.line1 || p.name || ''} ${p.locality || ''} ${p.city || ''} ${p.pincode || ''}`;
     return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 };
 
@@ -349,24 +353,38 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 const allProps = [];
                 
                 for (const p of dbProps) {
+                    if (dbPropsMap.has(String(p.id))) continue;
                     dbPropsMap.set(String(p.id), true);
-                    const normAddr = normalizeAddress(p.address);
-                    if (normAddr) dbPropsMap.set(normAddr, true);
+                    
+                    const normAddr = normalizeAddress(p);
+                    if (normAddr) {
+                        if (dbPropsMap.has(normAddr)) continue; // skip duplicates natively returning from DB if overlapping links exist
+                        dbPropsMap.set(normAddr, p.id); 
+                    }
+                    
                     allProps.push(p);
                 }
                 
                 for (const p of ledgerProps) {
-                    const normAddr = normalizeAddress(p.address);
-                    if (!dbPropsMap.has(String(p.id)) && !(normAddr && dbPropsMap.has(normAddr))) {
-                        dbPropsMap.set(String(p.id), true);
-                        if (normAddr) dbPropsMap.set(normAddr, true);
-                        allProps.push(p);
-                    } else if (p.property_name && p.property_name !== 'Home') {
-                        // If it's a duplicate but the ledger version has a specific proper naming, try to inherit it if dbProp lacks one
-                        const match = allProps.find(existing => String(existing.id) === String(p.id) || (normAddr && normalizeAddress(existing.address) === normAddr));
-                        if (match && !match.property_name) {
+                    const normAddr = normalizeAddress(p);
+                    if (dbPropsMap.has(String(p.id))) {
+                        // Already exists
+                        const match = allProps.find(existing => String(existing.id) === String(p.id));
+                        if (match && !match.property_name && p.property_name && p.property_name !== 'Home') {
                             match.property_name = p.property_name;
                         }
+                    } else if (normAddr && dbPropsMap.has(normAddr)) {
+                        // Address exactly matches an existing DB property
+                        const matchId = dbPropsMap.get(normAddr);
+                        const match = allProps.find(existing => String(existing.id) === String(matchId));
+                        if (match && !match.property_name && p.property_name && p.property_name !== 'Home') {
+                            match.property_name = p.property_name;
+                        }
+                    } else {
+                        // Truly brand new property from legacy ledger
+                        dbPropsMap.set(String(p.id), true);
+                        if (normAddr) dbPropsMap.set(normAddr, p.id);
+                        allProps.push(p);
                     }
                 }
 
