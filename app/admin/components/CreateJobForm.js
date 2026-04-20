@@ -381,7 +381,25 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             match.property_name = p.property_name;
                         }
                     } else {
-                        // Truly brand new property from legacy ledger
+                        // Before adding this brand new legacy property, verify if it's just a text-ghost of a structured DB property
+                        const legacyRawText = `${p.property_name || ''} ${p.address || ''} ${p.name || ''}`.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+                        const legacyTokens = legacyRawText.split(/\s+/).filter(t => t.length > 0);
+                        
+                        let isJustAGhost = false;
+                        if (legacyTokens.length > 0) {
+                            // Does this completely exist inside any structured DB property?
+                            isJustAGhost = dbProps.some(dbProp => {
+                                const dbNormStr = normalizeAddress(dbProp);
+                                return legacyTokens.every(token => dbNormStr.includes(token));
+                            });
+                        }
+
+                        if (isJustAGhost) {
+                            // It's a ghost, ignore it safely! (Or pass naming info if needed, but we can safely skip pushing)
+                            continue;
+                        }
+                        
+                        // Truly distinct brand new property from legacy ledger
                         dbPropsMap.set(String(p.id), true);
                         if (normAddr) dbPropsMap.set(normAddr, p.id);
                         allProps.push(p);
