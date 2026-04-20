@@ -314,7 +314,17 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 // Combine Legacy DB properties and Ledger-based properties
                 let dbProps = [];
                 try {
-                    dbProps = await propertiesAPI.getAll(resolvedCustomerId) || [];
+                    // Fetch properties using the resolved UUID (legacy support)
+                    const uuidProps = await propertiesAPI.getAll(resolvedCustomerId) || [];
+                    
+                    // Fetch properties using the integer ledger ID (current Account properties tab support)
+                    let ledgerIdProps = [];
+                    if (String(resolvedCustomerId) !== String(customer.id)) {
+                        ledgerIdProps = await propertiesAPI.getAll(customer.id) || [];
+                    }
+                    
+                    // Merge them
+                    dbProps = [...uuidProps, ...ledgerIdProps];
                 } catch (e) {
                     console.warn('Properties fetch failed:', e.message);
                 }
