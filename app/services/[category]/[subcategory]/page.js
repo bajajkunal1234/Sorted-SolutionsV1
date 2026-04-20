@@ -353,5 +353,8 @@ export async function generateMetadata({ params }) {
         title: `${subcategoryName} Repair in Mumbai | Expert Service | SORTED`,
         description: `Professional ${subcategoryName.toLowerCase()} repair service in Mumbai. Same day service, transparent pricing, 90-day warranty. Book now!`,
         keywords: `${subcategoryName} repair, ${subcategoryName} service Mumbai, ${categoryName} repair`,
+        alternates: {
+            canonical: `/services/${category}/${subcategory}`,
+        },
     }
 }

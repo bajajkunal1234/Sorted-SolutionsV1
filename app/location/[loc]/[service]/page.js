@@ -279,5 +279,8 @@ export async function generateMetadata({ params }) {
         title: `${titleBase} in ${locationName} | Same Day Service | SORTED`,
         description: `Expert ${titleBase.toLowerCase()} services in ${locationName}. Same day service, all brands, 90-day warranty. Book now!`,
         keywords: `${titleBase.toLowerCase()} ${locationName}, ${serviceName.toLowerCase()} service ${locationName}`,
+        alternates: {
+            canonical: `/location/${loc}/${service}`,
+        },
     }
 }

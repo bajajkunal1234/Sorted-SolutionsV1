@@ -1,6 +1,7 @@
 export const metadata = {
     title: 'Terms & Conditions | Sorted Solutions',
     description: 'Read the Terms & Conditions for using Sorted Solutions appliance repair services in Mumbai.',
+    alternates: { canonical: '/terms' },
 };
 
 const EFFECTIVE_DATE = 'March 1, 2025';

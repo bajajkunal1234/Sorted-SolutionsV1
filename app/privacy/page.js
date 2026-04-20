@@ -1,6 +1,7 @@
 export const metadata = {
     title: 'Privacy Policy | Sorted Solutions',
     description: 'Learn how Sorted Solutions collects, uses, and protects your personal data when you use our appliance repair services.',
+    alternates: { canonical: '/privacy' },
 };
 
 const EFFECTIVE_DATE = 'March 1, 2025';

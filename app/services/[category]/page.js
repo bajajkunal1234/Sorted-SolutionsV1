@@ -289,5 +289,8 @@ export async function generateMetadata({ params }) {
             title: `${titleBase} in Mumbai`,
             description: `Same day ${titleBase.toLowerCase()} service in Mumbai`,
         },
+        alternates: {
+            canonical: `/services/${category}`,
+        },
     }
 }

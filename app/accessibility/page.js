@@ -3,6 +3,7 @@ import { Mail, Phone } from 'lucide-react';
 export const metadata = {
     title: 'Accessibility Statement | Sorted Solutions',
     description: 'Sorted Solutions commitment to digital accessibility for all users of our appliance repair booking platform.',
+    alternates: { canonical: '/accessibility' },
 };
 
 export default function AccessibilityPage() {

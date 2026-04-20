@@ -279,5 +279,8 @@ export async function generateMetadata({ params }) {
         title: `Appliance Repair in ${locationName} | AC, Fridge, Washing Machine | SORTED`,
         description: `Expert appliance repair services in ${locationName}. AC, refrigerator, washing machine, oven repair. Same day service, all brands. Book now!`,
         keywords: `appliance repair ${locationName}, AC repair ${locationName}, fridge repair ${locationName}`,
+        alternates: {
+            canonical: `/location/${loc}`,
+        },
     }
 }

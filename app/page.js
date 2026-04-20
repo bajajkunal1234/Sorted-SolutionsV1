@@ -3,6 +3,11 @@ import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
 export const dynamic = 'force-dynamic'
 
+export const metadata = {
+    alternates: {
+        canonical: '/',
+    },
+}
 export default async function Home() {
     const bookingData = await fetchQuickBookingData();
     return <MobileHomepage initialBookingData={bookingData} />

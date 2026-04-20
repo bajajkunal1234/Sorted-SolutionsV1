@@ -4,6 +4,7 @@ import GoogleTagsProvider from '@/components/GoogleTagsProvider'
 import ClickTracker from '@/components/ClickTracker'
 
 export const metadata = {
+    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in'),
     title: 'Sorted Solutions - Expert Appliance Repair Services',
     description: 'Professional repair services for AC, Refrigerator, Washing Machine, RO, Oven, and more. On-time service with 90-day warranty.',
     icons: {

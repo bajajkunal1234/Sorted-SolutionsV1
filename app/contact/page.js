@@ -3,6 +3,7 @@ import { Phone, Mail, Clock, MapPin, MessageSquare } from 'lucide-react';
 export const metadata = {
     title: 'Contact Us | Sorted Solutions',
     description: 'Get in touch with Sorted Solutions for appliance repair services in Mumbai. Call, WhatsApp, or email us.',
+    alternates: { canonical: '/contact' },
 };
 
 export default function ContactPage() {

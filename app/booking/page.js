@@ -7,6 +7,7 @@ import FooterSection from '@/components/homepage/FooterSection';
 export const metadata = {
     title: 'Book a Service | Sorted Solutions',
     description: 'Book a professional technician for your home appliance repair needs.',
+    alternates: { canonical: '/booking' },
 };
 
 export default function BookingPage() {
