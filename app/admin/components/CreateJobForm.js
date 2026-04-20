@@ -520,7 +520,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         
         if (customer && customer.id) {
             try {
-                const res = await fetch(`/api/admin/jobs?customerId=${customer.id}`);
+                const res = await fetch(`/api/admin/jobs?customer_id=${customer.id}`);
                 const data = await res.json();
                 if (data.success && data.data) {
                     setFormData(prev => ({
