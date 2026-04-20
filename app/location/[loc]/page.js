@@ -15,6 +15,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
+import ServiceSchema from '@/components/services/ServiceSchema'
 
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 import { unstable_noStore as noStore } from 'next/cache';
@@ -261,6 +262,7 @@ export default async function LocationPage({ params }) {
         <div className="service-page location-page">
             <Header />
             {sectionOrder.map(renderSection)}
+            <ServiceSchema serviceType="Appliance Repair" locationName={locationName} services={resolvedServices} />
             <ServiceFooter />
         </div>
     );

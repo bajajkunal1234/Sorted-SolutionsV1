@@ -12,6 +12,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
+import ServiceSchema from '@/components/services/ServiceSchema'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
 
@@ -259,6 +260,7 @@ export default async function SubLocationPage({ params }) {
         <div className="service-page sub-location-page">
             <Header />
             {sectionOrder.map(renderSection)}
+            <ServiceSchema serviceType={`${serviceName} Repair`} locationName={locationName} services={resolvedServices} />
             <ServiceFooter />
         </div>
     );

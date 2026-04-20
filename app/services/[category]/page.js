@@ -16,6 +16,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
+import ServiceSchema from '@/components/services/ServiceSchema'
 import AnchorScrollHandler from '@/components/common/AnchorScrollHandler'
 
 import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
@@ -266,6 +267,7 @@ export default async function CategoryPage({ params }) {
             <AnchorScrollHandler />
             <Header />
             {sectionOrder.map(renderSection)}
+            <ServiceSchema serviceType={`${categoryName} Repair`} locationName="Mumbai" services={resolvedServices} />
             <ServiceFooter />
         </div>
     );

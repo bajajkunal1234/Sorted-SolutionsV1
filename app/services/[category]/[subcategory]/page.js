@@ -17,6 +17,7 @@ import FAQSection from '@/components/services/FAQSection'
 import OtherLocationsSection from '@/components/services/OtherLocationsSection'
 import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
+import ServiceSchema from '@/components/services/ServiceSchema'
 import AnchorScrollHandler from '@/components/common/AnchorScrollHandler'
 
 import { createServerSupabase } from '@/lib/supabase-server'
@@ -333,6 +334,7 @@ export default async function SubCategoryPage({ params }) {
             <AnchorScrollHandler />
             <Header />
             {sectionOrder.map(renderSection)}
+            <ServiceSchema serviceType={`${subcategoryName} Repair`} locationName="Mumbai" services={resolvedServices} />
             <ServiceFooter />
         </div>
     );
