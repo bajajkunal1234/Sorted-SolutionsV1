@@ -63,6 +63,8 @@ function TechnicianApp() {
     const [leaveReason, setLeaveReason] = useState('');
     const [technicianData, setTechnicianData] = useState(null);
     const [technicianId, setTechnicianId] = useState(null);
+    
+    const firstName = technicianData?.name ? technicianData.name.split(' ')[0] : 'Technician';
 
     // Incentive Data State
     const [incentiveData, setIncentiveData] = useState({
@@ -522,6 +524,12 @@ function TechnicianApp() {
     // Jobs Tab Content
     const renderJobsTab = () => (
         <>
+            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
+                <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', margin: 0 }}>
+                    <Briefcase size={24} color="#3b82f6" />
+                    {firstName}'s Jobs
+                </h2>
+            </div>
             {/* ── Search Panel ── */}
             <div style={{
                 padding: '8px 10px',
@@ -882,7 +890,7 @@ function TechnicianApp() {
         <div style={{ padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', overflowY: 'auto', flex: 1 }}>
             <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                 <Settings size={24} color="#3b82f6" />
-                Settings & Profile
+                {firstName}'s Settings
             </h2>
 
             {/* Profile Section */}
@@ -1062,10 +1070,17 @@ function TechnicianApp() {
         
         return (
             <div style={{ padding: 'var(--spacing-md)', overflow: 'auto', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '8px' }}>
-                    <LayoutDashboard size={24} color="#3b82f6" />
-                    Dashboard
-                </h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', margin: 0 }}>
+                        <LayoutDashboard size={24} color="#3b82f6" />
+                        {firstName}'s Dashboard
+                    </h2>
+                    {technicianId && (
+                        <div style={{ transform: 'scale(1.1)', transformOrigin: 'right center' }}>
+                            <NotificationBell recipientId={technicianId} recipientType="technician" theme={darkMode ? 'dark' : 'light'} />
+                        </div>
+                    )}
+                </div>
 
                 {/* Jobs Summary Card */}
                 <div 
@@ -1142,28 +1157,6 @@ function TechnicianApp() {
             userId={technicianId}
         />
         <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
-            {/* Top Bar */}
-            <div style={{
-                padding: 'var(--spacing-sm)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)',
-                boxShadow: 'var(--shadow-sm)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                position: 'relative',
-                zIndex: 9999
-            }}>
-                <h1 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, margin: 0, color: '#3b82f6', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                    🔧 Technician Portal
-                </h1>
-                {technicianId && (
-                    <div style={{ transform: 'scale(1.1)' }}>
-                        <NotificationBell recipientId={technicianId} recipientType="technician" theme={darkMode ? 'dark' : 'light'} />
-                    </div>
-                )}
-            </div>
-
             {/* Tab Content — Support view intercepts here so bottom nav stays visible */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {showSupport ? (
