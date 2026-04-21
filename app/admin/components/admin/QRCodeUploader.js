@@ -25,14 +25,33 @@ function QRCodeUploader({ qrCode, type, onSave, onCancel }) {
 
     const categories = type === 'payment' ? paymentCategories : feedbackCategories;
 
-    const handleImageUpload = (event) => {
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleImageUpload = async (event) => {
         const file = event.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImageUrl(reader.result);
-            };
-            reader.readAsDataURL(file);
+            setIsUploading(true);
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('category', 'qrcodes');
+                
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    setImageUrl(data.url);
+                } else {
+                    alert('Upload failed: ' + data.error);
+                }
+            } catch (err) {
+                alert('An error occurred during upload.');
+            } finally {
+                setIsUploading(false);
+            }
         }
     };
 
@@ -111,23 +130,30 @@ function QRCodeUploader({ qrCode, type, onSave, onCancel }) {
 
                 {!imageUrl ? (
                     <div
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => !isUploading && fileInputRef.current?.click()}
                         style={{
                             border: '2px dashed var(--border-primary)',
                             borderRadius: 'var(--radius-md)',
                             padding: 'var(--spacing-xl)',
                             textAlign: 'center',
                             backgroundColor: 'var(--bg-secondary)',
-                            cursor: 'pointer'
+                            cursor: isUploading ? 'not-allowed' : 'pointer',
+                            opacity: isUploading ? 0.7 : 1
                         }}
                     >
-                        <Upload size={48} color="var(--text-secondary)" style={{ margin: '0 auto var(--spacing-sm)' }} />
-                        <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)', marginBottom: 'var(--spacing-xs)' }}>
-                            Click to upload QR code image
-                        </div>
-                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                            PNG, JPG up to 5MB
-                        </div>
+                        {isUploading ? (
+                            <div style={{ color: 'var(--text-secondary)' }}>Uploading image...</div>
+                        ) : (
+                            <>
+                                <Upload size={48} color="var(--text-secondary)" style={{ margin: '0 auto var(--spacing-sm)' }} />
+                                <div style={{ fontSize: 'var(--font-size-md)', color: 'var(--text-primary)', marginBottom: 'var(--spacing-xs)' }}>
+                                    Click to upload QR code image
+                                </div>
+                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                    PNG, JPG up to 5MB
+                                </div>
+                            </>
+                        )}
                     </div>
                 ) : (
                     <div style={{ position: 'relative', display: 'inline-block' }}>

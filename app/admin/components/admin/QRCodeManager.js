@@ -1,78 +1,119 @@
 'use client'
 
-import { useState } from 'react';
-import { Upload, Edit2, Trash2, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Upload, Edit2, Trash2, Plus, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
 import QRCodeUploader from './QRCodeUploader';
 
 function QRCodeManager() {
-    const [paymentQRs, setPaymentQRs] = useState([
-        {
-            id: 'qr_001',
-            name: 'Company Payment QR',
-            type: 'payment',
-            category: 'company',
-            imageUrl: null,
-            assignedTo: null,
-            priority: 1,
-            isActive: true,
-            createdAt: '2026-01-18T10:00:00Z'
-        }
-    ]);
-    const [feedbackQRs, setFeedbackQRs] = useState([
-        {
-            id: 'qr_002',
-            name: 'Google Review QR',
-            type: 'feedback',
-            category: 'google_review',
-            imageUrl: null,
-            targetUrl: 'https://g.page/r/...',
-            isActive: true,
-            createdAt: '2026-01-18T10:00:00Z'
-        }
-    ]);
+    const [paymentQRs, setPaymentQRs] = useState([]);
+    const [feedbackQRs, setFeedbackQRs] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [showUploader, setShowUploader] = useState(false);
     const [uploaderType, setUploaderType] = useState('payment');
     const [editingQR, setEditingQR] = useState(null);
 
-    const handleSaveQR = (qrData) => {
-        if (qrData.type === 'payment') {
-            if (editingQR) {
-                setPaymentQRs(paymentQRs.map(qr => qr.id === qrData.id ? qrData : qr));
-            } else {
-                setPaymentQRs([...paymentQRs, { ...qrData, id: `qr_${Date.now()}`, createdAt: new Date().toISOString() }]);
+    useEffect(() => {
+        fetchQRCodes();
+    }, []);
+
+    const fetchQRCodes = async () => {
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/admin/qrcodes');
+            const data = await res.json();
+            if (data.success) {
+                setPaymentQRs(data.data.filter(qr => qr.type === 'payment'));
+                setFeedbackQRs(data.data.filter(qr => qr.type === 'feedback'));
             }
-        } else {
-            if (editingQR) {
-                setFeedbackQRs(feedbackQRs.map(qr => qr.id === qrData.id ? qrData : qr));
-            } else {
-                setFeedbackQRs([...feedbackQRs, { ...qrData, id: `qr_${Date.now()}`, createdAt: new Date().toISOString() }]);
-            }
+        } catch (err) {
+            console.error('Failed to fetch QR codes:', err);
+        } finally {
+            setIsLoading(false);
         }
-        setShowUploader(false);
-        setEditingQR(null);
+    };
+
+    const handleSaveQR = async (qrData) => {
+        try {
+            const method = qrData.id ? 'PUT' : 'POST';
+            const payload = { ...qrData };
+            
+            // Map camelCase to snake_case for DB
+            const dbPayload = {
+                id: payload.id,
+                name: payload.name,
+                type: payload.type,
+                category: payload.category,
+                image_url: payload.imageUrl,
+                target_url: payload.targetUrl,
+                assigned_to: payload.assignedTo,
+                priority: payload.priority,
+                is_active: payload.isActive
+            };
+
+            if (!dbPayload.id) delete dbPayload.id;
+
+            const res = await fetch('/api/admin/qrcodes', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dbPayload)
+            });
+            const data = await res.json();
+            if (data.success) {
+                fetchQRCodes();
+                setShowUploader(false);
+                setEditingQR(null);
+            } else {
+                alert('Save failed: ' + data.error);
+            }
+        } catch (err) {
+            alert('Failed to save QR code');
+        }
     };
 
     const handleEditQR = (qr) => {
-        setEditingQR(qr);
+        // map db to UI
+        const uiQR = {
+            ...qr,
+            imageUrl: qr.image_url,
+            targetUrl: qr.target_url,
+            assignedTo: qr.assigned_to,
+            isActive: qr.is_active
+        };
+        setEditingQR(uiQR);
         setUploaderType(qr.type);
         setShowUploader(true);
     };
 
-    const handleDeleteQR = (id, type) => {
+    const handleDeleteQR = async (id, type) => {
         if (confirm('Are you sure you want to delete this QR code?')) {
-            if (type === 'payment') {
-                setPaymentQRs(paymentQRs.filter(qr => qr.id !== id));
-            } else {
-                setFeedbackQRs(feedbackQRs.filter(qr => qr.id !== id));
+            try {
+                const res = await fetch(`/api/admin/qrcodes?id=${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) {
+                    fetchQRCodes();
+                } else {
+                    alert('Delete failed: ' + data.error);
+                }
+            } catch (err) {
+                alert('Failed to delete');
             }
         }
     };
 
-    const handleToggleActive = (id, type) => {
-        if (type === 'payment') {
-            setPaymentQRs(paymentQRs.map(qr => qr.id === id ? { ...qr, isActive: !qr.isActive } : qr));
-        } else {
-            setFeedbackQRs(feedbackQRs.map(qr => qr.id === id ? { ...qr, isActive: !qr.isActive } : qr));
+    const handleToggleActive = async (id, type) => {
+        const list = type === 'payment' ? paymentQRs : feedbackQRs;
+        const qr = list.find(q => q.id === id);
+        if (!qr) return;
+
+        try {
+            const res = await fetch('/api/admin/qrcodes', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, is_active: !qr.is_active })
+            });
+            if (res.ok) fetchQRCodes();
+        } catch (err) {
+            console.error(err);
         }
     };
 
@@ -122,7 +163,7 @@ function QRCodeManager() {
                 <div style={{
                     width: '100px',
                     height: '100px',
-                    backgroundColor: qr.imageUrl ? 'white' : 'var(--bg-secondary)',
+                    backgroundColor: qr.image_url ? 'white' : 'var(--bg-secondary)',
                     borderRadius: 'var(--radius-md)',
                     display: 'flex',
                     alignItems: 'center',
@@ -130,8 +171,8 @@ function QRCodeManager() {
                     flexShrink: 0,
                     border: '1px solid var(--border-primary)'
                 }}>
-                    {qr.imageUrl ? (
-                        <img src={qr.imageUrl} alt={qr.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    {qr.image_url ? (
+                        <img src={qr.image_url} alt={qr.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     ) : (
                         <Upload size={32} color="var(--text-secondary)" />
                     )}
@@ -157,13 +198,13 @@ function QRCodeManager() {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '4px',
-                                color: qr.isActive ? '#10b981' : 'var(--text-secondary)',
+                                color: qr.is_active ? '#10b981' : 'var(--text-secondary)',
                                 fontSize: 'var(--font-size-sm)',
                                 fontWeight: 600
                             }}
                         >
-                            {qr.isActive ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
-                            {qr.isActive ? 'Active' : 'Inactive'}
+                            {qr.is_active ? <ToggleRight size={24} /> : <ToggleLeft size={24} />}
+                            {qr.is_active ? 'Active' : 'Inactive'}
                         </button>
                     </div>
 
@@ -173,15 +214,15 @@ function QRCodeManager() {
                         </div>
                     )}
 
-                    {qr.targetUrl && (
+                    {qr.target_url && (
                         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xs)', wordBreak: 'break-all' }}>
-                            URL: {qr.targetUrl}
+                            URL: {qr.target_url}
                         </div>
                     )}
 
-                    {qr.assignedTo && (
+                    {qr.assigned_to && (
                         <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xs)' }}>
-                            Assigned to: {qr.assignedTo}
+                            Assigned to: {qr.assigned_to}
                         </div>
                     )}
 
@@ -228,7 +269,13 @@ function QRCodeManager() {
                 QR Code Management
             </h2>
 
-            {/* Payment QR Codes */}
+            {isLoading ? (
+                <div style={{ textAlign: 'center', padding: 'var(--spacing-2xl)' }}>
+                    <Loader2 size={32} className="spin" style={{ margin: '0 auto', color: 'var(--text-tertiary)' }} />
+                </div>
+            ) : (
+                <>
+                    {/* Payment QR Codes */}
             <div style={{ marginBottom: 'var(--spacing-xl)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>Payment QR Codes</h3>
@@ -273,6 +320,8 @@ function QRCodeManager() {
                     {feedbackQRs.map(qr => renderQRCard(qr))}
                 </div>
             </div>
+            </>
+            )}
         </div>
     );
 }
