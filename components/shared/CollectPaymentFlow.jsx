@@ -81,7 +81,7 @@ export default function CollectPaymentFlow({
     }, []);
 
     const relevantJobs = context === 'technician'
-        ? jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && String(j.assigned_to) === String(currentUserId))
+        ? jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && String(j.technician_id) === String(currentUserId))
         : (selectedCustomer 
             ? jobs.filter(j => String(j.customer_id) === String(selectedCustomer.id) || String(j.account_id) === String(selectedCustomer.id)) 
             : jobs);

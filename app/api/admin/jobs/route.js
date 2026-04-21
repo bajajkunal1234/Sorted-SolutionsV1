@@ -35,7 +35,7 @@ export async function GET(request) {
             query = query.in('customer_id', lookupIds);
         }
         if (technicianId) {
-            query = query.eq('assigned_to', technicianId)
+            query = query.eq('technician_id', technicianId)
         }
 
         const { data, error } = await query
