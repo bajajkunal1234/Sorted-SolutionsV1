@@ -2,6 +2,7 @@ import './globals.css'
 import { Suspense } from 'react'
 import GoogleTagsProvider from '@/components/GoogleTagsProvider'
 import ClickTracker from '@/components/ClickTracker'
+import FloatingCTA from '@/components/common/FloatingCTA'
 
 export const metadata = {
     metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in'),
@@ -58,6 +59,8 @@ export default function RootLayout({ children }) {
                 {children}
                 {/* Global no-code click tracker — auto-fires triggers configured in Admin > Interactions > Triggers */}
                 <ClickTracker />
+                {/* Floating Call + WhatsApp CTA — visible on all public pages */}
+                <FloatingCTA />
             </body>
         </html>
     )
