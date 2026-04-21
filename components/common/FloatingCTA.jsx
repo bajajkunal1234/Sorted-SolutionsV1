@@ -164,24 +164,38 @@ export default function FloatingCTA() {
                     letter-spacing: 0.03em;
                 }
 
-                /* ── Mobile tweaks ──────────────────────────── */
+                /* ── Mobile: icon-only circles ─────────────── */
+                /* 90% of visitors are on mobile — keep buttons compact so
+                   they don't cover page content, but still unmissable */
                 @media (max-width: 480px) {
                     .fcta-wrap {
-                        bottom: 18px;
+                        bottom: 72px;   /* clear of Android bottom nav bar */
                         right: 14px;
-                        gap: 11px;
+                        gap: 12px;
                     }
+                    /* Collapse pill → circle */
                     .fcta-btn {
-                        padding: 11px 16px 11px 12px;
-                        font-size: 13px;
+                        width: 56px;
+                        height: 56px;
+                        padding: 0;
+                        justify-content: center;
+                        border-radius: 50%;
                     }
+                    /* Hide text labels — icon only */
+                    .fcta-label {
+                        display: none;
+                    }
+                    /* Bigger icon to fill the circle */
                     .fcta-icon {
-                        width: 30px;
-                        height: 30px;
-                        font-size: 15px;
+                        width: 44px;
+                        height: 44px;
+                        background: transparent;
+                        font-size: 22px;
                     }
-                    .fcta-label-main { font-size: 13px; }
-                    .fcta-label-sub  { font-size: 9px;  }
+                    .fcta-icon svg {
+                        width: 24px;
+                        height: 24px;
+                    }
                 }
             `}</style>
 
