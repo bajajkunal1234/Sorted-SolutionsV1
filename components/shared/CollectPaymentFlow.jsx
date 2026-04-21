@@ -80,12 +80,15 @@ export default function CollectPaymentFlow({
         loadInitialData();
     }, []);
 
-    const relevantJobs = selectedCustomer 
-        ? jobs.filter(j => String(j.customer_id) === String(selectedCustomer.id) || String(j.account_id) === String(selectedCustomer.id)) 
-        : jobs;
+    const relevantJobs = context === 'technician'
+        ? jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled' && String(j.assigned_to) === String(currentUserId))
+        : (selectedCustomer 
+            ? jobs.filter(j => String(j.customer_id) === String(selectedCustomer.id) || String(j.account_id) === String(selectedCustomer.id)) 
+            : jobs);
 
     const handleContinueStep1 = () => {
-        if (!selectedCustomer) return alert('Please select a customer.');
+        if (context === 'technician' && !selectedJob) return alert('Please select an active job ticket.');
+        if (!selectedCustomer) return alert('Customer association is missing! Please select a job/customer.');
         if (!amount || Number(amount) <= 0) return alert('Please enter a valid amount.');
         setStep(2);
     };
@@ -370,109 +373,155 @@ export default function CollectPaymentFlow({
                                 />
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                    <User size={14} color="var(--color-primary)" />
-                                    Received From <span style={{ color: 'var(--error)' }}>*</span>
-                                </label>
-                                {selectedCustomer ? (
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: 'var(--spacing-sm) var(--spacing-md)',
-                                        border: '1px solid var(--color-primary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        backgroundColor: 'var(--color-primary)10'
-                                    }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{selectedCustomer.name}</span>
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{selectedCustomer.phone || selectedCustomer.mobile || 'No Phone'}</span>
-                                        </div>
-                                        <button onClick={() => setSelectedCustomer(null)} className="btn-icon" style={{ padding: '4px' }}>
-                                            <X size={16} />
-                                        </button>
+                            {/* Conditional Rendering Block - Technician vs Admin Flow */}
+                            {context === 'technician' ? (
+                                <>
+                                    {/* TECHNICIAN: Job is Primary & Mandatory */}
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                            <Hash size={14} color="var(--color-primary)" />
+                                            Select Active Job <span style={{ color: 'var(--error)' }}>*</span>
+                                        </label>
+                                        <select
+                                            className="form-input"
+                                            onChange={(e) => {
+                                                const j = jobs.find(job => job.id === e.target.value);
+                                                if (j) {
+                                                    setSelectedJob(j);
+                                                    setSelectedCustomer({ 
+                                                        id: j.account_id || j.customer_id, 
+                                                        name: j.account_name || j.customer_name || j.customer?.name || 'Customer', 
+                                                        phone: j.customer_phone || j.customer?.phone || j.customer?.mobile 
+                                                    });
+                                                } else {
+                                                    setSelectedJob(null);
+                                                    setSelectedCustomer(null);
+                                                }
+                                            }}
+                                            value={selectedJob?.id || ""}
+                                        >
+                                            <option value="">-- Select an active job --</option>
+                                            {relevantJobs.map(j => (
+                                                <option key={j.id} value={j.id}>#{j.job_number || j.id} - {j.category || 'Repair'} {j.subcategory ? `(${j.subcategory})` : ''} - {j.account_name || j.customer_name}</option>
+                                            ))}
+                                        </select>
                                     </div>
-                                ) : (
-                                    <AutocompleteSearch
-                                        placeholder="Search customer by name or phone..."
-                                        value={customerSearchTerm}
-                                        onChange={setCustomerSearchTerm}
-                                        suggestions={customers}
-                                        searchKey="name"
-                                        onSelect={(c) => {
-                                            setSelectedCustomer(c);
-                                            setCustomerSearchTerm('');
-                                        }}
-                                        renderSuggestion={(item) => (
+
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                            <User size={14} color="var(--color-primary)" />
+                                            Received From <span style={{ color: 'var(--error)' }}>*</span>
+                                        </label>
+                                        <div style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            padding: 'var(--spacing-sm) var(--spacing-md)',
+                                            border: '1px solid var(--border-primary)',
+                                            borderRadius: 'var(--radius-md)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            color: selectedCustomer ? 'inherit' : 'var(--text-tertiary)'
+                                        }}>
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                                <span style={{ fontWeight: 600 }}>{item.name}</span>
-                                                <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{item.phone || item.mobile}</span>
+                                                <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                                    {selectedCustomer ? selectedCustomer.name : 'Select a job first'}
+                                                </span>
+                                                {selectedCustomer && (
+                                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                        {selectedCustomer.phone || selectedCustomer.mobile || 'No phone provided'}
+                                                    </span>
+                                                )}
                                             </div>
-                                        )}
-                                    />
-                                )}
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                    <Banknote size={14} color="var(--color-primary)" />
-                                    Amount (₹) <span style={{ color: 'var(--error)' }}>*</span>
-                                </label>
-                                <input
-                                    type="number"
-                                    className="form-input"
-                                    placeholder="0.00"
-                                    value={amount}
-                                    onChange={e => {
-                                        setAmount(e.target.value);
-                                        setRazorpayLink(null);
-                                    }}
-                                    min="1"
-                                    step="1"
-                                    style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                    <Hash size={14} color="var(--color-primary)" />
-                                    Link to Job (Optional)
-                                </label>
-                                {selectedJob ? (
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: 'var(--spacing-sm) var(--spacing-md)',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        backgroundColor: 'var(--bg-secondary)'
-                                    }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
-                                                #{selectedJob.job_number || selectedJob.id}
-                                            </span>
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                {selectedJob.category || ''} {selectedJob.subcategory ? `- ${selectedJob.subcategory}` : ''}
-                                            </span>
                                         </div>
-                                        <button onClick={() => setSelectedJob(null)} className="btn-icon" style={{ padding: '4px' }}>
-                                            <X size={16} />
-                                        </button>
                                     </div>
-                                ) : (
-                                    <select
-                                        className="form-input"
-                                        onChange={(e) => {
-                                            const j = jobs.find(job => job.id === e.target.value);
-                                            if (j) setSelectedJob(j);
-                                        }}
-                                        value=""
-                                    >
-                                        <option value="">-- Select an active job --</option>
-                                        {relevantJobs.map(j => (
-                                            <option key={j.id} value={j.id}>#{j.job_number || j.id} - {j.category || 'Repair'} {j.subcategory ? `(${j.subcategory})` : ''}</option>
-                                        ))}
-                                    </select>
-                                )}
-                            </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* ADMIN: Customer is Primary, Job is Secondary */}
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                            <User size={14} color="var(--color-primary)" />
+                                            Received From <span style={{ color: 'var(--error)' }}>*</span>
+                                        </label>
+                                        {selectedCustomer ? (
+                                            <div style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: 'var(--spacing-sm) var(--spacing-md)',
+                                                border: '1px solid var(--color-primary)',
+                                                borderRadius: 'var(--radius-md)',
+                                                backgroundColor: 'var(--color-primary)10'
+                                            }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{selectedCustomer.name}</span>
+                                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{selectedCustomer.phone || selectedCustomer.mobile || 'No Phone'}</span>
+                                                </div>
+                                                <button onClick={() => { setSelectedCustomer(null); setSelectedJob(null); }} className="btn-icon" style={{ padding: '4px' }}>
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <AutocompleteSearch
+                                                placeholder="Search customer by name or phone..."
+                                                value={customerSearchTerm}
+                                                onChange={setCustomerSearchTerm}
+                                                suggestions={customers}
+                                                searchKey="name"
+                                                onSelect={(c) => {
+                                                    setSelectedCustomer(c);
+                                                    setCustomerSearchTerm('');
+                                                }}
+                                                renderSuggestion={(item) => (
+                                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                        <span style={{ fontWeight: 600 }}>{item.name}</span>
+                                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{item.phone || item.mobile}</span>
+                                                    </div>
+                                                )}
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                            <Hash size={14} color="var(--color-primary)" />
+                                            Link to Job (Optional)
+                                        </label>
+                                        {selectedJob ? (
+                                            <div style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                padding: 'var(--spacing-sm) var(--spacing-md)',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: 'var(--radius-md)',
+                                                backgroundColor: 'var(--bg-secondary)'
+                                            }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                                        #{selectedJob.job_number || selectedJob.id}
+                                                    </span>
+                                                    <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                        {selectedJob.category || ''} {selectedJob.subcategory ? `- ${selectedJob.subcategory}` : ''}
+                                                    </span>
+                                                </div>
+                                                <button onClick={() => setSelectedJob(null)} className="btn-icon" style={{ padding: '4px' }}>
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <select
+                                                className="form-input"
+                                                onChange={(e) => {
+                                                    const j = jobs.find(job => job.id === e.target.value);
+                                                    if (j) setSelectedJob(j);
+                                                }}
+                                                value=""
+                                                disabled={!selectedCustomer}
+                                            >
+                                                <option value="">{selectedCustomer ? "-- Select an active job --" : "Select a customer first"}</option>
+                                                {relevantJobs.map(j => (
+                                                    <option key={j.id} value={j.id}>#{j.job_number || j.id} - {j.category || 'Repair'} {j.subcategory ? `(${j.subcategory})` : ''}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                </>
+                            )}
 
                             <div className="form-group">
                                 <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
