@@ -370,7 +370,10 @@ export default function CollectPaymentFlow({
                                     className="form-input"
                                     placeholder="0.00"
                                     value={amount}
-                                    onChange={e => setAmount(e.target.value)}
+                                    onChange={e => {
+                                        setAmount(e.target.value);
+                                        setRazorpayLink(null);
+                                    }}
                                     min="1"
                                     step="1"
                                     style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}
@@ -395,7 +398,7 @@ export default function CollectPaymentFlow({
                                                 #{selectedJob.job_number || selectedJob.id}
                                             </span>
                                             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                {selectedJob.issue_type}
+                                                {selectedJob.category || ''} {selectedJob.subcategory ? `- ${selectedJob.subcategory}` : ''}
                                             </span>
                                         </div>
                                         <button onClick={() => setSelectedJob(null)} className="btn-icon" style={{ padding: '4px' }}>
@@ -413,7 +416,7 @@ export default function CollectPaymentFlow({
                                     >
                                         <option value="">-- Select an active job --</option>
                                         {relevantJobs.map(j => (
-                                            <option key={j.id} value={j.id}>#{j.job_number || j.id} - {j.issue_type}</option>
+                                            <option key={j.id} value={j.id}>#{j.job_number || j.id} - {j.category || 'Repair'} {j.subcategory ? `(${j.subcategory})` : ''}</option>
                                         ))}
                                     </select>
                                 )}
@@ -458,7 +461,8 @@ export default function CollectPaymentFlow({
                                             justifyContent: 'flex-start',
                                             backgroundColor: 'var(--bg-elevated)',
                                             border: '1px solid var(--border-primary)',
-                                            boxShadow: 'var(--shadow-sm)'
+                                            boxShadow: 'var(--shadow-sm)',
+                                            color: 'var(--text-primary)'
                                         }}
                                     >
                                         <Banknote size={24} color="#10b981" style={{ marginRight: '16px' }} />
@@ -477,7 +481,8 @@ export default function CollectPaymentFlow({
                                             justifyContent: 'flex-start',
                                             backgroundColor: 'var(--bg-elevated)',
                                             border: '1px solid var(--border-primary)',
-                                            boxShadow: 'var(--shadow-sm)'
+                                            boxShadow: 'var(--shadow-sm)',
+                                            color: 'var(--text-primary)'
                                         }}
                                     >
                                         <QrCode size={24} color="#3b82f6" style={{ marginRight: '16px' }} />
@@ -496,7 +501,8 @@ export default function CollectPaymentFlow({
                                             justifyContent: 'flex-start',
                                             backgroundColor: 'var(--bg-elevated)',
                                             border: '1px solid var(--border-primary)',
-                                            boxShadow: 'var(--shadow-sm)'
+                                            boxShadow: 'var(--shadow-sm)',
+                                            color: 'var(--text-primary)'
                                         }}
                                     >
                                         <CreditCard size={24} color="#f59e0b" style={{ marginRight: '16px' }} />
@@ -725,7 +731,7 @@ export default function CollectPaymentFlow({
                 </div>
 
                 {/* Footer Controls */}
-                {step < 3 && (
+                {step <= 3 && (
                     <div style={{
                         padding: 'var(--spacing-md) var(--spacing-lg)',
                         borderTop: '1px solid var(--border-primary)',
@@ -734,12 +740,12 @@ export default function CollectPaymentFlow({
                         justifyContent: 'space-between',
                         alignItems: 'center'
                     }}>
-                        {step === 2 ? (
-                            <button className="btn btn-secondary" onClick={() => setStep(1)}>
+                        {step > 1 ? (
+                            <button className="btn btn-secondary" onClick={() => setStep(step - 1)} disabled={isGeneratingLink || isSubmitting}>
                                 Back
                             </button>
                         ) : (
-                            <button className="btn btn-secondary" onClick={onClose}>
+                            <button className="btn btn-secondary" onClick={onClose} disabled={isGeneratingLink || isSubmitting}>
                                 Cancel
                             </button>
                         )}
