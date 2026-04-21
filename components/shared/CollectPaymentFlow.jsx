@@ -37,6 +37,7 @@ export default function CollectPaymentFlow({
     
     // Data State
     const [customers, setCustomers] = useState([]);
+    const [customerSearchTerm, setCustomerSearchTerm] = useState('');
     const [jobs, setJobs] = useState([]);
     const [isLoadingData, setIsLoadingData] = useState(true);
 
@@ -338,9 +339,14 @@ export default function CollectPaymentFlow({
                                 ) : (
                                     <AutocompleteSearch
                                         placeholder="Search customer by name or phone..."
+                                        value={customerSearchTerm}
+                                        onChange={setCustomerSearchTerm}
                                         suggestions={customers}
                                         searchKey="name"
-                                        onSelect={(c) => setSelectedCustomer(c)}
+                                        onSelect={(c) => {
+                                            setSelectedCustomer(c);
+                                            setCustomerSearchTerm('');
+                                        }}
                                         renderSuggestion={(item) => (
                                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                 <span style={{ fontWeight: 600 }}>{item.name}</span>
