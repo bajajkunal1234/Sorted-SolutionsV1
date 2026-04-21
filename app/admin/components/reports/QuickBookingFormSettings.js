@@ -834,7 +834,7 @@ function QuickBookingFormSettings() {
                                                                             cursor: 'pointer'
                                                                         }}
                                                                     >
-                                                                        {['Starting from', 'Fixed', 'Up to', 'Approx.'].map(opt => (
+                                                                        {['Starting from', 'Starting', 'Fixed', 'Up to', 'Approx.'].map(opt => (
                                                                             <option key={opt} value={opt} style={{ backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)' }}>{opt}</option>
                                                                         ))}
                                                                     </select>

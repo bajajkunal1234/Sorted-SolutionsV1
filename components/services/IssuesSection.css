@@ -337,45 +337,83 @@
 
 @media (max-width: 580px) {
     .issues-section {
-        padding: 52px 0 60px;
+        padding: 48px 0 56px;
+    }
+
+    .issues-container {
+        padding: 0 16px;
+    }
+
+    .issues-header {
+        margin-bottom: 32px;
     }
 
     .issues-grid {
         grid-template-columns: 1fr;
-        gap: 14px;
+        gap: 12px;
     }
 
     .issue-card {
         flex-direction: row;
         align-items: stretch;
         border-radius: 14px;
+        min-height: 88px;
     }
 
     .issue-card__image-wrap {
-        width: 110px;
+        width: 88px;
+        min-width: 88px;
         aspect-ratio: auto;
         flex-shrink: 0;
-        border-radius: 0;
+        border-radius: 12px 0 0 12px;
     }
 
     .issue-card__price-badge {
         display: none;
     }
 
+    /* Body fills remaining width — MUST have min-width:0 to let text wrap */
     .issue-card__body {
-        padding: 12px 14px 8px;
+        flex: 1;
+        min-width: 0;
+        padding: 10px 12px 6px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }
 
-    .issue-card__footer {
-        padding: 8px 14px 12px;
+    /* Stack name above price badge vertically */
+    .issue-card__title-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        margin-bottom: 4px;
     }
 
     .issue-card__name {
-        font-size: 0.9rem;
+        font-size: 0.88rem;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .issue-card__price {
+        font-size: 0.7rem;
+        padding: 2px 7px;
+        white-space: nowrap;
+    }
+
+    .issue-card__footer {
+        padding: 6px 12px 10px;
+        border-top: 1px solid var(--border-primary, #f1f5f9);
+    }
+
+    .issue-card__cta {
+        font-size: 0.75rem;
     }
 
     .issues-footer {
         flex-direction: column;
         gap: 6px;
+        font-size: 0.82rem;
     }
 }

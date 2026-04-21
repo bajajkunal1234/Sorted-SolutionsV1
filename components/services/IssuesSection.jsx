@@ -94,7 +94,7 @@ export default function IssuesSection({
                                         <h3 className="issue-card__name">{issue.name}</h3>
                                         {hasPrice && (
                                             <div className="issue-card__price">
-                                                Starts at <strong>{issue.price}</strong>
+                                                <strong>{issue.price}</strong>
                                             </div>
                                         )}
                                     </div>
