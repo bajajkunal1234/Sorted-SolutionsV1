@@ -594,8 +594,8 @@ export default function CollectPaymentFlow({
                             {paymentMethod === 'qr' && (
                                 <div style={{ textAlign: 'center' }}>
                                     <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                                        {companyQr?.qr_image_url ? (
-                                            <img src={companyQr.qr_image_url} alt="Company QR" style={{ width: '200px', height: '200px', objectFit: 'contain', margin: '0 auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)' }} />
+                                        {companyQr?.image_url ? (
+                                            <img src={companyQr.image_url} alt="Company QR" style={{ width: '200px', height: '200px', objectFit: 'contain', margin: '0 auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)' }} />
                                         ) : (
                                             <div style={{ width: '200px', height: '200px', backgroundColor: '#f3f4f6', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 'var(--radius-md)' }}>
                                                 <QrCode size={64} color="#9ca3af" />
