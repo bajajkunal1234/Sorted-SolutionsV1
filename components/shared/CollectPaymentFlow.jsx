@@ -525,6 +525,26 @@ export default function CollectPaymentFlow({
 
                             <div className="form-group">
                                 <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                    <Banknote size={14} color="var(--color-primary)" />
+                                    Amount (₹) <span style={{ color: 'var(--error)' }}>*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    placeholder="0.00"
+                                    value={amount}
+                                    onChange={e => {
+                                        setAmount(e.target.value);
+                                        setRazorpayLink(null);
+                                    }}
+                                    min="1"
+                                    step="1"
+                                    style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}
+                                />
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                                     <Paperclip size={14} color="var(--color-primary)" />
                                     Narration / Description
                                 </label>
