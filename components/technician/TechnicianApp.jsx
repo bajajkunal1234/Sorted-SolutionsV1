@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import RepairCalculator from '@/components/common/RepairCalculator';
@@ -16,7 +16,7 @@ import TechSupportTab from '@/components/technician/TechSupportTab';
 
 function TechnicianApp() {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState('jobs');
+    const [activeTab, setActiveTab] = useState('dashboard');
     const [viewMode, setViewMode] = useState(() => {
         if (typeof window !== 'undefined') return localStorage.getItem('techViewMode') || 'kanban';
         return 'kanban';
@@ -1055,6 +1055,83 @@ function TechnicianApp() {
         </div>
     );
 
+    // Dashboard Tab Content
+    const renderDashboardTab = () => {
+        const openJobsCount = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled').length;
+        const completedJobsCount = jobs.filter(j => j.status === 'completed').length;
+        
+        return (
+            <div style={{ padding: 'var(--spacing-md)', overflow: 'auto', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '8px' }}>
+                    <LayoutDashboard size={24} color="#3b82f6" />
+                    Dashboard
+                </h2>
+
+                {/* Jobs Summary Card */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #3b82f6', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
+                    onClick={() => setActiveTab('jobs')}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                            <Briefcase size={20} color="#3b82f6" /> Jobs Overview
+                        </h3>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#f59e0b' }}>{openJobsCount}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Open Jobs</div>
+                        </div>
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#10b981' }}>{completedJobsCount}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Completed</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Expenses Card */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #ef4444', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}
+                    onClick={() => setActiveTab('expenses')}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
+                                <DollarSign size={20} color="#ef4444" /> Expenses
+                            </h3>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                Log and track out-of-pocket expenses
+                            </p>
+                        </div>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                </div>
+
+                {/* Incentives Card */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #10b981', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}
+                    onClick={() => setActiveTab('incentives')}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
+                                <TrendingUp size={20} color="#10b981" /> Incentives
+                            </h3>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                Total Earned: <strong style={{ color: '#10b981', fontSize: '15px' }}>₹{incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                            </p>
+                        </div>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <>
         {/* PWA install + notification permission prompt — shown once on first load */}
@@ -1114,6 +1191,7 @@ function TechnicianApp() {
                     </>
                 ) : (
                     <>
+                        {activeTab === 'dashboard' && renderDashboardTab()}
                         {activeTab === 'jobs' && renderJobsTab()}
                         {activeTab === 'expenses' && <ExpensesList technicianId={technicianId} />}
                         {activeTab === 'incentives' && renderIncentivesTab()}
@@ -1125,6 +1203,16 @@ function TechnicianApp() {
             {/* Bottom Tabs */}
             <nav className="bottom-tabs">
                 <button
+                    className={`tab-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+                    onClick={() => {
+                        setActiveTab('dashboard');
+                        logNavigation('Dashboard', 'Technician', 'Technician App');
+                    }}
+                >
+                    <LayoutDashboard size={20} />
+                    <span>Dashboard</span>
+                </button>
+                <button
                     className={`tab-item ${activeTab === 'jobs' ? 'active' : ''}`}
                     onClick={() => {
                         setActiveTab('jobs');
@@ -1133,26 +1221,6 @@ function TechnicianApp() {
                 >
                     <Briefcase size={20} />
                     <span>Jobs</span>
-                </button>
-                <button
-                    className={`tab-item ${activeTab === 'expenses' ? 'active' : ''}`}
-                    onClick={() => {
-                        setActiveTab('expenses');
-                        logNavigation('Expenses', 'Technician', 'Technician App');
-                    }}
-                >
-                    <DollarSign size={20} />
-                    <span>Expenses</span>
-                </button>
-                <button
-                    className={`tab-item ${activeTab === 'incentives' ? 'active' : ''}`}
-                    onClick={() => {
-                        setActiveTab('incentives');
-                        logNavigation('Incentives', 'Technician', 'Technician App');
-                    }}
-                >
-                    <TrendingUp size={20} />
-                    <span>Incentives</span>
                 </button>
                 <button
                     className={`tab-item ${activeTab === 'settings' ? 'active' : ''}`}
