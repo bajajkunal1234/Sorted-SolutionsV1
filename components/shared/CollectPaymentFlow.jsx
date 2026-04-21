@@ -176,6 +176,7 @@ export default function CollectPaymentFlow({
 
             // Prepare pending receipt payload
             const receiptPayload = {
+                receipt_number: `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
                 date,
                 account_id: selectedCustomer.id,
                 account_name: selectedCustomer.name,
