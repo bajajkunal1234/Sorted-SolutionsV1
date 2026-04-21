@@ -189,7 +189,7 @@ export default function CollectPaymentFlow({
                 narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
                 status: 'pending_verification',
                 source: context === 'admin' ? 'Admin Panel' : 'Technician App',
-                created_by: currentUserId,
+                created_by: currentUserName || 'Technician',
                 job_id: selectedJob?.id || null,
             };
 
