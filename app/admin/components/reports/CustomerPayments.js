@@ -1,8 +1,61 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock } from 'lucide-react';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
+
+// Helper component to display live Razorpay status
+function PaymentLinkStatusBadge({ linkId }) {
+    const [status, setStatus] = useState('loading');
+    
+    useEffect(() => {
+        let mounted = true;
+        const fetchStatus = async () => {
+            try {
+                const res = await fetch(`/api/payment/check-link-status?id=${linkId}`);
+                const data = await res.json();
+                if (mounted && data.success) {
+                    setStatus(data.status); // e.g. 'paid', 'created', 'expired', 'cancelled'
+                } else if (mounted) {
+                    setStatus('error');
+                }
+            } catch (err) {
+                if (mounted) setStatus('error');
+            }
+        };
+        fetchStatus();
+    }, [linkId]);
+
+    if (status === 'loading') {
+        return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'var(--bg-secondary)', fontSize: '10px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                <Loader2 size={10} className="spin" /> Checking Link...
+            </span>
+        );
+    }
+    
+    if (status === 'paid') {
+        return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#10b98115', fontSize: '10px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>
+                <CheckCircle size={10} /> Paid via Link
+            </span>
+        );
+    }
+
+    if (status === 'expired' || status === 'cancelled') {
+        return (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#ef444415', fontSize: '10px', fontWeight: 600, color: '#ef4444', textTransform: 'uppercase' }}>
+                <XCircle size={10} /> {status}
+            </span>
+        );
+    }
+
+    return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#f59e0b15', fontSize: '10px', fontWeight: 600, color: '#f59e0b', textTransform: 'uppercase' }}>
+            <Clock size={10} /> Pending Payment ({status})
+        </span>
+    );
+}
 
 export default function CustomerPayments({ subSection, setSubSection, searchTerm, setSearchTerm }) {
     const [payments, setPayments] = useState([]);
@@ -201,6 +254,11 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                         </span>
                                         •
                                         <span>{payment.receipt_number || payment.id.slice(0, 8)}</span>
+                                        
+                                        {/* Status checker if it's a link */}
+                                        {payment.narration?.includes('[LinkID:') && (
+                                            <PaymentLinkStatusBadge linkId={payment.narration.match(/\[LinkID:(.*?)\]/)[1]} />
+                                        )}
                                     </div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
@@ -230,14 +288,16 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                 {payment.narration && (
                                     <>
                                         <Paperclip size={14} style={{ marginTop: '2px' }} />
-                                        <div style={{ fontStyle: 'italic', wordBreak: 'break-word' }}>"{payment.narration}"</div>
+                                        <div style={{ fontStyle: 'italic', wordBreak: 'break-word' }}>
+                                            "{payment.narration.replace(/\[LinkID:.*?\]/, '').trim()}"
+                                        </div>
                                     </>
                                 )}
                             </div>
                             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--border-primary)' }}>
                                 <button 
                                     className="btn btn-secondary" 
-                                    style={{ padding: '8px 12px', color: 'var(--error)', borderColor: 'var(--error)' }}
+                                    style={{ padding: '8px 12px', color: 'var(--error)', borderColor: 'var(--error)', backgroundColor: 'transparent' }}
                                     onClick={() => handleReject(payment)}
                                     disabled={submittingId === payment.id}
                                     title="Reject and delete receipt"
@@ -245,30 +305,14 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                     <XCircle size={16} />
                                 </button>
                                 <button 
-                                    className="btn btn-secondary" 
-                                    style={{ flex: 1, padding: '8px', color: 'var(--text-secondary)' }}
+                                    className="btn btn-primary" 
+                                    style={{ flex: 1, padding: '8px', backgroundColor: '#6366f1', borderColor: '#6366f1', color: 'white' }}
                                     onClick={() => setEditingReceipt(payment)}
                                     disabled={submittingId === payment.id}
-                                    title="Open and allocate to invoices"
+                                    title="Open form to link invoices and verify"
                                 >
                                     <Edit size={16} style={{ marginRight: '6px' }} />
-                                    Review
-                                </button>
-                                <button 
-                                    className="btn border-emerald text-emerald hover-bg-emerald-light" 
-                                    style={{ flex: 1, padding: '8px', border: '1px solid #10b981', color: '#10b981', backgroundColor: '#10b98110' }}
-                                    onClick={() => handleVerify(payment)}
-                                    disabled={submittingId === payment.id}
-                                    title="Clear immediately without allocations"
-                                >
-                                    {submittingId === payment.id ? (
-                                        <Loader2 size={16} className="spin" />
-                                    ) : (
-                                        <>
-                                            <CheckCircle size={16} style={{ marginRight: '4px' }} />
-                                            Clear
-                                        </>
-                                    )}
+                                    Review & Post
                                 </button>
                             </div>
                         </div>
