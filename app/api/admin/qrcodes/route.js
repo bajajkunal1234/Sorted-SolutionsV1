@@ -1,8 +1,9 @@
-import { supabase } from '@/lib/supabase'
+import { getSupabaseServer } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
     try {
+        const supabase = getSupabaseServer();
         const { data, error } = await supabase
             .from('qrcodes')
             .select('*')
@@ -25,6 +26,7 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
+        const supabase = getSupabaseServer();
         const body = await request.json()
         const { data, error } = await supabase
             .from('qrcodes')
@@ -41,6 +43,7 @@ export async function POST(request) {
 
 export async function PUT(request) {
     try {
+        const supabase = getSupabaseServer();
         const body = await request.json()
         const { id, ...updates } = body
         const { data, error } = await supabase
@@ -59,6 +62,7 @@ export async function PUT(request) {
 
 export async function DELETE(request) {
     try {
+        const supabase = getSupabaseServer();
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
 
