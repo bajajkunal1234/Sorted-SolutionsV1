@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock, Image as ImageIcon } from 'lucide-react';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 
 // Helper component to display live Razorpay status
@@ -289,7 +289,24 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                     <>
                                         <Paperclip size={14} style={{ marginTop: '2px' }} />
                                         <div style={{ fontStyle: 'italic', wordBreak: 'break-word' }}>
-                                            "{payment.narration.replace(/\[LinkID:.*?\]/, '').trim()}"
+                                            "{payment.narration.replace(/\[LinkID:.*?\]/g, '').replace(/\[Screenshot:.*?\]/g, '').trim()}"
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Extracted Screenshot Proof */}
+                                {payment.narration?.includes('[Screenshot:') && (
+                                    <>
+                                        <ImageIcon size={14} style={{ marginTop: '2px', color: '#6366f1' }} />
+                                        <div>
+                                            <a 
+                                                href={payment.narration.match(/\[Screenshot:(.*?)\]/)[1]} 
+                                                target="_blank" 
+                                                rel="noreferrer"
+                                                style={{ color: '#6366f1', textDecoration: 'underline', fontWeight: 500 }}
+                                            >
+                                                View Uploaded Proof
+                                            </a>
                                         </div>
                                     </>
                                 )}

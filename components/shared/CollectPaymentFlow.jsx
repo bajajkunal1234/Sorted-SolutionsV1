@@ -183,7 +183,7 @@ export default function CollectPaymentFlow({
                 amount: parseFloat(amount),
                 payment_mode: paymentMethod === 'cash' ? 'Cash' : (paymentMethod === 'qr' ? 'UPI' : 'Payment Link'),
                 reference_number: selectedJob?.job_number || selectedJob?.id || '',
-                narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''}`.trim(),
+                narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
                 status: 'pending_verification',
                 source: context === 'admin' ? 'Admin Panel' : 'Technician App',
                 created_by: currentUserId,
