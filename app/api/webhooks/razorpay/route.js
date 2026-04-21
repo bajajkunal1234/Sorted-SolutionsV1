@@ -87,6 +87,7 @@ export async function POST(request) {
                     notes: `Auto-created from Razorpay payment ${paymentId}${jobId ? ` · Job: ${jobId}` : ''}`,
                     narration: interactionMsg,
                     reference: paymentId,
+                    job_id: jobId || null,
                 };
 
                 const { data: voucher } = await supabase

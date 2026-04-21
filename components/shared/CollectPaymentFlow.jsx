@@ -187,6 +187,7 @@ export default function CollectPaymentFlow({
                 status: 'pending_verification',
                 source: context === 'admin' ? 'Admin Panel' : 'Technician App',
                 created_by: currentUserId,
+                job_id: selectedJob?.id || null,
             };
 
             // Post the transaction (Status = pending_verification)
