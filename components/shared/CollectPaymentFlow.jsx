@@ -653,8 +653,11 @@ export default function CollectPaymentFlow({
                                     <div style={{ marginBottom: 'var(--spacing-xl)' }}>
                                         {cardAction === 'show_qr' ? (
                                             <div style={{ display: 'inline-block', padding: '16px', backgroundColor: 'white', border: '1px solid var(--border-primary)', borderRadius: '12px' }}>
-                                                {/* Use basic image element, real implementation might use react-qr-code to render short_url */}
-                                                <QrCode size={120} color="var(--color-primary)" style={{ margin: '0 auto' }} />
+                                                <img 
+                                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(razorpayLink)}`} 
+                                                    alt="Razorpay Payment QR Code" 
+                                                    style={{ width: '150px', height: '150px', objectFit: 'contain', margin: '0 auto', display: 'block' }} 
+                                                />
                                             </div>
                                         ) : cardAction === 'push' ? (
                                             <Send size={64} color="var(--color-primary)" style={{ margin: '0 auto' }} />
