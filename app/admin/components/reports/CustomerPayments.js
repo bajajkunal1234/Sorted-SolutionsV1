@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit } from 'lucide-react';
+import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 
 export default function CustomerPayments({ subSection, setSubSection, searchTerm, setSearchTerm }) {
     const [payments, setPayments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [submittingId, setSubmittingId] = useState(null);
+    const [editingReceipt, setEditingReceipt] = useState(null);
 
     const loadPendingPayments = async () => {
         setLoading(true);
@@ -83,6 +85,26 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
             alert(`Error deleting payment: ${err.message}`);
         } finally {
             setSubmittingId(null);
+        }
+    };
+
+    const handleFormSave = async (voucher) => {
+        try {
+            const res = await fetch(`/api/admin/transactions?type=receipt`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...voucher, id: editingReceipt.id, status: 'cleared' })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Receipt verified and updated successfully!");
+                setEditingReceipt(null);
+                loadPendingPayments();
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (err) {
+            alert(`Failed to save: ${err.message}`);
         }
     };
 
@@ -212,29 +234,39 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                     </>
                                 )}
                             </div>
-
                             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--border-primary)' }}>
                                 <button 
                                     className="btn btn-secondary" 
-                                    style={{ flex: 1, padding: '8px', color: 'var(--error)', borderColor: 'var(--error)' }}
+                                    style={{ padding: '8px 12px', color: 'var(--error)', borderColor: 'var(--error)' }}
                                     onClick={() => handleReject(payment)}
                                     disabled={submittingId === payment.id}
+                                    title="Reject and delete receipt"
                                 >
-                                    <XCircle size={16} style={{ marginRight: '6px' }} />
-                                    Reject
+                                    <XCircle size={16} />
                                 </button>
                                 <button 
-                                    className="btn btn-primary" 
-                                    style={{ flex: 2, padding: '8px', backgroundColor: '#10b981', borderColor: '#10b981' }}
+                                    className="btn btn-secondary" 
+                                    style={{ flex: 1, padding: '8px', color: 'var(--text-secondary)' }}
+                                    onClick={() => setEditingReceipt(payment)}
+                                    disabled={submittingId === payment.id}
+                                    title="Open and allocate to invoices"
+                                >
+                                    <Edit size={16} style={{ marginRight: '6px' }} />
+                                    Review
+                                </button>
+                                <button 
+                                    className="btn border-emerald text-emerald hover-bg-emerald-light" 
+                                    style={{ flex: 1, padding: '8px', border: '1px solid #10b981', color: '#10b981', backgroundColor: '#10b98110' }}
                                     onClick={() => handleVerify(payment)}
                                     disabled={submittingId === payment.id}
+                                    title="Clear immediately without allocations"
                                 >
                                     {submittingId === payment.id ? (
                                         <Loader2 size={16} className="spin" />
                                     ) : (
                                         <>
-                                            <CheckCircle size={16} style={{ marginRight: '6px' }} />
-                                            Verify & Clear
+                                            <CheckCircle size={16} style={{ marginRight: '4px' }} />
+                                            Clear
                                         </>
                                     )}
                                 </button>
@@ -242,6 +274,14 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                         </div>
                     ))}
                 </div>
+            )}
+
+            {editingReceipt && (
+                <ReceiptVoucherForm
+                    existingReceipt={editingReceipt}
+                    onSave={handleFormSave}
+                    onClose={() => setEditingReceipt(null)}
+                />
             )}
         </div>
     );
