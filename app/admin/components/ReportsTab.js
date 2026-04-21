@@ -22,6 +22,7 @@ import AdminPropertiesTab from './reports/AdminPropertiesTab';
 import CustomerAppSettings from './reports/CustomerAppSettings';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import AdminSupportPanel from '@/components/admin/support/AdminSupportPanel';
+import CustomerPayments from './reports/CustomerPayments';
 
 import { settingsByCategory } from '@/lib/data/websiteSettingsData';
 
@@ -53,6 +54,7 @@ function ReportsTab() {
         { id: 'qrcodes', label: 'QR Codes', icon: QrCode, component: QRCodeManager, color: '#eab308', description: 'Generate and manage QR codes' },
         { id: 'sql', label: 'SQL Runner', icon: Database, component: SQLRunnerPage, color: '#ef4444', description: 'Run raw SQL queries (Admin Only)' },
         { id: 'bank-reconciler', label: 'Bank Reconciler', icon: FileText, component: BankStatementReconciler, color: '#3b82f6', description: 'Reconcile bank statements with accounting' },
+        { id: 'customer-payments', label: 'Customer Payments (Pending)', icon: DollarSign, component: CustomerPayments, color: '#f59e0b', description: 'Verify tracking of payments collected by technicians' },
         { id: 'support-sops', label: 'Support SOPs', icon: BookOpen, component: AdminSupportPanel, color: '#8b5cf6', description: 'View and manage technician SOP knowledge base and guides' },
     ];
 

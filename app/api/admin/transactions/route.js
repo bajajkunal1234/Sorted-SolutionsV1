@@ -199,8 +199,8 @@ export async function POST(request) {
             sales:    ['invoice_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','items_subtotal','charges_total','status','notes','terms','job_id'],
             purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','account_phone','account_email','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
             quotation:['quote_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
-            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id'],
-            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id'],
+            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
+            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
         };
 
         const allowedCols = tableColumns[type];
@@ -319,8 +319,8 @@ export async function PUT(request) {
             sales:    ['invoice_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','items_subtotal','charges_total','paid_amount','status','notes','terms','job_id'],
             purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','account_phone','account_email','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
             quotation:['quote_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
-            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id'],
-            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id'],
+            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
+            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
         };
 
         const allowedCols = tableColumns[type];

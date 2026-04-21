@@ -13,6 +13,7 @@ import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import PWAPrompt from '@/components/common/PWAPrompt';
 import TechSupportTab from '@/components/technician/TechSupportTab';
+import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -45,6 +46,7 @@ function TechnicianApp() {
         }
         return true;
     });
+    const [showCollectPayment, setShowCollectPayment] = useState(false);
 
     // Apply dark mode theme class initially and on change
     useEffect(() => {
@@ -1082,6 +1084,25 @@ function TechnicianApp() {
                     )}
                 </div>
 
+                {/* Collect Payment Card */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #10b981', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
+                    onClick={() => setShowCollectPayment(true)}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
+                                <DollarSign size={20} color="#10b981" /> Collect Payment
+                            </h3>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                Log cash, company UPI, or send Razorypay link
+                            </p>
+                        </div>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                </div>
+
                 {/* Jobs Summary Card */}
                 <div 
                     className="card"
@@ -1358,6 +1379,19 @@ function TechnicianApp() {
                                     .catch(err => console.error('Error refreshing jobs:', err));
                             }
                         }, 1000);
+                    }}
+                />
+            )}
+
+            {/* Collect Payment Overlay */}
+            {showCollectPayment && (
+                <CollectPaymentFlow 
+                    onClose={() => setShowCollectPayment(false)} 
+                    context="technician" 
+                    currentUserName={firstName}
+                    currentUserId={technicianId}
+                    onSuccess={() => {
+                        // Optionally refresh the Dashboard or active jobs
                     }}
                 />
             )}

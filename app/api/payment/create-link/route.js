@@ -21,6 +21,7 @@ export async function POST(req) {
             job_id, account_id, invoice_id = '', collected_by = 'technician',
             technician_id = '', technician_name = '', amount_label = 'payment',
             expire_by_hours = 48, // link expires in 48 hours by default
+            disable_upi = false,
         } = body;
 
         if (!amount || !customer_phone) {
@@ -59,6 +60,19 @@ export async function POST(req) {
                 technician_name,
                 amount_label,
             },
+            ...(disable_upi ? {
+                options: {
+                    checkout: {
+                        method: {
+                            netbanking: "1",
+                            card: "1",
+                            upi: "0",
+                            wallet: "1",
+                            emi: "0"
+                        }
+                    }
+                }
+            } : {})
         };
 
         const link = await razorpay.paymentLink.create(linkPayload);

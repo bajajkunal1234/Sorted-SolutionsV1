@@ -27,6 +27,7 @@ import RentalDetailsModal from './reports/RentalDetailsModal';
 import AMCDetailsModal from './reports/AMCDetailsModal';
 import RentReceiptsModal from './reports/RentReceiptsModal';
 import WhatsAppShareModal from './accounts/WhatsAppShareModal';
+import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 
 function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [activeTab, setActiveTab] = useState('accounts');
@@ -70,6 +71,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [selectedAccount, setSelectedAccount] = useState(null);
     const [activeForm, setActiveForm] = useState(null);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
+    const [showCollectPayment, setShowCollectPayment] = useState(false);
 
     const [txViewType, setTxViewType] = useState('table');
     const [txSortBy, setTxSortBy] = useState('date');
@@ -458,7 +460,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         sales:      { label: 'Sales',       searchPlaceholder: 'Search Sales Invoices...',   createButtonText: 'Create Sales Invoice',     formType: 'sales-invoice' },
         purchases:  { label: 'Purchases',   searchPlaceholder: 'Search Purchase Invoices...', createButtonText: 'Create Purchase Invoice',  formType: 'purchase-invoice' },
         quotations: { label: 'Quotations',  searchPlaceholder: 'Search Quotations...',       createButtonText: 'Create Quotation',         formType: 'quotation' },
-        receipts:   { label: 'Receipts',    searchPlaceholder: 'Search Receipts...',         createButtonText: 'Create Receipt Voucher',   formType: 'receipt-voucher' },
+        receipts:   { label: 'Receipts',    searchPlaceholder: 'Search Receipts...',         createButtonText: 'Receipt',   formType: 'receipt-voucher' },
         payments:   { label: 'Payments',    searchPlaceholder: 'Search Payments...',         createButtonText: 'Create Payment Voucher',   formType: 'payment-voucher' },
         journals:   { label: 'Journals',    searchPlaceholder: 'Search Journal Entries...',  createButtonText: 'Create Journal Entry',     formType: 'journal-entry' },
         amc:        { label: 'AMC',         searchPlaceholder: 'Search AMC Subscriptions...', createButtonText: 'New AMC Subscription',    formType: 'amc-subscription' },
@@ -1915,6 +1917,12 @@ ${body}
                     style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
                     <Plus size={15} /> {tabConfig[activeTab]?.createButtonText || 'Create'}
                 </button>
+                {activeTab === 'receipts' && (
+                    <button className="btn btn-secondary" onClick={() => setShowCollectPayment(true)}
+                        style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0, backgroundColor: '#10b981', color: 'white', border: 'none' }}>
+                        <Plus size={15} /> Collect Payment
+                    </button>
+                )}
             </div>
 
             {/* Row 2: Sub-tabs */}
@@ -2259,6 +2267,18 @@ ${body}
                     printSettings={printSettingsRef.current}
                     onClose={() => { setShowShareModal(false); setShareItem(null); setShareTab(null); }}
                     onPrint={() => handlePrintItem(shareItem, shareTab)}
+                />
+            )}
+
+            {/* Collect Payment Flow */}
+            {showCollectPayment && (
+                <CollectPaymentFlow 
+                    onClose={() => setShowCollectPayment(false)} 
+                    context="admin" 
+                    onSuccess={() => {
+                        // Refresh the transactions when a payment finishes successfully
+                        fetchTransactions();
+                    }}
                 />
             )}
         </div>

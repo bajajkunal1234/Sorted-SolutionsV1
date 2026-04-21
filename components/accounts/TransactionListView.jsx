@@ -13,6 +13,7 @@ const STATUS_COLORS = {
     sent:     { bg: 'rgba(59,130,246,0.12)', fg: '#3b82f6' },
     draft:    { bg: 'rgba(107,114,128,0.12)', fg: '#6b7280' },
     rejected: { bg: 'rgba(239,68,68,0.12)',  fg: '#ef4444' },
+    pending_verification: { bg: 'rgba(245,158,11,0.12)', fg: '#d97706' },
 };
 function statusStyle(s = '') { return STATUS_COLORS[s.toLowerCase()] || { bg: 'var(--bg-secondary)', fg: 'var(--text-secondary)' }; }
 
@@ -47,7 +48,10 @@ function getAmount(item, tab) {
 }
 
 function getStatus(item, tab) {
-    if (tab === 'receipts' || tab === 'payments') return item.payment_mode || item.paymentMethod || '';
+    if (tab === 'receipts' || tab === 'payments') {
+        if (item.status === 'pending_verification') return 'Pending_Verification';
+        return item.payment_mode || item.paymentMethod || item.status || '';
+    }
     if (tab === 'accounts') return item.type || '';
     return item.status || '';
 }
@@ -130,7 +134,7 @@ function ListRow({ item, tab, onClick }) {
                     whiteSpace: 'nowrap',
                     flexShrink: 0,
                 }}>
-                    {status}
+                    {status.replace('_', ' ')}
                 </span>
             ) : <span />}
 
