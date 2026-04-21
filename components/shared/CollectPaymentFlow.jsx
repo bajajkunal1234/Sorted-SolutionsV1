@@ -31,7 +31,10 @@ export default function CollectPaymentFlow({
     // Step 3 State
     const [companyQr, setCompanyQr] = useState(null);
     const [razorpayLink, setRazorpayLink] = useState(null);
+    const [razorpayLinkId, setRazorpayLinkId] = useState(null);
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+    const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
+    const [isPaymentConfirmed, setIsPaymentConfirmed] = useState(false);
     const [screenshotFile, setScreenshotFile] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -115,6 +118,8 @@ export default function CollectPaymentFlow({
             const data = await res.json();
             if (data.success) {
                 setRazorpayLink(data.short_url);
+                setRazorpayLinkId(data.link_id);
+                setTimeRemaining(300); // reset 5 minutes
                 setStep(3);
             } else {
                 alert('Failed to generate payment link: ' + data.error);
@@ -231,6 +236,51 @@ export default function CollectPaymentFlow({
             setIsSubmitting(false);
         }
     };
+
+    // Timer and Polling Effect for Razorpay Link
+    useEffect(() => {
+        let interval;
+        let pollInterval;
+
+        if (step === 3 && paymentMethod === 'card' && razorpayLinkId && !isPaymentConfirmed) {
+            // 1. Countdown timer
+            interval = setInterval(() => {
+                setTimeRemaining(prev => {
+                    if (prev <= 1) {
+                        clearInterval(interval);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+
+            // 2. Poll API every 5 seconds
+            pollInterval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/payment/check-link-status?id=${razorpayLinkId}`);
+                    const data = await res.json();
+                    if (data.success && data.status === 'paid') {
+                        setIsPaymentConfirmed(true);
+                        clearInterval(pollInterval);
+                        clearInterval(interval);
+                        // Jump to success step automatically
+                        setStep(4);
+                        setTimeout(() => {
+                            if (onSuccess) onSuccess();
+                            onClose();
+                        }, 3000);
+                    }
+                } catch (err) {
+                    console.error("Polling error:", err);
+                }
+            }, 5000);
+        }
+
+        return () => {
+            if (interval) clearInterval(interval);
+            if (pollInterval) clearInterval(pollInterval);
+        };
+    }, [step, paymentMethod, razorpayLinkId, isPaymentConfirmed]);
 
     return (
         <div style={{
@@ -683,7 +733,7 @@ export default function CollectPaymentFlow({
                                     </div>
                                     
                                     <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
-                                        The system will automatically log the receipt as soon as Razorpay confirms the payment. You may close this window.
+                                        The system is securely checking Razorpay for confirmation. Please wait for the customer to complete the transaction.
                                     </p>
 
                                     {cardAction === 'copy' && (
@@ -699,16 +749,28 @@ export default function CollectPaymentFlow({
                                         </button>
                                     )}
 
-                                    <button 
-                                        className="btn btn-secondary" 
-                                        style={{ width: '100%', padding: '16px', fontSize: 'var(--font-size-md)' }}
-                                        onClick={() => {
-                                            if(onSuccess) onSuccess();
-                                            onClose();
-                                        }}
-                                    >
-                                        I'm Done Here
-                                    </button>
+                                    {timeRemaining > 0 ? (
+                                        <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                            <Loader2 size={24} className="spin" color="var(--color-primary)" />
+                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-md)', color: 'var(--text-secondary)' }}>
+                                                Awaiting Payment... {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+                                            </div>
+                                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)', marginTop: '4px' }}>
+                                                Option to close will appear if it takes longer than 5 minutes.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <button 
+                                            className="btn btn-secondary" 
+                                            style={{ width: '100%', padding: '16px', fontSize: 'var(--font-size-md)' }}
+                                            onClick={() => {
+                                                if(onSuccess) onSuccess();
+                                                onClose();
+                                            }}
+                                        >
+                                            Customer takes too much time - I'll leave now
+                                        </button>
+                                    )}
                                 </div>
                             )}
 
