@@ -1801,11 +1801,17 @@ ${body}
                                         <td colSpan={10} style={{ padding: '10px 12px 6px', fontSize: '11px', fontWeight: 700, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.07em', borderBottom: '2px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>▸ {label}</td>
                                     </tr>
                                 )}
-                                {items.map(item => (
+                                {items.map(item => {
+                                    const isSelected = selectedItems.has(item.id);
+                                    const isPending = item.status === 'pending_verification';
+                                    const baseBgColor = isSelected ? 'rgba(99,102,241,0.08)' : (isPending ? 'rgba(234, 179, 8, 0.08)' : 'transparent');
+                                    const hoverBgColor = isSelected ? 'rgba(99,102,241,0.08)' : (isPending ? 'rgba(234, 179, 8, 0.15)' : 'var(--bg-secondary)');
+
+                                    return (
                                     <tr key={item.id}
-                                        style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer', transition: 'background-color var(--transition-fast)', backgroundColor: selectedItems.has(item.id) ? 'rgba(99,102,241,0.08)' : 'transparent' }}
-                                        onMouseEnter={e => { if (!selectedItems.has(item.id)) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'; }}
-                                        onMouseLeave={e => { if (!selectedItems.has(item.id)) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                        style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer', transition: 'background-color var(--transition-fast)', backgroundColor: baseBgColor }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = hoverBgColor}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = baseBgColor}
                                     >
                                         <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                                             <input type="checkbox" style={chkStyle} checked={selectedItems.has(item.id)} onChange={e => toggleItem(item.id, e)} />
@@ -1814,7 +1820,16 @@ ${body}
                                             switch (col.id) {
                                                 case 'number': 
                                                     const no = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || '—';
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{no}</td>;
+                                                    return (
+                                                        <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span>{no}</span>
+                                                                {item.status === 'pending_verification' && (
+                                                                    <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#eab30820', color: '#eab308', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                    );
                                                 case 'entry_number': 
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 500, fontFamily: 'monospace' }}>{item.entry_number || '—'}</td>;
                                                 case 'reference_type':
@@ -1879,7 +1894,7 @@ ${body}
                                             }
                                         })}
                                     </tr>
-                                ))}
+                                )})}
                             </>
                         ))}
                         {processedData.length === 0 && <tr><td colSpan={10} style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>No records found.</td></tr>}
