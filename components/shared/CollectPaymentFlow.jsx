@@ -61,9 +61,12 @@ export default function CollectPaymentFlow({
                 }
 
                 // Wait to fetch jobs dynamically based on selected customer below, 
-                // or fetch all active jobs 
-                const jRes = await fetch('/api/admin/jobs?status=active').then(r => r.json());
-                if (jRes.success) setJobs(jRes.data || []);
+                // Fetch recent jobs 
+                const jRes = await fetch('/api/admin/jobs').then(r => r.json());
+                if (jRes.success) {
+                    // Filter out completed and cancelled mostly if needed, or leave all
+                    setJobs(jRes.data || []);
+                }
                 
             } catch (err) {
                 console.error("Failed to fetch initial payment data:", err);
@@ -75,7 +78,7 @@ export default function CollectPaymentFlow({
     }, []);
 
     const relevantJobs = selectedCustomer 
-        ? jobs.filter(j => j.customer_id === selectedCustomer.id) 
+        ? jobs.filter(j => String(j.customer_id) === String(selectedCustomer.id) || String(j.account_id) === String(selectedCustomer.id)) 
         : jobs;
 
     const handleContinueStep1 = () => {
