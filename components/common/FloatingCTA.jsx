@@ -2,20 +2,18 @@
 
 /**
  * FloatingCTA — Premium animated floating action buttons
- *
- *  • WhatsApp FAB: radial gradient circle, scale-pulse glow, twin sonar rings
- *  • Call FAB:     blue circle, phone icon "rings" (shake animation),
- *                  twin sonar rings + sound-wave arcs inside
- *
- *  Label text floats to the LEFT of each circle — compact, mobile-friendly,
- *  and never covers the page center.
- *
- *  tel:  href is Google Ads / GFN compatible for call-conversion tracking.
+ * Only renders on public-facing pages. Hidden on /admin, /technician,
+ * /customer, /login, /sitemap-page and any other internal routes.
  */
+
+import { usePathname } from 'next/navigation'
 
 const PHONE  = '+918928895590'
 const WA_MSG = encodeURIComponent('Hi! I want to book a repair service. Can you help me?')
 const WA_URL = `https://wa.me/${PHONE.replace('+', '')}?text=${WA_MSG}`
+
+// Routes (prefix-matched) where the buttons should NOT appear
+const HIDDEN_PREFIXES = ['/admin', '/technician', '/customer', '/login', '/sitemap-page']
 
 /* ── Inline SVGs ─────────────────────────────────────────────────────────── */
 
@@ -45,6 +43,11 @@ const SoundWaves = () => (
 
 /* ── Component ───────────────────────────────────────────────────────────── */
 export default function FloatingCTA() {
+    const pathname = usePathname()
+
+    // Don't render on any internal/app route
+    if (HIDDEN_PREFIXES.some(prefix => pathname?.startsWith(prefix))) return null
+
     return (
         <>
             <style>{`
