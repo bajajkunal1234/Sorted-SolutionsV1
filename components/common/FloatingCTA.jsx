@@ -110,6 +110,23 @@ export default function FloatingCTA() {
                 .fcta-wa  .fcta-lbl { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
                 .fcta-call .fcta-lbl { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
 
+                /* Stacked text inside call label */
+                .fcta-lbl-main {
+                    display: block;
+                    font-size: 13.5px;
+                    font-weight: 800;
+                    line-height: 1.2;
+                }
+                /* Phone number shown below — small, subtle, but visible to Google GFN */
+                .fcta-lbl-phone {
+                    display: block;
+                    font-size: 10px;
+                    font-weight: 500;
+                    opacity: 0.8;
+                    letter-spacing: 0.04em;
+                    margin-top: 2px;
+                }
+
                 /* ── Circular FAB ─────────────────────────── */
                 .fcta-fab {
                     position: relative;
@@ -277,7 +294,16 @@ export default function FloatingCTA() {
                     title="Book a technician in 60 seconds — same-day service!"
                     id="floating-call-btn"
                 >
-                    <span className="fcta-lbl">Book Technician in 60s</span>
+                    {/*
+                        GFN: the phone number MUST appear as visible DOM text
+                        for Google's script to find and replace it with the
+                        forwarding number. Hidden text (opacity:0 / display:none)
+                        is ignored by Google's script.
+                    */}
+                    <span className="fcta-lbl">
+                        <span className="fcta-lbl-main">Book Technician in 60s</span>
+                        <span className="fcta-lbl-phone" aria-label={`Call ${PHONE}`}>{PHONE}</span>
+                    </span>
                     <div className="fcta-fab">
                         <span className="fcta-fab-inner">
                             <PhoneIcon />

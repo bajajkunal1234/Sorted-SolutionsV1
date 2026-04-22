@@ -27,6 +27,10 @@ export default async function GoogleTagsProvider() {
         schemaAreaServed, schemaPriceRange, schemaUrl, gmbProfileUrl
     } = cfg
 
+    // The phone number Google should look for on the page and replace with GFN
+    // when a visitor arrives from a paid ad. Must match exactly what's in Google Ads.
+    const GFN_PHONE = schemaPhone || '+918928895590'
+
     // ── LocalBusiness schema JSON-LD ──────────────────────────────────────────
     const schema = schemaName ? {
         '@context': 'https://schema.org',
@@ -98,7 +102,17 @@ export default async function GoogleTagsProvider() {
                     <script async src={`https://www.googletagmanager.com/gtag/js?id=${adsConversionId}`} />
                     <script
                         dangerouslySetInnerHTML={{
-                            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${adsConversionId}');${adsConversionLabel ? `gtag('event','conversion',{'send_to':'${adsConversionId}/${adsConversionLabel}'});` : ''}`
+                            __html: [
+                                `window.dataLayer=window.dataLayer||[];`,
+                                `function gtag(){dataLayer.push(arguments);}`,
+                                `gtag('js',new Date());`,
+                                // Primary config — enables auto-tagging & GFN number swap
+                                `gtag('config','${adsConversionId}',{`,
+                                `  'phone_conversion_number':'${GFN_PHONE}'`,
+                                `});`,
+                                // Also push GA4 config if present alongside Ads
+                                ga4Id ? `gtag('config','${ga4Id}');` : '',
+                            ].join('')
                         }}
                     />
                 </>
