@@ -26,6 +26,11 @@ function saveSession(user, persist) {
 
     if (user.role === 'admin') {
         storage.setItem('isAdmin', 'true');
+        // Set a lightweight cookie so Edge middleware can gate /sitemap.xml
+        // and /sitemap-page without needing localStorage (inaccessible at Edge).
+        // This is NOT a security token — real auth lives in localStorage.
+        const maxAge = persist ? 60 * 60 * 24 * 30 : ''; // 30 days if persistent
+        document.cookie = `admin_auth=1; path=/; SameSite=Lax${maxAge ? `; max-age=${maxAge}` : ''}`;
     }
 
     if (user.role === 'technician') {

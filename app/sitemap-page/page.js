@@ -1,19 +1,21 @@
 /**
  * Human-readable sitemap at /sitemap-page
+ * Protected — admin login required. Redirects to /login if not authenticated.
  * Server Component — fetches ONLY ACTIVE pages directly from page_settings table.
- * No hardcoded logic here — if it's not in the DB, it won't render.
  */
 
 import { createServerSupabase } from '@/lib/supabase-server';
 import { unstable_noStore as noStore } from 'next/cache';
 import SitemapViewer from './SitemapViewer';
+import SitemapAuthGuard from './SitemapAuthGuard';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata = {
-    title: 'Sitemap | Sorted Solutions',
-    description: 'Complete sitemap of all pages on Sorted Solutions — appliance repair services across Mumbai.',
+    title: 'Sitemap | Sorted Solutions Admin',
+    description: 'Admin-only sitemap viewer.',
+    robots: { index: false, follow: false }, // tell crawlers not to index this
 };
 
 const STATIC_LINKS = [
@@ -46,7 +48,6 @@ export default async function SitemapPage() {
     let sublocations = [];
 
     if (supabase) {
-        // Source of truth: only active pages in the DB
         const { data, error } = await supabase
             .from('page_settings')
             .select('page_id')
@@ -84,13 +85,16 @@ export default async function SitemapPage() {
         }
     }
 
+    // SitemapAuthGuard (client component) checks admin session before rendering children
     return (
-        <SitemapViewer
-            staticLinks={STATIC_LINKS}
-            categories={categories}
-            subcategories={subcategories}
-            locations={locations}
-            sublocations={sublocations}
-        />
+        <SitemapAuthGuard>
+            <SitemapViewer
+                staticLinks={STATIC_LINKS}
+                categories={categories}
+                subcategories={subcategories}
+                locations={locations}
+                sublocations={sublocations}
+            />
+        </SitemapAuthGuard>
     );
 }
