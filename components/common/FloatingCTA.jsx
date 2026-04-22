@@ -294,16 +294,7 @@ export default function FloatingCTA() {
                     title="Book a technician in 60 seconds — same-day service!"
                     id="floating-call-btn"
                 >
-                    {/*
-                        GFN: the phone number MUST appear as visible DOM text
-                        for Google's script to find and replace it with the
-                        forwarding number. Hidden text (opacity:0 / display:none)
-                        is ignored by Google's script.
-                    */}
-                    <span className="fcta-lbl">
-                        <span className="fcta-lbl-main">Book Technician in 60s</span>
-                        <span className="fcta-lbl-phone" aria-label={`Call ${PHONE}`}>{PHONE}</span>
-                    </span>
+                    <span className="fcta-lbl">Book Technician in 60s</span>
                     <div className="fcta-fab">
                         <span className="fcta-fab-inner">
                             <PhoneIcon />
