@@ -48,20 +48,21 @@ export default function FloatingCTA() {
     return (
         <>
             <style>{`
-                /* ── Wrapper ──────────────────────────────── */
+                /* ── Wrapper — spans full bottom edge ─────── */
                 .fcta-wrap {
                     position: fixed;
                     bottom: 32px;
-                    right: 20px;
+                    left: 0;
+                    right: 0;
                     z-index: 9990;
                     display: flex;
-                    flex-direction: column;
+                    justify-content: space-between;
                     align-items: flex-end;
-                    gap: 18px;
+                    padding: 0 20px;
                     pointer-events: none;
                 }
 
-                /* ── Each row: [label]  [●FAB] ────────────── */
+                /* ── Shared row ───────────────────────────── */
                 .fcta-row {
                     pointer-events: all;
                     display: flex;
@@ -70,6 +71,11 @@ export default function FloatingCTA() {
                     text-decoration: none;
                     cursor: pointer;
                 }
+
+                /* WA on left  →  [●FAB] [label] */
+                .fcta-wa  { flex-direction: row; }
+                /* Call on right → [label] [●FAB] */
+                .fcta-call { flex-direction: row; }
 
                 /* ── Label pill ───────────────────────────── */
                 .fcta-lbl {
@@ -87,7 +93,13 @@ export default function FloatingCTA() {
                     -webkit-backdrop-filter: blur(2px);
                 }
 
-                .fcta-row:hover .fcta-lbl {
+                /* WA label slides RIGHT (away from left-anchored FAB) */
+                .fcta-wa:hover .fcta-lbl {
+                    transform: translateX(4px);
+                    box-shadow: 0 8px 28px rgba(0,0,0,0.28);
+                }
+                /* Call label slides LEFT (away from right-anchored FAB) */
+                .fcta-call:hover .fcta-lbl {
                     transform: translateX(-4px);
                     box-shadow: 0 8px 28px rgba(0,0,0,0.28);
                 }
@@ -216,8 +228,7 @@ export default function FloatingCTA() {
                 @media (max-width: 480px) {
                     .fcta-wrap {
                         bottom: 72px;   /* above Android browser nav bar */
-                        right: 12px;
-                        gap: 14px;
+                        padding: 0 12px;
                     }
                     .fcta-fab {
                         width: 54px;
@@ -242,13 +253,13 @@ export default function FloatingCTA() {
                     className="fcta-row fcta-wa"
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="Book on WhatsApp"
-                    title="Book on WhatsApp — we reply instantly!"
+                    aria-label="Get A Quote on WhatsApp"
+                    title="Get a quote on WhatsApp — we reply instantly!"
                 >
-                    <span className="fcta-lbl">Book on WhatsApp</span>
                     <div className="fcta-fab">
                         <span className="fcta-fab-inner"><WaIcon /></span>
                     </div>
+                    <span className="fcta-lbl">Get A Quote</span>
                 </a>
 
                 {/* ── Call ─────────────────────────────────── */}
@@ -259,11 +270,11 @@ export default function FloatingCTA() {
                 <a
                     href={`tel:${PHONE}`}
                     className="fcta-row fcta-call"
-                    aria-label="Call Instantly"
-                    title="Call us now — same-day service!"
+                    aria-label="Book Technician in 60s"
+                    title="Book a technician in 60 seconds — same-day service!"
                     id="floating-call-btn"
                 >
-                    <span className="fcta-lbl">Call Instantly</span>
+                    <span className="fcta-lbl">Book Technician in 60s</span>
                     <div className="fcta-fab">
                         <span className="fcta-fab-inner">
                             <PhoneIcon />
