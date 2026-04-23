@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { MapPin, Plus, Home, Building2, Loader2, Unlink } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { MapPin, Plus, Home, Building2, Loader2, Unlink, Link2, Search, X, Check } from 'lucide-react';
 
 const MUMBAI_LOCALITIES = [
     { name: 'Andheri East', pincode: '400069' },
@@ -32,6 +32,7 @@ function CustomerPropertiesTab({ customerId }) {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
+    const [isLinking, setIsLinking] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [duplicate, setDuplicate] = useState(null);
 
@@ -156,19 +157,39 @@ function CustomerPropertiesTab({ customerId }) {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>
                     Properties
                 </h3>
-                <button
-                    className="btn btn-primary"
-                    onClick={() => setIsAdding(true)}
-                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                >
-                    <Plus size={16} />
-                    Add Property
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                        className="btn btn-secondary"
+                        onClick={() => { setIsLinking(true); setIsAdding(false); }}
+                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: 5, border: '1px solid rgba(56,189,248,0.3)', color: '#38bdf8', background: 'rgba(56,189,248,0.08)' }}
+                    >
+                        <Link2 size={15} />
+                        Link Property
+                    </button>
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => { setIsAdding(true); setIsLinking(false); }}
+                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                    >
+                        <Plus size={16} />
+                        Add Property
+                    </button>
+                </div>
             </div>
+
+            {/* Link Property Modal */}
+            {isLinking && (
+                <LinkPropertyModal
+                    customerId={customerId}
+                    linkedPropertyIds={(properties || []).map(p => p.id)}
+                    onClose={() => setIsLinking(false)}
+                    onLinked={() => { setIsLinking(false); fetchProperties(); }}
+                />
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
                 {properties.map(property => (
@@ -333,3 +354,180 @@ function CustomerPropertiesTab({ customerId }) {
 }
 
 export default CustomerPropertiesTab;
+
+// ─── Link Property Modal ──────────────────────────────────────────────────────
+function LinkPropertyModal({ customerId, linkedPropertyIds, onClose, onLinked }) {
+    const [query, setQuery] = useState('');
+    const [results, setResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [linking, setLinking] = useState(null); // property id being linked
+    const [linked, setLinked] = useState(new Set()); // successfully just linked in this session
+    const timerRef = useRef(null);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (inputRef.current) inputRef.current.focus();
+    }, []);
+
+    const doSearch = async (q) => {
+        if (!q || q.trim().length < 2) { setResults([]); return; }
+        setSearching(true);
+        try {
+            const url = q.trim()
+                ? `/api/admin/properties?q=${encodeURIComponent(q.trim())}&limit=30`
+                : `/api/admin/properties?limit=30`;
+            const res = await fetch(url);
+            const data = await res.json();
+            setResults((data.data || []).filter(p => !linkedPropertyIds.includes(p.id) && !linked.has(p.id)));
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    const handleQueryChange = (val) => {
+        setQuery(val);
+        clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => doSearch(val), 320);
+    };
+
+    const handleLink = async (property) => {
+        setLinking(property.id);
+        try {
+            const res = await fetch('/api/admin/properties/link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customer_id: customerId, property_id: property.id }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setLinked(prev => new Set([...prev, property.id]));
+                setResults(prev => prev.filter(p => p.id !== property.id));
+                onLinked(); // refresh parent list (but keep modal open so user can link more)
+            } else {
+                alert(data.error || 'Failed to link property');
+            }
+        } catch (e) {
+            alert('Something went wrong linking the property.');
+        } finally {
+            setLinking(null);
+        }
+    };
+
+    const inputStyle = {
+        width: '100%',
+        background: 'var(--bg-elevated, rgba(255,255,255,0.06))',
+        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 10,
+        padding: '10px 12px 10px 38px',
+        color: '#f8fafc',
+        fontSize: 14,
+        outline: 'none',
+        boxSizing: 'border-box',
+    };
+
+    return (
+        <div
+            onClick={onClose}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{ background: 'linear-gradient(180deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24, width: '100%', maxWidth: 480, maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: 16 }}
+            >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Link2 size={18} color="#38bdf8" />
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>Link Existing Property</span>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}>
+                        <X size={14} />
+                    </button>
+                </div>
+
+                <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                    Search for a property that already exists in the system and link it to this customer.
+                </p>
+
+                {/* Search Input */}
+                <div style={{ position: 'relative' }}>
+                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
+                    <input
+                        ref={inputRef}
+                        value={query}
+                        onChange={e => handleQueryChange(e.target.value)}
+                        placeholder="Search by building, address, locality, pincode..."
+                        style={inputStyle}
+                    />
+                    {searching && (
+                        <Loader2 size={14} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#475569', animation: 'spin 1s linear infinite' }} />
+                    )}
+                    {query && !searching && (
+                        <button onClick={() => { setQuery(''); setResults([]); }} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center' }}>
+                            <X size={13} />
+                        </button>
+                    )}
+                </div>
+
+                {/* Results */}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+                    {!searching && query.trim().length >= 2 && results.length === 0 && (
+                        <div style={{ padding: '32px 16px', textAlign: 'center', color: '#475569', fontSize: 13 }}>
+                            <Home size={32} style={{ margin: '0 auto 10px', opacity: 0.35, display: 'block' }} />
+                            No unlisted properties found for "{query}".
+                        </div>
+                    )}
+                    {!query.trim() && (
+                        <div style={{ padding: '28px 16px', textAlign: 'center', color: '#475569', fontSize: 13 }}>
+                            <Search size={28} style={{ margin: '0 auto 10px', opacity: 0.3, display: 'block' }} />
+                            Type at least 2 characters to search properties.
+                        </div>
+                    )}
+                    {results.map(prop => {
+                        const isLinkingThis = linking === prop.id;
+                        const label = [prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ');
+                        const sub = [prop.locality, prop.city, prop.pincode].filter(Boolean).join(', ');
+                        return (
+                            <div key={prop.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12 }}>
+                                <div style={{ width: 36, height: 36, borderRadius: 10, background: prop.latitude ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <MapPin size={16} color={prop.latitude ? '#10b981' : '#f59e0b'} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+                                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{sub}</div>
+                                </div>
+                                <button
+                                    onClick={() => handleLink(prop)}
+                                    disabled={isLinkingThis}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 5,
+                                        padding: '6px 12px',
+                                        background: isLinkingThis ? 'rgba(56,189,248,0.06)' : 'rgba(56,189,248,0.12)',
+                                        border: '1px solid rgba(56,189,248,0.3)',
+                                        borderRadius: 8,
+                                        color: '#38bdf8',
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        cursor: isLinkingThis ? 'not-allowed' : 'pointer',
+                                        flexShrink: 0,
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {isLinkingThis ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Link2 size={12} />}
+                                    {isLinkingThis ? 'Linking...' : 'Link'}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                {/* Footer */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={onClose} style={{ padding: '8px 18px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#94a3b8', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Done</button>
+                </div>
+            </div>
+        </div>
+    );
+}

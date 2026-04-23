@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Unlink, Calendar, Clock, Home, Trash2, Activity, RefreshCw } from 'lucide-react'
+import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Unlink, Calendar, Clock, Home, Trash2, Activity, RefreshCw, Link2, UserPlus } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
@@ -87,6 +87,9 @@ export default function AdminPropertiesTab() {
     const [saving, setSaving] = useState(false)
     const [saveError, setSaveError] = useState('')
     const [copied, setCopied] = useState(false)
+
+    // Link customer to property
+    const [showLinkCustomer, setShowLinkCustomer] = useState(false)
 
     useEffect(() => { fetchProperties() }, [])
 
@@ -341,6 +344,12 @@ export default function AdminPropertiesTab() {
                                     </button>
                                 </>
                             )}
+                            <button
+                                onClick={() => setShowLinkCustomer(true)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 8, color: '#38bdf8', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                <UserPlus size={14} /> Link Customer
+                            </button>
                             <a href={getMapsUrl(selected)} target="_blank" rel="noreferrer"
                                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 8, color: '#60a5fa', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
                                 🗺️ Google Maps
@@ -349,6 +358,20 @@ export default function AdminPropertiesTab() {
                                 {copied ? '✅ Copied!' : '🔗 Share Location'}
                             </button>
                         </div>
+
+                        {/* Link Customer Modal */}
+                        {showLinkCustomer && (
+                            <LinkCustomerModal
+                                propertyId={selected.id}
+                                linkedAccountIds={(selected.tenants || []).filter(t => t.is_active).map(t => t.customer?.id).filter(Boolean)}
+                                onClose={() => setShowLinkCustomer(false)}
+                                onLinked={() => {
+                                    setShowLinkCustomer(false)
+                                    openDetail({ id: selected.id })
+                                    fetchProperties()
+                                }}
+                            />
+                        )}
 
                         {saveError && (
                             <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, color: '#f87171', fontSize: 13, marginBottom: 16 }}>
@@ -672,6 +695,177 @@ function AddPropertyModal({ onClose, onSaved }) {
                     {!duplicate && <button onClick={() => handleSave(false)} disabled={saving} style={{ padding: '13px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', border: 'none', borderRadius: 12, color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
                         {saving ? 'Checking...' : 'Save Property'}
                     </button>}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── Link Customer to Property Modal ─────────────────────────────────────────
+function LinkCustomerModal({ propertyId, linkedAccountIds, onClose, onLinked }) {
+    const [query, setQuery] = useState('')
+    const [allAccounts, setAllAccounts] = useState([])
+    const [fetching, setFetching] = useState(true)
+    const [linking, setLinking] = useState(null)
+    const [justLinked, setJustLinked] = useState(new Set())
+    const inputRef = useRef(null)
+
+    useEffect(() => {
+        if (inputRef.current) inputRef.current.focus()
+        // Load all active customer accounts once
+        fetch('/api/admin/accounts?type=customer')
+            .then(r => r.json())
+            .then(d => setAllAccounts(d.data || []))
+            .catch(() => {})
+            .finally(() => setFetching(false))
+    }, [])
+
+    const filtered = query.trim().length < 1
+        ? allAccounts.filter(a => !linkedAccountIds.includes(a.id) && !justLinked.has(a.id))
+        : allAccounts.filter(a => {
+            if (linkedAccountIds.includes(a.id) || justLinked.has(a.id)) return false
+            const q = query.trim().toLowerCase()
+            return (
+                (a.name || '').toLowerCase().includes(q) ||
+                (a.mobile || a.phone || '').includes(q) ||
+                (a.sku || '').toLowerCase().includes(q)
+            )
+        })
+
+    const handleLink = async (account) => {
+        setLinking(account.id)
+        try {
+            const res = await fetch('/api/admin/properties/link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ customer_id: account.id, property_id: propertyId }),
+            })
+            const data = await res.json()
+            if (data.success) {
+                setJustLinked(prev => new Set([...prev, account.id]))
+                onLinked()
+            } else {
+                alert(data.error || 'Failed to link customer')
+            }
+        } catch {
+            alert('Something went wrong.')
+        } finally {
+            setLinking(null)
+        }
+    }
+
+    const inputStyle = {
+        width: '100%',
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid rgba(255,255,255,0.12)',
+        borderRadius: 10,
+        padding: '10px 12px 10px 38px',
+        color: '#f8fafc',
+        fontSize: 14,
+        outline: 'none',
+        boxSizing: 'border-box',
+    }
+
+    return (
+        <div
+            onClick={onClose}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(5px)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+            <div
+                onClick={e => e.stopPropagation()}
+                style={{ background: 'linear-gradient(180deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: 24, width: '100%', maxWidth: 460, maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: 16 }}
+            >
+                {/* Header */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <UserPlus size={18} color="#38bdf8" />
+                        <span style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc' }}>Link Customer</span>
+                    </div>
+                    <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#94a3b8' }}>
+                        <X size={14} />
+                    </button>
+                </div>
+
+                <p style={{ fontSize: 12, color: '#64748b', margin: 0 }}>
+                    Search for an existing customer account to link to this property.
+                </p>
+
+                {/* Search */}
+                <div style={{ position: 'relative' }}>
+                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
+                    <input
+                        ref={inputRef}
+                        value={query}
+                        onChange={e => setQuery(e.target.value)}
+                        placeholder="Search by name, phone, SKU..."
+                        style={inputStyle}
+                    />
+                    {query && (
+                        <button onClick={() => setQuery('')} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center' }}>
+                            <X size={13} />
+                        </button>
+                    )}
+                </div>
+
+                {/* Results */}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, minHeight: 0 }}>
+                    {fetching && (
+                        <div style={{ textAlign: 'center', padding: 32, color: '#475569', fontSize: 13 }}>Loading accounts...</div>
+                    )}
+                    {!fetching && filtered.length === 0 && (
+                        <div style={{ padding: '32px 16px', textAlign: 'center', color: '#475569', fontSize: 13 }}>
+                            <Users size={32} style={{ margin: '0 auto 10px', opacity: 0.3, display: 'block' }} />
+                            {query ? `No customers found for "${query}"` : 'No available customers to link.'}
+                        </div>
+                    )}
+                    {!fetching && filtered.slice(0, 50).map(acc => {
+                        const isLinkingThis = linking === acc.id
+                        const wasJustLinked = justLinked.has(acc.id)
+                        return (
+                            <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: wasJustLinked ? 'rgba(16,185,129,0.07)' : 'rgba(255,255,255,0.04)', border: `1px solid ${wasJustLinked ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.07)'}`, borderRadius: 12, transition: 'all 0.2s' }}>
+                                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 14, fontWeight: 800, color: '#818cf8' }}>
+                                    {(acc.name || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{acc.name}</div>
+                                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                                        {acc.mobile || acc.phone ? `📞 ${acc.mobile || acc.phone}` : ''}
+                                        {acc.sku ? ` · ${acc.sku}` : ''}
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleLink(acc)}
+                                    disabled={isLinkingThis || wasJustLinked}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 5,
+                                        padding: '6px 12px',
+                                        background: wasJustLinked ? 'rgba(16,185,129,0.15)' : isLinkingThis ? 'rgba(56,189,248,0.06)' : 'rgba(56,189,248,0.12)',
+                                        border: `1px solid ${wasJustLinked ? 'rgba(16,185,129,0.3)' : 'rgba(56,189,248,0.3)'}`,
+                                        borderRadius: 8,
+                                        color: wasJustLinked ? '#10b981' : '#38bdf8',
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        cursor: (isLinkingThis || wasJustLinked) ? 'default' : 'pointer',
+                                        flexShrink: 0,
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                >
+                                    {wasJustLinked ? (
+                                        <><span style={{ fontSize: 12 }}>✓</span> Linked</>
+                                    ) : isLinkingThis ? (
+                                        <>⏳ Linking...</>
+                                    ) : (
+                                        <><Link2 size={12} /> Link</>
+                                    )}
+                                </button>
+                            </div>
+                        )
+                    })}
+                </div>
+
+                {/* Footer */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', paddingTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={onClose} style={{ padding: '8px 18px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#94a3b8', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>Done</button>
                 </div>
             </div>
         </div>
