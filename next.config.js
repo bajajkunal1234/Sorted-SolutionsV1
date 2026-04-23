@@ -46,6 +46,9 @@ const nextConfig = {
 
             // Catch-all: Any leftover /service-page/* from Wix that we missed -> Root
             { source: '/service-page/:slug*', destination: '/', permanent: true },
+
+            // /services has no index page — redirect bare visits to homepage
+            { source: '/services', destination: '/', permanent: true },
         ];
     },
     // ── Prevent Vercel Edge CDN from caching dynamic service/location pages ──
