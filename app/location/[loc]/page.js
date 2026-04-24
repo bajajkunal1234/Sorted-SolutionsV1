@@ -108,11 +108,20 @@ export default async function LocationPage({ params }) {
     const subcategories = dynamicSettings?.subcategories || []
     const servicesSettings = dynamicSettings?.servicesSettings;
 
+    // ── Fetch quick booking data server-side ──
+    // Always fetch so we can: (1) pass as initialData to QuickBookingEmbed (no subtitle flash)
+    // and (2) resolve services from the same data without a second fetch.
+    let qbData = null;
+    try {
+        qbData = await fetchQuickBookingData();
+    } catch (err) {
+        console.error('[LocationPage] Failed to fetch qbData:', err);
+    }
+
     // ── Resolve service issue IDs to full objects ──
     let resolvedServices = []
-    if (servicesSettings?.items?.length > 0) {
+    if (servicesSettings?.items?.length > 0 && qbData?.categories) {
         try {
-            const qbData = await fetchQuickBookingData()
             if (qbData?.categories) {
                 for (const cat of qbData.categories) {
                     for (const sub of (cat.subcategories || [])) {
@@ -159,7 +168,7 @@ export default async function LocationPage({ params }) {
             case 'booking':
                 return sv.booking !== false && (
                     <div id="booking" key="booking">
-                        <QuickBookingEmbed />
+                        <QuickBookingEmbed initialData={qbData} />
                     </div>
                 );
 

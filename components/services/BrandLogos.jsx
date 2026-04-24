@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { brandLogos } from '@/data/servicePageContent'
 import './BrandLogos.css'
 
 export default function BrandLogos({
@@ -9,10 +8,16 @@ export default function BrandLogos({
     subtitle = "Trusted by leading appliance manufacturers",
     selectedBrandIds = null // null = not configured (show all); [] = explicitly empty (show none); [ids] = filter
 }) {
-    const [logos, setLogos] = useState(brandLogos)
+    // isMounted prevents any render until after React hydration completes.
+    // This avoids #425 text-content mismatch because the server has no brand data
+    // but the old code tried to render a static import list on first paint.
+    const [isMounted, setIsMounted] = useState(false)
+    const [logos, setLogos] = useState([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
+        setIsMounted(true)
+
         // If explicitly set to an empty array, show nothing — admin deselected all
         if (Array.isArray(selectedBrandIds) && selectedBrandIds.length === 0) {
             setLogos([])
@@ -35,6 +40,9 @@ export default function BrandLogos({
             .catch(error => console.error('Error fetching brand logos:', error))
             .finally(() => setLoading(false))
     }, [selectedBrandIds])
+
+    // Don't render anything until client-side hydration is complete
+    if (!isMounted) return null
 
     if (loading) {
         return (

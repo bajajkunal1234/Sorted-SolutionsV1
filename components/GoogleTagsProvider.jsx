@@ -1,22 +1,37 @@
 import { createServerSupabase } from '@/lib/supabase-server'
+import { unstable_cache } from 'next/cache'
+
+/**
+ * Cache the Google API config for 1 hour.
+ * This prevents the live Supabase call from making GTM miss the HTML stream
+ * on the /booking page when the DB connection is busy from other queries.
+ * The config rarely changes — 1 hour TTL is safe.
+ */
+const getGoogleConfig = unstable_cache(
+    async () => {
+        try {
+            const supabase = createServerSupabase()
+            if (!supabase) return {}
+            const { data } = await supabase
+                .from('website_config')
+                .select('value')
+                .eq('key', 'google_apis')
+                .single()
+            return data?.value || {}
+        } catch {
+            return {}
+        }
+    },
+    ['google-apis-config'],
+    { revalidate: 3600 } // Re-fetch at most once per hour
+)
 
 /**
  * Server component — fetches Google API settings from DB and injects all tags.
  * Rendered in app/layout.js. Outputs nothing if no settings configured.
  */
 export default async function GoogleTagsProvider() {
-    let cfg = {}
-    try {
-        const supabase = createServerSupabase()
-        if (supabase) {
-            const { data } = await supabase
-                .from('website_config')
-                .select('value')
-                .eq('key', 'google_apis')
-                .single()
-            cfg = data?.value || {}
-        }
-    } catch { /* table may not exist yet */ }
+    const cfg = await getGoogleConfig()
 
     const {
         gtmId, ga4Id,

@@ -102,6 +102,15 @@ export default async function CategoryPage({ params }) {
     const faqs = dynamicSettings?.faqs || [];
     const servicesSettings = dynamicSettings?.servicesSettings;
 
+    // ── Fetch booking data server-side (for service resolution + QuickBookingEmbed initialData) ──
+    // This single fetch eliminates the flash of stale subtitle on the embedded booking form.
+    let qbData = null;
+    try {
+        qbData = await fetchQuickBookingData();
+    } catch (err) {
+        console.error('[CategoryPage] Failed to fetch qbData:', err);
+    }
+
     // ── Map category names to their URL slugs (cat.slug is not populated in DB) ──
     const CAT_SLUG_MAP = {
         'Air Conditioner': 'ac-repair',
@@ -116,7 +125,6 @@ export default async function CategoryPage({ params }) {
     let resolvedServices = []
     if (servicesSettings?.items?.length > 0) {
         try {
-            const qbData = await fetchQuickBookingData()
             if (qbData?.categories) {
                 for (const cat of qbData.categories) {
                     for (const sub of (cat.subcategories || [])) {
@@ -163,7 +171,7 @@ export default async function CategoryPage({ params }) {
             case 'booking':
                 return sv.booking !== false && (
                     <div id="booking" key="booking">
-                        <QuickBookingEmbed preSelectedCategory={category} />
+                        <QuickBookingEmbed preSelectedCategory={category} initialData={qbData} />
                     </div>
                 );
             case 'subcategories':

@@ -121,6 +121,16 @@ export default async function SubCategoryPage({ params }) {
     const faqs = dynamicSettings?.faqs || []
     const subcategories = dynamicSettings?.subcategories || []
 
+    // ── Fetch quick booking data server-side ──
+    // Always fetch so we can: (1) pass as initialData to QuickBookingEmbed (no subtitle flash)
+    // and (2) resolve issues/services from the same data without a second fetch.
+    let qbData = null;
+    try {
+        qbData = await fetchQuickBookingData();
+    } catch (err) {
+        console.error('[SubcatPage] Failed to fetch qbData:', err);
+    }
+
     // ── Build clickable issues list from issues_settings ──────────────────────
     let resolvedIssues = []
     let resolvedServices = []
@@ -128,9 +138,8 @@ export default async function SubCategoryPage({ params }) {
     const servicesSettings = dynamicSettings?.servicesSettings
 
     const needsQBData = (issuesSettings?.items?.length > 0) || (servicesSettings?.items?.length > 0)
-    if (needsQBData) {
+    if (needsQBData && qbData?.categories) {
         try {
-            const qbData = await fetchQuickBookingData()
             if (qbData?.categories) {
                 // Resolve Issues
                 // items can be plain IDs (legacy) or rich objects { id, price, description, image }
@@ -151,7 +160,7 @@ export default async function SubCategoryPage({ params }) {
                                     // Price priority: per-page override → global booking price → ''
                                     const resolvedPrice = extraData.price
                                         || (issue.price != null
-                                            ? `${issue.price_label || 'Starting from'} \u20B9${Number(issue.price).toLocaleString('en-IN')}`
+                                            ? `${issue.price_label || 'Starting from'} ₹${Number(issue.price).toLocaleString('en-IN')}`
                                             : '')
                                     resolvedIssues.push({
                                         id: issue.id,
@@ -221,7 +230,7 @@ export default async function SubCategoryPage({ params }) {
             case 'booking':
                 return sv.booking !== false && (
                     <div id="booking" key="booking">
-                        <QuickBookingEmbed preSelectedCategory={category} />
+                        <QuickBookingEmbed preSelectedCategory={category} initialData={qbData} />
                     </div>
                 );
             case 'issues':

@@ -57,10 +57,19 @@ export default function RootLayout({ children }) {
             </head>
             <body style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
                 {children}
-                {/* Global no-code click tracker — auto-fires triggers configured in Admin > Interactions > Triggers */}
-                <ClickTracker />
-                {/* Floating Call + WhatsApp CTA — visible on all public pages */}
-                <FloatingCTA />
+                {/*
+                    Both ClickTracker and FloatingCTA are client components that use
+                    hooks (usePathname, useEffect). Wrapping each in Suspense prevents
+                    React error #423 "hydration error outside Suspense boundary" which
+                    was causing the ENTIRE page root to fall back to client rendering,
+                    wiping out all server-rendered sections on the page.
+                */}
+                <Suspense fallback={null}>
+                    <ClickTracker />
+                </Suspense>
+                <Suspense fallback={null}>
+                    <FloatingCTA />
+                </Suspense>
             </body>
         </html>
     )
