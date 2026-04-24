@@ -2,138 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react'
 import { CheckCircle, MapPin, User, ArrowRight, Home, AlertCircle, Loader2, Camera } from 'lucide-react'
-// Inline interaction logger (client-side)
+import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
 
-// ─── Mumbai locality → pincode mapping ─────────────────────────────────────
-const MUMBAI_LOCALITIES = [
-    { name: 'Aarey Colony', pincode: '400065' },
-    { name: 'Airoli', pincode: '400708' },
-    { name: 'Andheri East', pincode: '400069' },
-    { name: 'Andheri West', pincode: '400058' },
-    { name: 'Antop Hill', pincode: '400037' },
-    { name: 'Bandra East', pincode: '400051' },
-    { name: 'Bandra West', pincode: '400050' },
-    { name: 'BKC / Bandra Kurla Complex', pincode: '400051' },
-    { name: 'Borivali East', pincode: '400066' },
-    { name: 'Borivali West', pincode: '400092' },
-    { name: 'Breach Candy', pincode: '400026' },
-    { name: 'Bhandup East', pincode: '400042' },
-    { name: 'Bhandup West', pincode: '400078' },
-    { name: 'Bhendi Bazar', pincode: '400003' },
-    { name: 'Byculla', pincode: '400027' },
-    { name: 'Chakala', pincode: '400059' },
-    { name: 'Chandivali', pincode: '400072' },
-    { name: 'Charni Road', pincode: '400004' },
-    { name: 'Chembur', pincode: '400071' },
-    { name: 'Chembur Colony', pincode: '400074' },
-    { name: 'Chinchpokli', pincode: '400012' },
-    { name: 'Churchgate', pincode: '400020' },
-    { name: 'Chunabhatti', pincode: '400022' },
-    { name: 'Colaba', pincode: '400005' },
-    { name: 'Cotton Green', pincode: '400033' },
-    { name: 'Crawford Market', pincode: '400001' },
-    { name: 'CST / Fort', pincode: '400001' },
-    { name: 'Cuffe Parade', pincode: '400005' },
-    { name: 'Cumballa Hill', pincode: '400026' },
-    { name: 'Currey Road', pincode: '400012' },
-    { name: 'Dahisar East', pincode: '400068' },
-    { name: 'Dahisar West', pincode: '400068' },
-    { name: 'Dadar East', pincode: '400014' },
-    { name: 'Dadar West', pincode: '400028' },
-    { name: 'Dharavi', pincode: '400017' },
-    { name: 'Diva', pincode: '400612' },
-    { name: 'Dockyard Road', pincode: '400010' },
-    { name: 'Dongri', pincode: '400009' },
-    { name: 'Film City', pincode: '400065' },
-    { name: 'Ghansoli', pincode: '400701' },
-    { name: 'Ghatkopar East', pincode: '400077' },
-    { name: 'Ghatkopar West', pincode: '400086' },
-    { name: 'Goregaon East', pincode: '400063' },
-    { name: 'Goregaon West', pincode: '400062' },
-    { name: 'Govandi', pincode: '400043' },
-    { name: 'Grant Road', pincode: '400007' },
-    { name: 'GTB Nagar', pincode: '400037' },
-    { name: 'Hiranandani Gardens', pincode: '400076' },
-    { name: 'Infinity Mall Malad', pincode: '400064' },
-    { name: 'Jogeshwari East', pincode: '400060' },
-    { name: 'Jogeshwari West', pincode: '400102' },
-    { name: 'Juhu', pincode: '400049' },
-    { name: 'Kalina', pincode: '400098' },
-    { name: 'Kalwa', pincode: '400605' },
-    { name: 'Kandivali East', pincode: '400101' },
-    { name: 'Kandivali West', pincode: '400067' },
-    { name: 'Kanjurmarg East', pincode: '400042' },
-    { name: 'Kanjurmarg West', pincode: '400078' },
-    { name: 'Kemps Corner', pincode: '400036' },
-    { name: 'Khar East', pincode: '400052' },
-    { name: 'Khar West', pincode: '400052' },
-    { name: 'King Circle / Matunga', pincode: '400019' },
-    { name: 'Koparkhairane', pincode: '400709' },
-    { name: 'Kopri', pincode: '400603' },
-    { name: 'Kurla East', pincode: '400024' },
-    { name: 'Kurla West', pincode: '400070' },
-    { name: 'Lalbaug', pincode: '400012' },
-    { name: 'Lokhandwala', pincode: '400053' },
-    { name: 'Lower Parel', pincode: '400013' },
-    { name: 'Mahim', pincode: '400016' },
-    { name: 'Mahalaxmi', pincode: '400011' },
-    { name: 'Malabar Hill', pincode: '400006' },
-    { name: 'Malad East', pincode: '400097' },
-    { name: 'Malad West', pincode: '400064' },
-    { name: 'Mankhurd', pincode: '400088' },
-    { name: 'Marine Lines', pincode: '400002' },
-    { name: 'Marol', pincode: '400059' },
-    { name: 'Masjid', pincode: '400009' },
-    { name: 'Matunga', pincode: '400019' },
-    { name: 'Matunga Road', pincode: '400016' },
-    { name: 'Mazgaon', pincode: '400010' },
-    { name: 'MIDC Andheri', pincode: '400093' },
-    { name: 'Mira Road', pincode: '401107' },
-    { name: 'Mulund East', pincode: '400081' },
-    { name: 'Mulund West', pincode: '400080' },
-    { name: 'Mumbai Central', pincode: '400008' },
-    { name: 'Mumbra', pincode: '400612' },
-    { name: 'Nagpada', pincode: '400008' },
-    { name: 'Nana Chowk', pincode: '400007' },
-    { name: 'Nariman Point', pincode: '400021' },
-    { name: 'Nahur', pincode: '400078' },
-    { name: 'Naupada', pincode: '400602' },
-    { name: 'Oshiwara', pincode: '400102' },
-    { name: 'Parel', pincode: '400012' },
-    { name: 'Powai', pincode: '400076' },
-    { name: 'Prabhadevi', pincode: '400025' },
-    { name: 'Prabhadevi East', pincode: '400025' },
-    { name: 'Rabale', pincode: '400701' },
-    { name: 'Reay Road', pincode: '400010' },
-    { name: 'Sakinaka', pincode: '400072' },
-    { name: 'Sandhurst Road', pincode: '400009' },
-    { name: 'Sanpada', pincode: '400705' },
-    { name: 'Santacruz East', pincode: '400055' },
-    { name: 'Santacruz West', pincode: '400054' },
-    { name: 'SEEPZ', pincode: '400096' },
-    { name: 'Sewri', pincode: '400015' },
-    { name: 'Sion', pincode: '400022' },
-    { name: 'Sion Koliwada', pincode: '400037' },
-    { name: 'Tardeo', pincode: '400034' },
-    { name: 'Thane East', pincode: '400603' },
-    { name: 'Thane West', pincode: '400601' },
-    { name: 'Tilak Nagar', pincode: '400089' },
-    { name: 'Turbhe', pincode: '400705' },
-    { name: 'Vakola', pincode: '400055' },
-    { name: 'Vashi', pincode: '400703' },
-    { name: 'Versova', pincode: '400061' },
-    { name: 'Vidyavihar', pincode: '400077' },
-    { name: 'Vikhroli East', pincode: '400079' },
-    { name: 'Vikhroli West', pincode: '400083' },
-    { name: 'Vile Parle East', pincode: '400057' },
-    { name: 'Vile Parle West', pincode: '400056' },
-    { name: 'Wadala', pincode: '400037' },
-    { name: 'Wadi Bunder', pincode: '400009' },
-    { name: 'Wagle Estate', pincode: '400604' },
-    { name: 'Walkeshwar', pincode: '400006' },
-    { name: 'Worli', pincode: '400018' },
-    { name: 'Worli Sea Face', pincode: '400030' },
-];
 
 // ─── Shared Styles ──────────────────────────────────────────────────────────
 const S = {
@@ -330,48 +200,32 @@ function StepPhoto({ name, customerId, onNext, onSkip }) {
             {!photoUrl ? (
                 <button
                     style={S.btnPrimary}
-                    onClick={() => inputRef.current?.click()}
-                    disabled={uploading}
-                >
-                    <Camera size={18} /> {uploading ? 'Uploading...' : 'Choose Photo'}
-                </button>
-            ) : (
-                <button style={S.btnPrimary} onClick={onNext}>
-                    Looks good! <ArrowRight size={18} />
-                </button>
-            )}
-            <button style={S.btnSecondary} onClick={onSkip}>Skip for now →</button>
-        </div>
-    )
-}
-
-// ─── Step 2: Add Property / Address ─────────────────────────────────────────
+    // ─── Step 2: Add Property / Address ────────────────────────────────────────
 function StepAddress({ onNext, onSkip, customerId }) {
     const [form, setForm] = useState({
-        type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', city: '', pincode: ''
+        type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', localityOther: '', city: 'Mumbai', pincode: ''
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
-    const [pincodeStatus, setPincodeStatus] = useState(null) // null | 'valid' | 'invalid'
-    const [matchedLocality, setMatchedLocality] = useState(null)
-    const [advancedPincodes, setAdvancedPincodes] = useState([])
 
     // Smart match state
     const [propertyMatches, setPropertyMatches] = useState([]) // existing properties at this pincode
-    const [selectedExisting, setSelectedExisting] = useState(null) // { id, address, ... }
+    const [selectedExisting, setSelectedExisting] = useState(null)
     const [matchChecked, setMatchChecked] = useState(false)
 
-    useEffect(() => {
-        fetch('/api/settings/quick-booking')
-            .then(r => r.json())
-            .then(d => {
-                const adv = d.data?.advanced_pincodes || d.data?.settings?.advanced_pincodes || []
-                if (adv.length > 0) setAdvancedPincodes(adv)
-                else {
-                    const raw = d.data?.serviceable_pincodes || d.data?.settings?.serviceable_pincodes || ''
-                    const legacy = typeof raw === 'string'
-                        ? raw.split(',').map(p => p.trim()).filter(Boolean)
-                        : Array.isArray(raw) ? raw.map(String) : []
+    const up = field => e => {
+        setForm(p => ({ ...p, [field]: e.target.value }))
+    }
+
+    const handleLocalityChange = (e) => {
+        const val = e.target.value
+        if (val === '__other__') {
+            setForm(p => ({ ...p, locality: '__other__', pincode: '' }))
+        } else {
+            const pin = getPincodeForLocality(val)
+            setForm(p => ({ ...p, locality: val, localityOther: '', pincode: pin, city: 'Mumbai' }))
+        }
+    }
                     setAdvancedPincodes(legacy.map(p => ({ pincode: p, locality: 'Area' })))
                 }
             }).catch(() => { })
@@ -382,20 +236,22 @@ function StepAddress({ onNext, onSkip, customerId }) {
     }
 
     const handleLocalityChange = (e) => {
-        const selectedLocalityName = e.target.value;
-        const matched = MUMBAI_LOCALITIES.find(l => l.name === selectedLocalityName);
-        
-        setForm(p => ({ 
-            ...p, 
-            locality: selectedLocalityName,
-            pincode: matched ? matched.pincode : p.pincode
-        }));
+        const val = e.target.value
+        if (val === '__other__') {
+            setForm(p => ({ ...p, locality: '__other__', pincode: '' }))
+        } else {
+            const pin = getPincodeForLocality(val)
+            setForm(p => ({ ...p, locality: val, localityOther: '', pincode: pin, city: 'Mumbai' }))
+        }
     }
 
     const handleSubmit = async (forceMatch = false) => {
         setError('')
         const cId = customerId || localStorage.getItem('customerId')
         if (!cId) { setError('Session expired. Please log in again.'); return }
+
+        const effectiveLocality = form.locality === '__other__' ? form.localityOther?.trim() : form.locality
+        if (!effectiveLocality) { setError('Please select or type your locality.'); return }
 
         if (selectedExisting) {
             // Link to existing property
@@ -414,33 +270,26 @@ function StepAddress({ onNext, onSkip, customerId }) {
             return
         }
 
-        // Create new property
+        // Create new property — no serviceability restriction
         if (!form.address.trim()) { setError('Please enter your street address.'); return }
         if (!form.city.trim()) { setError('Please enter your city.'); return }
-        if (!form.pincode.trim() || form.pincode.length < 6) { setError('Please enter a valid pincode.'); return }
-        
-        // Serviceability logic
-        if (advancedPincodes.length > 0) {
-            const match = advancedPincodes.find(p => p.pincode === form.pincode)
-            if (!match) { setError('We do not service this pincode yet.'); return }
-        }
 
-        // Exact Match Logic
+        // Exact Match Logic (smart deduplicate)
         if (!matchChecked && !forceMatch && form.flat_number?.trim() && form.building_name?.trim()) {
             setLoading(true)
             try {
-                const res = await fetch(`/api/customer/properties?search=${form.pincode}`)
+                const res = await fetch(`/api/customer/properties?search=${form.pincode || effectiveLocality}`)
                 const data = await res.json()
                 if (data.success && data.properties?.length > 0) {
-                    const exact = data.properties.filter(p => 
-                        p.flat_number?.trim().toLowerCase() === form.flat_number.trim().toLowerCase() && 
+                    const exact = data.properties.filter(p =>
+                        p.flat_number?.trim().toLowerCase() === form.flat_number.trim().toLowerCase() &&
                         p.building_name?.trim().toLowerCase() === form.building_name.trim().toLowerCase()
                     )
                     if (exact.length > 0) {
                         setPropertyMatches(exact)
                         setMatchChecked(true)
                         setLoading(false)
-                        return // Stop and wait for user response
+                        return
                     }
                 }
             } catch (e) { console.error(e) }
@@ -457,7 +306,7 @@ function StepAddress({ onNext, onSkip, customerId }) {
                     flat_number: form.flat_number,
                     building_name: form.building_name,
                     address: form.address,
-                    locality: form.locality || matchedLocality || '',
+                    locality: effectiveLocality,
                     city: form.city,
                     pincode: form.pincode,
                     property_type: form.type,
@@ -469,10 +318,6 @@ function StepAddress({ onNext, onSkip, customerId }) {
         } catch (err) { setError(err.message || 'Failed to save address. Please try again.') }
         finally { setLoading(false) }
     }
-
-    const pincodeColor = pincodeStatus === 'valid' ? 'rgba(16,185,129,0.5)'
-        : pincodeStatus === 'invalid' ? 'rgba(239,68,68,0.5)'
-            : 'rgba(255,255,255,0.12)'
 
     return (
         <div>
@@ -499,33 +344,38 @@ function StepAddress({ onNext, onSkip, customerId }) {
             {/* Locality first, auto-populates Pincode */}
             <div style={S.group}>
                 <label style={S.label}>Locality *</label>
-                <select 
-                    style={S.select} 
-                    value={form.locality} 
+                <select
+                    style={S.select}
+                    value={form.locality}
                     onChange={handleLocalityChange}
                     autoFocus
                 >
                     <option value="">Select your area</option>
                     {MUMBAI_LOCALITIES.map((loc) => (
-                        <option key={loc.name} value={loc.name}>
-                            {loc.name}
-                        </option>
+                        <option key={loc.name} value={loc.name}>{loc.name}</option>
                     ))}
+                    <option value="__other__">Other — type below</option>
                 </select>
+                {form.locality === '__other__' && (
+                    <input
+                        style={{ ...S.input, marginTop: 8 }}
+                        value={form.localityOther}
+                        onChange={e => setForm(p => ({ ...p, localityOther: e.target.value }))}
+                        placeholder="Type your locality / area name"
+                    />
+                )}
             </div>
 
             <div style={S.group}>
-                <label style={S.label}>Pincode *</label>
+                <label style={S.label}>Pincode</label>
                 <input
-                    style={{ ...S.input, borderColor: pincodeColor, opacity: 0.7, background: 'rgba(0,0,0,0.2)' }}
+                    style={{ ...S.input, opacity: 0.85 }}
                     value={form.pincode}
-                    onChange={e => up('pincode')(e)}
-                    placeholder="e.g. 400001"
+                    onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                    placeholder="Auto-filled · edit if incorrect"
                     maxLength={6}
                     inputMode="numeric"
-                    disabled={false}
                 />
-                {pincodeStatus === 'invalid' && <div style={{ fontSize: 10, color: '#ef4444', marginTop: 4 }}>✗ We don't service this pincode yet</div>}
             </div>
 
             {/* Smart Match Banner — existing property found */}

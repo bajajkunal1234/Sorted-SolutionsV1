@@ -6,9 +6,11 @@ import { ChevronRight, ChevronLeft, Clock, Loader2, AlertCircle, CheckCircle2 } 
 import BookingSteps from './BookingSteps';
 import './BookingWizard.css';
 import ClientPinDropMap from '@/components/common/ClientPinDropMap';
+import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities';
 
 // ─── Mumbai locality → pincode mapping ─────────────────────────────────────
-const MUMBAI_LOCALITIES = [
+// MUMBAI_LOCALITIES is now imported from @/lib/data/mumbaiLocalities
+const _UNUSED = [
     { name: 'Aarey Colony', pincode: '400065' },
     { name: 'Airoli', pincode: '400708' },
     { name: 'Andheri East', pincode: '400069' },
@@ -216,7 +218,8 @@ export default function BookingWizard() {
                 const categoryId = searchParams.get('category');
                 const subcategoryId = searchParams.get('subcategory');
                 const issueId = searchParams.get('issue');
-                const pincode = searchParams.get('pincode');
+                const urlLocality = searchParams.get('locality') || '';
+                const urlPincode = searchParams.get('pincode') || getPincodeForLocality(urlLocality);
                 const brandId = searchParams.get('brand');
                 const brandName = searchParams.get('brandName');
                 if (categoryId) {
@@ -225,8 +228,9 @@ export default function BookingWizard() {
                         category: categoryId,
                         subcategory: subcategoryId || '',
                         issue: issueId || '',
-                        pincode: pincode || '',
-                        zip: pincode || '',
+                        locality: urlLocality,
+                        pincode: urlPincode,
+                        zip: urlPincode,
                         brand: brandId || '',
                         brandName: brandName || '',
                     }));
@@ -251,8 +255,8 @@ export default function BookingWizard() {
     };
 
     const handleLocalityChange = (localityName) => {
-        const found = MUMBAI_LOCALITIES.find(l => l.name === localityName);
-        setFormData(prev => ({ ...prev, locality: localityName, zip: found ? found.pincode : prev.zip }));
+        const autoPin = getPincodeForLocality(localityName);
+        setFormData(prev => ({ ...prev, locality: localityName, zip: autoPin || prev.zip }));
     };
 
     // The visiting fee for the currently selected appliance
@@ -390,7 +394,7 @@ export default function BookingWizard() {
                                     { label: 'Appliance', value: getName('appliance', formData.category) },
                                     { label: 'Service Type', value: getName('type', formData.subcategory) },
                                     { label: 'Issue', value: getName('issue', formData.issue) },
-                                    { label: 'Pincode', value: formData.pincode },
+                                    { label: 'Locality', value: formData.locality || '—' },
                                 ].map(row => (
                                     <div key={row.label} className="summary-row">
                                         <span className="summary-label">{row.label}</span>

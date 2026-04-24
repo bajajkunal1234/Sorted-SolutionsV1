@@ -1,7 +1,8 @@
-'use client'
+'use client';
 
 import { useState, useEffect } from 'react';
 import { Search, MapPin, AlertCircle } from 'lucide-react';
+import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities';
 import './QuickBookingForm.css';
 
 function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initialData }) {
@@ -23,10 +24,10 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
         subcategory: preSelectedSubcategoryId || '',
         brand: '',
         issue: '',
-        pincode: ''
+        locality: '',      // selected locality name
+        localityOther: '', // free-text when "Other" is chosen
     });
-    const [isPincodeValid, setIsPincodeValid] = useState(false);
-    const [pincodeMessage, setPincodeMessage] = useState('');
+
     const [prefilledIssueName, setPrefilledIssueName] = useState(null);
     const [brands, setBrands] = useState([]);
     const [settings, setSettings] = useState(initialData || {
@@ -43,123 +44,79 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
     // Load hierarchical data and global settings
     useEffect(() => {
         if (initialData) return; // Skip fetch if data passed via props
-
-        const loadData = async () => {
-            setLoading(true);
+        const fetchData = async () => {
             try {
-                // Load global settings from API
-                const [settingsRes, brandsRes] = await Promise.all([
-                    fetch('/api/settings/quick-booking'),
-                    fetch('/api/settings/booking-brands')
-                ]);
-                const settingsData = await settingsRes.json();
-                const brandsData = await brandsRes.json();
-                if (settingsData.success) setSettings(settingsData.data);
-                if (brandsData.success) setBrands((brandsData.data || []).filter(b => b.is_active));
-            } catch (error) {
-                console.error('Error loading booking data:', error);
+                const res = await fetch('/api/settings/quick-booking');
+                const data = await res.json();
+                if (data.success && data.data) {
+                    setSettings(data.data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch quick booking settings:', err);
             } finally {
                 setLoading(false);
             }
         };
-
-        loadData();
+        fetchData();
     }, [initialData]);
 
-    // Listen for pre-selection events from IssuesSection
+    // Load brands
     useEffect(() => {
-        const handlePreselect = (e) => {
-            const { categoryId, subcategoryId, issueId, issueName } = e.detail || {};
-            if (categoryId && subcategoryId && issueId) {
-                setFormData(prev => ({
-                    ...prev,
-                    category: String(categoryId),
-                    subcategory: String(subcategoryId),
-                    issue: String(issueId),
-                }));
-                setPrefilledIssueName(issueName || 'Selected issue');
-            }
+        const fetchBrands = async () => {
+            try {
+                const res = await fetch('/api/settings/booking-brands');
+                const data = await res.json();
+                if (data.success) setBrands((data.data || []).filter(b => b.is_active));
+            } catch { /* non-fatal */ }
         };
-        window.addEventListener('bookingPreselect', handlePreselect);
-        return () => window.removeEventListener('bookingPreselect', handlePreselect);
+        fetchBrands();
     }, []);
 
-    // Also fetch brands when initialData is supplied (server render path)
+    // Listen for issue prefill events from IssuesSection
     useEffect(() => {
-        if (!initialData) return;
-        fetch('/api/settings/booking-brands')
-            .then(r => r.json())
-            .then(d => { if (d.success) setBrands((d.data || []).filter(b => b.is_active)); })
-            .catch(() => { });
-    }, [initialData]);
+        const handler = (e) => {
+            const { categoryId, subcategoryId, issueId, issueName } = e.detail || {};
+            if (issueId) {
+                setFormData(prev => ({
+                    ...prev,
+                    category: String(categoryId || prev.category),
+                    subcategory: String(subcategoryId || prev.subcategory),
+                    issue: String(issueId),
+                }));
+                setPrefilledIssueName(issueName || null);
+            }
+        };
+        window.addEventListener('prefillBookingIssue', handler);
+        return () => window.removeEventListener('prefillBookingIssue', handler);
+    }, []);
 
-    // Get filtered data (only items with showOnBookingForm: true)
+    // Derived data from settings.categories
     const visibleCategories = (settings.categories || []).filter(c => c.showOnBookingForm !== false);
     const selectedCategory = visibleCategories.find(c => c.id === parseInt(formData.category));
     const visibleSubcategories = (selectedCategory?.subcategories || []).filter(s => s.showOnBookingForm !== false);
     const selectedSubcategory = visibleSubcategories.find(s => s.id === parseInt(formData.subcategory));
     const visibleIssues = (selectedSubcategory?.issues || []).filter(i => i.showOnBookingForm !== false);
 
-
-    // Validate pincode whenever pincode or category changes
-    useEffect(() => {
-        if (formData.pincode.length !== 6) {
-            setIsPincodeValid(false);
-            setPincodeMessage('');
-            return;
-        }
-
-        const advanced = settings.advanced_pincodes || [];
-        // If there are advanced_pincodes, use them for validation
-        if (advanced.length > 0) {
-            const match = advanced.find(p => p.pincode === formData.pincode);
-            if (!match) {
-                setIsPincodeValid(false);
-                setPincodeMessage(settings.invalid_pincode_message || '✗ Not serviceable');
-                return;
-            }
-
-            // Check appliance mapping
-            if (formData.category) {
-                const allowed = match.appliances || [];
-                if (allowed.length > 0 && !allowed.includes(String(formData.category))) {
-                    setIsPincodeValid(false);
-                    setPincodeMessage(`✗ This appliance is not serviced in ${match.locality}`);
-                    return;
-                }
-            }
-
-            // Valid
-            setIsPincodeValid(true);
-            setPincodeMessage('✓ Serviceable');
-        } else {
-            // Legacy fallback validation
-            const isValid = (settings.serviceable_pincodes || []).includes(formData.pincode);
-            setIsPincodeValid(isValid);
-            setPincodeMessage(isValid ? '✓ Serviceable' : settings.invalid_pincode_message);
-        }
-    }, [formData.pincode, formData.category, settings.advanced_pincodes, settings.invalid_pincode_message]);
-
-    const handlePincodeChange = (e) => {
-        const pincode = e.target.value.replace(/\D/g, '').slice(0, 6);
-        setFormData({ ...formData, pincode });
-    };
-
     const handleSubmit = (e) => {
         e.preventDefault();
-        if (isPincodeValid && formData.category && formData.subcategory && formData.issue) {
-            // Redirect to universal booking wizard
+        const locality = formData.locality === '__other__' ? formData.localityOther.trim() : formData.locality;
+        if (formData.category && formData.subcategory && formData.issue && locality) {
             const selectedBrand = brands.find(b => String(b.id) === String(formData.brand));
+            const pincode = getPincodeForLocality(locality);
             const params = new URLSearchParams({
                 category: formData.category,
                 subcategory: formData.subcategory,
                 issue: formData.issue,
-                pincode: formData.pincode,
+                locality,
+                pincode,
                 ...(formData.brand && { brand: formData.brand, brandName: selectedBrand?.name || '' })
             });
             window.location.href = `/booking?${params.toString()}`;
         }
     };
+
+    const effectiveLocality = formData.locality === '__other__' ? formData.localityOther.trim() : formData.locality;
+    const isReady = !!(formData.category && formData.subcategory && formData.issue && effectiveLocality);
 
     return (
         <div className={`quick-booking-form ${loading ? 'loading' : ''}`}>
@@ -176,7 +133,7 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                 }}>
                     <span style={{ color: '#065f46', fontWeight: 600 }}>
                         ✓ Pre-selected: <em style={{ fontStyle: 'normal', color: '#059669' }}>{prefilledIssueName}</em>
-                        &nbsp;— select your brand &amp; enter pincode to book
+                        &nbsp;— select your area to book
                     </span>
                     <button
                         onClick={() => { setPrefilledIssueName(null); setFormData(prev => ({ ...prev, category: initialCategory, subcategory: '', issue: '' })); }}
@@ -198,7 +155,9 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                             category: e.target.value,
                             subcategory: '',
                             issue: '',
-                            pincode: formData.pincode
+                            brand: '',
+                            locality: formData.locality,
+                            localityOther: formData.localityOther,
                         })}
                         required
                         aria-label="Select appliance type"
@@ -245,7 +204,7 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                         animation: 'fadeIn 0.3s ease-in',
                         alignItems: 'flex-end'
                     }}>
-                        {/* Issue — takes most of the space, shown first */}
+                        {/* Issue */}
                         <div className="form-group" style={{ flex: 1, margin: 0 }}>
                             <label htmlFor="issue">What's the Problem?</label>
                             <select
@@ -264,7 +223,7 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                             </select>
                         </div>
 
-                        {/* Brand — narrower, optional, no longer resets issue */}
+                        {/* Brand — optional */}
                         {brands.length > 0 && (
                             <div className="form-group" style={{ flex: '0 0 38%', margin: 0 }}>
                                 <label htmlFor="brand">Brand</label>
@@ -286,54 +245,57 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                     </div>
                 )}
 
-                {/* Field 5: Your Area Pincode — shown after issue is selected */}
+                {/* Field 5: Your Area — locality dropdown (shown after issue is selected) */}
                 {formData.issue && (
                     <div className="form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
-                        <label htmlFor="pincode">Your Area Pincode</label>
-                        <div className="pincode-input-wrapper">
-                            <MapPin size={18} className="pincode-icon" />
+                        <label htmlFor="locality">
+                            <MapPin size={14} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
+                            Your Area / Locality
+                        </label>
+                        <select
+                            id="locality"
+                            value={formData.locality}
+                            onChange={(e) => setFormData({ ...formData, locality: e.target.value, localityOther: '' })}
+                            required={formData.locality !== '__other__'}
+                            aria-label="Select your locality"
+                        >
+                            <option value="">Select your area...</option>
+                            {MUMBAI_LOCALITIES.map((loc) => (
+                                <option key={loc.name} value={loc.name}>{loc.name}</option>
+                            ))}
+                            <option value="__other__">Other — type your area below</option>
+                        </select>
+
+                        {/* Free-text input when "Other" is selected */}
+                        {formData.locality === '__other__' && (
                             <input
-                                id="pincode"
                                 type="text"
-                                placeholder="Enter 6-digit pincode"
-                                value={formData.pincode}
-                                onChange={handlePincodeChange}
-                                maxLength={6}
-                                pattern="[0-9]{6}"
-                                required
-                                aria-label="Enter pincode"
+                                placeholder="Type your locality / area name"
+                                value={formData.localityOther}
+                                onChange={(e) => setFormData({ ...formData, localityOther: e.target.value })}
+                                style={{
+                                    marginTop: '8px', width: '100%', padding: '10px 14px',
+                                    border: '1px solid var(--border-primary)', borderRadius: '8px',
+                                    fontSize: '14px', boxSizing: 'border-box',
+                                    backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)'
+                                }}
+                                aria-label="Type your locality"
                             />
-                            {formData.pincode.length === 6 && pincodeMessage && (
-                                <span className={`pincode-status ${isPincodeValid ? 'valid' : 'invalid'}`}>
-                                    {pincodeMessage}
-                                </span>
-                            )}
-                        </div>
-                        {formData.pincode.length === 6 && !isPincodeValid && (
-                            <div className="pincode-help">
-                                <AlertCircle size={14} />
-                                <span>{settings.help_text}</span>
-                            </div>
                         )}
                     </div>
                 )}
 
-                {/* Book button — always visible, greyed out until all fields + valid pincode */}
-                {(() => {
-                    const ready = isPincodeValid && formData.category && formData.subcategory && formData.issue;
-                    return (
-                        <button
-                            type="submit"
-                            className="book-button"
-                            aria-label="Book technician"
-                            disabled={!ready}
-                            style={!ready ? { opacity: 0.45, cursor: 'not-allowed', filter: 'grayscale(40%)' } : {}}
-                        >
-                            <Search size={18} />
-                            Book Technician Now
-                        </button>
-                    );
-                })()}
+                {/* Book button */}
+                <button
+                    type="submit"
+                    className="book-button"
+                    aria-label="Book technician"
+                    disabled={!isReady}
+                    style={!isReady ? { opacity: 0.45, cursor: 'not-allowed', filter: 'grayscale(40%)' } : {}}
+                >
+                    <Search size={18} />
+                    Book Technician Now
+                </button>
             </form>
 
             {/* Trust indicators */}
@@ -347,6 +309,3 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
 }
 
 export default QuickBookingForm;
-
-
-
