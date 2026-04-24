@@ -287,10 +287,7 @@ export default function FloatingCTA() {
                     title="Book a technician in 60 seconds — same-day service!"
                     id="floating-call-btn"
                 >
-                    <span className="fcta-lbl">
-                        <span className="fcta-lbl-main">Book In 60s</span>
-                        <span className="fcta-lbl-phone">{PHONE.replace('+91', '')}</span>
-                    </span>
+                    <span className="fcta-lbl">Book In 60s</span>
                     <div className="fcta-fab">
                         <span className="fcta-fab-inner">
                             <PhoneIcon />

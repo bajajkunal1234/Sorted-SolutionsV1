@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, MapPin, AlertCircle } from 'lucide-react';
 import './QuickBookingForm.css';
 
-function QuickBookingForm({ preSelectedCategory, initialData }) {
+function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initialData }) {
     // Map slugs to IDs
     const categoryMapping = {
         'ac-repair': '2',
@@ -20,7 +20,7 @@ function QuickBookingForm({ preSelectedCategory, initialData }) {
 
     const [formData, setFormData] = useState({
         category: initialCategory,
-        subcategory: '',
+        subcategory: preSelectedSubcategoryId || '',
         brand: '',
         issue: '',
         pincode: ''

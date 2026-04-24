@@ -131,6 +131,21 @@ export default async function SubCategoryPage({ params }) {
         console.error('[SubcatPage] Failed to fetch qbData:', err);
     }
 
+    // ── Resolve subcategory ID for pre-selection in the booking form ──
+    // Try: slug match → name-derived slug match → fallback empty string
+    let preSelectedSubcategoryId = '';
+    if (qbData?.categories && subcategory) {
+        outer: for (const cat of qbData.categories) {
+            for (const sub of (cat.subcategories || [])) {
+                const nameSlug = (sub.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+                if (sub.slug === subcategory || nameSlug === subcategory) {
+                    preSelectedSubcategoryId = String(sub.id);
+                    break outer;
+                }
+            }
+        }
+    }
+
     // ── Build clickable issues list from issues_settings ──────────────────────
     let resolvedIssues = []
     let resolvedServices = []
@@ -230,7 +245,11 @@ export default async function SubCategoryPage({ params }) {
             case 'booking':
                 return sv.booking !== false && (
                     <div id="booking" key="booking">
-                        <QuickBookingEmbed preSelectedCategory={category} initialData={qbData} />
+                        <QuickBookingEmbed
+                            preSelectedCategory={category}
+                            preSelectedSubcategoryId={preSelectedSubcategoryId}
+                            initialData={qbData}
+                        />
                     </div>
                 );
             case 'issues':
