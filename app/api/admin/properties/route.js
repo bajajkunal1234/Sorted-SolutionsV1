@@ -304,47 +304,71 @@ export async function PUT(request) {
     }
 }
 
-// DELETE — remove a property (only if no customer links AND no job history)
+// DELETE — remove a property (only if no customer links AND no job history, unless force=true)
 export async function DELETE(request) {
     try {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
+        const force = searchParams.get('force') === 'true'
         if (!id) return NextResponse.json({ success: false, error: 'Property ID required' }, { status: 400 })
 
-        // Check for any linked customers (active or past)
-        const { count: customerCount } = await supabase
-            .from('customer_properties')
-            .select('id', { count: 'exact', head: true })
-            .eq('property_id', id)
-
-        if (customerCount > 0) {
-            return NextResponse.json({
-                success: false,
-                error: `Cannot delete — ${customerCount} customer${customerCount > 1 ? 's are' : ' is'} linked to this property (including past links). Unlink all customers first.`
-            }, { status: 400 })
-        }
-
-        // Check for any job history
+        // Check for any job history (never bypass this — it's financial data)
         const { count: jobCount } = await supabase
             .from('jobs')
             .select('id', { count: 'exact', head: true })
             .eq('property_id', id)
 
-        if (jobCount > 0) {
+        if (jobCount > 0 && !force) {
             return NextResponse.json({
                 success: false,
-                error: `Cannot delete — this property has ${jobCount} service record${jobCount > 1 ? 's' : ''} in history.`
+                error: `Cannot delete — this property has ${jobCount} service record${jobCount > 1 ? 's' : ''} in history.`,
+                canForce: false,
             }, { status: 400 })
+        }
+
+        if (jobCount > 0 && force) {
+            // Soft-unlink from jobs rather than deleting records
+            await supabase.from('jobs').update({ property_id: null }).eq('property_id', id)
+        }
+
+        // Check for any linked customers
+        const { count: customerCount } = await supabase
+            .from('customer_properties')
+            .select('id', { count: 'exact', head: true })
+            .eq('property_id', id)
+
+        if (customerCount > 0 && !force) {
+            return NextResponse.json({
+                success: false,
+                error: `Cannot delete — ${customerCount} customer${customerCount > 1 ? 's are' : ' is'} linked to this property. Unlink them first, or use force delete.`,
+                canForce: true,
+                customerCount,
+            }, { status: 400 })
+        }
+
+        if (customerCount > 0 && force) {
+            // Remove all links first
+            await supabase.from('customer_properties').delete().eq('property_id', id)
         }
 
         const { error } = await supabase.from('properties').delete().eq('id', id)
         if (error) throw error
+
+        logInteractionServer({
+            type: 'property-deleted',
+            category: 'property',
+            propertyId: id,
+            description: `Property ${id} deleted${force ? ' (force)' : ''}`,
+            metadata: { property_id: id, force, customer_links_removed: customerCount || 0, job_links_unlinked: jobCount || 0 },
+            source: 'Admin App',
+        })
 
         return NextResponse.json({ success: true })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
+
 
 
 // PATCH — edit property fields (id comes from URL ?id=...)

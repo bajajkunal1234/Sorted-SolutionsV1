@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react'
 import { CheckCircle, MapPin, User, ArrowRight, Home, AlertCircle, Loader2, Camera } from 'lucide-react'
-import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
+import LocalityCombobox from '@/components/common/LocalityCombobox'
 
 // ─── Shared Styles ──────────────────────────────────────────────────────────
 const S = {
@@ -179,16 +179,6 @@ function StepAddress({ onNext, onSkip, customerId }) {
 
     const up = field => e => setForm(p => ({ ...p, [field]: e.target.value }))
 
-    const handleLocalityChange = (e) => {
-        const val = e.target.value
-        if (val === '__other__') {
-            setForm(p => ({ ...p, locality: '__other__', pincode: '' }))
-        } else {
-            const pin = getPincodeForLocality(val)
-            setForm(p => ({ ...p, locality: val, localityOther: '', pincode: pin, city: 'Mumbai' }))
-        }
-    }
-
     const handleSubmit = async (forceMatch = false) => {
         setError('')
         const cId = customerId || localStorage.getItem('customerId')
@@ -272,28 +262,22 @@ function StepAddress({ onNext, onSkip, customerId }) {
 
             {error && <div style={S.error}><AlertCircle size={15} /> {error}</div>}
 
-            {/* Locality — auto-fills Pincode */}
+            {/* Locality — searchable combobox */}
             <div style={S.group}>
-                <label style={S.label}>Locality *</label>
-                <select style={S.select} value={form.locality} onChange={handleLocalityChange} autoFocus>
-                    <option value="">Select your area</option>
-                    {MUMBAI_LOCALITIES.map(loc => (
-                        <option key={loc.name} value={loc.name}>{loc.name}</option>
-                    ))}
-                    <option value="__other__">Other — type below</option>
-                </select>
-                {form.locality === '__other__' && (
-                    <input style={{ ...S.input, marginTop: 8 }} value={form.localityOther}
-                        onChange={e => setForm(p => ({ ...p, localityOther: e.target.value }))}
-                        placeholder="Type your locality / area name" />
-                )}
-            </div>
-
-            <div style={S.group}>
-                <label style={S.label}>Pincode</label>
-                <input style={{ ...S.input, opacity: 0.85 }} value={form.pincode}
-                    onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                    placeholder="Auto-filled · edit if incorrect" maxLength={6} inputMode="numeric" />
+                <label style={S.label}>Locality / Area *</label>
+                <LocalityCombobox
+                    value={form.locality}
+                    pincode={form.pincode}
+                    onChange={(loc, pin) => setForm(p => ({
+                        ...p,
+                        locality: loc,
+                        localityOther: loc === '__other__' ? p.localityOther : '',
+                        pincode: pin || p.pincode,
+                        city: loc && loc !== '__other__' ? 'Mumbai' : p.city,
+                    }))}
+                    inputStyle={S.input}
+                    dropdownZIndex={1100}
+                />
             </div>
 
             {/* Smart Match Banner */}

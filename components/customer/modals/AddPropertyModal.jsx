@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { X, MapPin } from 'lucide-react'
-import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
+import LocalityCombobox from '@/components/common/LocalityCombobox'
 
 const S = {
     overlay: {
@@ -57,15 +57,6 @@ function AddPropertyModal({ isOpen, onClose, onAdd }) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
-    const handleLocalityChange = (e) => {
-        const val = e.target.value
-        if (val === '__other__') {
-            setFormData(p => ({ ...p, locality: '__other__', pincode: '' }))
-        } else {
-            const pin = getPincodeForLocality(val)
-            setFormData(p => ({ ...p, locality: val, localityOther: '', pincode: pin, city: p.city || 'Mumbai' }))
-        }
-    }
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -146,45 +137,29 @@ function AddPropertyModal({ isOpen, onClose, onAdd }) {
                             placeholder="Flat/House No., Building, Street" required />
                     </div>
 
-                    {/* Locality selector */}
+                    {/* Locality — searchable combobox */}
                     <div style={S.group}>
                         <label style={S.label}>Locality / Area *</label>
-                        <select style={S.select} value={formData.locality} onChange={handleLocalityChange} required>
-                            <option value="">Select your area...</option>
-                            {MUMBAI_LOCALITIES.map(l => (
-                                <option key={l.name} value={l.name}>{l.name}</option>
-                            ))}
-                            <option value="__other__">Other — type below</option>
-                        </select>
-
-                        {/* Free-text for "Other" */}
-                        {formData.locality === '__other__' && (
-                            <input
-                                style={{ ...S.input, marginTop: 8 }}
-                                value={formData.localityOther}
-                                onChange={update('localityOther')}
-                                placeholder="Type your locality / area"
-                                required
-                            />
-                        )}
+                        <LocalityCombobox
+                            value={formData.locality}
+                            pincode={formData.pincode}
+                            onChange={(loc, pin) => setFormData(p => ({
+                                ...p,
+                                locality: loc,
+                                localityOther: loc === '__other__' ? p.localityOther : '',
+                                pincode: pin || p.pincode,
+                                city: loc && loc !== '__other__' ? 'Mumbai' : (p.city || 'Mumbai'),
+                            }))}
+                            inputStyle={S.input}
+                            dropdownZIndex={250}
+                        />
                     </div>
 
                     <div style={{ ...S.row, ...S.group }}>
                         <div>
                             <label style={S.label}>City *</label>
-                            <input style={S.input} value={formData.city} onChange={update('city')}
+                            <input style={S.input} value={formData.city || 'Mumbai'} onChange={update('city')}
                                 placeholder="Mumbai" required />
-                        </div>
-                        <div>
-                            <label style={S.label}>Pincode</label>
-                            <input style={S.input}
-                                value={formData.pincode}
-                                onChange={update('pincode')}
-                                placeholder="Auto-filled"
-                                maxLength={6} inputMode="numeric" />
-                            {formData.pincode && formData.locality !== '__other__' && (
-                                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 3 }}>Auto-filled · edit if incorrect</div>
-                            )}
                         </div>
                     </div>
 

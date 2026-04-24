@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MapPin, Users, Wrench, Plus, Search, X, ChevronRight, Unlink, Calendar, Clock, Home, Trash2, Activity, RefreshCw, Link2, UserPlus } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
+import LocalityCombobox from '@/components/common/LocalityCombobox'
 
 const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
     ssr: false,
@@ -178,11 +179,26 @@ export default function AdminPropertiesTab() {
         fetchProperties()
     }
 
-    const handleDelete = async () => {
-        if (!window.confirm(`Delete property "${[selected.flat_number, selected.building_name, selected.address].filter(Boolean).join(', ')}"?\n\nThis is permanent and only allowed if no customers are linked and no job history exists.`)) return
-        const res = await fetch(`/api/admin/properties?id=${selected.id}`, { method: 'DELETE' })
+    const handleDelete = async (force = false) => {
+        const propertyLabel = [selected.flat_number, selected.building_name, selected.address].filter(Boolean).join(', ')
+        if (!force) {
+            if (!window.confirm(`Delete property "${propertyLabel}"?\n\nThis is permanent. The property will be removed.`)) return
+        } else {
+            if (!window.confirm(`⚠️ FORCE DELETE "${propertyLabel}"?\n\nThis will unlink all customers and remove job references before deleting.\n\nContinue?`)) return
+        }
+        const url = `/api/admin/properties?id=${selected.id}${force ? '&force=true' : ''}`
+        const res = await fetch(url, { method: 'DELETE' })
         const data = await res.json()
-        if (!data.success) { alert(data.error || 'Delete failed'); return }
+        if (!data.success) {
+            if (data.canForce) {
+                // Offer force delete
+                const yes = window.confirm(`${data.error}\n\nDo you want to force delete? This will remove all ${data.customerCount} customer link(s) and then delete the property.`)
+                if (yes) handleDelete(true)
+            } else {
+                alert(data.error || 'Delete failed')
+            }
+            return
+        }
         setSelected(null)
         fetchProperties()
     }
@@ -366,10 +382,13 @@ export default function AdminPropertiesTab() {
                                             </div>
                                             <div>
                                                 <div style={S.label}>Locality</div>
-                                                <select style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }} value={editForm.locality} onChange={handleEditLocalityChange}>
-                                                    <option value="">Select locality...</option>
-                                                    {MUMBAI_LOCALITIES.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}
-                                                </select>
+                                                <LocalityCombobox
+                                                    value={editForm.locality}
+                                                    pincode={editForm.pincode}
+                                                    onChange={(loc, pin) => setEditForm(p => ({ ...p, locality: loc, pincode: pin || p.pincode, city: loc && loc !== '__other__' ? 'Mumbai' : p.city }))}
+                                                    inputStyle={{ ...S.input, paddingLeft: 14 }}
+                                                    dropdownZIndex={300}
+                                                />
                                             </div>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                                 <div>
@@ -620,10 +639,13 @@ function AddPropertyModal({ onClose, onSaved }) {
                     />
                     <div>
                         <div style={S.label}>Locality</div>
-                        <select style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }} value={form.locality} onChange={handleLocalityChange}>
-                            <option value="">Select locality...</option>
-                            {MUMBAI_LOCALITIES.map(l => <option key={l.name} value={l.name}>{l.name}</option>)}
-                        </select>
+                        <LocalityCombobox
+                            value={form.locality}
+                            pincode={form.pincode}
+                            onChange={(loc, pin) => setForm(p => ({ ...p, locality: loc, pincode: pin || p.pincode, city: loc && loc !== '__other__' ? 'Mumbai' : p.city }))}
+                            inputStyle={{ ...S.input, paddingLeft: 14 }}
+                            dropdownZIndex={350}
+                        />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                         <div>
