@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { CheckCircle, MapPin, User, ArrowRight, Home, AlertCircle, Loader2, Camera } from 'lucide-react'
 import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities'
-
 
 // ─── Shared Styles ──────────────────────────────────────────────────────────
 const S = {
@@ -74,7 +73,6 @@ function ProgressDots({ step, total }) {
 // ─── Step 1: Welcome & Name ──────────────────────────────────────────────────
 function StepWelcome({ name, onNext }) {
     const [editedName, setEditedName] = useState(name || '')
-
     return (
         <div>
             <div style={{ textAlign: 'center', marginBottom: 28 }}>
@@ -83,43 +81,25 @@ function StepWelcome({ name, onNext }) {
                     background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(139,92,246,0.2))',
                     border: '1px solid rgba(56,189,248,0.3)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 32,
-                }}>
-                    👋
-                </div>
-                <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.5px' }}>
-                    Welcome to Sorted!
-                </h1>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: 14, lineHeight: 1.5 }}>
-                    Let's set up your profile. It takes just a minute.
-                </p>
+                }}>👋</div>
+                <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 6px 0', letterSpacing: '-0.5px' }}>Welcome to Sorted!</h1>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 14, lineHeight: 1.5 }}>Let's set up your profile. It takes just a minute.</p>
             </div>
-
             <div style={S.group}>
                 <label style={S.label}>Your Full Name</label>
                 <div style={{ position: 'relative' }}>
                     <User size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                    <input
-                        style={{ ...S.input, paddingLeft: 40 }}
-                        value={editedName}
-                        onChange={e => setEditedName(e.target.value)}
-                        placeholder="Enter your full name"
-                        autoFocus
-                    />
+                    <input style={{ ...S.input, paddingLeft: 40 }} value={editedName} onChange={e => setEditedName(e.target.value)} placeholder="Enter your full name" autoFocus />
                 </div>
             </div>
-
-            <button
-                style={{ ...S.btnPrimary, opacity: editedName.trim().length < 2 ? 0.5 : 1 }}
-                disabled={editedName.trim().length < 2}
-                onClick={() => onNext(editedName.trim())}
-            >
+            <button style={{ ...S.btnPrimary, opacity: editedName.trim().length < 2 ? 0.5 : 1 }} disabled={editedName.trim().length < 2} onClick={() => onNext(editedName.trim())}>
                 Continue <ArrowRight size={18} />
             </button>
         </div>
     )
 }
 
-// ─── Step 1.5: Profile Photo (optional) ─────────────────────────────────────
+// ─── Step 2: Profile Photo (optional) ────────────────────────────────────────
 function StepPhoto({ name, customerId, onNext, onSkip }) {
     const [photoUrl, setPhotoUrl] = useState(null)
     const [uploading, setUploading] = useState(false)
@@ -140,7 +120,6 @@ function StepPhoto({ name, customerId, onNext, onSkip }) {
             const up = await fetch('/api/upload', { method: 'POST', body: fd })
             const upData = await up.json()
             if (!upData.url) throw new Error('Upload failed')
-            // Save immediately to DB
             await fetch('/api/customer/profile', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -162,78 +141,43 @@ function StepPhoto({ name, customerId, onNext, onSkip }) {
             <p style={{ margin: '0 0 24px 0', color: '#94a3b8', fontSize: 13, lineHeight: 1.5 }}>
                 Let our team know who they're meeting. You can skip and add this later.
             </p>
-
-            {/* Avatar */}
             <div style={{ position: 'relative', display: 'inline-block', marginBottom: 20 }}>
                 {photoUrl ? (
-                    <img src={photoUrl} alt="Profile"
-                        style={{ width: 104, height: 104, borderRadius: '36px', objectFit: 'cover', boxShadow: '0 8px 24px rgba(56,189,248,0.3)' }} />
+                    <img src={photoUrl} alt="Profile" style={{ width: 104, height: 104, borderRadius: '36px', objectFit: 'cover', boxShadow: '0 8px 24px rgba(56,189,248,0.3)' }} />
                 ) : (
-                    <div style={{
-                        width: 104, height: 104, borderRadius: '36px',
-                        background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 44, fontWeight: 800, color: '#fff',
-                        boxShadow: '0 8px 24px rgba(139,92,246,0.4)',
-                    }}>{initials}</div>
+                    <div style={{ width: 104, height: 104, borderRadius: '36px', background: 'linear-gradient(135deg, #38bdf8, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, fontWeight: 800, color: '#fff', boxShadow: '0 8px 24px rgba(139,92,246,0.4)' }}>{initials}</div>
                 )}
-                {/* Camera badge */}
-                <button
-                    onClick={() => inputRef.current?.click()}
-                    style={{
-                        position: 'absolute', bottom: -4, right: -4,
-                        width: 34, height: 34, borderRadius: '50%',
-                        background: '#38bdf8', border: '3px solid #0f172a',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                    }}
-                >
-                    {uploading
-                        ? <Loader2 size={16} color="#fff" style={{ animation: 'spin 1s linear infinite' }} />
-                        : <Camera size={16} color="#fff" />}
+                <button onClick={() => inputRef.current?.click()} style={{ position: 'absolute', bottom: -4, right: -4, width: 34, height: 34, borderRadius: '50%', background: '#38bdf8', border: '3px solid #0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    {uploading ? <Loader2 size={16} color="#fff" style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} color="#fff" />}
                 </button>
             </div>
-
             <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
-
             {error && <div style={{ ...S.error, textAlign: 'left', marginBottom: 12 }}><AlertCircle size={14} /> {error}</div>}
-
             {!photoUrl ? (
-                <button
-                    style={S.btnPrimary}
-    // ─── Step 2: Add Property / Address ────────────────────────────────────────
+                <button style={S.btnPrimary} onClick={() => inputRef.current?.click()} disabled={uploading}>
+                    <Camera size={18} /> {uploading ? 'Uploading...' : 'Choose Photo'}
+                </button>
+            ) : (
+                <button style={S.btnPrimary} onClick={onNext}>Looks good! <ArrowRight size={18} /></button>
+            )}
+            <button style={S.btnSecondary} onClick={onSkip}>Skip for now →</button>
+        </div>
+    )
+}
+
+// ─── Step 3: Add Property / Address ─────────────────────────────────────────
 function StepAddress({ onNext, onSkip, customerId }) {
     const [form, setForm] = useState({
-        type: 'apartment', flat_number: '', building_name: '', address: '', locality: '', localityOther: '', city: 'Mumbai', pincode: ''
+        type: 'apartment', flat_number: '', building_name: '', address: '',
+        locality: '', localityOther: '', city: 'Mumbai', pincode: ''
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
-
-    // Smart match state
-    const [propertyMatches, setPropertyMatches] = useState([]) // existing properties at this pincode
+    const [propertyMatches, setPropertyMatches] = useState([])
     const [selectedExisting, setSelectedExisting] = useState(null)
     const [matchChecked, setMatchChecked] = useState(false)
 
-    const up = field => e => {
-        setForm(p => ({ ...p, [field]: e.target.value }))
-    }
-
-    const handleLocalityChange = (e) => {
-        const val = e.target.value
-        if (val === '__other__') {
-            setForm(p => ({ ...p, locality: '__other__', pincode: '' }))
-        } else {
-            const pin = getPincodeForLocality(val)
-            setForm(p => ({ ...p, locality: val, localityOther: '', pincode: pin, city: 'Mumbai' }))
-        }
-    }
-                    setAdvancedPincodes(legacy.map(p => ({ pincode: p, locality: 'Area' })))
-                }
-            }).catch(() => { })
-    }, [])
-
-    const up = field => e => {
-        setForm(p => ({ ...p, [field]: e.target.value }))
-    }
+    const up = field => e => setForm(p => ({ ...p, [field]: e.target.value }))
 
     const handleLocalityChange = (e) => {
         const val = e.target.value
@@ -254,7 +198,6 @@ function StepAddress({ onNext, onSkip, customerId }) {
         if (!effectiveLocality) { setError('Please select or type your locality.'); return }
 
         if (selectedExisting) {
-            // Link to existing property
             setLoading(true)
             try {
                 const res = await fetch('/api/customer/properties', {
@@ -270,11 +213,9 @@ function StepAddress({ onNext, onSkip, customerId }) {
             return
         }
 
-        // Create new property — no serviceability restriction
         if (!form.address.trim()) { setError('Please enter your street address.'); return }
         if (!form.city.trim()) { setError('Please enter your city.'); return }
 
-        // Exact Match Logic (smart deduplicate)
         if (!matchChecked && !forceMatch && form.flat_number?.trim() && form.building_name?.trim()) {
             setLoading(true)
             try {
@@ -322,87 +263,53 @@ function StepAddress({ onNext, onSkip, customerId }) {
     return (
         <div>
             <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                <div style={{
-                    width: 72, height: 72, borderRadius: '24px', margin: '0 auto 16px',
-                    background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
+                <div style={{ width: 72, height: 72, borderRadius: '24px', margin: '0 auto 16px', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <MapPin size={32} color="#f59e0b" />
                 </div>
                 <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 6px 0' }}>Your Service Address</h2>
-                <p style={{ margin: 0, color: '#94a3b8', fontSize: 13 }}>
-                    Where should we send our technicians?
-                </p>
+                <p style={{ margin: 0, color: '#94a3b8', fontSize: 13 }}>Where should we send our technicians?</p>
             </div>
 
-            {error && (
-                <div style={S.error}>
-                    <AlertCircle size={15} /> {error}
-                </div>
-            )}
+            {error && <div style={S.error}><AlertCircle size={15} /> {error}</div>}
 
-            {/* Locality first, auto-populates Pincode */}
+            {/* Locality — auto-fills Pincode */}
             <div style={S.group}>
                 <label style={S.label}>Locality *</label>
-                <select
-                    style={S.select}
-                    value={form.locality}
-                    onChange={handleLocalityChange}
-                    autoFocus
-                >
+                <select style={S.select} value={form.locality} onChange={handleLocalityChange} autoFocus>
                     <option value="">Select your area</option>
-                    {MUMBAI_LOCALITIES.map((loc) => (
+                    {MUMBAI_LOCALITIES.map(loc => (
                         <option key={loc.name} value={loc.name}>{loc.name}</option>
                     ))}
                     <option value="__other__">Other — type below</option>
                 </select>
                 {form.locality === '__other__' && (
-                    <input
-                        style={{ ...S.input, marginTop: 8 }}
-                        value={form.localityOther}
+                    <input style={{ ...S.input, marginTop: 8 }} value={form.localityOther}
                         onChange={e => setForm(p => ({ ...p, localityOther: e.target.value }))}
-                        placeholder="Type your locality / area name"
-                    />
+                        placeholder="Type your locality / area name" />
                 )}
             </div>
 
             <div style={S.group}>
                 <label style={S.label}>Pincode</label>
-                <input
-                    style={{ ...S.input, opacity: 0.85 }}
-                    value={form.pincode}
+                <input style={{ ...S.input, opacity: 0.85 }} value={form.pincode}
                     onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
-                    placeholder="Auto-filled · edit if incorrect"
-                    maxLength={6}
-                    inputMode="numeric"
-                />
+                    placeholder="Auto-filled · edit if incorrect" maxLength={6} inputMode="numeric" />
             </div>
 
-            {/* Smart Match Banner — existing property found */}
+            {/* Smart Match Banner */}
             {propertyMatches.length > 0 && !selectedExisting && (
                 <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-                        📍 Properties found at this pincode
-                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>📍 Properties found at this pincode</div>
                     {propertyMatches.map(p => (
                         <div key={p.id} style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 14, padding: '12px 14px', marginBottom: 8 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>
-                                {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}
-                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>{[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}</div>
                             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>{[p.locality, p.city].filter(Boolean).join(', ')}</div>
-                            {p.lastJob && (
-                                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
-                                    Last service: <span style={{ color: '#94a3b8' }}>{p.lastJob.category}</span> · {new Date(p.lastJob.date || p.lastJob.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
-                                </div>
-                            )}
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <button onClick={() => setSelectedExisting(p)} style={{ flex: 1, padding: '8px', background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                    ✓ Yes, that's mine
-                                </button>
-                            </div>
+                            <button onClick={() => setSelectedExisting(p)} style={{ flex: 1, padding: '8px', background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 10, color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer', width: '100%' }}>
+                                ✓ Yes, that's mine
+                            </button>
                         </div>
                     ))}
-                    <button onClick={() => { setPropertyMatches([]); setMatchChecked(true); setTimeout(() => handleSubmit(true), 0); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 10, color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
+                    <button onClick={() => { setPropertyMatches([]); setMatchChecked(true); setTimeout(() => handleSubmit(true), 0) }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 10, color: '#64748b', fontSize: 12, cursor: 'pointer' }}>
                         None of these — add a new address
                     </button>
                 </div>
@@ -411,19 +318,13 @@ function StepAddress({ onNext, onSkip, customerId }) {
             {/* Linked confirmation */}
             {selectedExisting && (
                 <div style={{ ...S.success, flexDirection: 'column', alignItems: 'flex-start', gap: 6, marginBottom: 14 }}>
-                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <CheckCircle size={14} /> Linking to existing property
-                    </div>
-                    <div style={{ fontSize: 12, color: '#a7f3d0' }}>
-                        {[selectedExisting.flat_number, selectedExisting.building_name, selectedExisting.address].filter(Boolean).join(', ')}, {selectedExisting.locality} {selectedExisting.pincode}
-                    </div>
-                    <button onClick={() => { setSelectedExisting(null) }} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>
-                        Change
-                    </button>
+                    <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle size={14} /> Linking to existing property</div>
+                    <div style={{ fontSize: 12, color: '#a7f3d0' }}>{[selectedExisting.flat_number, selectedExisting.building_name, selectedExisting.address].filter(Boolean).join(', ')}, {selectedExisting.locality} {selectedExisting.pincode}</div>
+                    <button onClick={() => setSelectedExisting(null)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Change</button>
                 </div>
             )}
 
-            {/* Full address form — only if no existing selected */}
+            {/* Full address form */}
             {!selectedExisting && (propertyMatches.length === 0 || matchChecked) && (
                 <>
                     <div style={S.group}>
@@ -436,7 +337,6 @@ function StepAddress({ onNext, onSkip, customerId }) {
                             <option value="shop">Shop</option>
                         </select>
                     </div>
-
                     <div style={{ ...S.group, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                         <div>
                             <label style={S.label}>Flat / Wing</label>
@@ -447,22 +347,18 @@ function StepAddress({ onNext, onSkip, customerId }) {
                             <input style={S.input} value={form.building_name} onChange={up('building_name')} placeholder="e.g. Sea View Apts" />
                         </div>
                     </div>
-
                     <div style={S.group}>
                         <label style={S.label}>Street Address *</label>
                         <input style={S.input} value={form.address} onChange={up('address')} placeholder="Opposite Bank of India, Main Road" />
                     </div>
-
-                    <div style={{ ...S.group, display: 'grid', gridTemplateColumns: '1fr', gap: 10 }}>
-                        <div>
-                            <label style={S.label}>City *</label>
-                            <input style={S.input} value={form.city} onChange={up('city')} placeholder="Mumbai..." />
-                        </div>
+                    <div style={S.group}>
+                        <label style={S.label}>City *</label>
+                        <input style={S.input} value={form.city} onChange={up('city')} placeholder="Mumbai..." />
                     </div>
                 </>
             )}
 
-            <button style={{ ...S.btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
+            <button style={{ ...S.btnPrimary, opacity: loading ? 0.7 : 1 }} onClick={() => handleSubmit()} disabled={loading}>
                 {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : null}
                 {loading ? 'Saving...' : selectedExisting ? 'Link This Property' : 'Save Address'}
                 {!loading && <ArrowRight size={18} />}
@@ -472,46 +368,24 @@ function StepAddress({ onNext, onSkip, customerId }) {
     )
 }
 
-// ─── Step 3: Done ────────────────────────────────────────────────────────────
+// ─── Step 4: Done ────────────────────────────────────────────────────────────
 function StepDone({ name, onFinish }) {
     return (
         <div style={{ textAlign: 'center' }}>
-            <div style={{
-                width: 88, height: 88, borderRadius: '32px', margin: '0 auto 20px',
-                background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(5,150,105,0.15))',
-                border: '2px solid rgba(16,185,129,0.4)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                animation: 'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)',
-            }}>
+            <div style={{ width: 88, height: 88, borderRadius: '32px', margin: '0 auto 20px', background: 'linear-gradient(135deg, rgba(16,185,129,0.25), rgba(5,150,105,0.15))', border: '2px solid rgba(16,185,129,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)' }}>
                 <CheckCircle size={40} color="#10b981" />
             </div>
-            <h2 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 8px 0' }}>
-                You're all set, {name?.split(' ')[0] || 'there'}! 🎉
-            </h2>
-            <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.6, margin: '0 0 28px 0' }}>
-                Your profile is ready. You can now book services, track jobs, and manage your appliances.
-            </p>
-
+            <h2 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 8px 0' }}>You're all set, {name?.split(' ')[0] || 'there'}! 🎉</h2>
+            <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.6, margin: '0 0 28px 0' }}>Your profile is ready. You can now book services, track jobs, and manage your appliances.</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 28 }}>
-                {[
-                    { emoji: '🔧', label: 'Book Service' },
-                    { emoji: '📦', label: 'Add Appliances' },
-                    { emoji: '📍', label: 'Track Jobs' },
-                ].map(f => (
-                    <div key={f.label} style={{
-                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                        borderRadius: 16, padding: '16px 8px', textAlign: 'center',
-                    }}>
+                {[{ emoji: '🔧', label: 'Book Service' }, { emoji: '📦', label: 'Add Appliances' }, { emoji: '📍', label: 'Track Jobs' }].map(f => (
+                    <div key={f.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '16px 8px', textAlign: 'center' }}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}>{f.emoji}</div>
                         <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{f.label}</div>
                     </div>
                 ))}
             </div>
-
-            <button style={S.btnPrimary} onClick={onFinish}>
-                <Home size={18} /> Go to Dashboard
-            </button>
-
+            <button style={S.btnPrimary} onClick={onFinish}><Home size={18} /> Go to Dashboard</button>
             <style>{`
                 @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
                 @keyframes spin { 100% { transform: rotate(360deg); } }
@@ -522,21 +396,15 @@ function StepDone({ name, onFinish }) {
 
 // ─── Main Wizard Component ───────────────────────────────────────────────────
 export default function OnboardingWizard({ initialName, customerId, onComplete }) {
-    const hasRealName = initialName && initialName.trim() !== '' && !initialName.trim().startsWith('Customer ');
-    const [step, setStep] = useState(hasRealName ? 2 : 1) // 1 | 2 | 3 | 4
+    const hasRealName = initialName && initialName.trim() !== '' && !initialName.trim().startsWith('Customer ')
+    const [step, setStep] = useState(hasRealName ? 2 : 1)
     const [name, setName] = useState(initialName || '')
 
     const handleNameNext = async (confirmedName) => {
         setName(confirmedName)
-        // Update name in DB if different from initial
         if (confirmedName !== initialName) {
             try {
-                await fetch('/api/customer/profile', {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customerId, name: confirmedName }),
-                })
-                // Update localStorage
+                await fetch('/api/customer/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerId, name: confirmedName }) })
                 const session = JSON.parse(localStorage.getItem('customerData') || '{}')
                 session.name = confirmedName
                 localStorage.setItem('customerData', JSON.stringify(session))
@@ -546,72 +414,36 @@ export default function OnboardingWizard({ initialName, customerId, onComplete }
         setStep(2)
     }
 
-    const handlePhotoNext = () => setStep(3)
-    const handleAddressNext = () => setStep(4)
-    const handleSkipAddress = () => setStep(4)
-
     const handleFinish = async () => {
-        // Mark profile as complete
         try {
-            await fetch('/api/customer/profile', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ customerId, profile_complete: true }),
-            })
+            await fetch('/api/customer/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerId, profile_complete: true }) })
         } catch { }
-
-        // Update local storage
         try {
             const session = JSON.parse(localStorage.getItem('customerData') || '{}')
             session.profile_complete = true
             localStorage.setItem('customerData', JSON.stringify(session))
         } catch { }
-
-        // Log interaction
         try {
             const customerId2 = localStorage.getItem('customerId')
-            await fetch('/api/admin/interactions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'profile-completed',
-                    category: 'account',
-                    customer_id: customerId2,
-                    description: `Customer ${name} completed their profile setup`,
-                    performed_by_name: name,
-                    source: 'Customer App',
-                    timestamp: new Date().toISOString(),
-                }),
-            })
+            await fetch('/api/admin/interactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'profile-completed', category: 'account', customer_id: customerId2, description: `Customer ${name} completed their profile setup`, performed_by_name: name, source: 'Customer App', timestamp: new Date().toISOString() }) })
         } catch { }
-
         onComplete()
     }
 
     return (
         <div style={S.overlay}>
             <div style={{ width: '100%', maxWidth: 440 }}>
-                {/* Sorted Logo / Brand */}
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', letterSpacing: 2, textTransform: 'uppercase' }}>
-                        SORTED SOLUTIONS
-                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', letterSpacing: 2, textTransform: 'uppercase' }}>SORTED SOLUTIONS</div>
                 </div>
-
-                {/* Progress */}
                 <ProgressDots step={step} total={4} />
-
-                {/* Card */}
                 <div style={S.card}>
                     {step === 1 && <StepWelcome name={name} onNext={handleNameNext} />}
-                    {step === 2 && <StepPhoto name={name} customerId={customerId} onNext={handlePhotoNext} onSkip={handlePhotoNext} />}
-                    {step === 3 && <StepAddress onNext={handleAddressNext} onSkip={handleSkipAddress} />}
+                    {step === 2 && <StepPhoto name={name} customerId={customerId} onNext={() => setStep(3)} onSkip={() => setStep(3)} />}
+                    {step === 3 && <StepAddress onNext={() => setStep(4)} onSkip={() => setStep(4)} customerId={customerId} />}
                     {step === 4 && <StepDone name={name} onFinish={handleFinish} />}
                 </div>
-
-                <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#334155' }}>
-                    Step {step} of 4
-                </div>
+                <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: '#334155' }}>Step {step} of 4</div>
             </div>
         </div>
     )
