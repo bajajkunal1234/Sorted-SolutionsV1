@@ -122,7 +122,7 @@ export async function POST(request) {
 
             if (!existingCx) {
                 // Create a minimal customers row (no password — they haven't signed up yet)
-                await supabase.from('customers').insert({
+                const { error: cxInsertErr } = await supabase.from('customers').insert({
                     name: customerFullName,
                     full_name: customerFullName,
                     phone: normalizedPhone,
@@ -130,13 +130,14 @@ export async function POST(request) {
                     ledger_id: customerId,
                     customer_type: 'one_time',
                     profile_complete: false,
-                }).catch(err => console.warn('[booking] Could not create customers row:', err.message));
+                });
+                if (cxInsertErr) console.warn('[booking] Could not create customers row:', cxInsertErr.message);
             } else if (!existingCx.ledger_id) {
                 // Existing customers row missing ledger_id — link it now
-                await supabase.from('customers')
+                const { error: updateLedgerErr } = await supabase.from('customers')
                     .update({ ledger_id: customerId })
-                    .eq('id', existingCx.id)
-                    .catch(err => console.warn('[booking] Could not update ledger_id:', err.message));
+                    .eq('id', existingCx.id);
+                if (updateLedgerErr) console.warn('[booking] Could not update ledger_id:', updateLedgerErr.message);
             }
         }
 
@@ -216,13 +217,14 @@ export async function POST(request) {
                     })
                     if (insertResult.error) {
                         // Fallback: try storing in both columns (some schemas may need this)
-                        await supabase.from('customer_properties').insert({
+                        const { error: fallbackErr } = await supabase.from('customer_properties').insert({
                             account_id: customerId,
                             customer_id: customerId,
                             property_id: propertyId,
                             is_active: true,
                             linked_at: new Date().toISOString(),
-                        }).catch(err => console.warn('[booking] property link fallback failed:', err.message))
+                        });
+                        if (fallbackErr) console.warn('[booking] property link fallback failed:', fallbackErr.message);
                     }
                 } else if (!linkExist.is_active) {
                     await supabase.from('customer_properties').update({

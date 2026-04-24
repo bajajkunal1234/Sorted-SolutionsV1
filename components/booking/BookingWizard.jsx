@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { ChevronRight, ChevronLeft, Clock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import BookingSteps from './BookingSteps';
@@ -170,6 +170,7 @@ export default function BookingWizard() {
     const [currentStep, setCurrentStep] = useState('service');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const wizardRef = useRef(null);
 
     const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
     const [allSlots, setAllSlots] = useState([]);      // from /api/settings/booking-slots
@@ -275,8 +276,13 @@ export default function BookingWizard() {
     };
 
     // Navigation — now 5 steps
-    const handleNext = () => {
+    const scrollTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const handleNext = () => {
+        scrollTop();
         if (currentStep === 'service') setCurrentStep('contact');
         else if (currentStep === 'contact') setCurrentStep('slot');
         else if (currentStep === 'slot') setCurrentStep('fees');
@@ -284,7 +290,7 @@ export default function BookingWizard() {
     };
 
     const handleBack = () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        scrollTop();
         if (currentStep === 'contact') setCurrentStep('service');
         else if (currentStep === 'slot') setCurrentStep('contact');
         else if (currentStep === 'fees') setCurrentStep('slot');
@@ -377,7 +383,7 @@ export default function BookingWizard() {
     }
 
     return (
-        <div className="booking-wizard-container animate-slide-in">
+        <div ref={wizardRef} className="booking-wizard-container animate-slide-in">
             <div className="booking-card">
                 <div className="booking-header">
                     <BookingSteps currentStep={currentStep} />
