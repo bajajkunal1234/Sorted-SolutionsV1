@@ -32,6 +32,8 @@ const nextConfig = {
             { source: '/gas-stove-hoobtop-repair', destination: '/services/hob-repair', permanent: true },
             { source: '/service-page/hob-top-check-up', destination: '/services/hob-repair', permanent: true },
             { source: '/service-page/gas-stove-check-up', destination: '/services/hob-repair', permanent: true },
+            // Fix: category card slug mismatch — /in-built-hobs → /built-in-hob
+            { source: '/services/hob-repair/in-built-hobs', destination: '/services/hob-repair/built-in-hob', permanent: true },
             
             // Discontinued / Orphaned (Routed to Homepage explicitly)
             { source: '/service-page/induction-cooktop-repair-solutions', destination: '/', permanent: true },
@@ -60,17 +62,15 @@ const nextConfig = {
             {
                 source: '/services/:path*',
                 headers: [
-                    { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },
-                    { key: 'CDN-Cache-Control', value: 'no-store' },
-                    { key: 'Vercel-CDN-Cache-Control', value: 'no-store' },
+                    // Allow Vercel CDN + browsers to cache for 5 minutes (matches unstable_cache TTL).
+                    // stale-while-revalidate lets CDN serve stale while fetching fresh in background.
+                    { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=60' },
                 ],
             },
             {
                 source: '/location/:path*',
                 headers: [
-                    { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },
-                    { key: 'CDN-Cache-Control', value: 'no-store' },
-                    { key: 'Vercel-CDN-Cache-Control', value: 'no-store' },
+                    { key: 'Cache-Control', value: 'public, s-maxage=300, stale-while-revalidate=60' },
                 ],
             },
         ];
