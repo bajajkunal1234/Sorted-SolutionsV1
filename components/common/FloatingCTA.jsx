@@ -269,6 +269,12 @@ export default function FloatingCTA() {
                     rel="noopener noreferrer"
                     aria-label="Chat on WhatsApp"
                     title="Chat on WhatsApp — we reply instantly!"
+                    onClick={() => {
+                        if (typeof window !== 'undefined') {
+                            window.dataLayer = window.dataLayer || [];
+                            window.dataLayer.push({ event: 'custom_whatsapp_click' });
+                        }
+                    }}
                 >
                     <div className="fcta-fab">
                         <span className="fcta-fab-inner"><WaIcon /></span>
@@ -286,6 +292,12 @@ export default function FloatingCTA() {
                     aria-label="Book In 60s"
                     title="Book a technician in 60 seconds — same-day service!"
                     id="floating-call-btn"
+                    onClick={() => {
+                        if (typeof window !== 'undefined') {
+                            window.dataLayer = window.dataLayer || [];
+                            window.dataLayer.push({ event: 'custom_call_click' });
+                        }
+                    }}
                 >
                     <span className="fcta-lbl">Book In 60s</span>
                     <div className="fcta-fab">
