@@ -32,8 +32,6 @@ const nextConfig = {
             { source: '/gas-stove-hoobtop-repair', destination: '/services/hob-repair', permanent: true },
             { source: '/service-page/hob-top-check-up', destination: '/services/hob-repair', permanent: true },
             { source: '/service-page/gas-stove-check-up', destination: '/services/hob-repair', permanent: true },
-            // Fix: category card slug mismatch — /in-built-hobs → /built-in-hob
-            { source: '/services/hob-repair/in-built-hobs', destination: '/services/hob-repair/built-in-hob', permanent: true },
             
             // Discontinued / Orphaned (Routed to Homepage explicitly)
             { source: '/service-page/induction-cooktop-repair-solutions', destination: '/', permanent: true },
