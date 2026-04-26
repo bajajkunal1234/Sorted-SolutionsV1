@@ -17,9 +17,9 @@ import ServiceFooter from '@/components/services/ServiceFooter'
 import Header from '@/components/common/Header'
 import ServiceSchema from '@/components/services/ServiceSchema'
 
-import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
+import { cachedFetchQuickBookingData } from '@/lib/data/quickBookingData'
 import { unstable_noStore as noStore } from 'next/cache';
-import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
+import { cachedGetFullPageData, cachedResolveFaqs } from '@/lib/data/pageSettings';
 import { notFound } from 'next/navigation';
 
 export default async function LocationPage({ params }) {
@@ -35,7 +35,7 @@ export default async function LocationPage({ params }) {
     let pageFound = false
 
     try {
-        const apiData = await getFullPageData(pageId);
+        const apiData = await cachedGetFullPageData(pageId);
         if (apiData.success && apiData.data) {
             pageFound = true
             const d = apiData.data;
@@ -43,7 +43,7 @@ export default async function LocationPage({ params }) {
 
             let resolvedFaqsList = [];
             if (r.faqIds?.length > 0) {
-                const faqRes = await resolveFaqs(r.faqIds);
+                const faqRes = await cachedResolveFaqs(r.faqIds);
                 if (faqRes.success) resolvedFaqsList = faqRes.faqs;
             }
 
@@ -113,7 +113,7 @@ export default async function LocationPage({ params }) {
     // and (2) resolve services from the same data without a second fetch.
     let qbData = null;
     try {
-        qbData = await fetchQuickBookingData();
+        qbData = await cachedFetchQuickBookingData();
     } catch (err) {
         console.error('[LocationPage] Failed to fetch qbData:', err);
     }

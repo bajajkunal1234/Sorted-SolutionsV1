@@ -21,10 +21,10 @@ import ServiceSchema from '@/components/services/ServiceSchema'
 import AnchorScrollHandler from '@/components/common/AnchorScrollHandler'
 
 import { createServerSupabase } from '@/lib/supabase-server'
-import { fetchQuickBookingData } from '@/lib/data/quickBookingData'
+import { cachedFetchQuickBookingData } from '@/lib/data/quickBookingData'
 import { unstable_noStore as noStore } from 'next/cache';
 import { headers } from 'next/headers';
-import { getFullPageData, resolveFaqs } from '@/lib/data/pageSettings';
+import { cachedGetFullPageData, cachedResolveFaqs } from '@/lib/data/pageSettings';
 import { notFound } from 'next/navigation';
 
 export default async function SubCategoryPage({ params }) {
@@ -47,7 +47,7 @@ export default async function SubCategoryPage({ params }) {
 
     try {
         console.log(`[SubcatPage] Fetching settings for ${pageId} natively`);
-        const apiData = await getFullPageData(pageId);
+        const apiData = await cachedGetFullPageData(pageId);
 
         if (apiData.success && apiData.data) {
             pageFound = true
@@ -57,7 +57,7 @@ export default async function SubCategoryPage({ params }) {
             // Resolve FAQs via internal DB query
             let resolvedFaqsList = [];
             if (r.faqIds?.length > 0) {
-                const faqRes = await resolveFaqs(r.faqIds);
+                const faqRes = await cachedResolveFaqs(r.faqIds);
                 if (faqRes.success) resolvedFaqsList = faqRes.faqs;
             }
 
@@ -126,7 +126,7 @@ export default async function SubCategoryPage({ params }) {
     // and (2) resolve issues/services from the same data without a second fetch.
     let qbData = null;
     try {
-        qbData = await fetchQuickBookingData();
+        qbData = await cachedFetchQuickBookingData();
     } catch (err) {
         console.error('[SubcatPage] Failed to fetch qbData:', err);
     }
