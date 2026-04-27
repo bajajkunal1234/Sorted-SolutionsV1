@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import ClientPinDropMap from '@/components/common/ClientPinDropMap'
+import UseCurrentLocationButton from '@/components/common/UseCurrentLocationButton'
 
 const S = {
     input: {
@@ -191,6 +192,12 @@ function PropertyManagerModal({ onClose }) {
     const [propertyMatches, setPropertyMatches] = useState([])
     const [selectedExisting, setSelectedExisting] = useState(null)
     const [matchChecked, setMatchChecked] = useState(false)
+    
+    // Pin editing state
+    const [expandedPin, setExpandedPin] = useState(null)
+    const [pinState, setPinState] = useState({})
+    const [savingPin, setSavingPin] = useState(null)
+    const [pinSaved, setPinSaved] = useState({})
 
     useEffect(() => {
         fetchProperties()
@@ -303,6 +310,26 @@ function PropertyManagerModal({ onClose }) {
             setView('list')
         } catch (err) { setError(err.message || 'Failed to save address. Please try again.') }
         finally { setSaving(false) }
+    }
+
+    const handleSavePin = async (propertyId) => {
+        const { lat, lng } = pinState[propertyId] || {}
+        if (!lat || !lng) return
+        const customerId = localStorage.getItem('customerId')
+        setSavingPin(propertyId)
+        try {
+            const res = await fetch(`/api/customer/properties?property_id=${propertyId}&customer_id=${customerId}`, {
+                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ latitude: lat, longitude: lng })
+            })
+            const data = await res.json()
+            if (data.success) {
+                setProperties(prev => prev.map(p => p.id === propertyId ? { ...p, latitude: lat, longitude: lng } : p))
+                setPinSaved(prev => ({ ...prev, [propertyId]: true }))
+                setExpandedPin(null)
+            }
+        } catch { }
+        finally { setSavingPin(null) }
     }
 
     const handleUnlink = async (propertyId) => {
@@ -468,29 +495,56 @@ function PropertyManagerModal({ onClose }) {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
                     {properties.map(p => (
-                        <div key={p.id} style={{ 
-                            background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: '16px',
+                        <div key={p.id} style={{
+                            background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: '14px 16px',
                             border: '1px solid rgba(255,255,255,0.08)'
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <div style={{ fontSize: 15, fontWeight: 600, color: '#f8fafc', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 15, fontWeight: 600, color: '#f8fafc', marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                         {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}
                                         <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 10, background: 'rgba(255,255,255,0.1)', color: '#cbd5e1', textTransform: 'capitalize' }}>
                                             {p.property_type || 'Property'}
                                         </span>
                                     </div>
-                                    <div style={{ fontSize: 13, color: '#94a3b8' }}>
-                                        {[p.locality, p.city, p.pincode].filter(Boolean).join(', ')}
+                                    <div style={{ fontSize: 13, color: '#94a3b8' }}>{[p.locality, p.city, p.pincode].filter(Boolean).join(', ')}</div>
+                                    <div style={{ fontSize: 11, marginTop: 4, color: (p.latitude || pinSaved[p.id]) ? '#10b981' : '#f59e0b', fontWeight: 600 }}>
+                                        {(p.latitude || pinSaved[p.id]) ? '📍 Precise pin saved' : '⚠️ No precise pin yet'}
                                     </div>
                                 </div>
-                                <button onClick={() => handleUnlink(p.id)} style={{ 
-                                    background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444', 
-                                    width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' 
+                                <button onClick={() => handleUnlink(p.id)} style={{
+                                    background: 'rgba(239,68,68,0.1)', border: 'none', color: '#ef4444',
+                                    width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, marginLeft: 8
                                 }}>
                                     <Trash2 size={14} />
                                 </button>
                             </div>
+                            {/* Fix Location button / inline panel */}
+                            {expandedPin === p.id ? (
+                                <div style={{ marginTop: 12 }}>
+                                    <div style={{ marginBottom: 8 }}>
+                                        <UseCurrentLocationButton onChange={({ lat, lng }) => setPinState(prev => ({ ...prev, [p.id]: { lat, lng } }))} />
+                                    </div>
+                                    <ClientPinDropMap
+                                        building={p.building_name} street={p.address}
+                                        localityQuery={p.locality} pincodeQuery={p.pincode}
+                                        initialLat={pinState[p.id]?.lat || p.latitude}
+                                        initialLng={pinState[p.id]?.lng || p.longitude}
+                                        onChange={({ lat, lng }) => setPinState(prev => ({ ...prev, [p.id]: { lat, lng } }))}
+                                        height="180px"
+                                    />
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                                        <button onClick={() => handleSavePin(p.id)} disabled={!pinState[p.id] || savingPin === p.id} style={{ flex: 1, padding: '9px', background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, color: '#10b981', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                                            {savingPin === p.id ? 'Saving...' : '💾 Save Pin'}
+                                        </button>
+                                        <button onClick={() => setExpandedPin(null)} style={{ padding: '9px 14px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: '#64748b', fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button onClick={() => setExpandedPin(p.id)} style={{ width: '100%', marginTop: 10, padding: '8px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)', borderRadius: 10, color: '#38bdf8', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                                    📍 {p.latitude ? 'Refine Location' : 'Fix Location'}
+                                </button>
+                            )}
                         </div>
                     ))}
                 </div>

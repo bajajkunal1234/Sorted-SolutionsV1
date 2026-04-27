@@ -58,6 +58,51 @@ export async function GET(request) {
     }
 }
 
+// PATCH — customer refines lat/lng on a property they are linked to
+export async function PATCH(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const propertyId = searchParams.get('property_id')
+        const customerId = searchParams.get('customer_id')
+
+        if (!propertyId || !customerId) {
+            return NextResponse.json({ error: 'property_id and customer_id required' }, { status: 400 })
+        }
+
+        const { latitude, longitude } = await request.json()
+        if (latitude == null || longitude == null) {
+            return NextResponse.json({ error: 'latitude and longitude required' }, { status: 400 })
+        }
+
+        // Verify customer is actually linked to this property (security check)
+        const { data: link } = await supabase
+            .from('customer_properties')
+            .select('id')
+            .eq('customer_id', customerId)
+            .eq('property_id', propertyId)
+            .eq('is_active', true)
+            .maybeSingle()
+
+        if (!link) {
+            return NextResponse.json({ error: 'You are not linked to this property.' }, { status: 403 })
+        }
+
+        // Update the property pin
+        const { data: property, error } = await supabase
+            .from('properties')
+            .update({ latitude, longitude })
+            .eq('id', propertyId)
+            .select()
+            .single()
+
+        if (error) throw error
+
+        return NextResponse.json({ success: true, property })
+    } catch (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+}
+
 // POST — smart create or link: check if property exists, create if not, then link
 export async function POST(request) {
     try {

@@ -29,10 +29,42 @@ export async function GET(request) {
 
         const { data } = await supabase
             .from('customers')
-            .select('id, name, phone, password_hash')
+            .select('id, name, phone, password_hash, ledger_id')
             .or(`phone.eq.${last10},phone.eq.+91${last10}`)
             .limit(1)
             .maybeSingle()
+
+        // For unclaimed accounts (no password yet), enrich with property + job preview
+        if (data && !data.password_hash) {
+            const lookupIds = [data.id, data.ledger_id].filter(Boolean)
+            const [propRes, jobRes] = await Promise.all([
+                supabase
+                    .from('customer_properties')
+                    .select('property:properties(flat_number,building_name,address,locality)')
+                    .or(lookupIds.map(id => `customer_id.eq.${id}`).join(',') + (data.ledger_id ? `,account_id.eq.${data.ledger_id}` : ''))
+                    .eq('is_active', true)
+                    .limit(1)
+                    .maybeSingle(),
+                supabase
+                    .from('jobs')
+                    .select('id', { count: 'exact', head: true })
+                    .or(lookupIds.map(id => `customer_id.eq.${id}`).join(','))
+            ])
+            const prop = propRes.data?.property
+            const propertyPreview = prop
+                ? [prop.flat_number, prop.building_name, prop.address, prop.locality].filter(Boolean).join(', ')
+                : null
+            return NextResponse.json({
+                exists: true,
+                hasPassword: false,
+                existingName: data.name || '',
+                hasProperties: !!prop,
+                propertyCount: prop ? 1 : 0,
+                propertyPreview,
+                hasJobs: (jobRes.count || 0) > 0,
+                jobCount: jobRes.count || 0,
+            })
+        }
 
         return NextResponse.json({ exists: !!data, hasPassword: !!(data && data.password_hash), existingName: data?.name || '' })
     } catch {
@@ -88,7 +120,8 @@ export async function POST(request) {
                         .update({
                             name: customerName,
                             password_hash: passwordHash,
-                            profile_complete: true, // Bypass the property creation step dynamically
+                            // Keep profile_complete: false so OnboardingWizard runs (claim-aware variant)
+                            profile_complete: false,
                             updated_at: new Date().toISOString()
                         })
                         .eq('id', existing.id)
@@ -116,7 +149,8 @@ export async function POST(request) {
                     });
 
                     const { password_hash: ph, ...safeUser } = updatedCustomer;
-                    return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: true, ledger_id: updatedCustomer.ledger_id }, message: 'Account registered successfully' });
+                    // is_claim: true tells CustomerApp to show the claim-aware OnboardingWizard variant
+                    return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: false, is_claim: true, ledger_id: updatedCustomer.ledger_id }, message: 'Account registered successfully' });
                 }
             }
 
@@ -276,7 +310,49 @@ export async function POST(request) {
             return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: customer.profile_complete ?? false }, message: 'Login successful' })
         }
 
-        // ── 3. RESET PASSWORD (OTP already verified on client) ────────────────
+        // ── 3. OTP LOGIN (OTP already verified on client by Firebase) ──────────
+        if (action === 'otp-login') {
+            const { phone } = body
+            if (!phone) return NextResponse.json({ error: 'Phone required' }, { status: 400 })
+
+            const last10 = phone.replace(/\D/g, '').slice(-10)
+
+            const { data: customer } = await supabase
+                .from('customers')
+                .select('*')
+                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .limit(1)
+                .maybeSingle()
+
+            if (!customer) {
+                return NextResponse.json({ error: 'No account found with this number. Please sign up.' }, { status: 404 })
+            }
+            if (!customer.password_hash) {
+                // Unclaimed admin-created account — must go through signup/claim flow
+                return NextResponse.json({
+                    error: 'This account has not been set up yet. Please sign up to claim it.',
+                    needsClaim: true
+                }, { status: 400 })
+            }
+
+            logInteractionServer({
+                type: 'customer-login-otp',
+                category: 'account',
+                customerId: String(customer.id),
+                customerName: customer.name || customer.phone,
+                description: `Customer logged in via OTP (${last10})`,
+                source: 'Customer App'
+            })
+
+            const { password_hash, ...safeUser } = customer
+            return NextResponse.json({
+                success: true,
+                user: { ...safeUser, role: 'customer', profile_complete: customer.profile_complete ?? false },
+                message: 'Login successful'
+            })
+        }
+
+        // ── 4. RESET PASSWORD (OTP already verified on client) ────────────────
         if (action === 'reset-password') {
             const { phone, password } = body
             if (!phone || !password) return NextResponse.json({ error: 'Phone and password required' }, { status: 400 })

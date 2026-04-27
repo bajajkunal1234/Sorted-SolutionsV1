@@ -46,9 +46,10 @@ export default function CustomerApp() {
                 const session = JSON.parse(raw)
                 const customerId = session.id || localStorage.getItem('customerId') || sessionStorage.getItem('customerId') || ''
                 const name = session.name || ''
+                const isClaim = session.is_claim === true
                 // Show onboarding wizard only if profile_complete is explicitly false
                 if (session.profile_complete === false) {
-                    setOnboardingData({ name, customerId })
+                    setOnboardingData({ name, customerId, isClaim })
                     setShowOnboarding(true)
                 }
             }
@@ -63,6 +64,7 @@ export default function CustomerApp() {
             <OnboardingWizard
                 initialName={onboardingData.name}
                 customerId={onboardingData.customerId}
+                isClaim={onboardingData.isClaim || false}
                 onComplete={() => setShowOnboarding(false)}
             />
         )

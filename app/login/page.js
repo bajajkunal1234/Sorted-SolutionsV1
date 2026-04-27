@@ -130,7 +130,7 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const [flow, setFlow] = useState('login'); // 'login' | 'signup' | 'forgot'
+    const [flow, setFlow] = useState('hub'); // 'hub' | 'login' | 'login-otp' | 'signup' | 'forgot'
     // step within signup/forgot: 'phone' | 'otp' | 'password'
     const [step, setStep] = useState('phone');
 
@@ -143,34 +143,35 @@ function LoginContent() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+    const [claimInfo, setClaimInfo] = useState(null); // { existingName, propertyPreview, hasJobs, jobCount }
     const [confirmationResult, setConfirmationResult] = useState(null);
     const recaptchaContainerRef = useRef(null);
     const recaptchaInitRef = useRef(false);
     const recaptchaVerifierRef = useRef(null);
 
+    // Auto-redirect if already logged in
     const initializedRef = useRef(false);
     useEffect(() => {
+        try {
+            const id = localStorage.getItem('customerId') || sessionStorage.getItem('customerId');
+            if (id) { router.replace('/customer/dashboard'); return; }
+        } catch { }
         if (initializedRef.current) return;
         initializedRef.current = true;
-        
         const p = searchParams.get('phone');
         if (p) setPhone(p.replace(/\D/g, '').slice(-10));
         const f = searchParams.get('flow');
         if (f === 'signup') setFlow('signup');
-    }, [searchParams]);
+    }, [searchParams, router]);
 
     // Reset state when switching flows
     const switchFlow = (newFlow) => {
         setFlow(newFlow);
         setStep('phone');
-        
-        // Remove trailing url parameters so NextJS doesn't force re-evaluations
-        if (typeof window !== 'undefined') {
-            window.history.replaceState(null, '', '/login');
-        }
-        
+        if (typeof window !== 'undefined') window.history.replaceState(null, '', '/login');
         setError('');
         setSuccessMsg('');
+        setClaimInfo(null);
         setOtp(['', '', '', '', '', '']);
         setPassword('');
         setConfirmPassword('');
@@ -285,9 +286,8 @@ function LoginContent() {
 
     // ── FLOW: SIGNUP — step 1: send OTP ─────────────────────────────────────
     const handleSignupPhone = async (e) => {
-        e.preventDefault(); setError(''); setSuccessMsg('');
+        e.preventDefault(); setError(''); setSuccessMsg(''); setClaimInfo(null);
         if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
-        // Check if already registered
         const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
         if (check.exists) {
             if (check.isTechnician) {
@@ -297,9 +297,9 @@ function LoginContent() {
                 setError('An account already exists with this number. Please log in.');
                 return;
             } else {
-                // Claim flow: Organic adoption of Admin-created record
+                // Claim flow: show the premium banner and pre-fill name
                 setName(check.existingName || '');
-                setSuccessMsg('An account with this number was created by our team. Please verify your number to complete registration.');
+                setClaimInfo(check);
             }
         }
         await sendOtp();
@@ -332,6 +332,39 @@ function LoginContent() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // ── FLOW: OTP LOGIN (existing customers) ─────────────────────────────────
+    const handleOtpLoginPhone = async (e) => {
+        e.preventDefault(); setError('');
+        if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
+        const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
+        if (!check.exists) { setError('No account found with this number. Please sign up.'); return; }
+        if (!check.hasPassword) {
+            setError('This account needs to be set up first. Please use \'Create Account\' to claim it.');
+            return;
+        }
+        await sendOtp();
+    };
+
+    const handleOtpLoginVerify = async (e) => {
+        e.preventDefault();
+        const ok = await verifyOtp();
+        if (!ok) return;
+        setLoading(true); setError('');
+        try {
+            const res = await fetch('/api/customer/auth', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'otp-login', phone })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                if (data.needsClaim) { switchFlow('signup'); return; }
+                throw new Error(data.error || 'Login failed');
+            }
+            finishLogin(data.user);
+        } catch (err) { setError(err.message); }
+        finally { setLoading(false); }
     };
 
     // ── FLOW: FORGOT — step 1: send OTP ─────────────────────────────────────
@@ -408,9 +441,45 @@ function LoginContent() {
                     {error && <div style={{ padding: '10px 14px', backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, color: '#f87171', fontSize: 13, marginBottom: 18, textAlign: 'center' }}>{error}</div>}
                     {successMsg && <div style={{ padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 10, color: '#34d399', fontSize: 13, marginBottom: 18, textAlign: 'center' }}>{successMsg}</div>}
 
-                    {/* ─── LOGIN FLOW ──────────────────────────────────────── */}
+                    {/* ─── HUB SCREEN ─── */}
+                    {flow === 'hub' && (
+                        <div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                <button id="hub-password-login" onClick={() => switchFlow('login')} style={{ width: '100%', padding: '18px 20px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', transition: 'all 0.15s' }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🔑</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Login with Password</div>
+                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Use your mobile number & password</div>
+                                    </div>
+                                    <ArrowRight size={18} color="rgba(255,255,255,0.3)" />
+                                </button>
+                                <button id="hub-otp-login" onClick={() => switchFlow('login-otp')} style={{ width: '100%', padding: '18px 20px', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', transition: 'all 0.15s' }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(139,92,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>📱</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Login with OTP</div>
+                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Quick verification via SMS</div>
+                                    </div>
+                                    <ArrowRight size={18} color="rgba(255,255,255,0.3)" />
+                                </button>
+                                <button id="hub-signup" onClick={() => switchFlow('signup')} style={{ width: '100%', padding: '18px 20px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', transition: 'all 0.15s' }}>
+                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>✨</div>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Create Account</div>
+                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>New to Sorted? Sign up in minutes</div>
+                                    </div>
+                                    <ArrowRight size={18} color="rgba(255,255,255,0.3)" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ─── LOGIN FLOW ─── */}
                     {flow === 'login' && (
                         <form onSubmit={handleLogin}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
+                                <h2 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: 0 }}>Login with Password</h2>
+                            </div>
                             <div style={{ marginBottom: 6 }}>
                                 <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Mobile Number</label>
                                 <PhoneInput value={phone} onChange={setPhone} />
@@ -433,11 +502,45 @@ function LoginContent() {
                         </form>
                     )}
 
-                    {/* ─── SIGNUP FLOW ─────────────────────────────────────── */}
+                    {/* ─── OTP LOGIN FLOW ─── */}
+                    {flow === 'login-otp' && (
+                        <>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
+                                <h2 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: 0 }}>Login with OTP</h2>
+                            </div>
+                            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 20 }}>
+                                {step === 'phone' && 'Enter your registered mobile number'}
+                                {step === 'otp' && `OTP sent to +91 ${phone}`}
+                            </p>
+                            <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
+                                {['phone','otp'].map((s,i) => (
+                                    <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, backgroundColor: ['phone','otp'].indexOf(step) >= i ? '#8b5cf6' : 'rgba(255,255,255,0.15)', transition: 'background 0.3s' }} />
+                                ))}
+                            </div>
+                            {step === 'phone' && (
+                                <form onSubmit={handleOtpLoginPhone}>
+                                    <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}></div>
+                                    <div style={inputGap}><PhoneInput value={phone} onChange={setPhone} /></div>
+                                    <div style={{ marginBottom: 20 }}><KeepSignedIn checked={keepSignedIn} onChange={setKeepSignedIn} /></div>
+                                    <SubmitBtn loading={loading}><ShieldCheck size={16} /><span>Send OTP</span></SubmitBtn>
+                                </form>
+                            )}
+                            {step === 'otp' && (
+                                <form onSubmit={handleOtpLoginVerify}>
+                                    <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
+                                    <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: '#60a5fa', fontSize: 13, cursor: 'pointer' }}>Resend OTP</button>
+                                    <SubmitBtn loading={loading}><span>Verify & Login</span><ArrowRight size={16} /></SubmitBtn>
+                                </form>
+                            )}
+                        </>
+                    )}
+
+                    {/* ─── SIGNUP FLOW ─── */}
                     {flow === 'signup' && (
                         <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                                <button type="button" onClick={() => switchFlow('login')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back to Login</button>
+                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
                             </div>
                             <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 4 }}>Create Account</h2>
                             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24 }}>
@@ -456,6 +559,14 @@ function LoginContent() {
                             {step === 'phone' && (
                                 <form onSubmit={handleSignupPhone}>
                                     <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}></div>
+                                    {claimInfo && (
+                                        <div style={{ marginBottom: 16, background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(56,189,248,0.08))', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 16, padding: '16px' }}>
+                                            <div style={{ fontSize: 13, fontWeight: 800, color: '#10b981', marginBottom: 8 }}>✨ Your account is already ready!</div>
+                                            <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6, marginBottom: 10 }}>Our team set this up for you. Just verify your number to claim what's yours.</div>
+                                            {claimInfo.propertyPreview && <div style={{ fontSize: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '6px 10px', color: '#cbd5e1', marginBottom: 6 }}>📍 {claimInfo.propertyPreview}</div>}
+                                            {claimInfo.hasJobs && <div style={{ fontSize: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '6px 10px', color: '#cbd5e1' }}>🔧 {claimInfo.jobCount} active booking{claimInfo.jobCount > 1 ? 's' : ''}</div>}
+                                        </div>
+                                    )}
                                     <div style={inputGap}>
                                         <PhoneInput value={phone} onChange={setPhone} />
                                     </div>
@@ -499,7 +610,7 @@ function LoginContent() {
                     {flow === 'forgot' && (
                         <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                                <button type="button" onClick={() => switchFlow('login')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back to Login</button>
+                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
                             </div>
                             <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 4 }}>Reset Password</h2>
                             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24 }}>
