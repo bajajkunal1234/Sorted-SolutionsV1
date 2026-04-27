@@ -1,4 +1,6 @@
 import { Mail, Phone } from 'lucide-react';
+import Header from '@/components/common/Header';
+import FooterSection from '@/components/homepage/FooterSection';
 
 export const metadata = {
     title: 'Accessibility Statement | Sorted Solutions',
@@ -8,8 +10,9 @@ export const metadata = {
 
 export default function AccessibilityPage() {
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary,#0f0f11)', color: 'var(--text-primary,#fff)', padding: '60px 24px' }}>
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ minHeight: '100vh', background: 'var(--bg-primary,#0f0f11)', color: 'var(--text-primary,#fff)' }}>
+            <Header />
+            <div style={{ maxWidth: '800px', margin: '0 auto', padding: '60px 24px' }}>
 
                 <h1 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.5px' }}>Accessibility Statement</h1>
                 <p style={{ color: 'var(--text-secondary,#94a3b8)', marginBottom: '48px', fontSize: '14px' }}>Last reviewed: March 2025</p>
@@ -73,11 +76,8 @@ export default function AccessibilityPage() {
                         We aim to respond to accessibility feedback within 2 business days.
                     </p>
                 </div>
-
-                <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid var(--border-primary,#2d2d3a)', color: 'var(--text-tertiary,#6b7280)', fontSize: '13px' }}>
-                    © {new Date().getFullYear()} Sorted Solutions. All rights reserved. | Mumbai, Maharashtra, India
-                </div>
             </div>
+            <FooterSection />
         </div>
     );
 }

@@ -1,6 +1,8 @@
 // Server component — keeps metadata export, delegates tracked links to ContactLinks.jsx
 import { Mail, Clock, MapPin } from 'lucide-react';
 import { PhoneCard, WhatsAppCard } from './ContactLinks';
+import Header from '@/components/common/Header';
+import FooterSection from '@/components/homepage/FooterSection';
 
 export const metadata = {
     title: 'Contact Us | Sorted Solutions',
@@ -10,8 +12,9 @@ export const metadata = {
 
 export default function ContactPage() {
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f0f11)', color: 'var(--text-primary, #fff)', padding: '60px 24px' }}>
-            <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <div style={{ minHeight: '100vh', background: 'var(--bg-primary, #0f0f11)', color: 'var(--text-primary, #fff)' }}>
+            <Header />
+            <div style={{ maxWidth: '900px', margin: '0 auto', padding: '60px 24px' }}>
 
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '56px' }}>
@@ -84,6 +87,7 @@ export default function ContactPage() {
                 </div>
 
             </div>
+            <FooterSection />
         </div>
     );
 }

@@ -6,10 +6,14 @@ export const metadata = {
 
 const EFFECTIVE_DATE = 'March 1, 2025';
 
+import Header from '@/components/common/Header';
+import FooterSection from '@/components/homepage/FooterSection';
+
 export default function PrivacyPage() {
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg-primary,#0f0f11)', color: 'var(--text-primary,#fff)', padding: '60px 24px' }}>
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ minHeight: '100vh', background: 'var(--bg-primary,#0f0f11)', color: 'var(--text-primary,#fff)' }}>
+            <Header />
+            <div style={{ maxWidth: '800px', margin: '0 auto', padding: '60px 24px' }}>
 
                 <h1 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 800, marginBottom: '8px', letterSpacing: '-0.5px' }}>Privacy Policy</h1>
                 <p style={{ color: 'var(--text-secondary,#94a3b8)', marginBottom: '48px', fontSize: '14px' }}>Effective Date: {EFFECTIVE_DATE}</p>
@@ -82,11 +86,8 @@ export default function PrivacyPage() {
                 <Section title="11. Contact">
                     For any privacy concerns, contact us at <a href="mailto:support@sortedsolutions.in" style={{ color: '#6366f1' }}>support@sortedsolutions.in</a> or call <a href="tel:+918928895590" style={{ color: '#6366f1' }}>+91 89288 95590</a>.
                 </Section>
-
-                <div style={{ marginTop: '48px', paddingTop: '24px', borderTop: '1px solid var(--border-primary,#2d2d3a)', color: 'var(--text-tertiary,#6b7280)', fontSize: '13px' }}>
-                    © {new Date().getFullYear()} Sorted Solutions. All rights reserved. | Mumbai, Maharashtra, India
-                </div>
             </div>
+            <FooterSection />
         </div>
     );
 }
