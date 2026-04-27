@@ -119,7 +119,9 @@ const Header = () => {
                     {/* ── Actions ── */}
                     <div className="site-header__actions">
                         <ThemeToggle />
-                        <a href="tel:+918928895590" className="call-btn" aria-label="Call +918928895590">
+                        <a href="tel:+918928895590" className="call-btn" aria-label="Call +918928895590"
+                            onClick={() => { if (typeof window !== 'undefined') { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'custom_call_click' }); } }}
+                        >
                             <Phone size={16} />
                             <span>+918928895590</span>
                         </a>
@@ -153,7 +155,9 @@ const Header = () => {
                         </Link>
                     ))}
                     <hr className="header-mobile-divider" />
-                    <a href="tel:+918928895590" className="call-btn" style={{width:'100%', justifyContent:'center'}}>
+                    <a href="tel:+918928895590" className="call-btn" style={{width:'100%', justifyContent:'center'}}
+                        onClick={() => { if (typeof window !== 'undefined') { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'custom_call_click' }); } }}
+                    >
                         <Phone size={16} /> +918928895590
                     </a>
                     <Link href="/login" className="header-btn header-btn--login header-btn--full" onClick={() => setMobileOpen(false)}>

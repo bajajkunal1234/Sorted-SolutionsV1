@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import Header from '@/components/common/Header'
 import ServiceFooter from '@/components/services/ServiceFooter'
+import CallToBookButton from '@/app/CallToBookButton'
 
 const SERVICES = [
     { label: '❄️ AC Repair',              href: '/services/ac-repair' },
@@ -54,18 +55,7 @@ export default function NotFound() {
                         >
                             🏠 Back to Home
                         </Link>
-                        <a
-                            href="tel:+918928895590"
-                            style={{
-                                display: 'inline-flex', alignItems: 'center', gap: '8px',
-                                padding: '12px 24px', borderRadius: '8px',
-                                background: 'linear-gradient(135deg, #10b981, #059669)',
-                                color: '#fff', fontWeight: 700, fontSize: '15px',
-                                textDecoration: 'none'
-                            }}
-                        >
-                            📞 Call To Book
-                        </a>
+                        <CallToBookButton />
                     </div>
 
                     {/* Service quick links */}

@@ -235,6 +235,11 @@ export default function BookingWizard() {
             });
             const result = await response.json();
             if (!result.success) throw new Error(result.error || 'Failed to complete booking');
+            // ── GTM conversion signal — fires the instant booking is confirmed ──
+            if (typeof window !== 'undefined') {
+                window.dataLayer = window.dataLayer || [];
+                window.dataLayer.push({ event: 'form_submit_success' });
+            }
             router.push('/booking/success?id=' + (result.bookingId || result.jobId));
         } catch (error) {
             console.error('Booking failed:', error);

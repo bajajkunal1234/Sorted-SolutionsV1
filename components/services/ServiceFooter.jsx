@@ -24,7 +24,9 @@ export default function ServiceFooter() {
                         Contact Us
                     </h4>
                     <div className="footer-links">
-                        <a href="tel:+918928895590" className="footer-link">
+                        <a href="tel:+918928895590" className="footer-link"
+                            onClick={() => { if (typeof window !== 'undefined') { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'custom_call_click' }); } }}
+                        >
                             <Phone size={16} />
                             +91 89288 95590
                         </a>

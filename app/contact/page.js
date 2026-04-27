@@ -1,4 +1,6 @@
-import { Phone, Mail, Clock, MapPin, MessageSquare } from 'lucide-react';
+// Server component — keeps metadata export, delegates tracked links to ContactLinks.jsx
+import { Mail, Clock, MapPin } from 'lucide-react';
+import { PhoneCard, WhatsAppCard } from './ContactLinks';
 
 export const metadata = {
     title: 'Contact Us | Sorted Solutions',
@@ -24,15 +26,8 @@ export default function ContactPage() {
                 {/* Contact Cards Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: '20px', marginBottom: '48px' }}>
 
-                    {/* Phone */}
-                    <a href="tel:+918928895590" style={{ textDecoration: 'none' }}>
-                        <div style={cardStyle}>
-                            <div style={iconWrap('#6366f1')}><Phone size={22} color="#fff" /></div>
-                            <h3 style={cardTitle}>Call / WhatsApp</h3>
-                            <p style={cardValue}>+91 89288 95590</p>
-                            <p style={cardMeta}>Mon – Sun, 8 AM – 8 PM</p>
-                        </div>
-                    </a>
+                    {/* Phone — client component for GTM tracking */}
+                    <PhoneCard />
 
                     {/* Email */}
                     <a href="mailto:support@sortedsolutions.in" style={{ textDecoration: 'none' }}>
@@ -44,15 +39,8 @@ export default function ContactPage() {
                         </div>
                     </a>
 
-                    {/* WhatsApp */}
-                    <a href="https://wa.me/918928895590" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-                        <div style={cardStyle}>
-                            <div style={iconWrap('#22c55e')}><MessageSquare size={22} color="#fff" /></div>
-                            <h3 style={cardTitle}>WhatsApp</h3>
-                            <p style={cardValue}>Chat with us directly</p>
-                            <p style={cardMeta}>Quick responses guaranteed</p>
-                        </div>
-                    </a>
+                    {/* WhatsApp — client component for GTM tracking */}
+                    <WhatsAppCard />
 
                     {/* Hours */}
                     <div style={cardStyle}>
@@ -117,4 +105,4 @@ const iconWrap = (bg) => ({
 
 const cardTitle = { fontSize: '13px', fontWeight: 600, color: 'var(--text-tertiary,#6b7280)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' };
 const cardValue = { fontSize: '16px', fontWeight: 700, color: 'var(--text-primary,#fff)', marginBottom: '4px' };
-const cardMeta = { fontSize: '13px', color: 'var(--text-secondary,#94a3b8)' };
+const cardMeta  = { fontSize: '13px', color: 'var(--text-secondary,#94a3b8)' };
