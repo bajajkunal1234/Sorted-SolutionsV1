@@ -389,8 +389,8 @@ function LoginContent() {
 
     const inputGap = { display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 };
     
-    // Determine whether to show the "Login using OTP" button (Hide for tech/admin)
-    const showOtpOption = accountStatus && !accountStatus.isTechnician && !accountStatus.isAdmin;
+    // Determine whether to show the "Login using OTP" button
+    const showOtpOption = accountStatus?.exists;
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>

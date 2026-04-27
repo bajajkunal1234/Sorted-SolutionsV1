@@ -324,6 +324,33 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
+            // ── Check technicians FIRST by phone ──
+            const { data: technician } = await supabase
+                .from('technicians')
+                .select('*')
+                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .eq('is_active', true)
+                .limit(1)
+                .maybeSingle()
+
+            if (technician) {
+                logInteractionServer({ type: 'technician-login-otp', category: 'account', customerId: String(technician.id), customerName: technician.name, description: `Technician logged in via OTP (${last10})`, source: 'Technician App' })
+                const { password_hash, ...safeTech } = technician
+                return NextResponse.json({ success: true, user: { ...safeTech, role: 'technician' }, message: 'Login successful' })
+            }
+
+            // ── Check if Admin ──
+            const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
+            if (adminPhones.includes(last10)) {
+                logInteractionServer({ type: 'admin-login-otp', category: 'account', customerId: 'admin', customerName: 'Admin', description: `Admin logged in via OTP (${last10})`, source: 'Admin Portal' })
+                return NextResponse.json({ 
+                    success: true, 
+                    user: { id: 'admin-id', name: 'Admin', phone: last10, role: 'admin', profile_complete: true }, 
+                    message: 'Login successful' 
+                })
+            }
+
+            // ── Check Customer ──
             const { data: customer } = await supabase
                 .from('customers')
                 .select('*')
