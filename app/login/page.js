@@ -375,13 +375,13 @@ function LoginContent() {
     // --- Aesthetic UI Components ---
     const cardStyle = {
         width: '100%', maxWidth: 400,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02))',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
         borderRadius: 24,
         padding: 36,
-        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)',
-        border: '1px solid rgba(255,255,255,0.1)',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.1)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
         position: 'relative',
         boxSizing: 'border-box',
         zIndex: 10,
