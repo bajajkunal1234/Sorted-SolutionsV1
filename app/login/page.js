@@ -395,7 +395,7 @@ function LoginContent() {
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
             {/* Background Watermark */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120vw', height: '120vh', opacity: 0.15, pointerEvents: 'none', backgroundImage: 'url("/New%20Logo.jpg")', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', mixBlendMode: 'screen' }} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120vw', height: '120vh', pointerEvents: 'none', backgroundImage: 'url("/New%20Logo.jpg")', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
             
             {/* Subtle glow behind card */}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, height: 400, background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
