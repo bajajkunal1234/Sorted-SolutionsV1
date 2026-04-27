@@ -26,10 +26,7 @@ function saveSession(user, persist) {
 
     if (user.role === 'admin') {
         storage.setItem('isAdmin', 'true');
-        // Set a lightweight cookie so Edge middleware can gate /sitemap.xml
-        // and /sitemap-page without needing localStorage (inaccessible at Edge).
-        // This is NOT a security token — real auth lives in localStorage.
-        const maxAge = persist ? 60 * 60 * 24 * 30 : ''; // 30 days if persistent
+        const maxAge = persist ? 60 * 60 * 24 * 30 : ''; 
         document.cookie = `admin_auth=1; path=/; SameSite=Lax${maxAge ? `; max-age=${maxAge}` : ''}`;
     }
 
@@ -55,7 +52,7 @@ function PhoneInput({ value, onChange, disabled }) {
                 value={value}
                 onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 disabled={disabled}
-                style={{ width: '100%', padding: '13px 13px 13px 74px', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '13px 13px 13px 74px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' }}
                 required
             />
         </div>
@@ -73,7 +70,7 @@ function PasswordInput({ value, onChange, placeholder = 'Password', autoFocus })
                 value={value}
                 onChange={e => onChange(e.target.value)}
                 autoFocus={autoFocus}
-                style={{ width: '100%', padding: '13px 44px 13px 44px', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '13px 44px 13px 44px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box', outline: 'none' }}
                 required
             />
             <button type="button" onClick={() => setShow(s => !s)} style={{ position: 'absolute', right: 14, top: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', padding: 0 }}>
@@ -95,7 +92,7 @@ function OtpBoxes({ otp, onChange, onKeyDown }) {
                     value={digit}
                     onChange={e => onChange(idx, e.target.value)}
                     onKeyDown={e => onKeyDown(idx, e)}
-                    style={{ width: 45, height: 52, textAlign: 'center', fontSize: 20, fontWeight: 700, backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, color: 'white' }}
+                    style={{ width: 45, height: 52, textAlign: 'center', fontSize: 20, fontWeight: 700, backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, color: 'white', outline: 'none' }}
                     autoFocus={idx === 0}
                 />
             ))}
@@ -108,18 +105,19 @@ function KeepSignedIn({ checked, onChange }) {
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' }}>
             <div
                 onClick={() => onChange(!checked)}
-                style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? '#3b82f6' : 'rgba(255,255,255,0.3)'}`, backgroundColor: checked ? '#3b82f6' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 0.15s' }}
+                style={{ width: 18, height: 18, borderRadius: 4, border: `2px solid ${checked ? 'white' : 'rgba(255,255,255,0.3)'}`, backgroundColor: checked ? 'white' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer', transition: 'all 0.15s' }}
             >
-                {checked && <CheckCircle2 size={12} color="white" />}
+                {checked && <CheckCircle2 size={14} color="#000" style={{ marginLeft: -1, marginTop: -1 }} />}
             </div>
             <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>Keep me signed in</span>
         </label>
     );
 }
 
-function SubmitBtn({ loading, children }) {
+function SubmitBtn({ loading, children, onClick, type = 'submit', variant = 'primary' }) {
+    const isPrimary = variant === 'primary';
     return (
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: 14, borderRadius: 12, fontSize: 16, fontWeight: 700, background: 'linear-gradient(135deg, #3b82f6, #6366f1)', color: 'white', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: loading ? 0.7 : 1, marginTop: 8 }}>
+        <button type={type} onClick={onClick} disabled={loading} style={{ width: '100%', padding: 14, borderRadius: 12, fontSize: 15, fontWeight: 700, background: isPrimary ? '#fff' : 'rgba(255,255,255,0.08)', color: isPrimary ? '#000' : '#fff', border: isPrimary ? 'none' : '1px solid rgba(255,255,255,0.15)', cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: loading ? 0.7 : 1, marginTop: 8, transition: 'all 0.2s' }}>
             {loading ? <Loader2 size={20} className="animate-spin" /> : children}
         </button>
     );
@@ -130,22 +128,24 @@ function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
-    const [flow, setFlow] = useState('hub'); // 'hub' | 'login' | 'login-otp' | 'signup' | 'forgot'
-    // step within signup/forgot: 'phone' | 'otp' | 'password'
-    const [step, setStep] = useState('phone');
-
+    // The single flow state. 'phone' -> 'password' | 'signup-init' | 'claim-init' | 'otp' | 'create-password'
+    const [step, setStep] = useState('phone'); 
+    
+    // Context about the account
+    const [accountStatus, setAccountStatus] = useState(null); // { exists, hasPassword, isTechnician, isAdmin, claimInfo }
+    
     const [phone, setPhone] = useState('');
     const [name, setName] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
     const [keepSignedIn, setKeepSignedIn] = useState(true);
+    
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
-    const [claimInfo, setClaimInfo] = useState(null); // { existingName, propertyPreview, hasJobs, jobCount }
+    
     const [confirmationResult, setConfirmationResult] = useState(null);
-    const recaptchaContainerRef = useRef(null);
     const recaptchaInitRef = useRef(false);
     const recaptchaVerifierRef = useRef(null);
 
@@ -160,25 +160,18 @@ function LoginContent() {
         initializedRef.current = true;
         const p = searchParams.get('phone');
         if (p) setPhone(p.replace(/\D/g, '').slice(-10));
-        const f = searchParams.get('flow');
-        if (f === 'signup') setFlow('signup');
     }, [searchParams, router]);
 
-    // Reset state when switching flows
-    const switchFlow = (newFlow) => {
-        setFlow(newFlow);
-        setStep('phone');
-        if (typeof window !== 'undefined') window.history.replaceState(null, '', '/login');
+    const resetState = (toStep = 'phone') => {
+        setStep(toStep);
         setError('');
         setSuccessMsg('');
-        setClaimInfo(null);
         setOtp(['', '', '', '', '', '']);
         setPassword('');
         setConfirmPassword('');
-        setConfirmationResult(null);
-        recaptchaInitRef.current = false;
-        if (window.recaptchaVerifier) {
-            try { window.recaptchaVerifier.clear(); window.recaptchaVerifier = null; } catch { }
+        if (toStep === 'phone') {
+            setAccountStatus(null);
+            setConfirmationResult(null);
         }
     };
 
@@ -190,9 +183,9 @@ function LoginContent() {
             if (!container) { recaptchaInitRef.current = false; return null; }
             container.innerHTML = '';
             const verifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-                size: 'normal',
+                size: 'invisible', 
                 callback: () => setError(''),
-                'expired-callback': () => { setError('reCAPTCHA expired. Please solve again.'); recaptchaInitRef.current = false; }
+                'expired-callback': () => { setError('reCAPTCHA expired. Please try again.'); recaptchaInitRef.current = false; }
             });
             await verifier.render();
             window.recaptchaVerifier = verifier;
@@ -200,7 +193,6 @@ function LoginContent() {
             return verifier;
         } catch (e) {
             recaptchaInitRef.current = false;
-            setError('ReCAPTCHA failed. Please refresh the page.');
             return null;
         }
     };
@@ -212,14 +204,14 @@ function LoginContent() {
         try {
             let verifier = recaptchaVerifierRef.current || window.recaptchaVerifier;
             if (!verifier) verifier = await initRecaptcha();
-            if (!verifier) throw new Error('ReCAPTCHA could not load. Please refresh.');
+            if (!verifier) throw new Error('Security check failed. Please refresh.');
+            
             const result = await signInWithPhoneNumber(auth, `+91${phone}`, verifier);
             setConfirmationResult(result);
             setOtp(['', '', '', '', '', '']);
-            setStep('otp');
             return true;
         } catch (err) {
-            if (err.code === 'auth/too-many-requests') setError('Too many attempts. Please wait 30 minutes and try again.');
+            if (err.code === 'auth/too-many-requests') setError('Too many attempts. Please wait 30 minutes.');
             else setError(err.message || 'Failed to send OTP. Please try again.');
             recaptchaInitRef.current = false;
             return false;
@@ -239,9 +231,9 @@ function LoginContent() {
     };
 
     const verifyOtp = async () => {
-        if (!confirmationResult) { setError('Session expired. Please resend OTP.'); return false; }
+        if (!confirmationResult) { setError('Session expired. Please try again.'); return false; }
         const code = otp.join('');
-        if (code.length !== 6) { setError('Enter the 6-digit code'); return false; }
+        if (code.length !== 6) { setError('Enter the full 6-digit code'); return false; }
         setLoading(true); setError('');
         try {
             await confirmationResult.confirm(code);
@@ -256,7 +248,6 @@ function LoginContent() {
 
     const finishLogin = (user) => {
         saveSession(user, keepSignedIn);
-        // Register FCM push token (fire-and-forget — don't block redirect)
         if (user.role === 'customer') registerPushToken(user.id, 'customer');
         else if (user.role === 'technician') registerPushToken(user.id, 'technician');
         else if (user.role === 'admin') registerPushToken('admin', 'admin');
@@ -265,13 +256,37 @@ function LoginContent() {
         setTimeout(() => { if (window.location.pathname.includes('/login')) window.location.href = route; }, 600);
     };
 
-    // ── FLOW: LOGIN ──────────────────────────────────────────────────────────
-    const handleLogin = async (e) => {
+    // ── STEP 1: CHECK PHONE ──────────────────────────────────────────────────
+    const handleCheckPhone = async (e) => {
+        e.preventDefault(); setError(''); setSuccessMsg('');
+        if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
+        setLoading(true);
+        try {
+            const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
+            setAccountStatus(check);
+            
+            if (check.exists) {
+                if (check.hasPassword) {
+                    setStep('password');
+                } else {
+                    setStep('claim-init'); // Admin created, no password
+                }
+            } else {
+                setStep('signup-init');
+            }
+        } catch (err) {
+            setError('Something went wrong. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // ── STEP 2: PASSWORD LOGIN ───────────────────────────────────────────────
+    const handlePasswordLogin = async (e) => {
         e.preventDefault(); setError(''); setLoading(true);
         try {
             const res = await fetch('/api/customer/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'login', phone, password })
             });
             const data = await res.json();
@@ -284,69 +299,13 @@ function LoginContent() {
         }
     };
 
-    // ── FLOW: SIGNUP — step 1: send OTP ─────────────────────────────────────
-    const handleSignupPhone = async (e) => {
-        e.preventDefault(); setError(''); setSuccessMsg(''); setClaimInfo(null);
-        if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
-        const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
-        if (check.exists) {
-            if (check.isTechnician) {
-                setError('This number is registered as a technician account. Please log in using your technician credentials.');
-                return;
-            } else if (check.hasPassword) {
-                setError('An account already exists with this number. Please log in.');
-                return;
-            } else {
-                // Claim flow: show the premium banner and pre-fill name
-                setName(check.existingName || '');
-                setClaimInfo(check);
-            }
-        }
-        await sendOtp();
+    // ── SWITCH TO OTP LOGIN ──────────────────────────────────────────────────
+    const startOtpLogin = async () => {
+        const sent = await sendOtp();
+        if (sent) setStep('otp');
     };
 
-    // ── FLOW: SIGNUP — step 2: verify OTP ───────────────────────────────────
-    const handleSignupOtp = async (e) => {
-        e.preventDefault();
-        const ok = await verifyOtp();
-        if (ok) setStep('password');
-    };
-
-    // ── FLOW: SIGNUP — step 3: set password & create account ────────────────
-    const handleSignupPassword = async (e) => {
-        e.preventDefault(); setError('');
-        if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
-        if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
-        setLoading(true);
-        try {
-            const res = await fetch('/api/customer/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'signup', phone, password, name })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Signup failed');
-            finishLogin(data.user);
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // ── FLOW: OTP LOGIN (existing customers) ─────────────────────────────────
-    const handleOtpLoginPhone = async (e) => {
-        e.preventDefault(); setError('');
-        if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
-        const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
-        if (!check.exists) { setError('No account found with this number. Please sign up.'); return; }
-        if (!check.hasPassword) {
-            setError('This account needs to be set up first. Please use \'Create Account\' to claim it.');
-            return;
-        }
-        await sendOtp();
-    };
-
+    // ── STEP 3: VERIFY OTP (for Login) ───────────────────────────────────────
     const handleOtpLoginVerify = async (e) => {
         e.preventDefault();
         const ok = await verifyOtp();
@@ -358,47 +317,54 @@ function LoginContent() {
                 body: JSON.stringify({ action: 'otp-login', phone })
             });
             const data = await res.json();
-            if (!res.ok) {
-                if (data.needsClaim) { switchFlow('signup'); return; }
-                throw new Error(data.error || 'Login failed');
-            }
+            if (!res.ok) throw new Error(data.error || 'Login failed');
             finishLogin(data.user);
         } catch (err) { setError(err.message); }
         finally { setLoading(false); }
     };
 
-    // ── FLOW: FORGOT — step 1: send OTP ─────────────────────────────────────
-    const handleForgotPhone = async (e) => {
-        e.preventDefault(); setError('');
-        if (phone.length !== 10) { setError('Enter a valid 10-digit mobile number'); return; }
-        const check = await fetch(`/api/customer/auth?phone=${phone}`).then(r => r.json());
-        if (!check.exists) { setError('No account found with this number.'); return; }
-        await sendOtp();
+    // ── SIGNUP / CLAIM INIT ──────────────────────────────────────────────────
+    const startSignupOrClaim = async () => {
+        const sent = await sendOtp();
+        if (sent) setStep('verify-signup');
     };
 
-    // ── FLOW: FORGOT — step 2: verify OTP ───────────────────────────────────
-    const handleForgotOtp = async (e) => {
+    // ── FORGOT PASSWORD INIT ─────────────────────────────────────────────────
+    const startForgotPassword = async () => {
+        const sent = await sendOtp();
+        if (sent) setStep('verify-forgot');
+    };
+
+    // ── VERIFY SIGNUP / FORGOT ───────────────────────────────────────────────
+    const handleVerifyAndProceed = async (e, nextStep) => {
         e.preventDefault();
         const ok = await verifyOtp();
-        if (ok) setStep('password');
+        if (ok) setStep(nextStep);
     };
 
-    // ── FLOW: FORGOT — step 3: set new password ──────────────────────────────
-    const handleForgotPassword = async (e) => {
+    // ── CREATE PASSWORD (Signup / Claim / Forgot) ────────────────────────────
+    const handleCreatePassword = async (e, action) => {
         e.preventDefault(); setError('');
         if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
         if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
         setLoading(true);
         try {
+            const payload = { action, phone, password };
+            if (action === 'signup') payload.name = name; 
+            
             const res = await fetch('/api/customer/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'reset-password', phone, password })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Reset failed');
-            setSuccessMsg('Password reset! You can now log in.');
-            setTimeout(() => switchFlow('login'), 2000);
+            if (!res.ok) throw new Error(data.error || 'Failed to complete.');
+            
+            if (action === 'reset-password') {
+                setSuccessMsg('Password reset! Please log in with your new password.');
+                resetState('password');
+            } else {
+                finishLogin(data.user);
+            }
         } catch (err) {
             setError(err.message);
         } finally {
@@ -406,251 +372,183 @@ function LoginContent() {
         }
     };
 
+    // --- Aesthetic UI Components ---
     const cardStyle = {
-        width: '100%', maxWidth: 440,
-        backgroundColor: 'rgba(30,41,59,0.75)',
-        backdropFilter: 'blur(12px)',
-        borderRadius: 20,
+        width: '100%', maxWidth: 400,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        borderRadius: 24,
         padding: 36,
-        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.1)',
         border: '1px solid rgba(255,255,255,0.1)',
         position: 'relative',
         boxSizing: 'border-box',
+        zIndex: 10,
     };
 
-    const inputGap = { display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 };
+    const inputGap = { display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 };
+    
+    // Determine whether to show the "Login using OTP" button (Hide for tech/admin)
+    const showOtpOption = accountStatus && !accountStatus.isTechnician && !accountStatus.isAdmin;
 
     return (
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)' }}>
+        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
+            {/* Background Watermark */}
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120vw', height: '120vh', opacity: 0.15, pointerEvents: 'none', backgroundImage: 'url("/New%20Logo.jpg")', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center', mixBlendMode: 'screen' }} />
+            
+            {/* Subtle glow behind card */}
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, height: 400, background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+
+            <div id="recaptcha-container" style={{ display: 'none' }}></div>
+
             <main style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                 <div style={cardStyle}>
-
-                    {/* Glow accent */}
-                    <div style={{ position: 'absolute', top: -80, left: -80, width: 200, height: 200, background: 'rgba(99,102,241,0.18)', filter: 'blur(80px)', borderRadius: '50%', pointerEvents: 'none' }} />
-
-                    {/* Logo + Brand */}
-                    <div style={{ textAlign: 'center', marginBottom: 28, position: 'relative' }}>
-                        <Link href="/" style={{ textDecoration: 'none' }}>
-                            <div style={{ width: 64, height: 64, borderRadius: 16, background: 'linear-gradient(135deg,#3b82f6,#6366f1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: 32, boxShadow: '0 8px 20px rgba(99,102,241,0.35)' }}>🏠</div>
-                        </Link>
-                        <h1 style={{ fontSize: 22, fontWeight: 800, color: 'white', marginBottom: 2 }}>Sorted Solutions</h1>
-                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>The Home's Personal Doctor</p>
+                    
+                    {/* Brand Header */}
+                    <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                        <h1 style={{ fontSize: 24, fontWeight: 900, color: 'white', marginBottom: 4, letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-geist-sans), sans-serif' }}>Sorted Solutions</h1>
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 }}>Let's get that Sorted.</p>
                     </div>
 
-                    {/* Error / Success */}
-                    {error && <div style={{ padding: '10px 14px', backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, color: '#f87171', fontSize: 13, marginBottom: 18, textAlign: 'center' }}>{error}</div>}
-                    {successMsg && <div style={{ padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 10, color: '#34d399', fontSize: 13, marginBottom: 18, textAlign: 'center' }}>{successMsg}</div>}
+                    {error && <div style={{ padding: '12px 16px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, color: '#fca5a5', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>{error}</div>}
+                    {successMsg && <div style={{ padding: '12px 16px', backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, color: '#6ee7b7', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>{successMsg}</div>}
 
-                    {/* ─── HUB SCREEN ─── */}
-                    {flow === 'hub' && (
-                        <div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                <button id="hub-password-login" onClick={() => switchFlow('login')} style={{ width: '100%', padding: '18px 20px', background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.3)', borderRadius: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', transition: 'all 0.15s' }}>
-                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(59,130,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🔑</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Login with Password</div>
-                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Use your mobile number & password</div>
-                                    </div>
-                                    <ArrowRight size={18} color="rgba(255,255,255,0.3)" />
-                                </button>
-                                <button id="hub-otp-login" onClick={() => switchFlow('login-otp')} style={{ width: '100%', padding: '18px 20px', background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', transition: 'all 0.15s' }}>
-                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(139,92,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>📱</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Login with OTP</div>
-                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>Quick verification via SMS</div>
-                                    </div>
-                                    <ArrowRight size={18} color="rgba(255,255,255,0.3)" />
-                                </button>
-                                <button id="hub-signup" onClick={() => switchFlow('signup')} style={{ width: '100%', padding: '18px 20px', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, textAlign: 'left', transition: 'all 0.15s' }}>
-                                    <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>✨</div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Create Account</div>
-                                        <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>New to Sorted? Sign up in minutes</div>
-                                    </div>
-                                    <ArrowRight size={18} color="rgba(255,255,255,0.3)" />
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ─── LOGIN FLOW ─── */}
-                    {flow === 'login' && (
-                        <form onSubmit={handleLogin}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
-                                <h2 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: 0 }}>Login with Password</h2>
-                            </div>
-                            <div style={{ marginBottom: 6 }}>
-                                <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Mobile Number</label>
+                    {/* ── 1. INITIAL PHONE ── */}
+                    {step === 'phone' && (
+                        <form onSubmit={handleCheckPhone}>
+                            <div style={inputGap}>
                                 <PhoneInput value={phone} onChange={setPhone} />
                             </div>
-                            <div style={{ marginBottom: 6 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                    <label style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Password</label>
-                                    <button type="button" onClick={() => switchFlow('forgot')} style={{ background: 'none', border: 'none', color: '#60a5fa', fontSize: 12, cursor: 'pointer', padding: 0 }}>Forgot password?</button>
-                                </div>
-                                <PasswordInput value={password} onChange={setPassword} autoFocus={false} />
-                            </div>
-                            <div style={{ marginBottom: 20 }}>
-                                <KeepSignedIn checked={keepSignedIn} onChange={setKeepSignedIn} />
-                            </div>
-                            <SubmitBtn loading={loading}><span>Log In</span><ArrowRight size={18} /></SubmitBtn>
-                            <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'rgba(255,255,255,0.5)' }}>
-                                Don't have an account?{' '}
-                                <button type="button" onClick={() => switchFlow('signup')} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontWeight: 600, fontSize: 13, padding: 0 }}>Sign Up</button>
-                            </p>
+                            <SubmitBtn loading={loading}>Continue</SubmitBtn>
                         </form>
                     )}
 
-                    {/* ─── OTP LOGIN FLOW ─── */}
-                    {flow === 'login-otp' && (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
-                                <h2 style={{ fontSize: 18, fontWeight: 800, color: 'white', margin: 0 }}>Login with OTP</h2>
+                    {/* ── 2A. LOGIN WITH PASSWORD ── */}
+                    {step === 'password' && (
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+                                <button type="button" onClick={() => resetState('phone')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0, transition: 'color 0.2s' }}><ChevronLeft size={16} /> Back</button>
+                                <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>+91 {phone}</div>
                             </div>
-                            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 20 }}>
-                                {step === 'phone' && 'Enter your registered mobile number'}
-                                {step === 'otp' && `OTP sent to +91 ${phone}`}
-                            </p>
-                            <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-                                {['phone','otp'].map((s,i) => (
-                                    <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, backgroundColor: ['phone','otp'].indexOf(step) >= i ? '#8b5cf6' : 'rgba(255,255,255,0.15)', transition: 'background 0.3s' }} />
-                                ))}
-                            </div>
-                            {step === 'phone' && (
-                                <form onSubmit={handleOtpLoginPhone}>
-                                    <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}></div>
-                                    <div style={inputGap}><PhoneInput value={phone} onChange={setPhone} /></div>
-                                    <div style={{ marginBottom: 20 }}><KeepSignedIn checked={keepSignedIn} onChange={setKeepSignedIn} /></div>
-                                    <SubmitBtn loading={loading}><ShieldCheck size={16} /><span>Send OTP</span></SubmitBtn>
-                                </form>
+                            
+                            <form onSubmit={handlePasswordLogin}>
+                                <div style={inputGap}>
+                                    <PasswordInput value={password} onChange={setPassword} autoFocus={true} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                                    <KeepSignedIn checked={keepSignedIn} onChange={setKeepSignedIn} />
+                                    <button type="button" onClick={startForgotPassword} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', padding: 0, textDecoration: 'underline' }}>Forgot password?</button>
+                                </div>
+                                <SubmitBtn loading={loading}>Log In</SubmitBtn>
+                            </form>
+
+                            {showOtpOption && (
+                                <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '24px 0' }}>
+                                        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>OR</span>
+                                        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                                    </div>
+                                    <SubmitBtn variant="secondary" onClick={startOtpLogin} type="button" loading={loading}>Login using OTP</SubmitBtn>
+                                </>
                             )}
-                            {step === 'otp' && (
-                                <form onSubmit={handleOtpLoginVerify}>
-                                    <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
-                                    <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: '#60a5fa', fontSize: 13, cursor: 'pointer' }}>Resend OTP</button>
-                                    <SubmitBtn loading={loading}><span>Verify & Login</span><ArrowRight size={16} /></SubmitBtn>
-                                </form>
-                            )}
-                        </>
+                        </div>
                     )}
 
-                    {/* ─── SIGNUP FLOW ─── */}
-                    {flow === 'signup' && (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
+                    {/* ── 2B. LOGIN WITH OTP ── */}
+                    {step === 'otp' && (
+                        <form onSubmit={handleOtpLoginVerify}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+                                <button type="button" onClick={() => setStep('password')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Login with password</button>
                             </div>
-                            <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 4 }}>Create Account</h2>
-                            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24 }}>
-                                {step === 'phone' && 'Enter your mobile number to get started'}
-                                {step === 'otp' && `Enter the 6-digit OTP sent to +91 ${phone}`}
-                                {step === 'password' && 'Set a password for your account'}
-                            </p>
-
-                            {/* Step indicators */}
-                            <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-                                {['phone', 'otp', 'password'].map((s, i) => (
-                                    <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, backgroundColor: ['phone', 'otp', 'password'].indexOf(step) >= i ? '#3b82f6' : 'rgba(255,255,255,0.15)', transition: 'background 0.3s' }} />
-                                ))}
+                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Verify it's you</div>
+                                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Enter the 6-digit code sent to +91 {phone}</div>
                             </div>
-
-                            {step === 'phone' && (
-                                <form onSubmit={handleSignupPhone}>
-                                    <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}></div>
-                                    {claimInfo && (
-                                        <div style={{ marginBottom: 16, background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(56,189,248,0.08))', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 16, padding: '16px' }}>
-                                            <div style={{ fontSize: 13, fontWeight: 800, color: '#10b981', marginBottom: 8 }}>✨ Your account is already ready!</div>
-                                            <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: 1.6, marginBottom: 10 }}>Our team set this up for you. Just verify your number to claim what's yours.</div>
-                                            {claimInfo.propertyPreview && <div style={{ fontSize: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '6px 10px', color: '#cbd5e1', marginBottom: 6 }}>📍 {claimInfo.propertyPreview}</div>}
-                                            {claimInfo.hasJobs && <div style={{ fontSize: 12, background: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: '6px 10px', color: '#cbd5e1' }}>🔧 {claimInfo.jobCount} active booking{claimInfo.jobCount > 1 ? 's' : ''}</div>}
-                                        </div>
-                                    )}
-                                    <div style={inputGap}>
-                                        <PhoneInput value={phone} onChange={setPhone} />
-                                    </div>
-                                    <SubmitBtn loading={loading}><ShieldCheck size={16} /><span>Send OTP</span></SubmitBtn>
-                                </form>
-                            )}
-                            {step === 'otp' && (
-                                <form onSubmit={handleSignupOtp}>
-                                    <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
-                                    <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: '#60a5fa', fontSize: 13, cursor: 'pointer' }}>Resend OTP</button>
-                                    <SubmitBtn loading={loading}><span>Verify OTP</span><ArrowRight size={16} /></SubmitBtn>
-                                </form>
-                            )}
-                            {step === 'password' && (
-                                <form onSubmit={handleSignupPassword}>
-                                    <div style={inputGap}>
-                                        <div style={{ position: 'relative' }}>
-                                            <input
-                                                type="text"
-                                                placeholder="Full Name"
-                                                value={name}
-                                                onChange={e => setName(e.target.value)}
-                                                autoFocus
-                                                style={{ width: '100%', padding: '13px 14px', backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box' }}
-                                                required
-                                            />
-                                        </div>
-                                        <PasswordInput value={password} onChange={setPassword} placeholder="Create password (min. 6 chars)" />
-                                        <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm password" />
-                                    </div>
-                                    <div style={{ marginBottom: 20 }}>
-                                        <KeepSignedIn checked={keepSignedIn} onChange={setKeepSignedIn} />
-                                    </div>
-                                    <SubmitBtn loading={loading}><CheckCircle2 size={16} /><span>Create Account</span></SubmitBtn>
-                                </form>
-                            )}
-                        </>
+                            <div style={{ marginBottom: 24 }}>
+                                <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
+                            </div>
+                            <SubmitBtn loading={loading}>Verify & Login</SubmitBtn>
+                            <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>Resend OTP</button>
+                        </form>
                     )}
 
-                    {/* ─── FORGOT PASSWORD FLOW ────────────────────────────── */}
-                    {flow === 'forgot' && (
-                        <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                                <button type="button" onClick={() => switchFlow('hub')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
+                    {/* ── 3A. CLAIM INIT (No password) ── */}
+                    {step === 'claim-init' && (
+                        <div>
+                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 16px' }}>✨</div>
+                                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>We found your account!</h2>
+                                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>Our team has already set this up for you. Verify your number to secure it and view your details.</p>
                             </div>
-                            <h2 style={{ fontSize: 20, fontWeight: 800, color: 'white', marginBottom: 4 }}>Reset Password</h2>
-                            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 24 }}>
-                                {step === 'phone' && 'Enter your registered mobile number'}
-                                {step === 'otp' && `Enter the 6-digit OTP sent to +91 ${phone}`}
-                                {step === 'password' && 'Set your new password'}
-                            </p>
+                            <SubmitBtn type="button" onClick={startSignupOrClaim} loading={loading}>Send OTP to Secure Account</SubmitBtn>
+                            <button type="button" onClick={() => resetState('phone')} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>Use a different number</button>
+                        </div>
+                    )}
 
-                            <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-                                {['phone', 'otp', 'password'].map((s, i) => (
-                                    <div key={s} style={{ flex: 1, height: 3, borderRadius: 99, backgroundColor: ['phone', 'otp', 'password'].indexOf(step) >= i ? '#6366f1' : 'rgba(255,255,255,0.15)', transition: 'background 0.3s' }} />
-                                ))}
+                    {/* ── 3B. SIGNUP INIT ── */}
+                    {step === 'signup-init' && (
+                        <div>
+                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>No account found</h2>
+                                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>Looks like you're new here! Sign up in minutes to get started.</p>
                             </div>
+                            <SubmitBtn type="button" onClick={startSignupOrClaim} loading={loading}>Sign Up</SubmitBtn>
+                            <button type="button" onClick={() => resetState('phone')} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>Back to login</button>
+                        </div>
+                    )}
 
-                            {step === 'phone' && (
-                                <form onSubmit={handleForgotPhone}>
-                                    <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}></div>
-                                    <div style={inputGap}>
-                                        <PhoneInput value={phone} onChange={setPhone} />
+                    {/* ── 4. VERIFY OTP (For Signup/Claim/Forgot) ── */}
+                    {(step === 'verify-signup' || step === 'verify-forgot') && (
+                        <form onSubmit={(e) => handleVerifyAndProceed(e, 'create-password')}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24 }}>
+                                <button type="button" onClick={() => resetState('phone')} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, padding: 0 }}><ChevronLeft size={16} /> Back</button>
+                            </div>
+                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 4 }}>Verify it's you</div>
+                                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>Enter the 6-digit code sent to +91 {phone}</div>
+                            </div>
+                            <div style={{ marginBottom: 24 }}>
+                                <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
+                            </div>
+                            <SubmitBtn loading={loading}>Continue</SubmitBtn>
+                            <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}>Resend OTP</button>
+                        </form>
+                    )}
+
+                    {/* ── 5. CREATE PASSWORD (Signup/Claim/Forgot) ── */}
+                    {step === 'create-password' && (
+                        <form onSubmit={(e) => handleCreatePassword(e, accountStatus?.hasPassword ? 'reset-password' : 'signup')}>
+                            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+                                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>
+                                    {accountStatus?.hasPassword ? 'Reset Password' : 'Set a Password'}
+                                </h2>
+                                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>
+                                    {accountStatus?.hasPassword ? 'Create a new password for your account.' : 'Secure your account with a password.'}
+                                </p>
+                            </div>
+                            <div style={inputGap}>
+                                {/* Only show Name field if true brand-new signup */}
+                                {!accountStatus?.exists && (
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Full Name"
+                                            value={name}
+                                            onChange={e => setName(e.target.value)}
+                                            style={{ width: '100%', padding: '13px 14px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box', outline: 'none' }}
+                                            required
+                                        />
                                     </div>
-                                    <SubmitBtn loading={loading}><ShieldCheck size={16} /><span>Send OTP</span></SubmitBtn>
-                                </form>
-                            )}
-                            {step === 'otp' && (
-                                <form onSubmit={handleForgotOtp}>
-                                    <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
-                                    <button type="button" onClick={sendOtp} style={{ display: 'block', margin: '12px auto 0', background: 'none', border: 'none', color: '#60a5fa', fontSize: 13, cursor: 'pointer' }}>Resend OTP</button>
-                                    <SubmitBtn loading={loading}><span>Verify OTP</span><ArrowRight size={16} /></SubmitBtn>
-                                </form>
-                            )}
-                            {step === 'password' && (
-                                <form onSubmit={handleForgotPassword}>
-                                    <div style={inputGap}>
-                                        <PasswordInput value={password} onChange={setPassword} placeholder="New password (min. 6 chars)" autoFocus />
-                                        <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm new password" />
-                                    </div>
-                                    <SubmitBtn loading={loading}><CheckCircle2 size={16} /><span>Reset Password</span></SubmitBtn>
-                                </form>
-                            )}
-                        </>
+                                )}
+                                <PasswordInput value={password} onChange={setPassword} placeholder="New password (min. 6 chars)" autoFocus />
+                                <PasswordInput value={confirmPassword} onChange={setConfirmPassword} placeholder="Confirm new password" />
+                            </div>
+                            <SubmitBtn loading={loading}>
+                                {accountStatus?.hasPassword ? 'Reset Password' : 'Create Account'}
+                            </SubmitBtn>
+                        </form>
                     )}
 
                 </div>
@@ -661,7 +559,7 @@ function LoginContent() {
 
 export default function LoginPage() {
     return (
-        <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a', color: 'white' }}>Loading...</div>}>
+        <Suspense fallback={<div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', color: 'white' }}>Loading...</div>}>
             <LoginContent />
         </Suspense>
     );

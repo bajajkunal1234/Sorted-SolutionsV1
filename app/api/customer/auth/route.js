@@ -23,8 +23,15 @@ export async function GET(request) {
             .maybeSingle()
 
         if (techData) {
-            // Treat as "exists" so signup flow blocks this number
-            return NextResponse.json({ exists: true, isTechnician: true })
+            // Technicians log in via the same page with a password
+            return NextResponse.json({ exists: true, isTechnician: true, hasPassword: true })
+        }
+
+        // Check Admins
+        const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
+        if (adminPhones.includes(last10)) {
+            // Admins log in via the same page with a password
+            return NextResponse.json({ exists: true, isAdmin: true, hasPassword: true })
         }
 
         const { data } = await supabase
