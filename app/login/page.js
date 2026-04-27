@@ -400,7 +400,7 @@ function LoginContent() {
             {/* Subtle glow behind card */}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, height: 400, background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
 
-            <div id="recaptcha-container" style={{ display: 'none' }}></div>
+            <div id="recaptcha-container"></div>
 
             <main style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                 <div style={cardStyle}>
