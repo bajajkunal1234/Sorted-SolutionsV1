@@ -494,11 +494,12 @@ function LoginContent() {
                     {step === 'signup-init' && (
                         <div>
                             <div style={{ textAlign: 'center', marginBottom: 24 }}>
-                                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>No account found</h2>
-                                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>Looks like you're new here! Sign up in minutes to get started.</p>
+                                <div style={{ fontSize: 36, marginBottom: 12 }}>👋</div>
+                                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Welcome to Sorted!</h2>
+                                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>We'd love to have you on board. Create your account in under a minute and get expert appliance care at your doorstep.</p>
                             </div>
-                            <SubmitBtn type="button" onClick={startSignupOrClaim} loading={loading}>Sign Up</SubmitBtn>
-                            <button type="button" onClick={() => resetState('phone')} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>Back to login</button>
+                            <SubmitBtn type="button" onClick={startSignupOrClaim} loading={loading}>Create My Account →</SubmitBtn>
+                            <button type="button" onClick={() => resetState('phone')} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>Use a different number</button>
                         </div>
                     )}
 
