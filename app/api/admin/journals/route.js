@@ -186,14 +186,33 @@ export async function DELETE(request) {
 
         if (!id) return NextResponse.json({ success: false, error: 'Journal ID required' }, { status: 400 })
 
-        const { data: current } = await supabase.from('journal_entries').select('reference_type, entry_number').eq('id', id).single()
+        const { data: current } = await supabase.from('journal_entries').select('reference_type, reference_id, entry_number').eq('id', id).single()
         
         if (!current) {
             return NextResponse.json({ success: false, error: 'Journal entry not found' }, { status: 404 })
         }
 
         if (current.reference_type !== 'manual') {
-            return NextResponse.json({ success: false, error: 'Only manual journal entries can be deleted directly. Delete the source transaction instead.' }, { status: 400 })
+            const typeMap = {
+                'sales_invoice': 'sales_invoices',
+                'purchase_invoice': 'purchase_invoices',
+                'receipt_invoice': 'receipt_vouchers',
+                'payment_invoice': 'payment_vouchers'
+            };
+            const tableName = typeMap[current.reference_type];
+            let isOrphan = false;
+
+            if (tableName && current.reference_id) {
+                const { data: sourceTx } = await supabase.from(tableName).select('id').eq('id', current.reference_id).single();
+                if (!sourceTx) isOrphan = true;
+            } else if (!tableName) {
+                // If it's a completely unknown type, treat it as an orphan so it can be cleared
+                isOrphan = true;
+            }
+
+            if (!isOrphan) {
+                return NextResponse.json({ success: false, error: 'Only manual journal entries can be deleted directly. Delete the source transaction instead.' }, { status: 400 })
+            }
         }
 
         const { error } = await supabase.from('journal_entries').delete().eq('id', id)
