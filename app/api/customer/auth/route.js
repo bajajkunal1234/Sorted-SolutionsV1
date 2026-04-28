@@ -177,10 +177,10 @@ export async function POST(request) {
                     return NextResponse.json({ error: 'Failed to claim technician account.' }, { status: 500 });
                 }
 
-                logInteractionServer({
+                await logInteractionServer({
                     type: 'technician-account-claimed',
                     category: 'account',
-                    customerId: String(updatedTech.id),
+                    customerId: updatedTech.ledger_id || null,
                     customerName: techName,
                     description: `Technician claimed access to admin-created account (${last10})`,
                     source: 'Technician App'
@@ -241,10 +241,10 @@ export async function POST(request) {
                             .eq('id', updatedCustomer.ledger_id);
                     }
 
-                    logInteractionServer({
+                    await logInteractionServer({
                         type: 'account-claimed',
                         category: 'account',
-                        customerId: String(updatedCustomer.id),
+                        customerId: updatedCustomer.ledger_id || null,
                         customerName,
                         description: `Customer claimed organic access to admin-created account (${last10})`,
                         source: 'Customer App'
@@ -346,10 +346,10 @@ export async function POST(request) {
                     .update({ name: customerName })
                     .eq('id', ledgerId);
                 
-                logInteractionServer({
+                await logInteractionServer({
                     type: 'account-claimed',
                     category: 'account',
-                    customerId: String(newCustomer.id),
+                    customerId: ledgerId || null,
                     customerName,
                     description: `Customer claimed organic access to admin-created ledger account (${last10})`,
                     source: 'Customer App'
@@ -357,10 +357,10 @@ export async function POST(request) {
             }
 
             if (!isLedgerOnly) {
-                logInteractionServer({
+                await logInteractionServer({
                     type: 'account-created-website',
                     category: 'account',
-                    customerId: String(newCustomer.id),
+                    customerId: accountEntryId || null,
                     customerName,
                     description: `New customer signed up via mobile+password (${last10})`,
                     source: 'Customer App',
@@ -407,7 +407,7 @@ export async function POST(request) {
                     return NextResponse.json({ error: 'Incorrect admin password.' }, { status: 401 })
                 }
                 
-                logInteractionServer({ type: 'admin-login', category: 'account', customerId: 'admin', customerName: 'Admin', description: `Admin logged in (${last10})`, source: 'Admin Portal' })
+                await logInteractionServer({ type: 'admin-login', category: 'account', customerId: null, customerName: 'Admin', description: `Admin logged in (${last10})`, source: 'Admin Portal' })
                 
                 // Return fake user object for admin
                 return NextResponse.json({ 
@@ -426,7 +426,7 @@ export async function POST(request) {
             const isValid = await bcrypt.compare(password, customer.password_hash)
             if (!isValid) return NextResponse.json({ error: 'Incorrect password. Try again or use Forgot Password.' }, { status: 401 })
 
-            logInteractionServer({ type: 'customer-login', category: 'account', customerId: String(customer.id), customerName: customer.name || customer.phone, description: 'Customer logged in via mobile+password', source: 'Customer App' })
+            await logInteractionServer({ type: 'customer-login', category: 'account', customerId: customer.ledger_id || null, customerName: customer.name || customer.phone, description: 'Customer logged in via mobile+password', source: 'Customer App' })
 
             const { password_hash, ...safeUser } = customer
             return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: customer.profile_complete ?? false }, message: 'Login successful' })
@@ -446,7 +446,7 @@ export async function POST(request) {
                 if (technician.is_active === false) {
                     return NextResponse.json({ error: 'Your account has been deactivated. Please contact the administrator.' }, { status: 403 })
                 }
-                logInteractionServer({ type: 'technician-login-otp', category: 'account', customerId: String(technician.id), customerName: technician.name, description: `Technician logged in via OTP (${last10})`, source: 'Technician App' })
+                await logInteractionServer({ type: 'technician-login-otp', category: 'account', customerId: technician.ledger_id || null, customerName: technician.name, description: `Technician logged in via OTP (${last10})`, source: 'Technician App' })
                 const { password_hash, ...safeTech } = technician
                 return NextResponse.json({ success: true, user: { ...safeTech, role: 'technician' }, message: 'Login successful' })
             }
@@ -454,7 +454,7 @@ export async function POST(request) {
             // ── Check if Admin ──
             const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
             if (adminPhones.includes(last10)) {
-                logInteractionServer({ type: 'admin-login-otp', category: 'account', customerId: 'admin', customerName: 'Admin', description: `Admin logged in via OTP (${last10})`, source: 'Admin Portal' })
+                await logInteractionServer({ type: 'admin-login-otp', category: 'account', customerId: null, customerName: 'Admin', description: `Admin logged in via OTP (${last10})`, source: 'Admin Portal' })
                 return NextResponse.json({ 
                     success: true, 
                     user: { id: 'admin-id', name: 'Admin', phone: last10, role: 'admin', profile_complete: true }, 
@@ -484,10 +484,10 @@ export async function POST(request) {
                 }, { status: 400 })
             }
 
-            logInteractionServer({
+            await logInteractionServer({
                 type: 'customer-login-otp',
                 category: 'account',
-                customerId: String(customer.id),
+                customerId: customer.ledger_id || null,
                 customerName: customer.name || customer.phone,
                 description: `Customer logged in via OTP (${last10})`,
                 source: 'Customer App'
@@ -521,10 +521,10 @@ export async function POST(request) {
                     .update({ password_hash: passwordHash, updated_at: new Date().toISOString() })
                     .eq('id', technician.id)
 
-                logInteractionServer({
+                await logInteractionServer({
                     type: 'technician-password-reset',
                     category: 'account',
-                    customerId: String(technician.id),
+                    customerId: technician.ledger_id || null,
                     customerName: technician.name || last10,
                     description: `Technician reset password via OTP (${last10})`,
                     source: 'Technician App',
@@ -545,10 +545,10 @@ export async function POST(request) {
                 .update({ password_hash: passwordHash, updated_at: new Date().toISOString() })
                 .eq('id', customer.id)
 
-            logInteractionServer({
+            await logInteractionServer({
                 type: 'password-reset',
                 category: 'account',
-                customerId: String(customer.id),
+                customerId: customer.ledger_id || null,
                 customerName: customer.name || last10,
                 description: `Customer reset password via OTP (${last10})`,
                 source: 'Customer App',

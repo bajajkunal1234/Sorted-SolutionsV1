@@ -99,10 +99,10 @@ export async function PATCH(request) {
         if (updates.profile_complete) updateDesc.push('profile setup completed')
         
         if (updateDesc.length > 0) {
-            logInteractionServer({
+            await logInteractionServer({
                 type: 'profile-updated',
                 category: 'account',
-                customerId: customerId,
+                customerId: customer.ledger_id || null,
                 customerName: customer.name || customer.phone,
                 description: `Customer updated ${updateDesc.join(', ')}`,
                 source: 'Customer App'
