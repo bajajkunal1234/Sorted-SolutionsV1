@@ -15,16 +15,23 @@ export async function GET(request) {
         if (id) {
             const { data, error } = await supabase
                 .from('accounts')
-                .select('*')
+                .select('*, customers:customers(password_hash, image_url)')
                 .eq('id', id)
                 .single()
             if (error) throw error
+            
+            if (data.customers && data.customers[0]) {
+                data.accountImage = data.customers[0].image_url;
+                data.is_claimed = !!data.customers[0].password_hash;
+            }
+            delete data.customers;
+            
             return NextResponse.json({ success: true, data })
         }
 
         let query = supabase
             .from('accounts')
-            .select('*, jobs:jobs(count), customers:customers(password_hash)')
+            .select('*, jobs:jobs(count), customers:customers(password_hash, image_url)')
             .order('name', { ascending: true })
             .limit(1000)
 
@@ -62,6 +69,7 @@ export async function GET(request) {
 
             return {
                 ...account,
+                accountImage: customerData?.image_url || null,
                 jobs_done: account.jobs?.[0]?.count || 0,
                 jobs: undefined, // Clean up the raw relational object before sending to client
                 acquisition_source: acqSource,
