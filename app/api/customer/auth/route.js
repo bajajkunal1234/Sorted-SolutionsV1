@@ -153,7 +153,41 @@ export async function POST(request) {
             const existingTech = await findTechnicianByPhone(supabase, last10)
 
             if (existingTech) {
-                return NextResponse.json({ error: 'This number is already registered as a technician account. Please use the technician login portal.' }, { status: 409 })
+                if (existingTech.password_hash) {
+                    return NextResponse.json({ error: 'An account with this number already exists. Please log in.' }, { status: 409 });
+                }
+                
+                // Allow technician to set password for the first time
+                const passwordHash = await bcrypt.hash(password, 12);
+                const techName = name || existingTech.name || `Technician ${last10.slice(-4)}`;
+
+                const { data: updatedTech, error: updateError } = await supabase
+                    .from('technicians')
+                    .update({
+                        name: techName,
+                        password_hash: passwordHash,
+                        phone: last10,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', existingTech.id)
+                    .select()
+                    .single();
+
+                if (updateError) {
+                    return NextResponse.json({ error: 'Failed to claim technician account.' }, { status: 500 });
+                }
+
+                logInteractionServer({
+                    type: 'technician-account-claimed',
+                    category: 'account',
+                    customerId: String(updatedTech.id),
+                    customerName: techName,
+                    description: `Technician claimed access to admin-created account (${last10})`,
+                    source: 'Technician App'
+                });
+
+                const { password_hash: ph, ...safeUser } = updatedTech;
+                return NextResponse.json({ success: true, user: { ...safeUser, role: 'technician' }, message: 'Account registered successfully' });
             }
 
             // Check not already registered as customer (robust phone format matching)
@@ -349,6 +383,10 @@ export async function POST(request) {
             const technician = await findTechnicianByPhone(supabase, last10)
 
             if (technician && technician.password_hash) {
+                if (technician.is_active === false) {
+                    return NextResponse.json({ error: 'Your account has been deactivated. Please contact the administrator.' }, { status: 403 })
+                }
+
                 const techValid = technician.password_hash.startsWith('$2')
                     ? await bcrypt.compare(password, technician.password_hash)
                     : technician.password_hash === password
@@ -404,8 +442,10 @@ export async function POST(request) {
             // ── Check technicians FIRST by phone ──
             const technician = await findTechnicianByPhone(supabase, last10)
 
-
             if (technician) {
+                if (technician.is_active === false) {
+                    return NextResponse.json({ error: 'Your account has been deactivated. Please contact the administrator.' }, { status: 403 })
+                }
                 logInteractionServer({ type: 'technician-login-otp', category: 'account', customerId: String(technician.id), customerName: technician.name, description: `Technician logged in via OTP (${last10})`, source: 'Technician App' })
                 const { password_hash, ...safeTech } = technician
                 return NextResponse.json({ success: true, user: { ...safeTech, role: 'technician' }, message: 'Login successful' })
@@ -467,6 +507,31 @@ export async function POST(request) {
             if (!phone || !password) return NextResponse.json({ error: 'Phone and password required' }, { status: 400 })
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
+
+            const technician = await findTechnicianByPhone(supabase, last10)
+
+            if (technician) {
+                if (technician.is_active === false) {
+                    return NextResponse.json({ error: 'Your account has been deactivated. Please contact the administrator.' }, { status: 403 })
+                }
+
+                const passwordHash = await bcrypt.hash(password, 12)
+                await supabase
+                    .from('technicians')
+                    .update({ password_hash: passwordHash, updated_at: new Date().toISOString() })
+                    .eq('id', technician.id)
+
+                logInteractionServer({
+                    type: 'technician-password-reset',
+                    category: 'account',
+                    customerId: String(technician.id),
+                    customerName: technician.name || last10,
+                    description: `Technician reset password via OTP (${last10})`,
+                    source: 'Technician App',
+                })
+
+                return NextResponse.json({ success: true, message: 'Password updated successfully' })
+            }
 
             const customer = await findCustomerByPhone(supabase, last10)
 
