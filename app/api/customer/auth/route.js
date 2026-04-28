@@ -14,30 +14,31 @@ export async function GET(request) {
 
         const last10 = phone.replace(/\D/g, '').slice(-10)
 
+        // Helper: find a row whose phone ends with the last 10 digits (handles +91, 0-prefix, spaces, etc)
+        const phoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
+
         // Check technicians first — technician phones should never be allowed to sign up as customers
         const { data: techData } = await supabase
             .from('technicians')
             .select('id')
-            .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+            .or(phoneFilter)
             .limit(1)
             .maybeSingle()
 
         if (techData) {
-            // Technicians log in via the same page with a password
             return NextResponse.json({ exists: true, isTechnician: true, hasPassword: true })
         }
 
         // Check Admins
         const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim()).filter(Boolean)
         if (adminPhones.includes(last10)) {
-            // Admins log in via the same page with a password
             return NextResponse.json({ exists: true, isAdmin: true, hasPassword: true })
         }
 
         const { data } = await supabase
             .from('customers')
             .select('id, name, phone, password_hash, ledger_id')
-            .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+            .or(phoneFilter)
             .limit(1)
             .maybeSingle()
 
@@ -94,11 +95,11 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
-            // Block technician phones from creating customer accounts
+            const techPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
             const { data: existingTech } = await supabase
                 .from('technicians')
                 .select('id')
-                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .or(techPhoneFilter)
                 .limit(1)
                 .maybeSingle()
 
@@ -106,11 +107,12 @@ export async function POST(request) {
                 return NextResponse.json({ error: 'This number is already registered as a technician account. Please use the technician login portal.' }, { status: 409 })
             }
 
-            // Check not already registered as customer
+            // Check not already registered as customer (robust phone format matching)
+            const phoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
             const { data: existing } = await supabase
                 .from('customers')
                 .select('id, password_hash, ledger_id')
-                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .or(phoneFilter)
                 .limit(1)
                 .maybeSingle()
 
@@ -127,7 +129,7 @@ export async function POST(request) {
                         .update({
                             name: customerName,
                             password_hash: passwordHash,
-                            // Keep profile_complete: false so OnboardingWizard runs (claim-aware variant)
+                            phone: last10, // normalize phone to clean 10-digit format on claim
                             profile_complete: false,
                             updated_at: new Date().toISOString()
                         })
@@ -257,11 +259,13 @@ export async function POST(request) {
 
             const last10 = raw.replace(/\D/g, '').slice(-10)
 
+            const techPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
+
             // ── Check technicians FIRST by phone ──
             const { data: technician } = await supabase
                 .from('technicians')
                 .select('*')
-                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .or(techPhoneFilter)
                 .eq('is_active', true)
                 .limit(1)
                 .maybeSingle()
@@ -297,11 +301,12 @@ export async function POST(request) {
                 })
             }
 
-            // ── Fall through to customer lookup ──
+            // ── Fall through to customer lookup (robust phone format matching) ──
+            const custPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
             const { data: customer } = await supabase
                 .from('customers')
                 .select('*')
-                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .or(custPhoneFilter)
                 .limit(1)
                 .maybeSingle()
 
@@ -325,10 +330,11 @@ export async function POST(request) {
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
             // ── Check technicians FIRST by phone ──
+            const otpTechFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
             const { data: technician } = await supabase
                 .from('technicians')
                 .select('*')
-                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .or(otpTechFilter)
                 .eq('is_active', true)
                 .limit(1)
                 .maybeSingle()
@@ -350,11 +356,12 @@ export async function POST(request) {
                 })
             }
 
-            // ── Check Customer ──
+            // ── Check Customer (robust phone format matching) ──
+            const otpCustFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
             const { data: customer } = await supabase
                 .from('customers')
                 .select('*')
-                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .or(otpCustFilter)
                 .limit(1)
                 .maybeSingle()
 
@@ -393,10 +400,11 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
+            const resetPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
             const { data: customer } = await supabase
                 .from('customers')
                 .select('id, name')
-                .or(`phone.eq.${last10},phone.eq.+91${last10}`)
+                .or(resetPhoneFilter)
                 .limit(1)
                 .single()
 
