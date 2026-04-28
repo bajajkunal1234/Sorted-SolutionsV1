@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase'
-import { logInteractionServer } from '@/lib/logger'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'

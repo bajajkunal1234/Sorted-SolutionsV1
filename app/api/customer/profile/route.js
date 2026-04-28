@@ -1,5 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase-server'
-import { logInteractionServer } from '@/lib/logger'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
