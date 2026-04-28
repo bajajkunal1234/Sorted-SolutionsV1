@@ -36,13 +36,29 @@ export async function GET(request) {
             return NextResponse.json({ success: true, properties: enriched })
         }
 
-        // Fetch customer's active linked properties
-        const { data, error } = await supabase
+        // Get the customer's ledger_id if it exists
+        const { data: customer } = await supabase
+            .from('customers')
+            .select('ledger_id')
+            .eq('id', customerId)
+            .single()
+
+        const ledgerId = customer?.ledger_id
+
+        // Fetch active linked properties using either customer_id or account_id (ledger_id)
+        let query = supabase
             .from('customer_properties')
             .select('*, property:properties(*)')
-            .eq('customer_id', customerId)
             .eq('is_active', true)
             .order('linked_at', { ascending: false })
+
+        if (ledgerId) {
+            query = query.or(`customer_id.eq.${customerId},account_id.eq.${ledgerId}`)
+        } else {
+            query = query.eq('customer_id', customerId)
+        }
+
+        const { data, error } = await query
 
         if (error) throw error
 
