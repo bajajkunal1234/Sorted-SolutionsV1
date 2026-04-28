@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { CheckCircle, MapPin, User, ArrowRight, Home, AlertCircle, Loader2, Camera, RefreshCw } from 'lucide-react'
+import { CheckCircle, MapPin, User, ArrowRight, ArrowLeft, Home, AlertCircle, Loader2, Camera, RefreshCw } from 'lucide-react'
 import LocalityCombobox from '@/components/common/LocalityCombobox'
 import dynamic from 'next/dynamic'
 import UseCurrentLocationButton from '@/components/common/UseCurrentLocationButton'
@@ -15,17 +15,16 @@ const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'),
 const S = {
     overlay: {
         position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+        background: '#000000',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
         padding: '24px 20px', fontFamily: "'Inter', system-ui, sans-serif", color: '#f8fafc',
         overflowY: 'auto',
     },
     card: {
         width: '100%', maxWidth: 440,
-        background: 'rgba(255,255,255,0.04)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        borderRadius: 28, padding: '32px 28px',
-        backdropFilter: 'blur(12px)',
+        background: 'transparent',
+        border: 'none',
+        borderRadius: 0, padding: '16px 0px',
     },
     label: { display: 'block', fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
     input: {
@@ -513,10 +512,8 @@ function StepDone({ name, onFinish }) {
 
 // ─── Main Wizard Component ───────────────────────────────────────────────────
 export default function OnboardingWizard({ initialName, customerId, isClaim, onComplete }) {
-    const hasRealName = initialName && initialName.trim() !== '' && !initialName.trim().startsWith('Customer ')
-    // Claim flow: step 1=properties, 2=photo, 3=done (3 steps)
-    // Normal flow: step 1=name (skip if has name), 2=photo, 3=address, 4=done (4 steps)
-    const [step, setStep] = useState(isClaim ? 1 : (hasRealName ? 2 : 1))
+    // Both flows now have 4 steps
+    const [step, setStep] = useState(1)
     const [name, setName] = useState(initialName || '')
     const [propCount, setPropCount] = useState(0)
 
@@ -551,15 +548,14 @@ export default function OnboardingWizard({ initialName, customerId, isClaim, onC
         onComplete()
     }
 
-    const totalSteps = isClaim ? 3 : 4
+    const totalSteps = 4
 
-    // Claim flow: 1=properties+pin, 2=photo, 3=done
-    // Normal flow: 1=name, 2=photo, 3=address, 4=done
     const renderStep = () => {
         if (isClaim) {
-            if (step === 1) return <StepClaimProperties customerId={customerId} name={name} onNext={(count) => { if (count !== undefined) setPropCount(count); setStep(2) }} />
+            if (step === 1) return <StepWelcome name={name} onNext={handleNameNext} />
             if (step === 2) return <StepPhoto name={name} customerId={customerId} onNext={() => setStep(3)} onSkip={() => setStep(3)} />
-            if (step === 3) return <StepClaimDone name={name} propCount={propCount} onFinish={handleFinish} />
+            if (step === 3) return <StepClaimProperties customerId={customerId} name={name} onNext={(count) => { if (count !== undefined) setPropCount(count); setStep(4) }} />
+            if (step === 4) return <StepClaimDone name={name} propCount={propCount} onFinish={handleFinish} />
         } else {
             if (step === 1) return <StepWelcome name={name} onNext={handleNameNext} />
             if (step === 2) return <StepPhoto name={name} customerId={customerId} onNext={() => setStep(3)} onSkip={() => setStep(3)} />
@@ -570,6 +566,11 @@ export default function OnboardingWizard({ initialName, customerId, isClaim, onC
 
     return (
         <div style={S.overlay}>
+            {step > 1 && step < totalSteps && (
+                <button onClick={() => setStep(step - 1)} style={{ position: 'absolute', top: 24, left: 20, background: 'none', border: 'none', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, cursor: 'pointer', zIndex: 1100 }}>
+                    <ArrowLeft size={16} /> Back
+                </button>
+            )}
             <div style={{ width: '100%', maxWidth: 440 }}>
                 <div style={{ textAlign: 'center', marginBottom: 24 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: '#38bdf8', letterSpacing: 2, textTransform: 'uppercase' }}>SORTED SOLUTIONS</div>

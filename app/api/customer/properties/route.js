@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { logInteractionServer } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -112,6 +113,17 @@ export async function PATCH(request) {
             .single()
 
         if (error) throw error
+
+        const { data: customer } = await supabase.from('customers').select('name, phone').eq('id', customerId).single()
+        
+        logInteractionServer({
+            type: 'property-pin-refined',
+            category: 'account',
+            customerId: customerId,
+            customerName: customer?.name || customer?.phone || 'Customer',
+            description: `Customer pinned their exact location for ${property.address || property.building_name || 'their property'}`,
+            source: 'Customer App'
+        })
 
         return NextResponse.json({ success: true, property })
     } catch (error) {

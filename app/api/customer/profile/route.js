@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
+import { logInteractionServer } from '@/lib/logger'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
@@ -13,6 +14,7 @@ export async function GET(request) {
             )
         }
 
+        const supabase = createServerSupabase()
         const { data: customer, error } = await supabase
             .from('customers')
             .select('*')
@@ -59,6 +61,7 @@ export async function PATCH(request) {
         delete updates.password_hash
         delete updates.id
 
+        const supabase = createServerSupabase()
         const { data: customer, error } = await supabase
             .from('customers')
             .update({
@@ -75,6 +78,35 @@ export async function PATCH(request) {
                 { error: 'Failed to update profile' },
                 { status: 500 }
             )
+        }
+
+        // Sync with ledger if exists
+        if (customer.ledger_id && (updates.name || updates.image_url)) {
+            const ledgerUpdates = {}
+            if (updates.name) ledgerUpdates.name = updates.name
+            if (updates.image_url) ledgerUpdates.account_image = updates.image_url
+            
+            await supabase
+                .from('accounts')
+                .update(ledgerUpdates)
+                .eq('id', customer.ledger_id)
+        }
+
+        // Log interaction
+        let updateDesc = []
+        if (updates.name) updateDesc.push('name')
+        if (updates.image_url) updateDesc.push('profile photo')
+        if (updates.profile_complete) updateDesc.push('profile setup completed')
+        
+        if (updateDesc.length > 0) {
+            logInteractionServer({
+                type: 'profile-updated',
+                category: 'account',
+                customerId: customerId,
+                customerName: customer.name || customer.phone,
+                description: `Customer updated ${updateDesc.join(', ')}`,
+                source: 'Customer App'
+            })
         }
 
         // Remove sensitive data
