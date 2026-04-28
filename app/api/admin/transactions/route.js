@@ -482,6 +482,9 @@ export async function DELETE(request) {
 
         if (error) throw error
 
+        // ── Clean up orphaned auto-journals ──
+        await supabase.from('journal_entries').delete().eq('reference_id', id);
+
         return NextResponse.json({ success: true })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })

@@ -177,3 +177,33 @@ export async function PUT(request) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
 }
+
+// DELETE - Delete manual journal entry
+export async function DELETE(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const id = searchParams.get('id')
+
+        if (!id) return NextResponse.json({ success: false, error: 'Journal ID required' }, { status: 400 })
+
+        const { data: current } = await supabase.from('journal_entries').select('reference_type, entry_number').eq('id', id).single()
+        
+        if (!current) {
+            return NextResponse.json({ success: false, error: 'Journal entry not found' }, { status: 404 })
+        }
+
+        if (current.reference_type !== 'manual') {
+            return NextResponse.json({ success: false, error: 'Only manual journal entries can be deleted directly. Delete the source transaction instead.' }, { status: 400 })
+        }
+
+        const { error } = await supabase.from('journal_entries').delete().eq('id', id)
+        if (error) throw error
+
+        logInteractionServer({ type: 'journal-deleted', category: 'account', performedByName: 'Admin', description: `Deleted Manual Journal ${current.entry_number}`, source: 'Admin App' });
+
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+}
+

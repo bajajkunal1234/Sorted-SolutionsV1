@@ -527,6 +527,10 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     const handleBulkArchive = async () => {
         if (selectedItems.size === 0) return;
+        if (activeTab === 'journals') {
+            alert("Journal entries cannot be archived.");
+            return;
+        }
         const count = selectedItems.size;
         if (!window.confirm(`Archive ${count} selected item(s)?`)) return;
         try {
@@ -590,6 +594,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             // Run all deletes and collect results (don't throw on individual failures)
             const results = await Promise.allSettled(ids.map(id => {
                 if (activeTab === 'accounts') return accountsAPI.delete(id);
+                if (activeTab === 'journals') return journalsAPI.delete(id);
                 return transactionsAPI.delete(id, tabToTypeMap[activeTab]);
             }));
 
@@ -610,6 +615,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             if (activeTab === 'accounts') {
                 const data = await accountsAPI.getAll();
                 setLedgers(data || []);
+            } else if (activeTab === 'journals') {
+                const res = await fetch('/api/admin/journals').then(r => r.json());
+                if(res.success) {
+                    setJournals((res.data || []).map(j => ({ ...j, amount: j.lines?.filter(l => l.debit > 0).reduce((s, l) => s + Number(l.debit), 0) || 0 })));
+                }
             } else {
                 const data = await transactionsAPI.getAll({ type: tabToTypeMap[activeTab] });
                 switch (activeTab) {
@@ -1278,15 +1288,20 @@ ${body}
     };
 
     const handleDeleteTransaction = async (item, tab) => {
-        const ref = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+        const ref = item.entry_number || item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
         if (!window.confirm(`Delete ${ref}? This cannot be undone.`)) return;
-        const type = tabToTypeMap[tab];
         try {
-            await transactionsAPI.delete(item.id, type);
-            // Remove from local state
-            const setters = { sales: setSalesInvoices, purchases: setPurchaseInvoices, quotations: setQuotations, receipts: setReceipts, payments: setPayments };
-            const setter = setters[tab];
-            if (setter) setter(prev => prev.filter(r => r.id !== item.id));
+            if (tab === 'journals') {
+                await journalsAPI.delete(item.id);
+                setJournals(prev => prev.filter(r => r.id !== item.id));
+            } else {
+                const type = tabToTypeMap[tab];
+                await transactionsAPI.delete(item.id, type);
+                // Remove from local state
+                const setters = { sales: setSalesInvoices, purchases: setPurchaseInvoices, quotations: setQuotations, receipts: setReceipts, payments: setPayments };
+                const setter = setters[tab];
+                if (setter) setter(prev => prev.filter(r => r.id !== item.id));
+            }
         } catch (err) {
             alert('Failed to delete: ' + err.message);
         }
