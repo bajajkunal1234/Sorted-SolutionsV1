@@ -8,10 +8,12 @@ import bcrypt from 'bcryptjs'
 // This handles formats like '+91-80078 89260', '+91 8007889260', '08007889260', etc.
 async function findCustomerByPhone(supabase, last10) {
     // Fetch a small candidate pool using the broadest possible SQL filters
+    // By inserting % between every digit, we match any internal spaces/dashes (e.g. "80078 89260")
+    const loosePattern = '%' + last10.split('').join('%') + '%';
     const { data: candidates } = await supabase
         .from('customers')
         .select('id, name, phone, password_hash, ledger_id')
-        .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)},phone.ilike.%${last10.slice(-8)}`)
+        .ilike('phone', loosePattern)
         .limit(20)
 
     if (!candidates || candidates.length === 0) return null
@@ -22,15 +24,30 @@ async function findCustomerByPhone(supabase, last10) {
 
 // Same approach for accounts table (fallback when admin created ledger but no customers row)
 async function findAccountByPhone(supabase, last10) {
+    const loosePattern = '%' + last10.split('').join('%') + '%';
     const { data: candidates } = await supabase
         .from('accounts')
         .select('id, name, mobile, type, status')
-        .or(`mobile.ilike.%${last10.slice(-6)},mobile.ilike.%${last10.slice(-7)},mobile.ilike.%${last10.slice(-8)}`)
+        .ilike('mobile', loosePattern)
         .limit(20)
 
     if (!candidates || candidates.length === 0) return null
 
     return candidates.find(c => c.mobile && c.mobile.replace(/\D/g, '').slice(-10) === last10) || null
+}
+
+// Same approach for technicians table
+async function findTechnicianByPhone(supabase, last10) {
+    const loosePattern = '%' + last10.split('').join('%') + '%';
+    const { data: candidates } = await supabase
+        .from('technicians')
+        .select('*')
+        .ilike('phone', loosePattern)
+        .limit(20)
+
+    if (!candidates || candidates.length === 0) return null
+
+    return candidates.find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10) || null
 }
 
 // ─── GET: check if a phone number already has an account ────────────────────
@@ -45,15 +62,10 @@ export async function GET(request) {
         const last10 = phone.replace(/\D/g, '').slice(-10)
 
         // Check technicians first — technician phones should never sign up as customers
-        const { data: techCandidates } = await supabase
-            .from('technicians')
-            .select('id, phone')
-            .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
-            .limit(10)
-        const techData = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
+        const techData = await findTechnicianByPhone(supabase, last10)
 
         if (techData) {
-            return NextResponse.json({ exists: true, isTechnician: true, hasPassword: true })
+            return NextResponse.json({ exists: true, isTechnician: true, hasPassword: !!techData.password_hash })
         }
 
         // Check Admins
@@ -138,12 +150,7 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
-            const { data: techCandidates } = await supabase
-                .from('technicians')
-                .select('id, phone')
-                .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
-                .limit(10)
-            const existingTech = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
+            const existingTech = await findTechnicianByPhone(supabase, last10)
 
             if (existingTech) {
                 return NextResponse.json({ error: 'This number is already registered as a technician account. Please use the technician login portal.' }, { status: 409 })
@@ -339,13 +346,7 @@ export async function POST(request) {
             const last10 = raw.replace(/\D/g, '').slice(-10)
 
             // ── Check technicians FIRST by phone ──
-            const { data: techCandidates } = await supabase
-                .from('technicians')
-                .select('*')
-                .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
-                .eq('is_active', true)
-                .limit(10)
-            const technician = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
+            const technician = await findTechnicianByPhone(supabase, last10)
 
             if (technician && technician.password_hash) {
                 const techValid = technician.password_hash.startsWith('$2')
@@ -401,13 +402,7 @@ export async function POST(request) {
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
             // ── Check technicians FIRST by phone ──
-            const { data: techCandidates } = await supabase
-                .from('technicians')
-                .select('*')
-                .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
-                .eq('is_active', true)
-                .limit(10)
-            const technician = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
+            const technician = await findTechnicianByPhone(supabase, last10)
 
 
             if (technician) {
@@ -533,12 +528,7 @@ export async function POST(request) {
                 const { data: u } = await supabase.from('customers').update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() }).eq('id', cByPhone.id).select().single()
                 user = u; role = 'customer'
             } else {
-                const { data: techCandidates } = await supabase
-                    .from('technicians')
-                    .select('*')
-                    .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
-                    .limit(10)
-                const tByPhone = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
+                const tByPhone = await findTechnicianByPhone(supabase, last10)
                 
                 if (tByPhone) {
                     const { data: u } = await supabase.from('technicians').update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() }).eq('id', tByPhone.id).select().single()
