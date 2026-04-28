@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react'
 import { Home, Wrench, User, Package, Layers } from 'lucide-react'
 
 import HomePage from '@/components/customer/pages/Home'
-import AppliancesPage from '@/components/customer/pages/Appliances'
 import ServicesPage from '@/components/customer/pages/Services'
 import ProfilePage from '@/components/customer/pages/Profile'
 import PlansPage from '@/components/customer/pages/Plans'
@@ -12,7 +11,6 @@ import OnboardingWizard from '@/components/customer/OnboardingWizard'
 
 const TABS = [
     { id: 'home', label: 'Home', icon: Home, color: '#38bdf8' },
-    { id: 'appliances', label: 'Appliances', icon: Package, color: '#8b5cf6' },
     { id: 'services', label: 'Services', icon: Wrench, color: '#38bdf8' },
     { id: 'plans', label: 'Plans', icon: Layers, color: '#10b981' },
     { id: 'profile', label: 'Profile', icon: User, color: '#f59e0b' },
@@ -21,7 +19,6 @@ const TABS = [
 function renderTab(tab) {
     switch (tab) {
         case 'home': return <HomePage />
-        case 'appliances': return <AppliancesPage />
         case 'services': return <ServicesPage />
         case 'plans': return <PlansPage />
         case 'profile': return <ProfilePage />

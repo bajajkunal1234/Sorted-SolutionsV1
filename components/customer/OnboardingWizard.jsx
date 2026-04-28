@@ -495,7 +495,7 @@ function StepDone({ name, onFinish }) {
             <h2 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 8px 0' }}>You're all set, {name?.split(' ')[0] || 'there'}! 🎉</h2>
             <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.6, margin: '0 0 28px 0' }}>Your profile is ready. You can now book services, track jobs, and manage your appliances.</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 28 }}>
-                {[{ emoji: '🔧', label: 'Book Service' }, { emoji: '📦', label: 'Add Appliances' }, { emoji: '📍', label: 'Track Jobs' }].map(f => (
+                {[{ emoji: '🔧', label: 'Book Service' }, { emoji: '📍', label: 'Track Jobs' }].map(f => (
                     <div key={f.label} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 16, padding: '16px 8px', textAlign: 'center' }}>
                         <div style={{ fontSize: 24, marginBottom: 4 }}>{f.emoji}</div>
                         <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>{f.label}</div>
