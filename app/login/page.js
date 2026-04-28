@@ -53,7 +53,7 @@ function PhoneInput({ value, onChange, disabled }) {
                 value={value}
                 onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 disabled={disabled}
-                style={{ width: '100%', padding: '13px 13px 13px 74px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s' }}
+                style={{ width: '100%', padding: '13px 13px 13px 74px', backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, color: 'white', fontSize: 16, boxSizing: 'border-box', outline: 'none', transition: 'border-color 0.2s', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)' }}
                 required
             />
         </div>
@@ -376,7 +376,7 @@ function LoginContent() {
     // --- Aesthetic UI Components ---
     const cardStyle = {
         width: '100%', maxWidth: 400,
-        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02))',
+        background: 'linear-gradient(135deg, rgba(20, 20, 20, 0.5), rgba(10, 10, 10, 0.3))',
         backdropFilter: 'blur(6px)',
         WebkitBackdropFilter: 'blur(6px)',
         borderRadius: 24,
@@ -410,8 +410,8 @@ function LoginContent() {
                     
                     {/* Brand Header */}
                     <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                        <h1 style={{ fontSize: 24, fontWeight: 900, color: 'white', marginBottom: 4, letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-geist-sans), sans-serif' }}>Sorted Solutions</h1>
-                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 }}>Let's get that Sorted.</p>
+                        <h1 style={{ fontSize: 24, fontWeight: 900, color: 'white', marginBottom: 4, letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-geist-sans), sans-serif', textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}>Sorted Solutions</h1>
+                        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.5, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>Let's get that Sorted.</p>
                     </div>
 
                     {error && <div style={{ padding: '12px 16px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 12, color: '#fca5a5', fontSize: 13, marginBottom: 20, textAlign: 'center' }}>{error}</div>}
