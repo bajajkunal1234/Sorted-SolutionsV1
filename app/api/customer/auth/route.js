@@ -3,6 +3,36 @@ import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import bcrypt from 'bcryptjs'
 
+// ─── Shared helper: find a customer row matching any phone format ─────────────
+// Strips ALL non-digits from the stored phone and compares against last10.
+// This handles formats like '+91-80078 89260', '+91 8007889260', '08007889260', etc.
+async function findCustomerByPhone(supabase, last10) {
+    // Fetch a small candidate pool using the broadest possible SQL filters
+    const { data: candidates } = await supabase
+        .from('customers')
+        .select('id, name, phone, password_hash, ledger_id')
+        .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)},phone.ilike.%${last10.slice(-8)}`)
+        .limit(20)
+
+    if (!candidates || candidates.length === 0) return null
+
+    // JS-level comparison: strip non-digits and compare last 10
+    return candidates.find(c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === last10) || null
+}
+
+// Same approach for accounts table (fallback when admin created ledger but no customers row)
+async function findAccountByPhone(supabase, last10) {
+    const { data: candidates } = await supabase
+        .from('accounts')
+        .select('id, name, mobile, type, status')
+        .or(`mobile.ilike.%${last10.slice(-6)},mobile.ilike.%${last10.slice(-7)},mobile.ilike.%${last10.slice(-8)}`)
+        .limit(20)
+
+    if (!candidates || candidates.length === 0) return null
+
+    return candidates.find(c => c.mobile && c.mobile.replace(/\D/g, '').slice(-10) === last10) || null
+}
+
 // ─── GET: check if a phone number already has an account ────────────────────
 export async function GET(request) {
     try {
@@ -14,16 +44,13 @@ export async function GET(request) {
 
         const last10 = phone.replace(/\D/g, '').slice(-10)
 
-        // Helper: find a row whose phone ends with the last 10 digits (handles +91, 0-prefix, spaces, etc)
-        const phoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-
-        // Check technicians first — technician phones should never be allowed to sign up as customers
-        const { data: techData } = await supabase
+        // Check technicians first — technician phones should never sign up as customers
+        const { data: techCandidates } = await supabase
             .from('technicians')
-            .select('id')
-            .or(phoneFilter)
-            .limit(1)
-            .maybeSingle()
+            .select('id, phone')
+            .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
+            .limit(10)
+        const techData = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
 
         if (techData) {
             return NextResponse.json({ exists: true, isTechnician: true, hasPassword: true })
@@ -35,50 +62,66 @@ export async function GET(request) {
             return NextResponse.json({ exists: true, isAdmin: true, hasPassword: true })
         }
 
-        const { data } = await supabase
-            .from('customers')
-            .select('id, name, phone, password_hash, ledger_id')
-            .or(phoneFilter)
-            .limit(1)
-            .maybeSingle()
+        // Check customers table (JS-level digit-strip comparison)
+        const data = await findCustomerByPhone(supabase, last10)
 
-        // For unclaimed accounts (no password yet), enrich with property + job preview
-        if (data && !data.password_hash) {
-            const lookupIds = [data.id, data.ledger_id].filter(Boolean)
-            const [propRes, jobRes] = await Promise.all([
-                supabase
-                    .from('customer_properties')
-                    .select('property:properties(flat_number,building_name,address,locality)')
-                    .or(lookupIds.map(id => `customer_id.eq.${id}`).join(',') + (data.ledger_id ? `,account_id.eq.${data.ledger_id}` : ''))
-                    .eq('is_active', true)
-                    .limit(1)
-                    .maybeSingle(),
-                supabase
-                    .from('jobs')
-                    .select('id', { count: 'exact', head: true })
-                    .or(lookupIds.map(id => `customer_id.eq.${id}`).join(','))
-            ])
-            const prop = propRes.data?.property
-            const propertyPreview = prop
-                ? [prop.flat_number, prop.building_name, prop.address, prop.locality].filter(Boolean).join(', ')
-                : null
+        if (data) {
+            // For unclaimed accounts (no password yet), enrich with property + job preview
+            if (!data.password_hash) {
+                const lookupIds = [data.id, data.ledger_id].filter(Boolean)
+                const [propRes, jobRes] = await Promise.all([
+                    supabase
+                        .from('customer_properties')
+                        .select('property:properties(flat_number,building_name,address,locality)')
+                        .or(lookupIds.map(id => `customer_id.eq.${id}`).join(',') + (data.ledger_id ? `,account_id.eq.${data.ledger_id}` : ''))
+                        .eq('is_active', true)
+                        .limit(1)
+                        .maybeSingle(),
+                    supabase
+                        .from('jobs')
+                        .select('id', { count: 'exact', head: true })
+                        .or(lookupIds.map(id => `customer_id.eq.${id}`).join(','))
+                ])
+                const prop = propRes.data?.property
+                const propertyPreview = prop
+                    ? [prop.flat_number, prop.building_name, prop.address, prop.locality].filter(Boolean).join(', ')
+                    : null
+                return NextResponse.json({
+                    exists: true,
+                    hasPassword: false,
+                    existingName: data.name || '',
+                    hasProperties: !!prop,
+                    propertyCount: prop ? 1 : 0,
+                    propertyPreview,
+                    hasJobs: (jobRes.count || 0) > 0,
+                    jobCount: jobRes.count || 0,
+                })
+            }
+            return NextResponse.json({ exists: true, hasPassword: true, existingName: data?.name || '' })
+        }
+
+        // ── FALLBACK: check accounts table (admin may have created ledger only, no customers row yet) ──
+        const account = await findAccountByPhone(supabase, last10)
+        if (account) {
+            // Account exists in ledger but customer hasn't claimed it yet
             return NextResponse.json({
                 exists: true,
                 hasPassword: false,
-                existingName: data.name || '',
-                hasProperties: !!prop,
-                propertyCount: prop ? 1 : 0,
-                propertyPreview,
-                hasJobs: (jobRes.count || 0) > 0,
-                jobCount: jobRes.count || 0,
+                existingName: account.name || '',
+                isLedgerOnly: true, // flag so signup creates customers row linked to this account
+                ledgerId: account.id,
+                hasProperties: false,
+                hasJobs: false,
             })
         }
 
-        return NextResponse.json({ exists: !!data, hasPassword: !!(data && data.password_hash), existingName: data?.name || '' })
-    } catch {
+        return NextResponse.json({ exists: false })
+    } catch (e) {
+        console.error('[auth GET]', e)
         return NextResponse.json({ exists: false })
     }
 }
+
 
 // ─── POST: signup | login | reset-password | otp-sync (legacy) ──────────────
 export async function POST(request) {
@@ -95,34 +138,43 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
-            const techPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-            const { data: existingTech } = await supabase
+            const { data: techCandidates } = await supabase
                 .from('technicians')
-                .select('id')
-                .or(techPhoneFilter)
-                .limit(1)
-                .maybeSingle()
+                .select('id, phone')
+                .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
+                .limit(10)
+            const existingTech = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
 
             if (existingTech) {
                 return NextResponse.json({ error: 'This number is already registered as a technician account. Please use the technician login portal.' }, { status: 409 })
             }
 
             // Check not already registered as customer (robust phone format matching)
-            const phoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-            const { data: existing } = await supabase
-                .from('customers')
-                .select('id, password_hash, ledger_id')
-                .or(phoneFilter)
-                .limit(1)
-                .maybeSingle()
+            let existing = await findCustomerByPhone(supabase, last10)
+            let isLedgerOnly = false;
+            let ledgerId = null;
 
-            if (existing) {
+            if (!existing) {
+                const account = await findAccountByPhone(supabase, last10)
+                if (account) {
+                    isLedgerOnly = true;
+                    ledgerId = account.id;
+                    existing = {
+                        id: null,
+                        password_hash: null,
+                        ledger_id: account.id,
+                        name: account.name
+                    }
+                }
+            }
+
+            if (existing && !isLedgerOnly) {
                 if (existing.password_hash) {
                     return NextResponse.json({ error: 'An account with this number already exists. Please log in.' }, { status: 409 });
                 } else {
                     // Account Claim Flow (Organic adoption of Admin-created record)
                     const passwordHash = await bcrypt.hash(password, 12);
-                    const customerName = name || `Customer ${last10.slice(-4)}`;
+                    const customerName = name || existing.name || `Customer ${last10.slice(-4)}`;
 
                     const { data: updatedCustomer, error: updateError } = await supabase
                         .from('customers')
@@ -165,18 +217,23 @@ export async function POST(request) {
 
             // Hash password
             const passwordHash = await bcrypt.hash(password, 12)
-            const customerName = name || `Customer ${last10.slice(-4)}`
+            const customerName = name || (existing ? existing.name : null) || `Customer ${last10.slice(-4)}`
 
             // Create customer
+            const insertData = {
+                phone: last10,
+                name: customerName,
+                password_hash: passwordHash,
+                profile_complete: false,
+                created_at: new Date().toISOString(),
+            };
+            if (isLedgerOnly && ledgerId) {
+                insertData.ledger_id = ledgerId;
+            }
+
             const { data: newCustomer, error: createError } = await supabase
                 .from('customers')
-                .insert({
-                    phone: last10,
-                    name: customerName,
-                    password_hash: passwordHash,
-                    profile_complete: false,
-                    created_at: new Date().toISOString(),
-                })
+                .insert(insertData)
                 .select()
                 .single()
 
@@ -185,70 +242,92 @@ export async function POST(request) {
                 return NextResponse.json({ error: 'Failed to create account. Please try again.' }, { status: 500 })
             }
 
-            // The 'customers' group (child of sundry-debtors) always has id='customers' in account_groups.
-            // Use it directly — no lookup needed, no fallback to sundry-debtors.
-            const customersGroupId = 'customers';
+            let accountEntryId = ledgerId;
 
-            // Generate Account SKU securely for standard customers automatically
-            const { data: existingAccounts } = await supabase
-                .from('accounts')
-                .select('sku')
-                .ilike('sku', 'C%');
+            if (!isLedgerOnly) {
+                // The 'customers' group (child of sundry-debtors) always has id='customers' in account_groups.
+                // Use it directly — no lookup needed, no fallback to sundry-debtors.
+                const customersGroupId = 'customers';
 
-            let maxC = 100; // Customer format: C101
-            if (existingAccounts && existingAccounts.length > 0) {
-                existingAccounts.forEach(acc => {
-                    if (acc.sku) {
-                        const numPart = parseInt(acc.sku.substring(1));
-                        if (!isNaN(numPart) && numPart > maxC) maxC = numPart;
-                    }
+                // Generate Account SKU securely for standard customers automatically
+                const { data: existingAccounts } = await supabase
+                    .from('accounts')
+                    .select('sku')
+                    .ilike('sku', 'C%');
+
+                let maxC = 100; // Customer format: C101
+                if (existingAccounts && existingAccounts.length > 0) {
+                    existingAccounts.forEach(acc => {
+                        if (acc.sku) {
+                            const numPart = parseInt(acc.sku.substring(1));
+                            if (!isNaN(numPart) && numPart > maxC) maxC = numPart;
+                        }
+                    });
+                }
+                const nextSku = `C${maxC + 1}`;
+
+                // Create entry in accounts table
+                const { data: accountEntry, error: accountError } = await supabase
+                    .from('accounts')
+                    .insert({
+                        name: customerName,
+                        sku: nextSku,
+                        mobile: last10,
+                        type: 'customer',
+                        under: customersGroupId,
+                        opening_balance: 0,
+                        balance_type: 'debit',
+                        status: 'active',
+                        created_at: new Date().toISOString(),
+                    })
+                    .select('id')
+                    .single()
+
+                if (accountError) {
+                    // Rollback: delete the orphan customers row before failing
+                    await supabase.from('customers').delete().eq('id', newCustomer.id)
+                    console.error('[Signup] Failed to create accounts entry, rolled back customer:', accountError.message)
+                    return NextResponse.json({ success: false, error: 'Failed to set up account. Please try again.' }, { status: 500 })
+                }
+                accountEntryId = accountEntry.id;
+
+                // Link ledger_id back to customer
+                if (accountEntryId) {
+                    await supabase
+                        .from('customers')
+                        .update({ ledger_id: accountEntryId })
+                        .eq('id', newCustomer.id)
+                }
+            } else if (isLedgerOnly && ledgerId) {
+                // Just update the ledger name if it was claimed
+                await supabase
+                    .from('accounts')
+                    .update({ name: customerName })
+                    .eq('id', ledgerId);
+                
+                logInteractionServer({
+                    type: 'account-claimed',
+                    category: 'account',
+                    customerId: String(newCustomer.id),
+                    customerName,
+                    description: `Customer claimed organic access to admin-created ledger account (${last10})`,
+                    source: 'Customer App'
                 });
             }
-            const nextSku = `C${maxC + 1}`;
 
-            // Create entry in accounts table
-            const { data: accountEntry, error: accountError } = await supabase
-                .from('accounts')
-                .insert({
-                    name: customerName,
-                    sku: nextSku,
-                    mobile: last10,
-                    type: 'customer',
-                    under: customersGroupId,
-                    opening_balance: 0,
-                    balance_type: 'debit',
-                    status: 'active',
-                    created_at: new Date().toISOString(),
+            if (!isLedgerOnly) {
+                logInteractionServer({
+                    type: 'account-created-website',
+                    category: 'account',
+                    customerId: String(newCustomer.id),
+                    customerName,
+                    description: `New customer signed up via mobile+password (${last10})`,
+                    source: 'Customer App',
                 })
-                .select('id')
-                .single()
-
-            if (accountError) {
-                // Rollback: delete the orphan customers row before failing
-                await supabase.from('customers').delete().eq('id', newCustomer.id)
-                console.error('[Signup] Failed to create accounts entry, rolled back customer:', accountError.message)
-                return NextResponse.json({ success: false, error: 'Failed to set up account. Please try again.' }, { status: 500 })
             }
-
-            // Link ledger_id back to customer
-            if (accountEntry?.id) {
-                await supabase
-                    .from('customers')
-                    .update({ ledger_id: accountEntry.id })
-                    .eq('id', newCustomer.id)
-            }
-
-            logInteractionServer({
-                type: 'account-created-website',
-                category: 'account',
-                customerId: String(newCustomer.id),
-                customerName,
-                description: `New customer signed up via mobile+password (${last10})`,
-                source: 'Customer App',
-            })
 
             const { password_hash, ...safeUser } = newCustomer
-            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: false, ledger_id: accountEntry?.id || null }, message: 'Account created' })
+            return NextResponse.json({ success: true, user: { ...safeUser, role: 'customer', profile_complete: false, ledger_id: accountEntryId || null, is_claim: isLedgerOnly }, message: 'Account created' })
         }
 
         // ── 2. LOGIN ──────────────────────────────────────────────────────────
@@ -259,16 +338,14 @@ export async function POST(request) {
 
             const last10 = raw.replace(/\D/g, '').slice(-10)
 
-            const techPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-
             // ── Check technicians FIRST by phone ──
-            const { data: technician } = await supabase
+            const { data: techCandidates } = await supabase
                 .from('technicians')
                 .select('*')
-                .or(techPhoneFilter)
+                .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
                 .eq('is_active', true)
-                .limit(1)
-                .maybeSingle()
+                .limit(10)
+            const technician = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
 
             if (technician && technician.password_hash) {
                 const techValid = technician.password_hash.startsWith('$2')
@@ -302,13 +379,7 @@ export async function POST(request) {
             }
 
             // ── Fall through to customer lookup (robust phone format matching) ──
-            const custPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-            const { data: customer } = await supabase
-                .from('customers')
-                .select('*')
-                .or(custPhoneFilter)
-                .limit(1)
-                .maybeSingle()
+            const customer = await findCustomerByPhone(supabase, last10)
 
             if (!customer) return NextResponse.json({ error: 'No account found with this number. Please sign up.' }, { status: 404 })
             if (!customer.password_hash) return NextResponse.json({ error: 'This account was created via OTP. Use OTP to login or reset your password first.' }, { status: 400 })
@@ -330,14 +401,14 @@ export async function POST(request) {
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
             // ── Check technicians FIRST by phone ──
-            const otpTechFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-            const { data: technician } = await supabase
+            const { data: techCandidates } = await supabase
                 .from('technicians')
                 .select('*')
-                .or(otpTechFilter)
+                .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
                 .eq('is_active', true)
-                .limit(1)
-                .maybeSingle()
+                .limit(10)
+            const technician = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
+
 
             if (technician) {
                 logInteractionServer({ type: 'technician-login-otp', category: 'account', customerId: String(technician.id), customerName: technician.name, description: `Technician logged in via OTP (${last10})`, source: 'Technician App' })
@@ -357,15 +428,17 @@ export async function POST(request) {
             }
 
             // ── Check Customer (robust phone format matching) ──
-            const otpCustFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-            const { data: customer } = await supabase
-                .from('customers')
-                .select('*')
-                .or(otpCustFilter)
-                .limit(1)
-                .maybeSingle()
-
+            let customer = await findCustomerByPhone(supabase, last10)
+            
             if (!customer) {
+                // Maybe it's a ledger-only account
+                const account = await findAccountByPhone(supabase, last10)
+                if (account) {
+                    return NextResponse.json({
+                        error: 'This account has not been set up yet. Please sign up to claim it.',
+                        needsClaim: true
+                    }, { status: 400 })
+                }
                 return NextResponse.json({ error: 'No account found with this number. Please sign up.' }, { status: 404 })
             }
             if (!customer.password_hash) {
@@ -400,13 +473,7 @@ export async function POST(request) {
 
             const last10 = phone.replace(/\D/g, '').slice(-10)
 
-            const resetPhoneFilter = `phone.ilike.%${last10},phone.eq.${last10},phone.eq.+91${last10}`
-            const { data: customer } = await supabase
-                .from('customers')
-                .select('id, name')
-                .or(resetPhoneFilter)
-                .limit(1)
-                .single()
+            const customer = await findCustomerByPhone(supabase, last10)
 
             if (!customer) {
                 return NextResponse.json({ error: 'No account found with this number.' }, { status: 404 })
@@ -460,16 +527,19 @@ export async function POST(request) {
         if (!user) {
             const cleanPhone = phoneNumber.replace(/\s/g, '')
             const last10 = cleanPhone.slice(-10)
-            const findByPhone = async (table) => {
-                const { data } = await supabase.from(table).select('*').or(`phone.eq.${phoneNumber},phone.eq.${cleanPhone},phone.ilike.%${last10}`).limit(1).single()
-                return data
-            }
-            const cByPhone = await findByPhone('customers')
+            
+            const cByPhone = await findCustomerByPhone(supabase, last10)
             if (cByPhone) {
                 const { data: u } = await supabase.from('customers').update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() }).eq('id', cByPhone.id).select().single()
                 user = u; role = 'customer'
             } else {
-                const tByPhone = await findByPhone('technicians')
+                const { data: techCandidates } = await supabase
+                    .from('technicians')
+                    .select('*')
+                    .or(`phone.ilike.%${last10.slice(-6)},phone.ilike.%${last10.slice(-7)}`)
+                    .limit(10)
+                const tByPhone = (techCandidates || []).find(t => t.phone && t.phone.replace(/\D/g, '').slice(-10) === last10)
+                
                 if (tByPhone) {
                     const { data: u } = await supabase.from('technicians').update({ firebase_uid: firebaseUid, updated_at: new Date().toISOString() }).eq('id', tByPhone.id).select().single()
                     user = u; role = 'technician'
