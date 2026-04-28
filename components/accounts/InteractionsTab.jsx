@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react';
-import { History, Search, Filter, FileText, Briefcase, DollarSign, Package, Edit2, MessageSquare, Paperclip, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { History, Search, Filter, FileText, Briefcase, DollarSign, Package, Edit2, MessageSquare, Paperclip, X, Loader2 } from 'lucide-react';
 import CreateJobForm from '@/components/admin/CreateJobForm';
 import SalesInvoiceForm from './SalesInvoiceForm';
 import PurchaseInvoiceForm from './PurchaseInvoiceForm';
@@ -10,99 +10,48 @@ import PaymentVoucherForm from './PaymentVoucherForm';
 import QuotationForm from './QuotationForm';
 import NewRentalForm from '../reports/NewRentalForm';
 import NewAMCForm from '../reports/NewAMCForm';
+import { getInteractionType } from '@/lib/data/interactionTypes';
 
 function InteractionsTab({ accountId, accountName }) {
-    const [interactions, setInteractions] = useState([
-        {
-            id: 'INT-001',
-            type: 'job_created',
-            title: 'New Job Created',
-            description: 'AC repair job created for Andheri location',
-            relatedTo: {
-                type: 'job',
-                id: 'JOB-001',
-                reference: 'JOB-2026-001',
-                // Complete job data for form pre-population
-                customer: accountName,
-                customerId: accountId,
-                address: '123 Andheri West, Mumbai',
-                locality: 'Andheri',
-                jobType: 'Repair',
-                category: 'AC',
-                priority: 'high',
-                scheduledDate: '2026-01-20',
-                description: 'AC not cooling properly, needs gas refill',
-                assignedTo: 'TECH-001',
-                status: 'scheduled'
-            },
-            performedBy: { id: 'TECH-001', name: 'Amit Sharma', role: 'technician' },
-            timestamp: '2026-01-19T10:30:00Z',
-            category: 'service'
-        },
-        {
-            id: 'INT-002',
-            type: 'invoice_created',
-            title: 'Sales Invoice Generated',
-            description: 'Invoice #INV-2026-001 created for ₹5,000',
-            relatedTo: {
-                type: 'invoice',
-                id: 'INV-001',
-                reference: 'INV-2026-001',
-                // Complete invoice data for form pre-population
-                account: accountName,
-                accountId: accountId,
-                date: '2026-01-18',
-                items: [
-                    {
-                        id: 1,
-                        product: 'AC Service',
-                        description: 'Annual AC maintenance',
-                        quantity: 1,
-                        unit: 'Service',
-                        rate: 5000,
-                        amount: 5000
-                    }
-                ],
-                subtotal: 5000,
-                tax: 0,
-                total: 5000,
-                status: 'unpaid'
-            },
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-18T14:20:00Z',
-            category: 'financial'
-        },
-        {
-            id: 'INT-003',
-            type: 'payment_received',
-            title: 'Payment Received',
-            description: 'Received payment of ₹5,000 via UPI',
-            relatedTo: { type: 'payment', id: 'PAY-001', reference: 'REC-2026-001' },
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-18T15:45:00Z',
-            category: 'financial'
-        },
-        {
-            id: 'INT-004',
-            type: 'note_added',
-            title: 'Note Added',
-            description: 'Customer requested weekend service slots',
-            notes: 'Customer prefers Saturday/Sunday between 10 AM - 2 PM',
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-15T09:15:00Z',
-            category: 'communication'
-        },
-        {
-            id: 'INT-005',
-            type: 'rental_started',
-            title: 'Rental Agreement Started',
-            description: 'Washing Machine rental activated',
-            relatedTo: { type: 'rental', id: 'RENTAL-001', reference: 'RENTAL-001' },
-            performedBy: { id: 'ADMIN-001', name: 'Admin User', role: 'admin' },
-            timestamp: '2026-01-15T00:00:00Z',
-            category: 'rental'
+    const [interactions, setInteractions] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchInteractions = async () => {
+        if (!accountId) return;
+        setIsLoading(true);
+        try {
+            const res = await fetch(`/api/admin/interactions?customer_id=${accountId}&limit=100`);
+            const data = await res.json();
+            if (data.success) {
+                const mapped = data.data.map(i => ({
+                    id: i.id,
+                    type: i.type,
+                    title: getInteractionType(i.type)?.label || i.type,
+                    description: i.description || '',
+                    category: i.category || 'other',
+                    timestamp: i.timestamp,
+                    performedBy: {
+                        id: i.performed_by,
+                        name: i.performed_by_name || 'System',
+                        role: i.source || 'System'
+                    },
+                    notes: i.metadata?.notes || null,
+                    relatedTo: i.job_id ? { type: 'job', id: i.job_id } : 
+                               i.invoice_id ? { type: 'invoice', id: i.invoice_id } : null
+                }));
+                setInteractions(mapped);
+            }
+        } catch (err) {
+            console.error('Failed to fetch interactions:', err);
+        } finally {
+            setIsLoading(false);
         }
-    ]);
+    };
+
+    useEffect(() => {
+        fetchInteractions();
+    }, [accountId]);
+    // Removed dummy data
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filterType, setFilterType] = useState('all');
@@ -114,35 +63,46 @@ function InteractionsTab({ accountId, accountName }) {
     const [activeForm, setActiveForm] = useState(null); // 'job', 'rental', 'amc', 'sales_invoice', 'purchase_invoice', 'receipt', 'payment', 'quotation'
     const [editingItem, setEditingItem] = useState(null);
 
-    const handleSaveNote = () => {
+    const handleSaveNote = async () => {
         if (!noteText.trim()) {
             alert('Please enter a note');
             return;
         }
 
-        const newNote = {
-            id: `INT-${Date.now()}`,
+        const noteObj = {
             type: 'note_added',
-            title: 'Note Added',
-            description: noteText.substring(0, 100) + (noteText.length > 100 ? '...' : ''),
-            notes: noteText,
             category: noteCategory,
-            attachments: attachments,
-            performedBy: {
-                id: 'ADMIN-001',
-                name: 'Admin User',
-                role: 'admin'
-            },
-            timestamp: new Date().toISOString(),
-            accountId,
-            accountName
+            customer_id: accountId,
+            customer_name: accountName,
+            description: noteText.substring(0, 100) + (noteText.length > 100 ? '...' : ''),
+            metadata: { notes: noteText, attachments },
+            performed_by: 'ADMIN',
+            performed_by_name: 'Admin User',
+            source: 'Admin App',
+            timestamp: new Date().toISOString()
         };
 
-        setInteractions([newNote, ...interactions]);
-        setNoteText('');
-        setNoteCategory('communication');
-        setAttachments([]);
-        setShowNoteForm(false);
+        try {
+            const res = await fetch('/api/admin/interactions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(noteObj)
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Refresh list
+                fetchInteractions();
+                setNoteText('');
+                setNoteCategory('communication');
+                setAttachments([]);
+                setShowNoteForm(false);
+            } else {
+                alert('Failed to save note.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error saving note.');
+        }
     };
 
     const handleCancelNote = () => {
@@ -400,7 +360,13 @@ function InteractionsTab({ accountId, accountName }) {
 
             {/* Timeline */}
             <div style={{ position: 'relative' }}>
-                {/* Timeline Line */}
+                {isLoading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
+                        <Loader2 className="spinner" size={24} style={{ color: 'var(--color-primary)' }} />
+                    </div>
+                ) : (
+                    <>
+                        {/* Timeline Line */}
                 <div style={{
                     position: 'absolute',
                     left: '20px',
@@ -505,10 +471,12 @@ function InteractionsTab({ accountId, accountName }) {
                             </div>
                         );
                     })}
+                    </>
+                )}
                 </div>
             </div>
 
-            {filteredInteractions.length === 0 && (
+            {!isLoading && filteredInteractions.length === 0 && (
                 <div style={{
                     padding: 'var(--spacing-xl)',
                     backgroundColor: 'var(--bg-secondary)',
