@@ -482,10 +482,10 @@ function LoginContent() {
                         <div>
                             <div style={{ textAlign: 'center', marginBottom: 24 }}>
                                 <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 16px' }}>✨</div>
-                                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>We found your account!</h2>
-                                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>Our team has already set this up for you. Verify your number to secure it and view your details.</p>
+                                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Welcome Back! We've been Expecting You.</h2>
+                                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.5 }}>Account located, verify your number to claim it and Get Started.</p>
                             </div>
-                            <SubmitBtn type="button" onClick={startSignupOrClaim} loading={loading}>Send OTP to Secure Account</SubmitBtn>
+                            <SubmitBtn type="button" onClick={startSignupOrClaim} loading={loading}>Send OTP</SubmitBtn>
                             <button type="button" onClick={() => resetState('phone')} style={{ display: 'block', margin: '16px auto 0', background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, cursor: 'pointer' }}>Use a different number</button>
                         </div>
                     )}
