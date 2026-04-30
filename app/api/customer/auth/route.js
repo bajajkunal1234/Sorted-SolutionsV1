@@ -12,7 +12,7 @@ async function findCustomerByPhone(supabase, last10) {
     const loosePattern = '%' + last10.split('').join('%') + '%';
     const { data: candidates } = await supabase
         .from('customers')
-        .select('id, name, phone, password_hash, ledger_id')
+        .select('id, name, phone, password_hash, ledger_id, profile_complete')
         .ilike('phone', loosePattern)
         .limit(20)
 
