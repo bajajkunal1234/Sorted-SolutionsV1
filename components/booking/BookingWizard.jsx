@@ -44,7 +44,6 @@ export default function BookingWizard() {
 
     const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
     const [allSlots, setAllSlots] = useState([]);      // from /api/settings/booking-slots
-    const [visitingFees, setVisitingFees] = useState([]); // from /api/settings/visiting-fees
     const [brands, setBrands] = useState([]);          // from /api/settings/booking-brands
 
     const [formData, setFormData] = useState({
@@ -65,14 +64,13 @@ export default function BookingWizard() {
         const init = async () => {
             try {
                 setLoading(true);
-                const [bookingRes, slotsRes, feesRes, brandsRes] = await Promise.all([
+                const [bookingRes, slotsRes, brandsRes] = await Promise.all([
                     fetch('/api/settings/quick-booking'),
                     fetch('/api/settings/booking-slots'),
-                    fetch('/api/settings/visiting-fees'),
                     fetch('/api/settings/booking-brands'),
                 ]);
-                const [bookingData, slotsData, feesData, brandsData] = await Promise.all([
-                    bookingRes.json(), slotsRes.json(), feesRes.json(), brandsRes.json()
+                const [bookingData, slotsData, brandsData] = await Promise.all([
+                    bookingRes.json(), slotsRes.json(), brandsRes.json()
                 ]);
 
                 if (bookingData.success) {
@@ -82,7 +80,6 @@ export default function BookingWizard() {
                     setMetadata({ categories: cats, subcategories: subs, issues });
                 }
                 if (slotsData.success) setAllSlots(slotsData.data || []);
-                if (feesData.success) setVisitingFees(feesData.data || []);
                 if (brandsData.success) setBrands((brandsData.data || []).filter(b => b.is_active));
 
                 // Pre-fill from URL params
@@ -130,12 +127,9 @@ export default function BookingWizard() {
         setFormData(prev => ({ ...prev, locality: localityName, zip: autoPin || prev.zip }));
     };
 
-    // The visiting fee for the currently selected appliance
-    const visitingFee = useMemo(() => {
-        if (!formData.category || !visitingFees.length) return null;
-        const match = visitingFees.find(f => f.categoryId?.toString() === formData.category?.toString());
-        return match && match.fee ? match.fee : null;
-    }, [formData.category, visitingFees]);
+    const selectedIssue = useMemo(() => metadata.issues.find(i => i.id?.toString() === formData.issue?.toString()), [metadata.issues, formData.issue]);
+    const issuePrice = selectedIssue?.price ?? null;
+    const issuePriceLabel = selectedIssue?.price_label || 'Starting from';
 
     // The 3 dates and their active slots
     const nextDates = useMemo(() => getNextDates(3), []);
@@ -326,9 +320,52 @@ export default function BookingWizard() {
                             <div className="form-grid">
                                 <div className="form-group">
                                     <label className="form-label">Phone Number *</label>
-                                    <input type="tel" className="form-input" placeholder="+91 98765 43210"
+                                    <input type="tel" className="form-input" placeholder="+91-XXXXX XXXXX"
                                         value={formData.phone}
-                                        onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                                        onChange={async e => {
+                                            const input = e.target.value;
+                                            // Handle deletions naturally
+                                            if (input.length < (formData.phone || '').length) {
+                                                setFormData(prev => ({ ...prev, phone: input }));
+                                                return;
+                                            }
+
+                                            let digits = input.replace(/\D/g, '');
+                                            // Strip +91 if present in raw input
+                                            if (input.includes('+91')) {
+                                                digits = digits.replace(/^91/, '');
+                                            } else if (digits.length > 10 && digits.startsWith('91')) {
+                                                digits = digits.substring(2);
+                                            }
+
+                                            if (digits.length > 10) {
+                                                digits = digits.slice(-10);
+                                            }
+
+                                            let formatted = input;
+                                            if (digits.length === 10) {
+                                                formatted = `+91-${digits.substring(0, 5)} ${digits.substring(5)}`;
+                                                
+                                                // Check duplicate
+                                                try {
+                                                    const res = await fetch(`/api/customer/auth?phone=${digits}`);
+                                                    const data = await res.json();
+                                                    if (data.exists && data.hasPassword) {
+                                                        setTimeout(() => {
+                                                            if (window.confirm("SignUp and claim your account to book a service")) {
+                                                                router.push('/login?redirect=/booking');
+                                                            } else {
+                                                                setFormData(prev => ({ ...prev, phone: '' }));
+                                                            }
+                                                        }, 50);
+                                                    }
+                                                } catch (err) {
+                                                    console.error('Phone check failed', err);
+                                                }
+                                            }
+
+                                            setFormData(prev => ({ ...prev, phone: formatted }));
+                                        }} />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Email Address <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
@@ -549,13 +586,7 @@ export default function BookingWizard() {
                     )}
 
                     {/* ── Step 4: Fee Preview ── */}
-                    {currentStep === 'fees' && (() => {
-                        // Find the currently selected issue's price data
-                        const selectedIssue = metadata.issues.find(i => i.id?.toString() === formData.issue?.toString());
-                        const issuePrice = selectedIssue?.price ?? null;
-                        const issuePriceLabel = selectedIssue?.price_label || 'Starting from';
-
-                        return (
+                    {currentStep === 'fees' && (
                             <div className="step-content">
                                 <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Fee Preview</h2>
                                 <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
@@ -584,35 +615,14 @@ export default function BookingWizard() {
                                                 )}
                                             </div>
                                         </div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: '#d97706' }}>
-                                            {visitingFee ? `₹${visitingFee}` : '₹199'}
-                                        </div>
-                                    </div>
-
-                                    {/* Issue-specific price */}
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: 'var(--spacing-md) var(--spacing-lg)',
-                                        backgroundColor: issuePrice != null ? '#10b98108' : 'var(--bg-secondary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: `2px solid ${issuePrice != null ? '#10b981' : 'var(--border-primary)'}`,
-                                    }}>
-                                        <div>
-                                            <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>
-                                                {getName('issue', formData.issue)}
-                                            </div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                                Repair service charge
-                                            </div>
-                                        </div>
                                         <div style={{ textAlign: 'right' }}>
                                             {issuePrice != null ? (
                                                 <>
-                                                    <div style={{ fontSize: '11px', color: '#059669', fontWeight: 500 }}>{issuePriceLabel}</div>
-                                                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 800, color: '#059669' }}>₹{Number(issuePrice).toLocaleString('en-IN')}</div>
+                                                    <div style={{ fontSize: '11px', color: '#d97706', fontWeight: 500 }}>{issuePriceLabel}</div>
+                                                    <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: '#d97706' }}>₹{Number(issuePrice).toLocaleString('en-IN')}</div>
                                                 </>
                                             ) : (
-                                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Shared after diagnosis</div>
+                                                <div style={{ fontSize: 'var(--font-size-sm)', color: '#d97706', fontStyle: 'italic', fontWeight: 700 }}>TBD on booking</div>
                                             )}
                                         </div>
                                     </div>
@@ -646,13 +656,12 @@ export default function BookingWizard() {
                                     ].map((item, i, arr) => (
                                         <div key={i} style={{ display: 'flex', gap: '12px', padding: '10px var(--spacing-md)', borderTop: i === 0 ? 'none' : '1px solid #fde68a', backgroundColor: '#fefce8' }}>
                                             <span style={{ fontSize: '1.1em', flexShrink: 0 }}>{item.icon}</span>
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: '#44403c', lineHeight: 1.5 }}>{item.text}</span>
+                                            <span style={{ fontSize: 'var(--font-size-xs)', color: '#44403c', lineHeight: 1.5, fontWeight: 'bold' }}>{item.text}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
-                        );
-                    })()}
+                    )}
 
                     {/* ── Step 5: Review (compact confirmation) ── */}
                     {currentStep === 'review' && (
@@ -702,7 +711,7 @@ export default function BookingWizard() {
                                 {/* Fee reminder */}
                                 <div style={{ padding: 'var(--spacing-md)', backgroundColor: '#fefce8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: '#92400e', fontWeight: 500 }}>Visiting / Diagnosing Fee</div>
-                                    <div style={{ fontWeight: 700, color: '#d97706' }}>{visitingFee ? `₹${visitingFee}` : 'TBD on booking'}</div>
+                                    <div style={{ fontWeight: 700, color: '#d97706' }}>{issuePrice != null ? `₹${Number(issuePrice).toLocaleString('en-IN')}` : 'TBD on booking'}</div>
                                 </div>
                             </div>
 
