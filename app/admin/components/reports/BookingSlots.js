@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { Clock, Plus, Edit2, Trash2, Save, Calendar, Loader2, RefreshCcw, AlertCircle, LayoutTemplate } from 'lucide-react';
-import { websiteSettingsAPI } from '@/lib/adminAPI';
 
 export default function BookingSlots() {
     const [config, setConfig] = useState({
@@ -40,9 +39,11 @@ export default function BookingSlots() {
     const fetchConfig = async () => {
         try {
             setLoading(true);
-            const data = await websiteSettingsAPI.getByKey('booking-slots');
-            if (data && data.value) {
-                const val = data.value;
+            const res = await fetch('/api/settings/booking-slots');
+            const data = await res.json();
+            
+            if (data.success && data.data) {
+                const val = data.data;
                 const schedule = val.defaultWeeklySchedule || {};
                 days.forEach(d => { if (!schedule[d.id]) schedule[d.id] = []; });
                 setConfig({
@@ -61,7 +62,14 @@ export default function BookingSlots() {
     const saveConfig = async (newConfig) => {
         try {
             setSaving(true);
-            await websiteSettingsAPI.save('booking-slots', newConfig, 'Weekly booking time slots');
+            const res = await fetch('/api/settings/booking-slots', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newConfig)
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to save');
+            
             setConfig(newConfig);
         } catch (err) {
             console.error('Failed to save slots:', err);
