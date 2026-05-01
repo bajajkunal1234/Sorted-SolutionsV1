@@ -167,6 +167,59 @@ function BookingTable({ rows }) {
     )
 }
 
+// ─── Drill-down table (sessions) ──────────────────────────────────────────────
+function SessionTable({ rows, openDrawer }) {
+    if (!rows.length) return <div style={{ color: 'var(--text-tertiary)', fontSize: '13px', padding: '20px 0' }}>No records found.</div>
+    return (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-primary)' }}>
+                    {['Visitor', 'Source', 'Views', 'Time'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-tertiary)', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((r, i) => (
+                    <tr key={r.id || i} style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer', transition: 'background 0.1s' }} 
+                        onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'}
+                        onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                        onClick={() => openDrawer('first_party_journey', r.id, 'Visitor Journey', 'Pages visited during session')}>
+                        <td style={{ padding: '10px 8px', fontWeight: 600 }}>{r.ip}<br/><span style={{fontSize: '10px', color: 'var(--text-tertiary)'}}>{r.agent}</span></td>
+                        <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{r.source !== '—' ? r.source : r.referrer}</td>
+                        <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{r.views}</td>
+                        <td style={{ padding: '10px 8px', color: 'var(--text-tertiary)', fontSize: '12px', whiteSpace: 'nowrap' }}>{r.created}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    )
+}
+
+function JourneyTable({ rows }) {
+    if (!rows.length) return <div style={{ color: 'var(--text-tertiary)', fontSize: '13px', padding: '20px 0' }}>No records found.</div>
+    return (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+                <tr style={{ borderBottom: '2px solid var(--border-primary)' }}>
+                    {['Time', 'Path', 'Duration'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-tertiary)', fontWeight: 700, fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {rows.map((r, i) => (
+                    <tr key={r.id || i} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                        <td style={{ padding: '10px 8px', color: 'var(--text-tertiary)', fontSize: '12px', whiteSpace: 'nowrap' }}>{r.created}</td>
+                        <td style={{ padding: '10px 8px', fontWeight: 600, fontFamily: 'monospace' }}>{r.path}</td>
+                        <td style={{ padding: '10px 8px', color: 'var(--text-secondary)' }}>{r.duration}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    )
+}
+
 // ─── Clickable Metric Card ────────────────────────────────────────────────────
 function MetricCard({ icon: Icon, color, label, value, change, subtitle, sparkData, na, onClick }) {
     const up = change > 0; const flat = change === 0
@@ -271,6 +324,7 @@ export default function WebsiteAnalytics() {
     const closeDrawer = useCallback(() => setDrawer(null), [])
 
     const sb = data?.supabase
+    const fp = data?.firstParty
     const ga4 = data?.ga4
     const ga4Connected = data?.ga4Connected
 
@@ -326,8 +380,40 @@ export default function WebsiteAnalytics() {
                 </div>
             ) : (
                 <>
-                    {/* ── Traffic ──────────────────────────────────────── */}
-                    <SectionTitle>🌐 Web Traffic {!ga4Connected && '— Connect GA4 to unlock'}</SectionTitle>
+                    {/* ── First Party Traffic ──────────────────────────────────────── */}
+                    <SectionTitle>📡 Web Traffic (First-Party Tracker)</SectionTitle>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '12px' }}>
+                        <MetricCard icon={Activity} color="#4285f4" label="Sessions" value={fp?.sessions} subtitle="Total visits" 
+                            onClick={() => openDrawer('first_party_sessions', null, 'Recent Sessions', `Recent visitor sessions in last ${range}`)}/>
+                        <MetricCard icon={Users} color="#fbbc04" label="Unique Visitors" value={fp?.uniqueVisitors} subtitle="Distinct devices" />
+                        <MetricCard icon={Eye} color="#34a853" label="Page Views" value={fp?.pageViews} />
+                    </div>
+
+                    {/* First Party Top Pages */}
+                    {fp?.topPages?.length > 0 && (
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', marginTop: '12px' }}>
+                            <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '12px' }}>Top Pages (First-Party)</div>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                        <th style={{ textAlign: 'left', padding: '6px 8px', color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '11px' }}>Path</th>
+                                        <th style={{ textAlign: 'right', padding: '6px 8px', color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '11px' }}>Views</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fp.topPages.map((p, i) => (
+                                        <tr key={i} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                            <td style={{ padding: '8px', color: 'var(--text-primary)', fontFamily: 'monospace', fontSize: '12px' }}>{p.path}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>{p.views.toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {/* ── GA4 Traffic ──────────────────────────────────────── */}
+                    <SectionTitle>🌐 Web Traffic (GA4) {!ga4Connected && '— Connect GA4 to unlock'}</SectionTitle>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '12px' }}>
                         <MetricCard icon={Activity} color="#4285f4" label="Sessions" value={ga4?.traffic?.sessions} na={!ga4Connected} subtitle="Total visits" sparkData={ga4?.dailyTrend} />
                         <MetricCard icon={Users} color="#fbbc04" label="Unique Visitors" value={ga4?.traffic?.users} na={!ga4Connected} subtitle={`${ga4?.traffic?.newUsers?.toLocaleString() ?? '—'} new`} />
@@ -642,6 +728,8 @@ export default function WebsiteAnalytics() {
                     </div>
                 ) : isCustomerDrawer
                     ? <CustomerTable rows={drawerRows} />
+                    : drawer?.type === 'first_party_sessions' ? <SessionTable rows={drawerRows} openDrawer={openDrawer} />
+                    : drawer?.type === 'first_party_journey' ? <JourneyTable rows={drawerRows} />
                     : <BookingTable rows={drawerRows} />
                 }
             </Drawer>

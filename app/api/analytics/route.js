@@ -217,7 +217,11 @@ export async function GET(request) {
             { count: totalCustomers },
             { count: newCustomers },
             { count: prevNewCustomers },
-            { data: googleConfig }
+            { data: googleConfig },
+            { count: fpTotalSessions },
+            { data: fpVisitorsData },
+            { count: fpTotalPageViews },
+            { data: fpPageViewsData }
         ] = await Promise.all([
             supabase.from('jobs').select('*', { count: 'exact', head: true })
                 .eq('source', 'website'),
@@ -350,12 +354,10 @@ export async function GET(request) {
         }
 
         // Process First-Party Data
-        const fpUniqueVisitors = new Set((arguments[0][8].data || []).map(s => s.visitor_id)).size;
-        const fpTotalSessions = arguments[0][7].count || 0;
-        const fpTotalPageViews = arguments[0][9].count || 0;
+        const fpUniqueVisitors = new Set((fpVisitorsData || []).map(s => s.visitor_id)).size;
         
         const fpPagePathCounts = {};
-        for (const pv of (arguments[0][10].data || [])) {
+        for (const pv of (fpPageViewsData || [])) {
             fpPagePathCounts[pv.page_path] = (fpPagePathCounts[pv.page_path] || 0) + 1;
         }
         
@@ -365,9 +367,9 @@ export async function GET(request) {
             .slice(0, 10);
 
         const firstPartyData = {
-            sessions: fpTotalSessions,
+            sessions: fpTotalSessions || 0,
             uniqueVisitors: fpUniqueVisitors,
-            pageViews: fpTotalPageViews,
+            pageViews: fpTotalPageViews || 0,
             topPages: fpTopPages
         };
 

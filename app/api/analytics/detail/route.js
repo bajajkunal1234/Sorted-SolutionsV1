@@ -219,6 +219,43 @@ export async function GET(request) {
             }))
         }
 
+        else if (type === 'first_party_sessions') {
+            const { data, error } = await supabase
+                .from('visitor_sessions')
+                .select('id, ip_address, referrer, user_agent, created_at, utm_source, utm_campaign, page_views(count)')
+                .gte('created_at', lookback)
+                .order('created_at', { ascending: false })
+                .limit(200);
+
+            if (error) throw error;
+            rows = (data || []).map(s => ({
+                id: s.id,
+                ip: s.ip_address || '—',
+                referrer: s.referrer || 'Direct',
+                source: s.utm_source ? `${s.utm_source} / ${s.utm_campaign || 'unknown'}` : '—',
+                agent: s.user_agent ? s.user_agent.split(' ')[0] : '—',
+                views: s.page_views?.[0]?.count || 0,
+                created: s.created_at ? new Date(s.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'
+            }));
+        }
+
+        else if (type === 'first_party_journey') {
+            // "filter" holds the session_id
+            const { data, error } = await supabase
+                .from('page_views')
+                .select('id, page_path, duration_seconds, created_at')
+                .eq('session_id', filter)
+                .order('created_at', { ascending: true });
+
+            if (error) throw error;
+            rows = (data || []).map(p => ({
+                id: p.id,
+                path: p.page_path,
+                duration: `${p.duration_seconds}s`,
+                created: p.created_at ? new Date(p.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—'
+            }));
+        }
+
         else {
             return NextResponse.json({ error: 'Unknown detail type' }, { status: 400 })
         }
