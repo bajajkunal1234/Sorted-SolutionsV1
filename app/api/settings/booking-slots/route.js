@@ -103,6 +103,8 @@ export async function PUT(request) {
                 section_id: SECTION_ID,
                 extra_config: config,
                 updated_at: new Date().toISOString()
+            }, {
+                onConflict: 'section_id'
             });
         if (error) throw error;
         return NextResponse.json({ success: true });
