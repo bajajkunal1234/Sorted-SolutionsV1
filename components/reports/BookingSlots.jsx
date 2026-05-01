@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Clock, Plus, Edit2, Trash2, Save, Calendar, Loader, X, Check } from 'lucide-react';
+import { Clock, Plus, Trash2, Save, Calendar, Loader, Check, X, Settings2 } from 'lucide-react';
 
 const DAYS = [
     { id: 'monday', label: 'Monday' },
@@ -13,25 +13,44 @@ const DAYS = [
     { id: 'sunday', label: 'Sunday' },
 ];
 
-const EMPTY_FORM = { day: 'monday', startTime: '09:00', endTime: '12:00', label: '', maxBookings: 4, active: true };
-
-function BookingSlots() {
-    const [slots, setSlots] = useState([]);
+export default function BookingSlots() {
+    const [config, setConfig] = useState({
+        templates: [],
+        defaultWeeklySchedule: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] },
+        overrides: {}
+    });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState('');
-    const [editingSlot, setEditingSlot] = useState(null);
-    const [showForm, setShowForm] = useState(false);
-    const [formData, setFormData] = useState(EMPTY_FORM);
 
-    useEffect(() => { loadSlots(); }, []);
+    // Template Form State
+    const [showTemplateForm, setShowTemplateForm] = useState(false);
+    const [editingTemplate, setEditingTemplate] = useState(null);
+    const [templateForm, setTemplateForm] = useState({ name: '', startTime: '09:00', endTime: '12:00' });
 
-    const loadSlots = async () => {
+    // Schedule Assignment State
+    const [activeDay, setActiveDay] = useState('monday');
+    const [assignmentForm, setAssignmentForm] = useState({ templateId: '', maxBookings: 4 });
+
+    useEffect(() => { loadConfig(); }, []);
+
+    const loadConfig = async () => {
         setLoading(true);
         try {
             const res = await fetch('/api/settings/booking-slots');
             const data = await res.json();
-            if (data.success) setSlots(data.data || []);
+            if (data.success) {
+                // Ensure defaultWeeklySchedule has all days
+                const loadedConfig = data.data || {};
+                const schedule = loadedConfig.defaultWeeklySchedule || {};
+                DAYS.forEach(d => { if (!schedule[d.id]) schedule[d.id] = []; });
+                
+                setConfig({
+                    templates: loadedConfig.templates || [],
+                    defaultWeeklySchedule: schedule,
+                    overrides: loadedConfig.overrides || {}
+                });
+            }
         } catch (err) {
             console.error('Error loading slots:', err);
         } finally {
@@ -39,18 +58,18 @@ function BookingSlots() {
         }
     };
 
-    const saveSlots = async (newSlots) => {
+    const saveConfig = async (newConfig) => {
         setSaving(true);
         setSaveMsg('');
         try {
             const res = await fetch('/api/settings/booking-slots', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ slots: newSlots })
+                body: JSON.stringify(newConfig)
             });
             const result = await res.json();
             if (!result.success) throw new Error(result.error);
-            setSaveMsg('Saved!');
+            setSaveMsg('Saved successfully!');
             setTimeout(() => setSaveMsg(''), 2500);
         } catch (err) {
             setSaveMsg('Save failed: ' + err.message);
@@ -58,10 +77,6 @@ function BookingSlots() {
             setSaving(false);
         }
     };
-
-    const buildLabel = (fd) =>
-        fd.label.trim() ||
-        `${formatTime(fd.startTime)} – ${formatTime(fd.endTime)}`;
 
     const formatTime = (t) => {
         if (!t) return '';
@@ -71,51 +86,78 @@ function BookingSlots() {
         return `${hour}${m ? ':' + String(m).padStart(2, '0') : ''}${ampm}`;
     };
 
-    const handleAdd = () => {
-        const newSlot = { id: `s${Date.now()}`, ...formData, label: buildLabel(formData) };
-        const updated = [...slots, newSlot];
-        setSlots(updated);
-        saveSlots(updated);
-        setShowForm(false);
-        setFormData(EMPTY_FORM);
+    // --- Templates Management ---
+    const handleSaveTemplate = () => {
+        if (!templateForm.name || !templateForm.startTime || !templateForm.endTime) {
+            alert('Please fill all fields');
+            return;
+        }
+
+        let updatedTemplates;
+        if (editingTemplate) {
+            updatedTemplates = config.templates.map(t => t.id === editingTemplate.id ? { ...t, ...templateForm } : t);
+        } else {
+            const newId = `t_${Date.now()}`;
+            updatedTemplates = [...config.templates, { id: newId, ...templateForm }];
+        }
+
+        const newConfig = { ...config, templates: updatedTemplates };
+        setConfig(newConfig);
+        saveConfig(newConfig);
+        setShowTemplateForm(false);
+        setEditingTemplate(null);
     };
 
-    const handleUpdate = () => {
-        const updated = slots.map(s => s.id === editingSlot.id
-            ? { ...s, ...formData, label: buildLabel(formData) }
-            : s);
-        setSlots(updated);
-        saveSlots(updated);
-        setEditingSlot(null);
-        setFormData(EMPTY_FORM);
+    const handleDeleteTemplate = (id) => {
+        if (!confirm('Delete this template? It will be removed from all weekly schedules.')) return;
+        
+        const updatedTemplates = config.templates.filter(t => t.id !== id);
+        
+        // Remove from schedules
+        const updatedSchedule = { ...config.defaultWeeklySchedule };
+        Object.keys(updatedSchedule).forEach(day => {
+            updatedSchedule[day] = updatedSchedule[day].filter(s => s.templateId !== id);
+        });
+
+        const newConfig = { ...config, templates: updatedTemplates, defaultWeeklySchedule: updatedSchedule };
+        setConfig(newConfig);
+        saveConfig(newConfig);
     };
 
-    const handleEdit = (slot) => {
-        setEditingSlot(slot);
-        setFormData({ day: slot.day, startTime: slot.startTime, endTime: slot.endTime, label: slot.label || '', maxBookings: slot.maxBookings, active: slot.active });
-        setShowForm(false);
+    // --- Weekly Schedule Management ---
+    const handleAssignSlot = () => {
+        if (!assignmentForm.templateId) {
+            alert('Please select a template');
+            return;
+        }
+
+        const schedule = { ...config.defaultWeeklySchedule };
+        
+        // Check if already assigned
+        if (schedule[activeDay].some(s => s.templateId === assignmentForm.templateId)) {
+            alert('This template is already assigned to ' + activeDay);
+            return;
+        }
+
+        schedule[activeDay] = [...schedule[activeDay], { 
+            templateId: assignmentForm.templateId, 
+            maxBookings: assignmentForm.maxBookings 
+        }];
+
+        const newConfig = { ...config, defaultWeeklySchedule: schedule };
+        setConfig(newConfig);
+        saveConfig(newConfig);
+        setAssignmentForm({ templateId: '', maxBookings: 4 });
     };
 
-    const handleDelete = (slotId) => {
-        if (!confirm('Delete this time slot?')) return;
-        const updated = slots.filter(s => s.id !== slotId);
-        setSlots(updated);
-        saveSlots(updated);
+    const handleRemoveAssignment = (day, templateId) => {
+        const schedule = { ...config.defaultWeeklySchedule };
+        schedule[day] = schedule[day].filter(s => s.templateId !== templateId);
+        
+        const newConfig = { ...config, defaultWeeklySchedule: schedule };
+        setConfig(newConfig);
+        saveConfig(newConfig);
     };
-
-    const handleToggle = (slotId) => {
-        const updated = slots.map(s => s.id === slotId ? { ...s, active: !s.active } : s);
-        setSlots(updated);
-        saveSlots(updated);
-    };
-
-    const groupedSlots = DAYS.reduce((acc, day) => {
-        acc[day.id] = slots.filter(s => s.day === day.id).sort((a, b) => a.startTime.localeCompare(b.startTime));
-        return acc;
-    }, {});
-
-    const totalActive = slots.filter(s => s.active).length;
-    const totalCap = slots.filter(s => s.active).reduce((sum, s) => sum + (s.maxBookings || 0), 0);
 
     if (loading) {
         return (
@@ -128,145 +170,172 @@ function BookingSlots() {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
-            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-md)' }}>
+            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '4px' }}>Booking Slots Management</h3>
+                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '4px' }}>Booking Slots Engine</h3>
                     <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                        Configure available time slots — toggle off when full, add or remove anytime
+                        Define reusable time slot templates and assign them to weekly schedules.
                     </p>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                    {saveMsg && (
-                        <span style={{ fontSize: 'var(--font-size-sm)', color: saveMsg.startsWith('Save failed') ? 'var(--color-danger)' : 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Check size={14} /> {saveMsg}
-                        </span>
-                    )}
-                    <button className="btn btn-primary" onClick={() => { setShowForm(true); setEditingSlot(null); setFormData(EMPTY_FORM); }} style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}>
-                        <Plus size={16} /> Add Time Slot
-                    </button>
-                </div>
+                {saveMsg && (
+                    <span style={{ fontSize: 'var(--font-size-sm)', color: saveMsg.includes('failed') ? 'var(--color-danger)' : 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Check size={14} /> {saveMsg}
+                    </span>
+                )}
             </div>
 
-            {/* Stats */}
-            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--spacing-md)' }}>
-                {[
-                    { label: 'Active Slots', value: totalActive, color: 'var(--color-success)' },
-                    { label: 'Total Capacity / Week', value: totalCap, color: 'var(--color-primary)' },
-                    { label: 'Avg per Slot', value: totalActive > 0 ? Math.round(totalCap / totalActive) : 0, color: '' },
-                ].map(stat => (
-                    <div key={stat.label} style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>{stat.label}</div>
-                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: stat.color || 'inherit' }}>{stat.value}</div>
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                {/* Left Panel: Templates */}
+                <div style={{ width: '350px', borderRight: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h4 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Clock size={18} /> Slot Templates
+                        </h4>
+                        <button className="btn btn-secondary" onClick={() => { setEditingTemplate(null); setTemplateForm({ name: '', startTime: '09:00', endTime: '12:00' }); setShowTemplateForm(true); }} style={{ padding: '4px 8px' }}>
+                            <Plus size={14} />
+                        </button>
                     </div>
-                ))}
-            </div>
 
-            {/* Slots by Day */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
-                    {DAYS.map(day => {
-                        const daySlots = groupedSlots[day.id];
-                        return (
-                            <div key={day.id}>
-                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
-                                    <Calendar size={16} /> {day.label}
-                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 500, color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: 'var(--radius-sm)' }}>
-                                        {daySlots.filter(s => s.active).length} active
-                                    </span>
-                                </h4>
-
-                                {daySlots.length === 0 ? (
-                                    <div style={{ padding: 'var(--spacing-sm)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', fontStyle: 'italic' }}>No slots configured for {day.label}</div>
-                                ) : (
-                                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                        {daySlots.map(slot => (
-                                            <div key={slot.id} style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', opacity: slot.active ? 1 : 0.5, transition: 'all var(--transition-fast)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                                                    <Clock size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
-                                                    <div>
-                                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                                                            {slot.label || `${slot.startTime} – ${slot.endTime}`}
-                                                        </div>
-                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                                                            {slot.startTime} – {slot.endTime} · Max {slot.maxBookings} bookings
-                                                            {!slot.active && <span style={{ color: 'var(--color-danger)', marginLeft: '8px' }}>● Off</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexShrink: 0 }}>
-                                                    <button className="btn btn-secondary" onClick={() => handleToggle(slot.id)} style={{ padding: '5px 10px', fontSize: 'var(--font-size-xs)', backgroundColor: slot.active ? '#f59e0b20' : '#10b98120', color: slot.active ? '#d97706' : '#10b981', border: `1px solid ${slot.active ? '#f59e0b' : '#10b981'}` }}>
-                                                        {slot.active ? 'Mark Full' : 'Re-enable'}
-                                                    </button>
-                                                    <button className="btn btn-secondary" onClick={() => handleEdit(slot)} style={{ padding: '5px 10px', fontSize: 'var(--font-size-xs)' }}>
-                                                        <Edit2 size={14} />
-                                                    </button>
-                                                    <button className="btn btn-secondary" onClick={() => handleDelete(slot.id)} style={{ padding: '5px 10px', fontSize: 'var(--font-size-xs)', color: 'var(--color-danger)' }}>
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                        {config.templates.length === 0 ? (
+                            <div style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', textAlign: 'center', padding: '20px 0' }}>
+                                No templates created yet.
                             </div>
-                        );
-                    })}
+                        ) : (
+                            config.templates.map(t => (
+                                <div key={t.id} style={{ backgroundColor: 'var(--bg-primary)', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{t.name}</div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                            {formatTime(t.startTime)} - {formatTime(t.endTime)}
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                        <button className="btn btn-secondary" onClick={() => handleDeleteTemplate(t.id)} style={{ padding: '4px', color: 'var(--color-danger)' }}>
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Add / Edit Modal */}
-            {(showForm || editingSlot) && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 'var(--spacing-md)' }}>
-                    <div style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', maxWidth: '480px', width: '100%', boxShadow: 'var(--shadow-xl)' }}>
-                        <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ margin: 0, fontWeight: 600 }}>{editingSlot ? 'Edit' : 'Add'} Time Slot</h3>
-                            <button onClick={() => { setShowForm(false); setEditingSlot(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={20} /></button>
-                        </div>
+                {/* Right Panel: Weekly Schedule */}
+                <div style={{ flex: 1, backgroundColor: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
+                        <h4 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Calendar size={18} /> Weekly Default Schedule
+                        </h4>
+                        <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                            Assign slot templates to specific days and set their capacity.
+                        </p>
+                    </div>
 
-                        <div style={{ padding: 'var(--spacing-lg)', display: 'grid', gap: 'var(--spacing-md)' }}>
-                            <div>
-                                <label style={{ display: 'block', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>Day of Week *</label>
-                                <select className="form-input" style={{ width: '100%' }} value={formData.day} onChange={e => setFormData({ ...formData, day: e.target.value })}>
-                                    {DAYS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                    {/* Day Tabs */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                        {DAYS.map(day => (
+                            <button 
+                                key={day.id} 
+                                onClick={() => setActiveDay(day.id)}
+                                style={{ 
+                                    flex: 1, padding: '12px 0', border: 'none', background: 'none', cursor: 'pointer',
+                                    fontWeight: activeDay === day.id ? 600 : 400,
+                                    color: activeDay === day.id ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                    borderBottom: activeDay === day.id ? '2px solid var(--color-primary)' : '2px solid transparent'
+                                }}
+                            >
+                                {day.label.slice(0, 3)}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Schedule Content */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-lg)' }}>
+                        <h2 style={{ margin: '0 0 var(--spacing-md) 0', textTransform: 'capitalize' }}>{activeDay}</h2>
+                        
+                        {/* Assigment Form */}
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-lg)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'flex-end' }}>
+                            <div style={{ flex: 2 }}>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 500, marginBottom: '4px' }}>Template</label>
+                                <select className="form-input" style={{ width: '100%' }} value={assignmentForm.templateId} onChange={e => setAssignmentForm({ ...assignmentForm, templateId: e.target.value })}>
+                                    <option value="">-- Select Template --</option>
+                                    {config.templates.map(t => (
+                                        <option key={t.id} value={t.id}>{t.name} ({formatTime(t.startTime)} - {formatTime(t.endTime)})</option>
+                                    ))}
                                 </select>
                             </div>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 500, marginBottom: '4px' }}>Max Bookings</label>
+                                <input type="number" className="form-input" style={{ width: '100%' }} min={1} value={assignmentForm.maxBookings} onChange={e => setAssignmentForm({ ...assignmentForm, maxBookings: parseInt(e.target.value) || 1 })} />
+                            </div>
+                            <button className="btn btn-primary" onClick={handleAssignSlot} style={{ height: '40px' }}>
+                                Add
+                            </button>
+                        </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>Start Time *</label>
-                                    <input type="time" className="form-input" style={{ width: '100%' }} value={formData.startTime} onChange={e => setFormData({ ...formData, startTime: e.target.value })} />
+                        {/* Assigned Slots */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                            {config.defaultWeeklySchedule[activeDay]?.length === 0 ? (
+                                <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '20px', border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-md)' }}>
+                                    No slots assigned for {activeDay}. System will show NO SLOTS available on this day.
                                 </div>
-                                <div>
-                                    <label style={{ display: 'block', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>End Time *</label>
-                                    <input type="time" className="form-input" style={{ width: '100%' }} value={formData.endTime} onChange={e => setFormData({ ...formData, endTime: e.target.value })} />
+                            ) : (
+                                config.defaultWeeklySchedule[activeDay]?.map((assignment) => {
+                                    const template = config.templates.find(t => t.id === assignment.templateId);
+                                    if (!template) return null; // Corrupted data protection
+                                    return (
+                                        <div key={assignment.templateId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--spacing-md)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{template.name}</div>
+                                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                                    {formatTime(template.startTime)} to {formatTime(template.endTime)}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-lg)' }}>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Capacity</div>
+                                                    <div style={{ fontWeight: 600 }}>{assignment.maxBookings}</div>
+                                                </div>
+                                                <button className="btn btn-secondary" onClick={() => handleRemoveAssignment(activeDay, assignment.templateId)} style={{ color: 'var(--color-danger)' }}>
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+                                })
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Template Form Modal */}
+            {showTemplateForm && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 'var(--spacing-md)' }}>
+                    <div style={{ backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)', maxWidth: '400px', width: '100%', boxShadow: 'var(--shadow-xl)', overflow: 'hidden' }}>
+                        <div style={{ padding: 'var(--spacing-md) var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
+                            <h3 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600 }}>Create Template</h3>
+                            <button onClick={() => setShowTemplateForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={18} /></button>
+                        </div>
+                        <div style={{ padding: 'var(--spacing-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}>Slot Name (e.g. Morning Slot)</label>
+                                <input type="text" className="form-input" style={{ width: '100%' }} value={templateForm.name} onChange={e => setTemplateForm({ ...templateForm, name: e.target.value })} />
+                            </div>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}>Start Time</label>
+                                    <input type="time" className="form-input" style={{ width: '100%' }} value={templateForm.startTime} onChange={e => setTemplateForm({ ...templateForm, startTime: e.target.value })} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '6px' }}>End Time</label>
+                                    <input type="time" className="form-input" style={{ width: '100%' }} value={templateForm.endTime} onChange={e => setTemplateForm({ ...templateForm, endTime: e.target.value })} />
                                 </div>
                             </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>
-                                    Display Label <span style={{ fontWeight: 400, color: 'var(--text-tertiary)' }}>(optional — auto-generated if blank)</span>
-                                </label>
-                                <input type="text" className="form-input" style={{ width: '100%' }} placeholder="e.g. Morning, Evening Rush Hour…" value={formData.label} onChange={e => setFormData({ ...formData, label: e.target.value })} />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', fontWeight: 500, fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>Max Bookings per Slot *</label>
-                                <input type="number" className="form-input" style={{ width: '100%' }} min={1} max={50} value={formData.maxBookings} onChange={e => setFormData({ ...formData, maxBookings: parseInt(e.target.value) || 1 })} />
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>How many jobs can be taken in this window</div>
-                            </div>
-
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                <input type="checkbox" id="slot-active" checked={formData.active} onChange={e => setFormData({ ...formData, active: e.target.checked })} style={{ width: '16px', height: '16px' }} />
-                                <label htmlFor="slot-active" style={{ fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>Active (visible to customers)</label>
-                            </div>
-
                             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-sm)' }}>
-                                <button className="btn btn-primary" onClick={editingSlot ? handleUpdate : handleAdd} style={{ flex: 1, padding: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                                    <Save size={16} /> {editingSlot ? 'Update' : 'Add'} Slot
-                                </button>
-                                <button className="btn btn-secondary" onClick={() => { setShowForm(false); setEditingSlot(null); setFormData(EMPTY_FORM); }} style={{ padding: 'var(--spacing-sm)' }}>
-                                    Cancel
-                                </button>
+                                <button className="btn btn-primary" onClick={handleSaveTemplate} style={{ flex: 1 }}>Save Template</button>
+                                <button className="btn btn-secondary" onClick={() => setShowTemplateForm(false)} style={{ flex: 1 }}>Cancel</button>
                             </div>
                         </div>
                     </div>
@@ -275,5 +344,3 @@ function BookingSlots() {
         </div>
     );
 }
-
-export default BookingSlots;
