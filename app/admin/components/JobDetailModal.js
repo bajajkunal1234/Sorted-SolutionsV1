@@ -27,6 +27,33 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [rentals, setRentals] = useState([]);
     const [amcs, setAmcs] = useState([]);
 
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [fetchingSlots, setFetchingSlots] = useState(false);
+
+    useEffect(() => {
+        if (!editedJob.scheduled_date) {
+            setAvailableSlots([]);
+            return;
+        }
+        const fetchSlots = async () => {
+            setFetchingSlots(true);
+            try {
+                const res = await fetch(`/api/booking/available-slots?days=1&startDate=${editedJob.scheduled_date}`);
+                const data = await res.json();
+                if (data.success && data.data[editedJob.scheduled_date]) {
+                    setAvailableSlots(data.data[editedJob.scheduled_date]);
+                } else {
+                    setAvailableSlots([]);
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setFetchingSlots(false);
+            }
+        };
+        fetchSlots();
+    }, [editedJob.scheduled_date]);
+
     // Fetch fresh job data and technicians on mount
     useEffect(() => {
         const fetchData = async () => {
@@ -508,13 +535,19 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             className="form-select"
                                             value={editedJob.scheduled_time || ''}
                                             onChange={(e) => setEditedJob({ ...editedJob, scheduled_time: e.target.value })}
+                                            disabled={fetchingSlots || !editedJob.scheduled_date}
                                         >
-                                            <option value="">Select time slot</option>
-                                            <option value="09:00 AM - 11:00 AM">09:00 AM – 11:00 AM</option>
-                                            <option value="11:00 AM - 01:00 PM">11:00 AM – 01:00 PM</option>
-                                            <option value="01:00 PM - 03:00 PM">01:00 PM – 03:00 PM</option>
-                                            <option value="03:00 PM - 05:00 PM">03:00 PM – 05:00 PM</option>
-                                            <option value="05:00 PM - 07:00 PM">05:00 PM – 07:00 PM</option>
+                                            <option value="">{fetchingSlots ? 'Loading slots...' : !editedJob.scheduled_date ? 'Select a date first' : 'Select time slot'}</option>
+                                            {availableSlots.map(slot => {
+                                                const slotLabel = slot.label || `${slot.startTime}–${slot.endTime}`;
+                                                return (
+                                                    <option key={slot.id} value={slotLabel}>{slotLabel}</option>
+                                                );
+                                            })}
+                                            {/* Retain the currently selected slot even if it's full or inactive, so it doesn't get wiped */}
+                                            {editedJob.scheduled_time && !availableSlots.find(s => (s.label || `${s.startTime}–${s.endTime}`) === editedJob.scheduled_time) && (
+                                                <option value={editedJob.scheduled_time}>{editedJob.scheduled_time} (Current)</option>
+                                            )}
                                         </select>
                                     </div>
 

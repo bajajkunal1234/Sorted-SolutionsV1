@@ -89,8 +89,8 @@ export async function GET(request) {
                 status: job.status,
                 assignedTechnician: job.assigned_technician?.name,
                 technicianMobile: job.assigned_technician?.mobile,
-                dueDate: job.due_date,
-                confirmedVisitTime: job.confirmed_visit_time,
+                dueDate: job.scheduled_date || job.due_date,
+                confirmedVisitTime: job.scheduled_time || job.confirmed_visit_time,
                 completedAt: job.completed_at,
                 createdAt: job.created_at,
                 notes: job.description || '',   // show description as user-facing notes

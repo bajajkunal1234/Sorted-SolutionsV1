@@ -241,7 +241,17 @@ export async function GET(request) {
                 .eq('source', 'website_booking')
                 .gte('created_at', prevLookback).lt('created_at', lookback),
 
-            supabase.from('website_config').select('value').eq('key', 'google_apis').single()
+            supabase.from('website_config').select('value').eq('key', 'google_apis').single(),
+
+            // First-Party Analytics
+            supabase.from('visitor_sessions').select('*', { count: 'exact', head: true })
+                .gte('created_at', lookback),
+            supabase.from('visitor_sessions').select('visitor_id')
+                .gte('created_at', lookback),
+            supabase.from('page_views').select('*', { count: 'exact', head: true })
+                .gte('created_at', lookback),
+            supabase.from('page_views').select('page_path, duration_seconds')
+                .gte('created_at', lookback)
         ])
 
         // ── Single pass aggregation over current period jobs
@@ -339,10 +349,33 @@ export async function GET(request) {
             ga4Data = await fetchGA4(cfg.ga4PropertyId, cfg.ga4ServiceAccountJson, ga4DateRange)
         }
 
+        // Process First-Party Data
+        const fpUniqueVisitors = new Set((arguments[0][8].data || []).map(s => s.visitor_id)).size;
+        const fpTotalSessions = arguments[0][7].count || 0;
+        const fpTotalPageViews = arguments[0][9].count || 0;
+        
+        const fpPagePathCounts = {};
+        for (const pv of (arguments[0][10].data || [])) {
+            fpPagePathCounts[pv.page_path] = (fpPagePathCounts[pv.page_path] || 0) + 1;
+        }
+        
+        const fpTopPages = Object.entries(fpPagePathCounts)
+            .map(([path, views]) => ({ path, views }))
+            .sort((a, b) => b.views - a.views)
+            .slice(0, 10);
+
+        const firstPartyData = {
+            sessions: fpTotalSessions,
+            uniqueVisitors: fpUniqueVisitors,
+            pageViews: fpTotalPageViews,
+            topPages: fpTopPages
+        };
+
         return NextResponse.json({
             success: true,
             range,
             supabase: supabaseData,
+            firstParty: firstPartyData,
             ga4: ga4Data,
             ga4Connected: !!(cfg.ga4PropertyId && cfg.ga4ServiceAccountJson),
         })

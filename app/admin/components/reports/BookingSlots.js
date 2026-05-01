@@ -1,23 +1,29 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Clock, Plus, Edit2, Trash2, Save, Calendar, Loader2, RefreshCcw } from 'lucide-react';
+import { Clock, Plus, Edit2, Trash2, Save, Calendar, Loader2, RefreshCcw, AlertCircle, LayoutTemplate } from 'lucide-react';
 import { websiteSettingsAPI } from '@/lib/adminAPI';
 
-function BookingSlots() {
-    const [slots, setSlots] = useState([]);
+export default function BookingSlots() {
+    const [config, setConfig] = useState({
+        templates: [],
+        defaultWeeklySchedule: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] },
+        overrides: {}
+    });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [activeTab, setActiveTab] = useState('templates');
 
-    const [editingSlot, setEditingSlot] = useState(null);
-    const [showForm, setShowForm] = useState(false);
-    const [formData, setFormData] = useState({
-        day: 'monday',
-        startTime: '09:00',
-        endTime: '12:00',
-        maxBookings: 4,
-        active: true
-    });
+    const [showTemplateModal, setShowTemplateModal] = useState(false);
+    const [editingTemplate, setEditingTemplate] = useState(null);
+    const [templateForm, setTemplateForm] = useState({ name: '', startTime: '09:00', endTime: '12:00' });
+
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [editingDay, setEditingDay] = useState('monday');
+    const [scheduleForm, setScheduleForm] = useState({ templateId: '', maxBookings: 4 });
+
+    const [showOverrideModal, setShowOverrideModal] = useState(false);
+    const [overrideForm, setOverrideForm] = useState({ date: '', templateId: '', maxBookings: 4 });
 
     const days = [
         { id: 'monday', label: 'Monday' },
@@ -29,16 +35,21 @@ function BookingSlots() {
         { id: 'sunday', label: 'Sunday' }
     ];
 
-    useEffect(() => {
-        fetchSlots();
-    }, []);
+    useEffect(() => { fetchConfig(); }, []);
 
-    const fetchSlots = async () => {
+    const fetchConfig = async () => {
         try {
             setLoading(true);
             const data = await websiteSettingsAPI.getByKey('booking-slots');
             if (data && data.value) {
-                setSlots(data.value);
+                const val = data.value;
+                const schedule = val.defaultWeeklySchedule || {};
+                days.forEach(d => { if (!schedule[d.id]) schedule[d.id] = []; });
+                setConfig({
+                    templates: val.templates || [],
+                    defaultWeeklySchedule: schedule,
+                    overrides: val.overrides || {}
+                });
             }
         } catch (err) {
             console.error('Failed to fetch slots:', err);
@@ -47,11 +58,11 @@ function BookingSlots() {
         }
     };
 
-    const saveSlots = async (updatedSlots) => {
+    const saveConfig = async (newConfig) => {
         try {
             setSaving(true);
-            await websiteSettingsAPI.save('booking-slots', updatedSlots, 'Weekly booking time slots');
-            setSlots(updatedSlots);
+            await websiteSettingsAPI.save('booking-slots', newConfig, 'Weekly booking time slots');
+            setConfig(newConfig);
         } catch (err) {
             console.error('Failed to save slots:', err);
             alert('Failed to save changes');
@@ -60,398 +71,265 @@ function BookingSlots() {
         }
     };
 
-    const handleAdd = () => {
-        const newSlot = {
-            id: `s${Date.now()}`,
-            ...formData
-        };
-        const updatedSlots = [...slots, newSlot];
-        saveSlots(updatedSlots);
-        setShowForm(false);
-        setFormData({ day: 'monday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true });
+    const handleSaveTemplate = () => {
+        if (!templateForm.name || !templateForm.startTime || !templateForm.endTime) return alert("Please fill all fields");
+        let newTemplates = [...config.templates];
+        if (editingTemplate) {
+            newTemplates = newTemplates.map(t => t.id === editingTemplate.id ? { ...t, ...templateForm } : t);
+        } else {
+            newTemplates.push({ id: `t_${Date.now()}`, ...templateForm });
+        }
+        saveConfig({ ...config, templates: newTemplates });
+        setShowTemplateModal(false);
     };
 
-    const handleUpdate = () => {
-        const updatedSlots = slots.map(s => s.id === editingSlot.id ? { ...editingSlot, ...formData } : s);
-        saveSlots(updatedSlots);
-        setEditingSlot(null);
-        setFormData({ day: 'monday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true });
-    };
-
-    const handleEdit = (slot) => {
-        setEditingSlot(slot);
-        setFormData({
-            day: slot.day,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            maxBookings: slot.maxBookings,
-            active: slot.active
-        });
-    };
-
-    const handleDelete = (slotId) => {
-        if (confirm('Are you sure you want to delete this time slot?')) {
-            const updatedSlots = slots.filter(s => s.id !== slotId);
-            saveSlots(updatedSlots);
+    const handleDeleteTemplate = (id) => {
+        if (confirm('Delete this template? It will also be removed from schedules.')) {
+            const newTemplates = config.templates.filter(t => t.id !== id);
+            const newSchedule = { ...config.defaultWeeklySchedule };
+            days.forEach(d => { newSchedule[d.id] = newSchedule[d.id].filter(s => s.templateId !== id); });
+            const newOverrides = { ...config.overrides };
+            Object.keys(newOverrides).forEach(date => {
+                newOverrides[date] = newOverrides[date].filter(s => s.templateId !== id);
+                if (newOverrides[date].length === 0) delete newOverrides[date];
+            });
+            saveConfig({ templates: newTemplates, defaultWeeklySchedule: newSchedule, overrides: newOverrides });
         }
     };
 
-    const handleToggleActive = (slotId) => {
-        const updatedSlots = slots.map(s => s.id === slotId ? { ...s, active: !s.active } : s);
-        saveSlots(updatedSlots);
+    const handleAddSchedule = () => {
+        if (!scheduleForm.templateId) return alert("Select a template");
+        const newSchedule = { ...config.defaultWeeklySchedule };
+        if (newSchedule[editingDay].some(s => s.templateId === scheduleForm.templateId)) return alert("Template already assigned to this day");
+        newSchedule[editingDay].push({ templateId: scheduleForm.templateId, maxBookings: scheduleForm.maxBookings });
+        saveConfig({ ...config, defaultWeeklySchedule: newSchedule });
+        setShowScheduleModal(false);
     };
 
-    const getDayLabel = (dayId) => {
-        return days.find(d => d.id === dayId)?.label || dayId;
+    const handleRemoveSchedule = (day, templateId) => {
+        const newSchedule = { ...config.defaultWeeklySchedule };
+        newSchedule[day] = newSchedule[day].filter(s => s.templateId !== templateId);
+        saveConfig({ ...config, defaultWeeklySchedule: newSchedule });
     };
 
-    const groupedSlots = days.reduce((acc, day) => {
-        acc[day.id] = slots.filter(s => s.day === day.id).sort((a, b) => a.startTime.localeCompare(b.startTime));
-        return acc;
-    }, {});
+    const handleAddOverride = () => {
+        if (!overrideForm.date || !overrideForm.templateId) return alert("Select date and template");
+        const newOverrides = { ...config.overrides };
+        if (!newOverrides[overrideForm.date]) newOverrides[overrideForm.date] = [];
+        if (newOverrides[overrideForm.date].some(s => s.templateId === overrideForm.templateId)) return alert("Template already overridden for this date");
+        newOverrides[overrideForm.date].push({ templateId: overrideForm.templateId, maxBookings: overrideForm.maxBookings });
+        saveConfig({ ...config, overrides: newOverrides });
+        setShowOverrideModal(false);
+    };
 
-    const totalActiveSlots = slots.filter(s => s.active).length;
-    const totalCapacity = slots.filter(s => s.active).reduce((sum, s) => sum + s.maxBookings, 0);
+    const handleRemoveOverride = (date, templateId) => {
+        const newOverrides = { ...config.overrides };
+        newOverrides[date] = newOverrides[date].filter(s => s.templateId !== templateId);
+        if (newOverrides[date].length === 0) delete newOverrides[date];
+        saveConfig({ ...config, overrides: newOverrides });
+    };
+
+    const getTemplate = (id) => config.templates.find(t => t.id === id);
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Header */}
-            <div style={{
-                padding: 'var(--spacing-md)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: 'var(--spacing-md)'
-            }}>
+            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '4px' }}>
-                        Booking Slots Management
-                    </h3>
-                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                        Configure available time slots for customer bookings
-                    </p>
+                    <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0 }}>Booking Slots Settings</h3>
+                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>Manage slot templates and availability.</p>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                    <button
-                        className="btn btn-secondary"
-                        onClick={fetchSlots}
-                        disabled={loading}
-                        style={{ padding: '6px 12px' }}
-                    >
-                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
-                    </button>
-                    <button
-                        className="btn btn-primary"
-                        onClick={() => setShowForm(true)}
-                        style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
-                    >
-                        <Plus size={16} />
-                        Add Time Slot
-                    </button>
-                </div>
+                <button className="btn btn-secondary" onClick={fetchConfig} disabled={loading} style={{ padding: '6px 12px' }}>
+                    <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                </button>
             </div>
 
-            {/* Stats */}
-            <div style={{
-                padding: 'var(--spacing-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: 'var(--spacing-md)'
-            }}>
-                <div style={{
-                    padding: 'var(--spacing-md)',
-                    backgroundColor: 'var(--bg-elevated)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-primary)'
-                }}>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
-                        Active Slots
-                    </div>
-                    <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>
-                        {totalActiveSlots}
-                    </div>
-                </div>
-
-                <div style={{
-                    padding: 'var(--spacing-md)',
-                    backgroundColor: 'var(--bg-elevated)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-primary)'
-                }}>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
-                        Total Capacity/Week
-                    </div>
-                    <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-primary)' }}>
-                        {totalCapacity}
-                    </div>
-                </div>
-
-                <div style={{
-                    padding: 'var(--spacing-md)',
-                    backgroundColor: 'var(--bg-elevated)',
-                    borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--border-primary)'
-                }}>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>
-                        Avg Capacity/Slot
-                    </div>
-                    <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700 }}>
-                        {totalActiveSlots > 0 ? Math.round(totalCapacity / totalActiveSlots) : 0}
-                    </div>
-                </div>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', padding: '0 var(--spacing-md)' }}>
+                {[
+                    { id: 'templates', icon: LayoutTemplate, label: 'Templates' },
+                    { id: 'weekly', icon: Calendar, label: 'Weekly Schedule' },
+                    { id: 'overrides', icon: Clock, label: 'Date Overrides' }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        style={{
+                            padding: 'var(--spacing-md) var(--spacing-lg)',
+                            border: 'none',
+                            background: 'none',
+                            borderBottom: activeTab === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent',
+                            color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--text-secondary)',
+                            fontWeight: activeTab === tab.id ? 600 : 500,
+                            cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: '8px'
+                        }}
+                    >
+                        <tab.icon size={18} /> {tab.label}
+                    </button>
+                ))}
             </div>
 
-            {/* Slots by Day */}
             <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
                 {loading ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)' }}>
-                        <Loader2 className="spin" size={48} style={{ marginBottom: 'var(--spacing-md)' }} />
-                        <p>Loading slots...</p>
-                    </div>
+                    <div style={{ textAlign: 'center', padding: 'var(--spacing-2xl)' }}><Loader2 className="spin" size={32} /></div>
                 ) : (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
-                        {days.map(day => {
-                            const daySlots = groupedSlots[day.id];
-                            if (daySlots.length === 0) return null;
-
-                            return (
-                                <div key={day.id}>
-                                    <h4 style={{
-                                        fontSize: 'var(--font-size-base)',
-                                        fontWeight: 600,
-                                        marginBottom: 'var(--spacing-sm)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 'var(--spacing-xs)'
-                                    }}>
-                                        <Calendar size={16} />
-                                        {day.label}
-                                        <span style={{
-                                            fontSize: 'var(--font-size-xs)',
-                                            fontWeight: 500,
-                                            color: 'var(--text-tertiary)',
-                                            backgroundColor: 'var(--bg-tertiary)',
-                                            padding: '2px 8px',
-                                            borderRadius: 'var(--radius-sm)'
-                                        }}>
-                                            {daySlots.filter(s => s.active).length} active
-                                        </span>
-                                    </h4>
-
-                                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                        {daySlots.map(slot => (
-                                            <div
-                                                key={slot.id}
-                                                style={{
-                                                    padding: 'var(--spacing-md)',
-                                                    backgroundColor: 'var(--bg-elevated)',
-                                                    border: '1px solid var(--border-primary)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'center',
-                                                    opacity: slot.active ? 1 : 0.5,
-                                                    transition: 'all var(--transition-fast)'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.boxShadow = 'var(--shadow-sm)'}
-                                                onMouseLeave={(e) => e.currentTarget.style.boxShadow = 'none'}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                                                    <Clock size={20} style={{ color: 'var(--color-primary)' }} />
-                                                    <div>
-                                                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, fontFamily: 'monospace' }}>
-                                                            {slot.startTime} - {slot.endTime}
-                                                        </div>
-                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                            Max {slot.maxBookings} bookings
-                                                            {!slot.active && <span style={{ color: 'var(--color-danger)', marginLeft: '8px' }}>● Inactive</span>}
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                                    <button
-                                                        className="btn btn-secondary"
-                                                        onClick={() => handleToggleActive(slot.id)}
-                                                        style={{
-                                                            padding: '6px 10px',
-                                                            fontSize: 'var(--font-size-xs)',
-                                                            backgroundColor: slot.active ? 'var(--bg-tertiary)' : 'var(--color-success)',
-                                                            color: slot.active ? 'var(--text-secondary)' : 'var(--text-inverse)'
-                                                        }}
-                                                    >
-                                                        {slot.active ? 'Disable' : 'Enable'}
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-secondary"
-                                                        onClick={() => handleEdit(slot)}
-                                                        style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)' }}
-                                                    >
-                                                        <Edit2 size={14} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-secondary"
-                                                        onClick={() => handleDelete(slot.id)}
-                                                        style={{ padding: '6px 10px', fontSize: 'var(--font-size-xs)', color: 'var(--color-danger)' }}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                    <>
+                        {activeTab === 'templates' && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
+                                    <h4 style={{ margin: 0 }}>Slot Templates</h4>
+                                    <button className="btn btn-primary" onClick={() => { setEditingTemplate(null); setTemplateForm({ name: '', startTime: '09:00', endTime: '12:00' }); setShowTemplateModal(true); }}>
+                                        <Plus size={16} /> Add Template
+                                    </button>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
+                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
+                                    {config.templates.map(t => (
+                                        <div key={t.id} className="card" style={{ padding: 'var(--spacing-md)', display: 'flex', justifyContent: 'space-between' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>{t.name}</div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>{t.startTime} - {t.endTime}</div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '8px' }}>
+                                                <button className="btn btn-secondary" onClick={() => { setEditingTemplate(t); setTemplateForm(t); setShowTemplateModal(true); }}><Edit2 size={14} /></button>
+                                                <button className="btn btn-secondary" style={{ color: 'var(--color-danger)' }} onClick={() => handleDeleteTemplate(t.id)}><Trash2 size={14} /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {config.templates.length === 0 && <div style={{ color: 'var(--text-tertiary)' }}>No templates defined yet.</div>}
+                                </div>
+                            </div>
+                        )}
 
-                {!loading && slots.length === 0 && (
-                    <div style={{
-                        padding: 'var(--spacing-2xl)',
-                        textAlign: 'center',
-                        color: 'var(--text-tertiary)'
-                    }}>
-                        No booking slots configured. Add your first slot to get started.
-                    </div>
+                        {activeTab === 'weekly' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                                {days.map(day => (
+                                    <div key={day.id} className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-sm)' }}>
+                                            <h4 style={{ margin: 0 }}>{day.label}</h4>
+                                            <button className="btn btn-secondary" onClick={() => { setEditingDay(day.id); setScheduleForm({ templateId: '', maxBookings: 4 }); setShowScheduleModal(true); }}>
+                                                <Plus size={14} /> Assign Slot
+                                            </button>
+                                        </div>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                                            {config.defaultWeeklySchedule[day.id]?.map(s => {
+                                                const t = getTemplate(s.templateId);
+                                                if (!t) return null;
+                                                return (
+                                                    <div key={s.templateId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'var(--bg-secondary)', borderRadius: '20px', fontSize: '13px', border: '1px solid var(--border-primary)' }}>
+                                                        <span style={{ fontWeight: 600 }}>{t.name}</span>
+                                                        <span style={{ color: 'var(--text-tertiary)' }}>({t.startTime}-{t.endTime})</span>
+                                                        <span style={{ background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: '10px', fontSize: '11px' }}>Max: {s.maxBookings}</span>
+                                                        <button style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-danger)' }} onClick={() => handleRemoveSchedule(day.id, s.templateId)}>&times;</button>
+                                                    </div>
+                                                )
+                                            })}
+                                            {(!config.defaultWeeklySchedule[day.id] || config.defaultWeeklySchedule[day.id].length === 0) && <div style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>No slots assigned.</div>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {activeTab === 'overrides' && (
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--spacing-md)' }}>
+                                    <h4 style={{ margin: 0 }}>Date Overrides</h4>
+                                    <button className="btn btn-primary" onClick={() => { setOverrideForm({ date: '', templateId: '', maxBookings: 4 }); setShowOverrideModal(true); }}>
+                                        <Plus size={16} /> Add Override
+                                    </button>
+                                </div>
+                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                                    {Object.entries(config.overrides).map(([date, slots]) => (
+                                        <div key={date} className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                            <div style={{ fontWeight: 600, marginBottom: '8px', color: 'var(--color-primary)' }}>{new Date(date).toDateString()}</div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
+                                                {slots.map(s => {
+                                                    const t = getTemplate(s.templateId);
+                                                    if (!t) return null;
+                                                    return (
+                                                        <div key={s.templateId} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', background: 'var(--bg-secondary)', borderRadius: '20px', fontSize: '13px', border: '1px solid var(--border-primary)' }}>
+                                                            <span style={{ fontWeight: 600 }}>{t.name}</span>
+                                                            <span style={{ background: 'var(--bg-elevated)', padding: '2px 6px', borderRadius: '10px', fontSize: '11px' }}>Max: {s.maxBookings}</span>
+                                                            <button style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-danger)' }} onClick={() => handleRemoveOverride(date, s.templateId)}>&times;</button>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {Object.keys(config.overrides).length === 0 && <div style={{ color: 'var(--text-tertiary)' }}>No date overrides defined.</div>}
+                                </div>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
-            {/* Add/Edit Form Modal */}
-            {(showForm || editingSlot) && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                    padding: 'var(--spacing-md)'
-                }}>
-                    <div style={{
-                        backgroundColor: 'var(--bg-primary)',
-                        borderRadius: 'var(--radius-lg)',
-                        maxWidth: '500px',
-                        width: '100%'
-                    }}>
-                        <div style={{
-                            padding: 'var(--spacing-lg)',
-                            borderBottom: '1px solid var(--border-primary)'
-                        }}>
-                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0 }}>
-                                {editingSlot ? 'Edit' : 'Add'} Time Slot
-                            </h3>
+            {/* Modals */}
+            {showTemplateModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="card" style={{ width: 400, padding: 'var(--spacing-lg)' }}>
+                        <h3>{editingTemplate ? 'Edit' : 'Add'} Template</h3>
+                        <div style={{ marginBottom: 12 }}>
+                            <label>Slot Name</label>
+                            <input className="form-input" value={templateForm.name} onChange={e => setTemplateForm({...templateForm, name: e.target.value})} placeholder="e.g. Slot 1" />
                         </div>
+                        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+                            <div style={{ flex: 1 }}><label>Start Time</label><input type="time" className="form-input" value={templateForm.startTime} onChange={e => setTemplateForm({...templateForm, startTime: e.target.value})} /></div>
+                            <div style={{ flex: 1 }}><label>End Time</label><input type="time" className="form-input" value={templateForm.endTime} onChange={e => setTemplateForm({...templateForm, endTime: e.target.value})} /></div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button className="btn btn-primary" onClick={handleSaveTemplate} disabled={saving} style={{ flex: 1 }}>Save</button>
+                            <button className="btn btn-secondary" onClick={() => setShowTemplateModal(false)} style={{ flex: 1 }}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                        <div style={{ padding: 'var(--spacing-lg)' }}>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Day of Week *
-                                    </label>
-                                    <select
-                                        value={formData.day}
-                                        onChange={(e) => setFormData({ ...formData, day: e.target.value })}
-                                        className="form-input"
-                                        style={{ width: '100%' }}
-                                    >
-                                        {days.map(day => (
-                                            <option key={day.id} value={day.id}>{day.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
+            {showScheduleModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="card" style={{ width: 400, padding: 'var(--spacing-lg)' }}>
+                        <h3>Assign to {days.find(d => d.id === editingDay)?.label}</h3>
+                        <div style={{ marginBottom: 12 }}>
+                            <label>Template</label>
+                            <select className="form-input" value={scheduleForm.templateId} onChange={e => setScheduleForm({...scheduleForm, templateId: e.target.value})}>
+                                <option value="">Select a template...</option>
+                                {config.templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.startTime}-{t.endTime})</option>)}
+                            </select>
+                        </div>
+                        <div style={{ marginBottom: 20 }}>
+                            <label>Max Bookings</label>
+                            <input type="number" className="form-input" min="1" value={scheduleForm.maxBookings} onChange={e => setScheduleForm({...scheduleForm, maxBookings: parseInt(e.target.value) || 1})} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button className="btn btn-primary" onClick={handleAddSchedule} disabled={saving} style={{ flex: 1 }}>Add</button>
+                            <button className="btn btn-secondary" onClick={() => setShowScheduleModal(false)} style={{ flex: 1 }}>Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            Start Time *
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={formData.startTime}
-                                            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                                            className="form-input"
-                                            style={{ width: '100%' }}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                            End Time *
-                                        </label>
-                                        <input
-                                            type="time"
-                                            value={formData.endTime}
-                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                            className="form-input"
-                                            style={{ width: '100%' }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px' }}>
-                                        Max Bookings *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={formData.maxBookings}
-                                        onChange={(e) => setFormData({ ...formData, maxBookings: parseInt(e.target.value) || 1 })}
-                                        min="1"
-                                        max="20"
-                                        className="form-input"
-                                        style={{ width: '100%' }}
-                                    />
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                        Maximum number of bookings allowed in this time slot
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                    <input
-                                        type="checkbox"
-                                        id="active-checkbox"
-                                        checked={formData.active}
-                                        onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                                        style={{ width: '16px', height: '16px' }}
-                                    />
-                                    <label htmlFor="active-checkbox" style={{ fontSize: 'var(--font-size-sm)', cursor: 'pointer' }}>
-                                        Active (available for customer bookings)
-                                    </label>
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', marginTop: 'var(--spacing-lg)' }}>
-                                <button
-                                    className="btn btn-primary"
-                                    onClick={editingSlot ? handleUpdate : handleAdd}
-                                    disabled={saving}
-                                    style={{ flex: 1, padding: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                >
-                                    {saving ? <Loader2 className="spin" size={16} /> : <Save size={16} />}
-                                    {saving ? 'Saving...' : (editingSlot ? 'Update' : 'Add')} Slot
-                                </button>
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={() => {
-                                        setShowForm(false);
-                                        setEditingSlot(null);
-                                        setFormData({ day: 'monday', startTime: '09:00', endTime: '12:00', maxBookings: 4, active: true });
-                                    }}
-                                    style={{ padding: 'var(--spacing-sm)' }}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
+            {showOverrideModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+                    <div className="card" style={{ width: 400, padding: 'var(--spacing-lg)' }}>
+                        <h3>Add Date Override</h3>
+                        <div style={{ marginBottom: 12 }}>
+                            <label>Date</label>
+                            <input type="date" className="form-input" value={overrideForm.date} onChange={e => setOverrideForm({...overrideForm, date: e.target.value})} />
+                        </div>
+                        <div style={{ marginBottom: 12 }}>
+                            <label>Template</label>
+                            <select className="form-input" value={overrideForm.templateId} onChange={e => setOverrideForm({...overrideForm, templateId: e.target.value})}>
+                                <option value="">Select a template...</option>
+                                {config.templates.map(t => <option key={t.id} value={t.id}>{t.name} ({t.startTime}-{t.endTime})</option>)}
+                            </select>
+                        </div>
+                        <div style={{ marginBottom: 20 }}>
+                            <label>Max Bookings</label>
+                            <input type="number" className="form-input" min="1" value={overrideForm.maxBookings} onChange={e => setOverrideForm({...overrideForm, maxBookings: parseInt(e.target.value) || 1})} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button className="btn btn-primary" onClick={handleAddOverride} disabled={saving} style={{ flex: 1 }}>Add</button>
+                            <button className="btn btn-secondary" onClick={() => setShowOverrideModal(false)} style={{ flex: 1 }}>Cancel</button>
                         </div>
                     </div>
                 </div>
@@ -459,5 +337,3 @@ function BookingSlots() {
         </div>
     );
 }
-
-export default BookingSlots;

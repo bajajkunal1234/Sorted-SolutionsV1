@@ -203,6 +203,62 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ success: true, job: updatedJob });
         }
 
+        if (action === 'reschedule') {
+            const body = await request.clone().json().catch(() => ({}));
+            const { scheduled_date, scheduled_time } = body;
+
+            if (!scheduled_date || !scheduled_time) {
+                return NextResponse.json({ error: 'Missing scheduled_date or scheduled_time' }, { status: 400 });
+            }
+
+            // Verify the job belongs to this customer
+            const { data: job, error: fetchError } = await supabase
+                .from('jobs')
+                .select('customer_id, status, scheduled_date, scheduled_time')
+                .eq('id', id)
+                .single();
+
+            if (fetchError || !job) {
+                return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+            }
+
+            if (job.customer_id !== customerId) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+            }
+
+            // Only allow rescheduling if job is not completed or cancelled
+            if (job.status === 'completed' || job.status === 'cancelled') {
+                return NextResponse.json({ error: 'Cannot reschedule completed or cancelled job' }, { status: 400 });
+            }
+
+            // Update job schedule
+            const { data: updatedJob, error: updateError } = await supabase
+                .from('jobs')
+                .update({
+                    scheduled_date,
+                    scheduled_time,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (updateError) {
+                console.error('Error rescheduling job:', updateError);
+                return NextResponse.json({ error: 'Failed to reschedule job' }, { status: 500 });
+            }
+
+            // Log it as an interaction
+            await supabase.from('job_interactions').insert({
+                job_id: id,
+                type: 'reschedule',
+                message: `Customer rescheduled to ${scheduled_date} at ${scheduled_time}`,
+                user_name: 'Customer',
+            }).catch(() => {});
+
+            return NextResponse.json({ success: true, job: updatedJob, message: 'Job rescheduled successfully' });
+        }
+
         return NextResponse.json(
             { error: 'Invalid action' },
             { status: 400 }

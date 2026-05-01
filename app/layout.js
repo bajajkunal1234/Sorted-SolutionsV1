@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import GoogleTagsProvider from '@/components/GoogleTagsProvider'
 import ClickTracker from '@/components/ClickTracker'
 import FloatingCTA from '@/components/common/FloatingCTA'
+import FirstPartyTracker from '@/components/common/FirstPartyTracker'
 
 export const metadata = {
     metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in'),
@@ -69,6 +70,9 @@ export default function RootLayout({ children }) {
                 </Suspense>
                 <Suspense fallback={null}>
                     <FloatingCTA />
+                </Suspense>
+                <Suspense fallback={null}>
+                    <FirstPartyTracker />
                 </Suspense>
             </body>
         </html>

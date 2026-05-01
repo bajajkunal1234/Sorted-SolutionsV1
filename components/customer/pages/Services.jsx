@@ -8,6 +8,7 @@ import {
     Eye, TrendingUp
 } from 'lucide-react'
 import BookServiceModal from '../modals/BookServiceModal'
+import RescheduleModal from '../modals/RescheduleModal'
 import LiveMap from '@/components/common/LiveMap'
 import { supabase } from '@/lib/supabase'
 
@@ -338,7 +339,7 @@ function StarRating({ job, onRated }) {
     );
 }
 
-function JobDetailSheet({ job, onClose, onCancel }) {
+function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
     const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.booking_request
     const Icon = cfg.icon
 
@@ -708,18 +709,30 @@ function JobDetailSheet({ job, onClose, onCancel }) {
                         </div>
                     </div>
 
-                    {/* Cancel CTA */}
+                    {/* Action Buttons */}
                     {!['completed', 'cancelled'].includes(job.status) && (
-                        <button
-                            onClick={() => onCancel(job.id)}
-                            style={{
-                                width: '100%', padding: '14px',
-                                background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
-                                borderRadius: 14, color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: 'pointer'
-                            }}
-                        >
-                            Cancel Service Request
-                        </button>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                            <button
+                                onClick={() => onRescheduleClick()}
+                                style={{
+                                    flex: 1, padding: '14px',
+                                    background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.25)',
+                                    borderRadius: 14, color: '#38bdf8', fontSize: 13, fontWeight: 700, cursor: 'pointer'
+                                }}
+                            >
+                                Reschedule
+                            </button>
+                            <button
+                                onClick={() => onCancel(job.id)}
+                                style={{
+                                    flex: 1, padding: '14px',
+                                    background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
+                                    borderRadius: 14, color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: 'pointer'
+                                }}
+                            >
+                                Cancel Request
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -736,6 +749,7 @@ export default function ServicesPage() {
     const [filterStatus, setFilterStatus] = useState('active')
     const [selectedJob, setSelectedJob] = useState(null)
     const [showServiceModal, setShowServiceModal] = useState(false)
+    const [showRescheduleModal, setShowRescheduleModal] = useState(false)
     const [refreshing, setRefreshing] = useState(false)
 
     useEffect(() => { fetchJobs() }, [filterStatus])
@@ -907,6 +921,7 @@ export default function ServicesPage() {
                     job={selectedJob}
                     onClose={() => setSelectedJob(null)}
                     onCancel={handleCancel}
+                    onRescheduleClick={() => setShowRescheduleModal(true)}
                 />
             )}
 
@@ -917,6 +932,16 @@ export default function ServicesPage() {
                 isOpen={showServiceModal}
                 onClose={() => setShowServiceModal(false)}
                 onBook={() => { fetchJobs(); setShowServiceModal(false) }}
+            />
+
+            <RescheduleModal
+                isOpen={showRescheduleModal}
+                onClose={() => setShowRescheduleModal(false)}
+                job={selectedJob}
+                onReschedule={() => {
+                    fetchJobs();
+                    setSelectedJob(null); // Close the detail sheet to show the updated list or user can reopen
+                }}
             />
         </div>
     )

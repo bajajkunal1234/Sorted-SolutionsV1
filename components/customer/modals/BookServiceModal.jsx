@@ -64,7 +64,8 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
     const [appliances, setAppliances] = useState([])   // booking_categories
     const [brands, setBrands] = useState([])            // booking_brands
     const [allIssues, setAllIssues] = useState([])     // flat list of all issues
-    const [slots, setSlots] = useState([])             // booking-slots, active only
+    const [availableSlots, setAvailableSlots] = useState([])
+    const [fetchingSlots, setFetchingSlots] = useState(false)
     const [customerProperties, setCustomerProperties] = useState([]) // customer's linked properties
     const [settingsLoading, setSettingsLoading] = useState(true)
 
@@ -77,14 +78,13 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
         setSettingsLoading(true)
         try {
             const customerId = localStorage.getItem('customerId')
-            const [bookingRes, brandsRes, slotsRes, propsRes] = await Promise.all([
+            const [bookingRes, brandsRes, propsRes] = await Promise.all([
                 fetch('/api/settings/quick-booking'),
                 fetch('/api/settings/booking-brands'),
-                fetch('/api/settings/booking-slots'),
                 customerId ? fetch(`/api/customer/properties?customer_id=${customerId}`) : Promise.resolve(null),
             ])
-            const [bookingData, brandsData, slotsData] = await Promise.all([
-                bookingRes.json(), brandsRes.json(), slotsRes.json(),
+            const [bookingData, brandsData] = await Promise.all([
+                bookingRes.json(), brandsRes.json(),
             ])
             const propsData = propsRes ? await propsRes.json() : null
 
@@ -107,9 +107,6 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
             const activeBrands = (brandsData.data || []).filter(b => b.is_active !== false)
             setBrands(activeBrands)
 
-            const activeSlots = (slotsData.data || []).filter(s => s.active !== false)
-            setSlots(activeSlots)
-
             if (propsData?.success) {
                 setCustomerProperties(propsData.properties || [])
             }
@@ -125,8 +122,26 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
         ? allIssues.filter(i => i.appliance.toLowerCase() === form.appliance.toLowerCase())
         : allIssues
 
-    // Unique slot labels for the time picker
-    const uniqueSlotLabels = [...new Map(slots.map(s => [s.label || `${s.startTime}–${s.endTime}`, s])).values()]
+    useEffect(() => {
+        if (!form.preferredDate) return
+        const fetchSlots = async () => {
+            setFetchingSlots(true)
+            try {
+                const res = await fetch(`/api/booking/available-slots?days=1&startDate=${form.preferredDate}`)
+                const data = await res.json()
+                if (data.success && data.data[form.preferredDate]) {
+                    setAvailableSlots(data.data[form.preferredDate])
+                } else {
+                    setAvailableSlots([])
+                }
+            } catch (err) {
+                console.error(err)
+            } finally {
+                setFetchingSlots(false)
+            }
+        }
+        fetchSlots()
+    }, [form.preferredDate])
 
     const handleImagePick = (e) => {
         const file = e.target.files?.[0]
@@ -308,9 +323,13 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                         {/* Preferred Time Slot (mandatory) */}
                         <div>
                             <label style={S.label}>Preferred Time *</label>
-                            {uniqueSlotLabels.length > 0 ? (
+                            {!form.preferredDate ? (
+                                <div style={{ fontSize: 13, color: '#64748b', fontStyle: 'italic', padding: '10px 0' }}>Select a date first</div>
+                            ) : fetchingSlots ? (
+                                <div style={{ fontSize: 13, color: '#64748b', padding: '10px 0' }}>Loading slots...</div>
+                            ) : availableSlots.length > 0 ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {uniqueSlotLabels.map(slot => {
+                                    {availableSlots.map(slot => {
                                         const slotLabel = slot.label || `${slot.startTime}–${slot.endTime}`
                                         const isSelected = form.preferredTime === slotLabel
                                         return (
@@ -331,8 +350,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                                     })}
                                 </div>
                             ) : (
-                                <input style={S.input} type="text" placeholder="E.g. Morning (9am–12pm)"
-                                    value={form.preferredTime} onChange={e => setForm(f => ({ ...f, preferredTime: e.target.value }))} />
+                                <div style={{ fontSize: 13, color: '#f87171', padding: '10px 0' }}>No slots available for this date</div>
                             )}
                         </div>
 

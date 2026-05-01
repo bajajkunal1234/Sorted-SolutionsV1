@@ -43,7 +43,7 @@ export default function BookingWizard() {
     const wizardRef = useRef(null);
 
     const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
-    const [allSlots, setAllSlots] = useState([]);      // from /api/settings/booking-slots
+    const [availabilityMap, setAvailabilityMap] = useState({}); // { 'YYYY-MM-DD': slots[] }
     const [brands, setBrands] = useState([]);          // from /api/settings/booking-brands
 
     const [formData, setFormData] = useState({
@@ -66,7 +66,7 @@ export default function BookingWizard() {
                 setLoading(true);
                 const [bookingRes, slotsRes, brandsRes] = await Promise.all([
                     fetch('/api/settings/quick-booking'),
-                    fetch('/api/settings/booking-slots'),
+                    fetch('/api/booking/available-slots?days=3'),
                     fetch('/api/settings/booking-brands'),
                 ]);
                 const [bookingData, slotsData, brandsData] = await Promise.all([
@@ -79,7 +79,7 @@ export default function BookingWizard() {
                     const issues = subs.flatMap(s => s.issues || []);
                     setMetadata({ categories: cats, subcategories: subs, issues });
                 }
-                if (slotsData.success) setAllSlots(slotsData.data || []);
+                if (slotsData.success) setAvailabilityMap(slotsData.data || {});
                 if (brandsData.success) setBrands((brandsData.data || []).filter(b => b.is_active));
 
                 // Pre-fill from URL params
@@ -138,8 +138,8 @@ export default function BookingWizard() {
     const nextDates = useMemo(() => getNextDates(3), []);
 
     const getSlotsForDate = (date) => {
-        const dayName = DAY_NAMES[date.getDay()];
-        return allSlots.filter(s => s.day === dayName && s.active);
+        const key = formatDateKey(date);
+        return availabilityMap[key] || [];
     };
 
     // Navigation — now 5 steps
