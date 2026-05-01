@@ -66,9 +66,18 @@ export async function GET(request) {
             config = { templates: [], defaultWeeklySchedule: { monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: [] }, overrides: {} };
         }
 
-        // 2. Determine Date Range
+        // 2. Determine Date Range (Enforce Asia/Kolkata Timezone)
         const dates = [];
-        let baseDate = startDateParam ? new Date(`${startDateParam}T00:00:00`) : new Date();
+        let baseDate;
+        if (startDateParam) {
+            // If explicit start date is provided, use it
+            baseDate = new Date(`${startDateParam}T00:00:00Z`); // Treat as UTC midnight so .getDate() remains correct in Vercel
+        } else {
+            // Get current time in India
+            const istString = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+            baseDate = new Date(istString);
+            baseDate.setHours(0, 0, 0, 0); // Normalize to midnight so getDate() works perfectly on Vercel's UTC environment
+        }
         
         for (let i = 0; i < daysParam; i++) {
             const d = new Date(baseDate);
