@@ -31,7 +31,7 @@ export async function GET() {
 
         if (error && error.code !== 'PGRST116') throw error;
 
-        let config = data?.config || {};
+        let config = data?.extra_config || {};
         
         // Backward compatibility: If the DB still has the old flat array format,
         // convert it into the new template format on the fly.
@@ -101,7 +101,7 @@ export async function PUT(request) {
             .from('website_section_configs')
             .upsert({
                 section_id: SECTION_ID,
-                config: config,
+                extra_config: config,
                 updated_at: new Date().toISOString()
             });
         if (error) throw error;

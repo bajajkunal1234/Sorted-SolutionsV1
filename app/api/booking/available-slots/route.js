@@ -35,7 +35,7 @@ export async function GET(request) {
             .eq('section_id', SECTION_ID)
             .single();
 
-        let config = configData?.config || {};
+        let config = configData?.extra_config || {};
         
         // Handle backward compatibility dynamically
         // Fallback to DEFAULT_SLOTS if config is completely empty
