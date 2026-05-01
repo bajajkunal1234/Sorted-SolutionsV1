@@ -37,7 +37,7 @@ export default function BookingWizard() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
-    const [currentStep, setCurrentStep] = useState('service');
+    const [currentStep, setCurrentStep] = useState('contact');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const wizardRef = useRef(null);
@@ -102,6 +102,9 @@ export default function BookingWizard() {
                         brand: brandId || '',
                         brandName: brandName || '',
                     }));
+                } else {
+                    router.push('/');
+                    return;
                 }
             } catch (err) {
                 console.error('Failed to initialize booking wizard', err);
@@ -147,16 +150,14 @@ export default function BookingWizard() {
 
     const handleNext = () => {
         scrollTop();
-        if (currentStep === 'service') setCurrentStep('contact');
-        else if (currentStep === 'contact') setCurrentStep('slot');
+        if (currentStep === 'contact') setCurrentStep('slot');
         else if (currentStep === 'slot') setCurrentStep('fees');
         else if (currentStep === 'fees') setCurrentStep('review');
     };
 
     const handleBack = () => {
         scrollTop();
-        if (currentStep === 'contact') setCurrentStep('service');
-        else if (currentStep === 'slot') setCurrentStep('contact');
+        if (currentStep === 'slot') setCurrentStep('contact');
         else if (currentStep === 'fees') setCurrentStep('slot');
         else if (currentStep === 'review') setCurrentStep('fees');
     };
@@ -260,27 +261,14 @@ export default function BookingWizard() {
 
                 <div className="booking-body">
 
-                    {/* ── Step 1: Service Details ── */}
-                    {currentStep === 'service' && (
+                    {/* ── Step 1: Contact Info ── */}
+                    {currentStep === 'contact' && (
                         <div className="step-content">
-                            <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>Service Details</h2>
-                            <div className="service-summary">
-                                {[
-                                    { label: 'Appliance', value: getName('appliance', formData.category) },
-                                    { label: 'Service Type', value: getName('type', formData.subcategory) },
-                                    { label: 'Issue', value: getName('issue', formData.issue) },
-                                    { label: 'Locality', value: formData.locality || '—' },
-                                ].map(row => (
-                                    <div key={row.label} className="summary-row">
-                                        <span className="summary-label">{row.label}</span>
-                                        <span className="summary-value">{row.value}</span>
-                                    </div>
-                                ))}
-                            </div>
+                            <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>How do we reach you?</h2>
 
                             {/* Brand selector — editable in wizard */}
                             {brands.length > 0 && (
-                                <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
+                                <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
                                     <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         <span>🏷️</span> Appliance Brand
                                         <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span>
@@ -305,17 +293,6 @@ export default function BookingWizard() {
                                     </select>
                                 </div>
                             )}
-
-                            <p style={{ marginTop: 'var(--spacing-md)', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                ℹ️ Service details are pre-selected. Go back to homepage to change.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* ── Step 2: Contact Info ── */}
-                    {currentStep === 'contact' && (
-                        <div className="step-content">
-                            <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>How do we reach you?</h2>
 
                             <div className="form-grid">
                                 <div className="form-group">
@@ -475,7 +452,7 @@ export default function BookingWizard() {
                         </div>
                     )}
 
-                    {/* ── Step 3: Date & Time Slot ── */}
+                    {/* ── Step 2: Date & Time Slot ── */}
                     {currentStep === 'slot' && (
                         <div className="step-content">
                             <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Choose a Date &amp; Time</h2>
@@ -585,7 +562,7 @@ export default function BookingWizard() {
                         </div>
                     )}
 
-                    {/* ── Step 4: Fee Preview ── */}
+                    {/* ── Step 3: Fee Preview ── */}
                     {currentStep === 'fees' && (
                             <div className="step-content">
                                 <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Fee Preview</h2>
@@ -663,7 +640,7 @@ export default function BookingWizard() {
                             </div>
                     )}
 
-                    {/* ── Step 5: Review (compact confirmation) ── */}
+                    {/* ── Step 4: Review (compact confirmation) ── */}
                     {currentStep === 'review' && (
                         <div className="step-content">
                             <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Confirm Your Booking</h2>
@@ -724,7 +701,7 @@ export default function BookingWizard() {
 
                 {/* ── Footer ── */}
                 <div className="booking-footer">
-                    {currentStep !== 'service' ? (
+                    {currentStep !== 'contact' ? (
                         <button onClick={handleBack} className="btn btn-secondary">
                             <ChevronLeft size={18} /> Back
                         </button>
