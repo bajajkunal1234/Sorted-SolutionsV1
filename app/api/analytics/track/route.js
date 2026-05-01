@@ -17,9 +17,10 @@ export async function POST(request) {
             utm_campaign
         } = body;
 
-        if (!visitor_id) {
+        if (type === 'pageview' && !visitor_id) {
             return NextResponse.json({ success: false, error: 'Missing visitor_id' }, { status: 400 });
         }
+
 
         const supabase = createServerSupabase();
         if (!supabase) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
