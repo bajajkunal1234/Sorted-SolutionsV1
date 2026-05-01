@@ -1,6 +1,8 @@
 import { createServerSupabase } from '@/lib/supabase-server';
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 const SECTION_ID = 'booking-slots';
 
 const DEFAULT_SLOTS = [
