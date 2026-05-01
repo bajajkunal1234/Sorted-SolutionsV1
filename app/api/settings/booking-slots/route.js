@@ -3,6 +3,21 @@ import { NextResponse } from 'next/server';
 
 const SECTION_ID = 'booking-slots';
 
+const DEFAULT_SLOTS = [
+    { id: 's1', day: 'monday', startTime: '09:00', endTime: '12:00', label: 'Morning (9am – 12pm)', maxBookings: 4, active: true },
+    { id: 's2', day: 'monday', startTime: '14:00', endTime: '18:00', label: 'Afternoon (2pm – 6pm)', maxBookings: 6, active: true },
+    { id: 's3', day: 'tuesday', startTime: '09:00', endTime: '12:00', label: 'Morning (9am – 12pm)', maxBookings: 4, active: true },
+    { id: 's4', day: 'tuesday', startTime: '14:00', endTime: '18:00', label: 'Afternoon (2pm – 6pm)', maxBookings: 6, active: true },
+    { id: 's5', day: 'wednesday', startTime: '09:00', endTime: '12:00', label: 'Morning (9am – 12pm)', maxBookings: 4, active: true },
+    { id: 's6', day: 'wednesday', startTime: '14:00', endTime: '18:00', label: 'Afternoon (2pm – 6pm)', maxBookings: 6, active: true },
+    { id: 's7', day: 'thursday', startTime: '09:00', endTime: '12:00', label: 'Morning (9am – 12pm)', maxBookings: 4, active: true },
+    { id: 's8', day: 'thursday', startTime: '14:00', endTime: '18:00', label: 'Afternoon (2pm – 6pm)', maxBookings: 6, active: true },
+    { id: 's9', day: 'friday', startTime: '09:00', endTime: '12:00', label: 'Morning (9am – 12pm)', maxBookings: 4, active: true },
+    { id: 's10', day: 'friday', startTime: '14:00', endTime: '18:00', label: 'Afternoon (2pm – 6pm)', maxBookings: 6, active: true },
+    { id: 's11', day: 'saturday', startTime: '09:00', endTime: '13:00', label: 'Morning (9am – 1pm)', maxBookings: 3, active: true },
+];
+
+
 export async function GET() {
     try {
         const supabase = createServerSupabase();
@@ -18,14 +33,20 @@ export async function GET() {
         
         // Backward compatibility: If the DB still has the old flat array format,
         // convert it into the new template format on the fly.
-        if (config.slots && !config.templates) {
+        // Fallback to DEFAULT_SLOTS if config is completely empty
+        let slotsArray = config.slots;
+        if (!config.slots && !config.templates) {
+            slotsArray = DEFAULT_SLOTS;
+        }
+
+        if (slotsArray && !config.templates) {
             const templatesMap = {};
             const templates = [];
             const defaultWeeklySchedule = {
                 monday: [], tuesday: [], wednesday: [], thursday: [], friday: [], saturday: [], sunday: []
             };
             
-            config.slots.forEach((slot, index) => {
+            slotsArray.forEach((slot, index) => {
                 // Generate a unique key for the template
                 const templateKey = `${slot.startTime}-${slot.endTime}-${slot.label}`;
                 let templateId = templatesMap[templateKey];
