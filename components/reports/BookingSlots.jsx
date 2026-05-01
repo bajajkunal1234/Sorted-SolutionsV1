@@ -31,6 +31,8 @@ export default function BookingSlots() {
     // Schedule Assignment State
     const [activeDay, setActiveDay] = useState('monday');
     const [assignmentForm, setAssignmentForm] = useState({ templateId: '', maxBookings: 4 });
+    const [rightPanelTab, setRightPanelTab] = useState('weekly'); // 'weekly' or 'overrides'
+    const [overrideDate, setOverrideDate] = useState('');
 
     useEffect(() => { loadConfig(); }, []);
 
@@ -67,12 +69,19 @@ export default function BookingSlots() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newConfig)
             });
-            const result = await res.json();
+            const text = await res.text();
+            let result;
+            try {
+                result = JSON.parse(text);
+            } catch (err) {
+                throw new Error(`Server returned invalid response (HTTP ${res.status}): ${text.substring(0, 150)}`);
+            }
             if (!result.success) throw new Error(result.error);
             setSaveMsg('Saved successfully!');
             setTimeout(() => setSaveMsg(''), 2500);
         } catch (err) {
             setSaveMsg('Save failed: ' + err.message);
+            // Optionally alert if you want it more visible: alert('Save failed: ' + err.message);
         } finally {
             setSaving(false);
         }
@@ -221,18 +230,26 @@ export default function BookingSlots() {
                     </div>
                 </div>
 
-                {/* Right Panel: Weekly Schedule */}
+                {/* Right Panel: Weekly Schedule / Overrides */}
                 <div style={{ flex: 1, backgroundColor: 'var(--bg-primary)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
-                        <h4 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Calendar size={18} /> Weekly Default Schedule
-                        </h4>
-                        <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                            Assign slot templates to specific days and set their capacity.
-                        </p>
+                    <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h4 style={{ margin: 0, fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Calendar size={18} /> Schedule Management
+                            </h4>
+                            <p style={{ margin: '4px 0 0 0', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                Manage default schedules or date-specific overrides.
+                            </p>
+                        </div>
+                        <div style={{ display: 'flex', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', padding: '4px' }}>
+                            <button onClick={() => setRightPanelTab('weekly')} style={{ padding: '4px 12px', fontSize: '13px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: rightPanelTab === 'weekly' ? 'var(--bg-elevated)' : 'transparent', color: rightPanelTab === 'weekly' ? 'var(--text-primary)' : 'var(--text-secondary)', boxShadow: rightPanelTab === 'weekly' ? 'var(--shadow-sm)' : 'none' }}>Weekly Schedule</button>
+                            <button onClick={() => setRightPanelTab('overrides')} style={{ padding: '4px 12px', fontSize: '13px', border: 'none', borderRadius: '4px', cursor: 'pointer', background: rightPanelTab === 'overrides' ? 'var(--bg-elevated)' : 'transparent', color: rightPanelTab === 'overrides' ? 'var(--text-primary)' : 'var(--text-secondary)', boxShadow: rightPanelTab === 'overrides' ? 'var(--shadow-sm)' : 'none' }}>Specific Dates</button>
+                        </div>
                     </div>
 
-                    {/* Day Tabs */}
+                    {rightPanelTab === 'weekly' && (
+                        <>
+                            {/* Day Tabs */}
                     <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
                         {DAYS.map(day => (
                             <button 
@@ -307,6 +324,111 @@ export default function BookingSlots() {
                             )}
                         </div>
                     </div>
+                        </>
+                    )}
+
+                    {rightPanelTab === 'overrides' && (
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-lg)' }}>
+                            <h2 style={{ margin: '0 0 var(--spacing-sm) 0' }}>Specific Date Overrides</h2>
+                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
+                                Define custom slots for a specific date (e.g. holidays or restricted capacity). This fully overrides the weekly schedule for that date.
+                            </p>
+
+                            <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', marginBottom: 'var(--spacing-xl)' }}>
+                                <input 
+                                    type="date" 
+                                    className="form-input" 
+                                    value={overrideDate}
+                                    onChange={e => setOverrideDate(e.target.value)}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    style={{ width: '200px' }}
+                                />
+                            </div>
+
+                            {overrideDate ? (
+                                <div>
+                                    {/* Assignment Form for the date */}
+                                    <div style={{ backgroundColor: 'var(--bg-secondary)', padding: 'var(--spacing-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--spacing-lg)', display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'flex-end' }}>
+                                        <div style={{ flex: 2 }}>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 500, marginBottom: '4px' }}>Template</label>
+                                            <select className="form-input" style={{ width: '100%' }} id="override-template">
+                                                <option value="">-- Select Template --</option>
+                                                {config.templates.map(t => (
+                                                    <option key={t.id} value={t.id}>{t.name} ({formatTime(t.startTime)} - {formatTime(t.endTime)})</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ display: 'block', fontSize: 'var(--font-size-xs)', fontWeight: 500, marginBottom: '4px' }}>Max Bookings</label>
+                                            <input type="number" className="form-input" style={{ width: '100%' }} id="override-max" defaultValue={4} min={1} />
+                                        </div>
+                                        <button className="btn btn-primary" style={{ height: '40px' }} onClick={() => {
+                                            const tId = document.getElementById('override-template').value;
+                                            const maxB = parseInt(document.getElementById('override-max').value) || 4;
+                                            if (!tId) return alert('Select a template first.');
+                                            
+                                            const currentOverrides = config.overrides || {};
+                                            const dateSlots = currentOverrides[overrideDate] || [];
+                                            if (dateSlots.some(s => s.templateId === tId)) {
+                                                return alert('This template is already assigned to this date.');
+                                            }
+                                            
+                                            const newOverrides = { ...currentOverrides, [overrideDate]: [...dateSlots, { templateId: tId, maxBookings: maxB }] };
+                                            const newConfig = { ...config, overrides: newOverrides };
+                                            setConfig(newConfig);
+                                            saveConfig(newConfig);
+                                        }}>
+                                            Add
+                                        </button>
+                                    </div>
+
+                                    {/* Assigned Overrides */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                                        {!config.overrides || !config.overrides[overrideDate] || config.overrides[overrideDate].length === 0 ? (
+                                            <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '20px', border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-md)' }}>
+                                                No specific slots assigned. The default weekly schedule will be used.
+                                            </div>
+                                        ) : (
+                                            config.overrides[overrideDate].map((assignment) => {
+                                                const template = config.templates.find(t => t.id === assignment.templateId);
+                                                if (!template) return null;
+                                                return (
+                                                    <div key={assignment.templateId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'var(--spacing-md)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)' }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, color: 'var(--color-primary)' }}>{template.name}</div>
+                                                            <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                                                {formatTime(template.startTime)} to {formatTime(template.endTime)}
+                                                            </div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-lg)' }}>
+                                                            <div style={{ textAlign: 'right' }}>
+                                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Capacity</div>
+                                                                <div style={{ fontWeight: 600 }}>{assignment.maxBookings}</div>
+                                                            </div>
+                                                            <button className="btn btn-secondary" style={{ color: 'var(--color-danger)' }} onClick={() => {
+                                                                const newOverrides = { ...config.overrides };
+                                                                newOverrides[overrideDate] = newOverrides[overrideDate].filter(s => s.templateId !== assignment.templateId);
+                                                                if (newOverrides[overrideDate].length === 0) delete newOverrides[overrideDate];
+                                                                const newConfig = { ...config, overrides: newOverrides };
+                                                                setConfig(newConfig);
+                                                                saveConfig(newConfig);
+                                                            }}>
+                                                                <X size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', padding: '40px 20px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                                    Please select a date above to manage its slots.
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
