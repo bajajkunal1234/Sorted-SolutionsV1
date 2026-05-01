@@ -1,188 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Search, MapPin } from 'lucide-react';
-import { MUMBAI_LOCALITIES, getPincodeForLocality } from '@/lib/data/mumbaiLocalities';
+import { useState, useEffect } from 'react';
+import { Search } from 'lucide-react';
 import './QuickBookingForm.css';
-
-// ─── Searchable Locality Combobox ────────────────────────────────────────────
-function LocalityCombobox({ value, onChange }) {
-    const [query, setQuery] = useState('');
-    const [open, setOpen] = useState(false);
-    const [focused, setFocused] = useState(false);
-    const containerRef = useRef(null);
-    const inputRef = useRef(null);
-
-    // When a locality is selected from outside (e.g. form reset), sync the display
-    useEffect(() => {
-        if (!open) {
-            setQuery(value === '__other__' ? '' : (value || ''));
-        }
-    }, [value, open]);
-
-    // Close on outside click
-    useEffect(() => {
-        const handler = (e) => {
-            if (containerRef.current && !containerRef.current.contains(e.target)) {
-                setOpen(false);
-                // If user typed but didn't pick, treat as "Other"
-                if (focused && query && !MUMBAI_LOCALITIES.find(l => l.name.toLowerCase() === query.toLowerCase())) {
-                    onChange('__other__', query);
-                }
-                setFocused(false);
-            }
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, [focused, query, onChange]);
-
-    const filtered = query.trim().length === 0
-        ? MUMBAI_LOCALITIES
-        : MUMBAI_LOCALITIES.filter(l =>
-            l.name.toLowerCase().includes(query.trim().toLowerCase())
-        );
-
-    const handleSelect = (loc) => {
-        setQuery(loc.name);
-        setOpen(false);
-        setFocused(false);
-        onChange(loc.name);
-    };
-
-    const handleOther = () => {
-        setOpen(false);
-        setFocused(false);
-        onChange('__other__', query);
-    };
-
-    const handleInputChange = (e) => {
-        setQuery(e.target.value);
-        setOpen(true);
-        // Clear selection if user is typing
-        if (value && value !== '__other__') {
-            onChange('');
-        }
-    };
-
-    const handleFocus = () => {
-        setOpen(true);
-        setFocused(true);
-        inputRef.current?.select();
-    };
-
-    const displayValue = value === '__other__' ? query : query;
-
-    return (
-        <div ref={containerRef} style={{ position: 'relative' }}>
-            {/* Input */}
-            <div style={{ position: 'relative' }}>
-                <MapPin size={15} style={{
-                    position: 'absolute', left: 12, top: '50%',
-                    transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none'
-                }} />
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={displayValue}
-                    onChange={handleInputChange}
-                    onFocus={handleFocus}
-                    placeholder="Search your area..."
-                    autoComplete="off"
-                    style={{
-                        width: '100%',
-                        padding: '10px 36px 10px 34px',
-                        border: '1px solid var(--border-primary, #e2e8f0)',
-                        borderRadius: 8,
-                        fontSize: 14,
-                        boxSizing: 'border-box',
-                        background: 'var(--bg-elevated, #fff)',
-                        color: 'var(--text-primary, #1e293b)',
-                        outline: 'none',
-                        cursor: 'text',
-                    }}
-                    aria-label="Search your locality or area"
-                    aria-expanded={open}
-                    aria-autocomplete="list"
-                    role="combobox"
-                />
-                <Search size={13} style={{
-                    position: 'absolute', right: 12, top: '50%',
-                    transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none'
-                }} />
-            </div>
-
-            {/* Dropdown list */}
-            {open && (
-                <div style={{
-                    position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-                    background: 'var(--bg-elevated, #fff)',
-                    border: '1px solid var(--border-primary, #e2e8f0)',
-                    borderRadius: 10,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                    maxHeight: 220,
-                    overflowY: 'auto',
-                    zIndex: 999,
-                    scrollbarWidth: 'thin',
-                }}>
-                    {filtered.length === 0 && (
-                        <div style={{ padding: '10px 14px', fontSize: 13, color: '#94a3b8' }}>
-                            No match — you can still{' '}
-                            <span
-                                onClick={handleOther}
-                                style={{ color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline' }}
-                            >
-                                use "{query}" as your area
-                            </span>
-                        </div>
-                    )}
-
-                    {filtered.map(loc => (
-                        <div
-                            key={loc.name}
-                            onMouseDown={() => handleSelect(loc)}
-                            style={{
-                                padding: '9px 14px',
-                                fontSize: 13,
-                                cursor: 'pointer',
-                                color: 'var(--text-primary, #1e293b)',
-                                borderBottom: '1px solid rgba(0,0,0,0.04)',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                background: loc.name === value ? 'rgba(59,130,246,0.08)' : 'transparent',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.06)'}
-                            onMouseLeave={e => e.currentTarget.style.background = loc.name === value ? 'rgba(59,130,246,0.08)' : 'transparent'}
-                        >
-                            <span>{loc.name}</span>
-                            <span style={{ fontSize: 11, color: '#94a3b8' }}>{loc.pincode}</span>
-                        </div>
-                    ))}
-
-                    {/* "Other" option always at the bottom */}
-                    {filtered.length > 0 && (
-                        <div
-                            onMouseDown={handleOther}
-                            style={{
-                                padding: '9px 14px',
-                                fontSize: 12,
-                                cursor: 'pointer',
-                                color: '#64748b',
-                                borderTop: '1px solid rgba(0,0,0,0.06)',
-                                fontStyle: 'italic',
-                                background: value === '__other__' ? 'rgba(59,130,246,0.06)' : 'transparent',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.06)'}
-                            onMouseLeave={e => e.currentTarget.style.background = value === '__other__' ? 'rgba(59,130,246,0.06)' : 'transparent'}
-                        >
-                            My area is not listed — use "{query || 'other'}"
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
 
 // ─── Main Form ────────────────────────────────────────────────────────────────
 function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initialData }) {
@@ -202,21 +22,13 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
     const [formData, setFormData] = useState({
         category: initialCategory,
         subcategory: preSelectedSubcategoryId || '',
-        brand: '',
         issue: '',
-        locality: '',
-        localityOther: '',
     });
 
     const [prefilledIssueName, setPrefilledIssueName] = useState(null);
-    const [brands, setBrands] = useState([]);
     const [settings, setSettings] = useState(initialData || {
         title: 'Book A Technician Now',
         subtitle: 'Get same day service | Transparent pricing | Licensed technicians',
-        serviceable_pincodes: [],
-        valid_pincode_message: '✓ We serve here!',
-        invalid_pincode_message: '✗ Not serviceable',
-        help_text: 'We currently serve Mumbai areas. Call us for other locations.',
         categories: []
     });
     const [loading, setLoading] = useState(!initialData);
@@ -236,17 +48,6 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
         };
         fetchData();
     }, [initialData]);
-
-    useEffect(() => {
-        const fetchBrands = async () => {
-            try {
-                const res = await fetch('/api/settings/booking-brands');
-                const data = await res.json();
-                if (data.success) setBrands((data.data || []).filter(b => b.is_active));
-            } catch { }
-        };
-        fetchBrands();
-    }, []);
 
     useEffect(() => {
         const handler = (e) => {
@@ -271,41 +72,29 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
     const selectedSubcategory = visibleSubcategories.find(s => s.id === parseInt(formData.subcategory));
     const visibleIssues = (selectedSubcategory?.issues || []).filter(i => i.showOnBookingForm !== false);
 
-    // Handle locality selection from combobox
-    const handleLocalityChange = (localityName, otherText) => {
-        if (localityName === '__other__') {
-            setFormData(prev => ({ ...prev, locality: '__other__', localityOther: otherText || '' }));
-        } else if (localityName === '') {
-            setFormData(prev => ({ ...prev, locality: '', localityOther: '' }));
-        } else {
-            setFormData(prev => ({ ...prev, locality: localityName, localityOther: '' }));
-        }
-    };
-
     const handleSubmit = (e) => {
         e.preventDefault();
-        const locality = formData.locality === '__other__'
-            ? formData.localityOther.trim()
-            : formData.locality;
-        if (formData.category && formData.subcategory && formData.issue && locality) {
-            const selectedBrand = brands.find(b => String(b.id) === String(formData.brand));
-            const pincode = getPincodeForLocality(locality);
-            const params = new URLSearchParams({
-                category: formData.category,
-                subcategory: formData.subcategory,
-                issue: formData.issue,
-                locality,
-                pincode,
-                ...(formData.brand && { brand: formData.brand, brandName: selectedBrand?.name || '' })
-            });
-            window.location.href = `/booking?${params.toString()}`;
+        
+        if (!formData.category) {
+            alert('Please select your appliance.');
+            return;
         }
-    };
+        if (!formData.subcategory) {
+            alert('Please select the appliance type.');
+            return;
+        }
+        if (!formData.issue) {
+            alert('Please select the problem.');
+            return;
+        }
 
-    const effectiveLocality = formData.locality === '__other__'
-        ? formData.localityOther.trim()
-        : formData.locality;
-    const isReady = !!(formData.category && formData.subcategory && formData.issue && effectiveLocality);
+        const params = new URLSearchParams({
+            category: formData.category,
+            subcategory: formData.subcategory,
+            issue: formData.issue,
+        });
+        window.location.href = `/booking?${params.toString()}`;
+    };
 
     return (
         <div className={`quick-booking-form ${loading ? 'loading' : ''}`}>
@@ -346,9 +135,6 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                             category: e.target.value,
                             subcategory: '',
                             issue: '',
-                            brand: '',
-                            locality: formData.locality,
-                            localityOther: formData.localityOther,
                         })}
                         required
                         aria-label="Select appliance type"
@@ -379,77 +165,22 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                     </div>
                 )}
 
-                {/* Fields 3 & 4: Issue + Brand */}
+                {/* Field 3: Issue */}
                 {formData.subcategory && (
-                    <div style={{ display: 'flex', gap: '10px', animation: 'fadeIn 0.3s ease-in', alignItems: 'flex-end' }}>
-                        <div className="form-group" style={{ flex: 1, margin: 0 }}>
-                            <label htmlFor="issue">What's the Problem?</label>
-                            <select
-                                id="issue"
-                                value={formData.issue}
-                                onChange={(e) => setFormData({ ...formData, issue: e.target.value })}
-                                required
-                                aria-label="Select issue type"
-                            >
-                                <option value="">Select issue...</option>
-                                {visibleIssues.map(issue => (
-                                    <option key={issue.id} value={issue.id}>{issue.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        {brands.length > 0 && (
-                            <div className="form-group" style={{ flex: '0 0 38%', margin: 0 }}>
-                                <label htmlFor="brand">Brand</label>
-                                <select
-                                    id="brand"
-                                    value={formData.brand}
-                                    onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                                    aria-label="Select appliance brand"
-                                >
-                                    <option value="">Any brand</option>
-                                    {brands.map(brand => (
-                                        <option key={brand.id} value={brand.id}>{brand.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Field 5: Locality — searchable combobox */}
-                {formData.issue && (
                     <div className="form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
-                        <label htmlFor="locality-search">
-                            <MapPin size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                            Your Area / Locality
-                        </label>
-                        <LocalityCombobox
-                            value={formData.locality}
-                            onChange={handleLocalityChange}
-                        />
-                        {/* Manual pincode override when "Other" is selected */}
-                        {formData.locality === '__other__' && (
-                            <div style={{ marginTop: 8 }}>
-                                <input
-                                    type="text"
-                                    placeholder="Type your locality / area name"
-                                    value={formData.localityOther}
-                                    onChange={(e) => setFormData({ ...formData, localityOther: e.target.value })}
-                                    style={{
-                                        width: '100%', padding: '10px 14px',
-                                        border: '1px solid var(--border-primary, #e2e8f0)',
-                                        borderRadius: 8, fontSize: 14, boxSizing: 'border-box',
-                                        background: 'var(--bg-elevated, #fff)',
-                                        color: 'var(--text-primary, #1e293b)',
-                                        outline: 'none',
-                                    }}
-                                    aria-label="Type your locality"
-                                />
-                                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
-                                    We'll still accept your booking — our team will confirm the area.
-                                </div>
-                            </div>
-                        )}
+                        <label htmlFor="issue">What's the Problem?</label>
+                        <select
+                            id="issue"
+                            value={formData.issue}
+                            onChange={(e) => setFormData({ ...formData, issue: e.target.value })}
+                            required
+                            aria-label="Select issue type"
+                        >
+                            <option value="">Select issue...</option>
+                            {visibleIssues.map(issue => (
+                                <option key={issue.id} value={issue.id}>{issue.name}</option>
+                            ))}
+                        </select>
                     </div>
                 )}
 
@@ -458,8 +189,6 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                     type="submit"
                     className="book-button"
                     aria-label="Book technician"
-                    disabled={!isReady}
-                    style={!isReady ? { opacity: 0.45, cursor: 'not-allowed', filter: 'grayscale(40%)' } : {}}
                 >
                     <Search size={18} />
                     Book Technician Now
