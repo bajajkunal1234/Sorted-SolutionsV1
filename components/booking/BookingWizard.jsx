@@ -167,12 +167,13 @@ export default function BookingWizard() {
     const handleSubmit = async () => {
         // ── Client-side validation before hitting the API ────────────────
         const missing = [];
-        if (!formData.phone?.trim()) missing.push('Phone number (Step 2)');
-        if (!formData.name?.trim()) missing.push('Your name (Step 2)');
-        if (!formData.address?.trim()) missing.push('Street / landmark address (Step 2)');
-        if (!formData.locality?.trim()) missing.push('Locality (Step 2)');
-        if (!formData.selectedDate) missing.push('Preferred date (Step 3)');
-        if (!formData.selectedSlotId) missing.push('Time slot (Step 3)');
+        if (!formData.phone?.trim()) missing.push('Phone number (Step 1)');
+        if (!formData.name?.trim()) missing.push('Your name (Step 1)');
+        if (!formData.building_name?.trim()) missing.push('Building / Bunglow Name (Step 1)');
+        if (!formData.address?.trim()) missing.push('Street / landmark address (Step 1)');
+        if (!formData.locality?.trim()) missing.push('Locality (Step 1)');
+        if (!formData.selectedDate) missing.push('Preferred date (Step 2)');
+        if (!formData.selectedSlotId) missing.push('Time slot (Step 2)');
         if (missing.length > 0) {
             alert('Please fill in the following before completing your booking:\n\n• ' + missing.join('\n• '));
             return;
@@ -352,17 +353,7 @@ export default function BookingWizard() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
-                                <input type="checkbox" id="whatsappAlerts" checked={formData.whatsappAlerts}
-                                    onChange={e => setFormData({ ...formData, whatsappAlerts: e.target.checked })}
-                                    style={{ width: '18px', height: '18px', accentColor: '#25D366', cursor: 'pointer' }} />
-                                <label htmlFor="whatsappAlerts" style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span style={{ fontSize: '1.1em' }}>📲</span>
-                                    Send me alerts by WhatsApp message.
-                                </label>
-                            </div>
-
-                            <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-lg)' }}>
+                            <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-lg)', marginTop: 'var(--spacing-lg)' }}>
                                 <div className="form-group">
                                     <label className="form-label">Your Name *</label>
                                     <input type="text" className="form-input" placeholder="Full name"
@@ -373,13 +364,13 @@ export default function BookingWizard() {
 
                             <div className="form-grid">
                                 <div className="form-group">
-                                    <label className="form-label">Flat / Wing</label>
+                                    <label className="form-label">Flat / Wing <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
                                     <input type="text" className="form-input" placeholder="e.g. A-42"
                                         value={formData.flat_number}
                                         onChange={e => setFormData({ ...formData, flat_number: e.target.value })} />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Building / Bungalow Name</label>
+                                    <label className="form-label">Building / Bunglow Name *</label>
                                     <input type="text" className="form-input" placeholder="e.g. Sunrise Residency"
                                         value={formData.building_name}
                                         onChange={e => setFormData({ ...formData, building_name: e.target.value })} />
@@ -443,7 +434,7 @@ export default function BookingWizard() {
                             </div>
 
                             <div className="form-group">
-                                <label className="form-label">Special Instructions</label>
+                                <label className="form-label">Special Instructions <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
                                 <textarea className="form-textarea" rows={3}
                                     value={formData.specialInstructions}
                                     onChange={e => setFormData({ ...formData, specialInstructions: e.target.value })}
@@ -666,7 +657,6 @@ export default function BookingWizard() {
                                     <div style={{ fontWeight: 600 }}>{formData.name}</div>
                                     <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                                         {formData.phone}{formData.email && ` · ${formData.email}`}
-                                        {formData.whatsappAlerts && <span style={{ marginLeft: '8px', color: '#25D366', fontSize: '0.85em' }}>📲</span>}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
                                         {[formData.flat_number, formData.building_name, formData.address, formData.locality, `${formData.city} – ${formData.zip}`].filter(Boolean).join(', ')}
