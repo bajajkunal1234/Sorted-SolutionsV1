@@ -92,13 +92,22 @@ export async function PATCH(request) {
         }
 
         // Verify customer is actually linked to this property (security check)
-        const { data: link } = await supabase
+        const { data: customer } = await supabase.from('customers').select('ledger_id').eq('id', customerId).single()
+        const ledgerId = customer?.ledger_id
+
+        let linkQuery = supabase
             .from('customer_properties')
             .select('id')
-            .eq('customer_id', customerId)
             .eq('property_id', propertyId)
             .eq('is_active', true)
-            .maybeSingle()
+
+        if (ledgerId) {
+            linkQuery = linkQuery.or(`customer_id.eq.${customerId},account_id.eq.${ledgerId}`)
+        } else {
+            linkQuery = linkQuery.eq('customer_id', customerId)
+        }
+
+        const { data: link } = await linkQuery.maybeSingle()
 
         if (!link) {
             return NextResponse.json({ error: 'You are not linked to this property.' }, { status: 403 })
@@ -141,39 +150,66 @@ export async function POST(request) {
             return NextResponse.json({ error: 'customer_id is required' }, { status: 400 })
         }
 
+        // Fetch ledger_id
+        const { data: customer } = await supabase.from('customers').select('ledger_id').eq('id', customer_id).single()
+        const ledgerId = customer?.ledger_id
+
         let finalPropertyId = property_id
 
         // If property_id not provided, create the property first
         if (!finalPropertyId) {
             if (!address) return NextResponse.json({ error: 'address is required' }, { status: 400 })
-            const { data: prop, error: propError } = await supabase
-                .from('properties')
-                .insert({ 
-                    flat_number: flat_number || null,
-                    building_name: building_name || null,
-                    address, 
-                    locality, 
-                    city, 
-                    pincode, 
-                    property_type: property_type || 'residential',
-                    latitude: latitude || null,
-                    longitude: longitude || null,
-                })
-                .select()
-                .single()
-            if (propError) throw propError
-            finalPropertyId = prop.id
+
+            // Basic duplicate detection
+            let dupQuery = supabase.from('properties').select('id')
+            if (flat_number?.trim() && building_name?.trim()) {
+                dupQuery = dupQuery.eq('flat_number', flat_number.trim()).ilike('building_name', `%${building_name.trim()}%`)
+            } else if (building_name?.trim() && address?.trim()) {
+                dupQuery = dupQuery.ilike('building_name', `%${building_name.trim()}%`).ilike('address', `%${address.trim()}%`)
+            } else if (address?.trim() && pincode) {
+                dupQuery = dupQuery.ilike('address', `%${address.trim()}%`).eq('pincode', pincode)
+            }
+            
+            const { data: dups } = await dupQuery.limit(1)
+            
+            if (dups && dups.length > 0) {
+                finalPropertyId = dups[0].id
+            } else {
+                const { data: prop, error: propError } = await supabase
+                    .from('properties')
+                    .insert({ 
+                        flat_number: flat_number || null,
+                        building_name: building_name || null,
+                        address, 
+                        locality, 
+                        city, 
+                        pincode, 
+                        property_type: property_type || 'residential',
+                        latitude: latitude || null,
+                        longitude: longitude || null,
+                    })
+                    .select()
+                    .single()
+                if (propError) throw propError
+                finalPropertyId = prop.id
+            }
         }
 
         // Link customer to property
         // Upsert: if already linked (active), just return success
-        const { data: existing } = await supabase
+        let existingQuery = supabase
             .from('customer_properties')
             .select('id')
-            .eq('customer_id', customer_id)
             .eq('property_id', finalPropertyId)
             .eq('is_active', true)
-            .maybeSingle()
+
+        if (ledgerId) {
+            existingQuery = existingQuery.or(`customer_id.eq.${customer_id},account_id.eq.${ledgerId}`)
+        } else {
+            existingQuery = existingQuery.eq('customer_id', customer_id)
+        }
+
+        const { data: existing } = await existingQuery.maybeSingle()
 
         if (existing) {
             const { data: prop } = await supabase.from('properties').select('*').eq('id', finalPropertyId).single()
@@ -181,6 +217,7 @@ export async function POST(request) {
         }
 
         const { error: linkError } = await supabase.from('customer_properties').insert({
+            account_id: ledgerId || null,
             customer_id,
             property_id: finalPropertyId,
             linked_at: new Date().toISOString(),
