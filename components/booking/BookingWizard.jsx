@@ -57,6 +57,8 @@ export default function BookingWizard() {
 
     const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
     const [brands, setBrands] = useState([]);
+    const [availableSlots, setAvailableSlots] = useState({});
+    const [slotTab, setSlotTab] = useState('');
 
     const [formData, setFormData] = useState({
         category: '', subcategory: '', issue: '',
@@ -64,7 +66,7 @@ export default function BookingWizard() {
         pincode: '', locality: '', city: 'Mumbai', state: 'Maharashtra',
         name: '', phone: '', email: '',
         flat_number: '', building_name: '', address: '',
-        specialInstructions: '',
+        slotDate: '', slotTime: ''
     });
 
     const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -76,13 +78,20 @@ export default function BookingWizard() {
         const init = async () => {
             try {
                 setLoading(true);
-                const [bookingRes, brandsRes] = await Promise.all([
+                const [bookingRes, brandsRes, slotsRes] = await Promise.all([
                     fetch('/api/settings/quick-booking'),
                     fetch('/api/settings/booking-brands'),
+                    fetch('/api/booking/available-slots?days=3')
                 ]);
-                const [bookingData, brandsData] = await Promise.all([
-                    bookingRes.json(), brandsRes.json()
+                const [bookingData, brandsData, slotsData] = await Promise.all([
+                    bookingRes.json(), brandsRes.json(), slotsRes.json()
                 ]);
+
+                if (slotsData.success) {
+                    setAvailableSlots(slotsData.data);
+                    const dates = Object.keys(slotsData.data);
+                    if (dates.length > 0) setSlotTab(dates[0]);
+                }
 
                 if (bookingData.success) {
                     const cats = bookingData.data.categories || [];
@@ -238,6 +247,7 @@ export default function BookingWizard() {
     };
 
     const handleLogisticsNext = async () => {
+        if (!formData.slotDate || !formData.slotTime) { setError('Please select an available time slot.'); return; }
         if (!formData.name?.trim()) { setError('Please enter your full name.'); return; }
         if (!formData.building_name?.trim()) { setError('Please enter your building name.'); return; }
         if (!formData.address?.trim()) { setError('Please enter your street/landmark address.'); return; }
@@ -289,7 +299,6 @@ export default function BookingWizard() {
                 issueId: formData.issue, issueName,
                 brand: formData.brand, brandName: resolvedBrandName,
                 pincode: formData.pincode,
-                description: formData.specialInstructions,
                 customer: {
                     firstName: nameParts[0] || '',
                     lastName: nameParts.slice(1).join(' ') || '',
@@ -305,7 +314,10 @@ export default function BookingWizard() {
                         pincode: formData.pincode,
                     }
                 },
-                // We leave schedule empty. The API defaults to 'booking_request'
+                schedule: {
+                    date: formData.slotDate,
+                    slot: formData.slotTime
+                }
             };
 
             const response = await fetch('/api/booking', {
@@ -461,9 +473,60 @@ export default function BookingWizard() {
                                 <h2 style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
                                     Technician Available Today! <span className="animate-tick" style={{ display: 'flex' }}><CheckCircle size={28} /></span>
                                 </h2>
-                                <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>
-                                    Where should our Sorted Solutions expert arrive?
-                                </p>
+
+                                {/* Slot Selector UI */}
+                                <div style={{ margin: '20px 0' }}>
+                                    <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+                                        {Object.keys(availableSlots).map(dateStr => {
+                                            const d = new Date(dateStr);
+                                            const today = new Date();
+                                            const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+                                            const isToday = d.toDateString() === today.toDateString();
+                                            const isTomorrow = d.toDateString() === tomorrow.toDateString();
+                                            const label = isToday ? 'Today' : isTomorrow ? 'Tomorrow' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+                                            
+                                            return (
+                                                <button
+                                                    key={dateStr}
+                                                    onClick={() => { setSlotTab(dateStr); setFormData({ ...formData, slotDate: dateStr, slotTime: '' }); }}
+                                                    style={{
+                                                        padding: '8px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap',
+                                                        border: slotTab === dateStr ? '1px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                        backgroundColor: slotTab === dateStr ? 'var(--color-primary)' : 'transparent',
+                                                        color: slotTab === dateStr ? 'white' : 'var(--text-secondary)',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                >
+                                                    {label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px', marginTop: '12px' }}>
+                                        {(availableSlots[slotTab] || []).map(slot => (
+                                            <button
+                                                key={slot.id}
+                                                onClick={() => setFormData({ ...formData, slotDate: slotTab, slotTime: slot.label })}
+                                                style={{
+                                                    padding: '10px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: 600,
+                                                    border: formData.slotTime === slot.label ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                    backgroundColor: formData.slotTime === slot.label ? 'rgba(99,102,241,0.05)' : 'var(--bg-secondary)',
+                                                    color: formData.slotTime === slot.label ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                                    cursor: 'pointer', textAlign: 'center'
+                                                }}
+                                            >
+                                                {slot.label}
+                                            </button>
+                                        ))}
+                                        {(!availableSlots[slotTab] || availableSlots[slotTab].length === 0) && (
+                                            <div style={{ gridColumn: '1 / -1', padding: '20px', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                                                No slots available for this date.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <p style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
                                     We will call you within 15 mins to confirm your exact time slot.
                                 </p>
@@ -480,51 +543,55 @@ export default function BookingWizard() {
                                 </div>
                             </div>
 
-                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <label className="form-label">Full Name *</label>
-                                <div style={{ position: 'relative' }}>
-                                    <User size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                                    <input type="text" className="form-input" placeholder="Your name" style={{ paddingLeft: '44px' }}
-                                        value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-                                </div>
-                            </div>
+                            {formData.slotTime && (
+                                <div style={{ marginTop: '32px', animation: 'fadeIn 0.3s ease-out' }}>
+                                    <p style={{ color: 'var(--text-secondary)', fontSize: '15px', fontWeight: 600, marginBottom: '16px', textAlign: 'center' }}>
+                                        Where should our Sorted Solutions expert arrive?
+                                    </p>
 
-                            <div className="form-grid" style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <div className="form-group">
-                                    <label className="form-label">Flat / Wing <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
-                                    <input type="text" className="form-input" placeholder="e.g. A-42"
-                                        value={formData.flat_number} onChange={e => setFormData({ ...formData, flat_number: e.target.value })} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Building Name *</label>
-                                    <input type="text" className="form-input" placeholder="e.g. Sunrise Residency"
-                                        value={formData.building_name} onChange={e => setFormData({ ...formData, building_name: e.target.value })} />
-                                </div>
-                            </div>
+                                    <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                        <label className="form-label">Full Name *</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <User size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                            <input type="text" className="form-input" placeholder="Your name" style={{ paddingLeft: '44px' }}
+                                                value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                        </div>
+                                    </div>
 
-                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <label className="form-label">Street, Landmark etc. *</label>
-                                <div style={{ position: 'relative' }}>
-                                    <Building size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                                    <input type="text" className="form-input" placeholder="e.g. Near Reliance Fresh" style={{ paddingLeft: '44px' }}
-                                        value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
-                                </div>
-                            </div>
+                                    <div className="form-grid" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                        <div className="form-group">
+                                            <label className="form-label">Flat / Wing <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
+                                            <input type="text" className="form-input" placeholder="e.g. A-42"
+                                                value={formData.flat_number} onChange={e => setFormData({ ...formData, flat_number: e.target.value })} />
+                                        </div>
+                                        <div className="form-group">
+                                            <label className="form-label">Building Name *</label>
+                                            <input type="text" className="form-input" placeholder="e.g. Sunrise Residency"
+                                                value={formData.building_name} onChange={e => setFormData({ ...formData, building_name: e.target.value })} />
+                                        </div>
+                                    </div>
 
-                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
-                                <label className="form-label">Locality / Area</label>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '10px' }}>
-                                    <MapPin size={16} color="var(--text-tertiary)" />
-                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{formData.locality || formData.pincode}</span>
-                                    <button onClick={() => setCurrentStep('location')} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '13px', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
-                                </div>
-                            </div>
+                                    <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                        <label className="form-label">Street, Landmark etc. *</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <Building size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                            <input type="text" className="form-input" placeholder="e.g. Near Reliance Fresh" style={{ paddingLeft: '44px' }}
+                                                value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
+                                        </div>
+                                    </div>
 
-                            <div className="form-group">
-                                <label className="form-label">Special Instructions <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
-                                <textarea className="form-textarea" rows={2} placeholder="Gate code, parking info, etc."
-                                    value={formData.specialInstructions} onChange={e => setFormData({ ...formData, specialInstructions: e.target.value })} />
-                            </div>
+                                    {formData.address.trim().length > 0 && (
+                                        <div className="form-group" style={{ marginBottom: 'var(--spacing-md)', animation: 'slideDown 0.3s ease-out' }}>
+                                            <label className="form-label">Locality / Area</label>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '10px' }}>
+                                                <MapPin size={16} color="var(--text-tertiary)" />
+                                                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{formData.locality || formData.pincode}</span>
+                                                <button onClick={() => setCurrentStep('location')} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '13px', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
