@@ -168,7 +168,7 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                 {/* Field 3: Issue */}
                 {formData.subcategory && (
                     <div className="form-group" style={{ animation: 'fadeIn 0.3s ease-in' }}>
-                        <label htmlFor="issue">What's the Problem?</label>
+                        <label htmlFor="issue">What seems to be the problem?</label>
                         <select
                             id="issue"
                             value={formData.issue}
@@ -191,7 +191,15 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                     aria-label="Book technician"
                 >
                     <Search size={18} />
-                    Book Technician Now
+                    {(() => {
+                        if (formData.issue) {
+                            const issueObj = visibleIssues.find(i => String(i.id) === formData.issue);
+                            if (issueObj && issueObj.price) {
+                                return `Diagnostics @₹${issueObj.price}`;
+                            }
+                        }
+                        return "Diagnostics @₹99";
+                    })()}
                 </button>
             </form>
 

@@ -4,10 +4,9 @@ import { Check } from 'lucide-react';
 import './BookingWizard.css';
 
 const steps = [
-    { id: 'contact', name: 'Contact Details' },
-    { id: 'slot', name: 'Date & Time' },
-    { id: 'fees', name: 'Fee Preview' },
-    { id: 'review', name: 'Review' },
+    { id: 'location', name: 'Availability' },
+    { id: 'logistics', name: 'Logistics' },
+    { id: 'otp', name: 'Verification' },
 ];
 
 export default function BookingSteps({ currentStep }) {

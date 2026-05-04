@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Home, Wrench, User, Package, Layers } from 'lucide-react'
+import { Home, Wrench, User, Package, Layers, X } from 'lucide-react'
+import { useSearchParams, useRouter } from 'next/navigation'
 
 import HomePage from '@/components/customer/pages/Home'
 import ServicesPage from '@/components/customer/pages/Services'
@@ -34,6 +35,13 @@ export default function CustomerApp() {
     const [showOnboarding, setShowOnboarding] = useState(false)
     const [onboardingData, setOnboardingData] = useState({ name: '', customerId: '' })
 
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    
+    // Booking success states
+    const [flasherMsg, setFlasherMsg] = useState(null)
+    const [showServicesTooltip, setShowServicesTooltip] = useState(false)
+
     useEffect(() => {
         setMounted(true)
         // Check if this is a first-time user who hasn't completed their profile
@@ -51,7 +59,24 @@ export default function CustomerApp() {
                 }
             }
         } catch { }
-    }, [])
+
+        // Check for new booking success
+        const newBookingId = searchParams.get('newBooking')
+        if (newBookingId) {
+            setFlasherMsg(`🎉 Booking Confirmed! Job #${newBookingId} created successfully.`)
+            setShowServicesTooltip(true)
+            
+            // Clean up the URL so it doesn't trigger on refresh
+            const url = new URL(window.location.href)
+            url.searchParams.delete('newBooking')
+            window.history.replaceState({}, '', url.toString())
+
+            // Auto-hide flasher after 3 seconds
+            setTimeout(() => {
+                setFlasherMsg(null)
+            }, 3000)
+        }
+    }, [searchParams])
 
     if (!mounted) return null
 
@@ -86,6 +111,66 @@ export default function CustomerApp() {
             }}>
                 {renderTab(activeTab)}
             </div>
+
+            {/* ── SUCCESS FLASHER ── */}
+            {flasherMsg && (
+                <div style={{
+                    position: 'absolute', top: 20, left: '5%', right: '5%',
+                    backgroundColor: '#10b981', color: 'white', padding: '14px 20px',
+                    borderRadius: '12px', fontWeight: 600, fontSize: '14px',
+                    boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+                    zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    animation: 'slideDown 0.3s ease-out', textAlign: 'center'
+                }}>
+                    {flasherMsg}
+                </div>
+            )}
+
+            {/* ── TOOLTIP FOR SERVICES TAB ── */}
+            {showServicesTooltip && activeTab === 'home' && (
+                <div style={{
+                    position: 'absolute', bottom: NAV_HEIGHT + 20, left: '50%', transform: 'translateX(-50%)',
+                    width: '85%', backgroundColor: '#38bdf8', color: '#0f172a',
+                    padding: '16px', borderRadius: '12px', zIndex: 9999,
+                    boxShadow: '0 8px 25px rgba(56, 189, 248, 0.4)', animation: 'bounceIn 0.5s ease-out'
+                }}>
+                    <div style={{ fontWeight: 700, fontSize: '15px', marginBottom: '6px' }}>Track Your Tech</div>
+                    <div style={{ fontSize: '13px', lineHeight: 1.4, marginBottom: '12px', fontWeight: 500 }}>
+                        See real-time updates and the ETA for your assigned technician here.
+                    </div>
+                    <button
+                        onClick={() => {
+                            setShowServicesTooltip(false)
+                            setActiveTab('services')
+                        }}
+                        style={{
+                            background: '#0f172a', color: 'white', border: 'none',
+                            padding: '8px 16px', borderRadius: '6px', fontSize: '13px',
+                            fontWeight: 600, cursor: 'pointer', width: '100%'
+                        }}
+                    >
+                        Got it, take me to my booking
+                    </button>
+                    {/* Tooltip triangle pointing down */}
+                    <div style={{
+                        position: 'absolute', bottom: '-8px', left: '37.5%', // approximately pointing to the second tab (services)
+                        width: 0, height: 0, borderLeft: '10px solid transparent',
+                        borderRight: '10px solid transparent', borderTop: '10px solid #38bdf8'
+                    }} />
+                </div>
+            )}
+
+            <style>{`
+                @keyframes slideDown {
+                    from { transform: translateY(-150%); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                @keyframes bounceIn {
+                    0% { transform: translate(-50%, 20px); opacity: 0; }
+                    60% { transform: translate(-50%, -10px); opacity: 1; }
+                    100% { transform: translate(-50%, 0); opacity: 1; }
+                }
+            `}</style>
 
             {/* ── BOTTOM NAV ── */}
             <nav style={{

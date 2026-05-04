@@ -2,75 +2,86 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { ChevronRight, ChevronLeft, Clock, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, ChevronLeft, Phone, MapPin, Building, User } from 'lucide-react';
 import BookingSteps from './BookingSteps';
-import './BookingWizard.css';
-import ClientPinDropMap from '@/components/common/ClientPinDropMap';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { getPincodeForLocality } from '@/lib/data/mumbaiLocalities';
+import { auth } from '@/lib/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import './BookingWizard.css';
 
-
-const MAHARASHTRA_CITIES = ['Mumbai', 'Thane', 'Navi Mumbai', 'Pune', 'Nashik', 'Nagpur', 'Aurangabad'];
-const INDIAN_STATES = ['Maharashtra', 'Delhi', 'Karnataka', 'Tamil Nadu', 'Telangana', 'Gujarat', 'Rajasthan', 'West Bengal', 'Uttar Pradesh', 'Madhya Pradesh'];
-
-// Day name helpers
-const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function getNextDates(count = 3) {
-    const dates = [];
-    const base = new Date();
-    for (let i = 0; i < count; i++) {
-        const d = new Date(base);
-        d.setDate(base.getDate() + i);
-        dates.push(d);
-    }
-    return dates;
+// ─── OtpBoxes Component ────────────────────────────────────────────────────────
+function OtpBoxes({ otp, onChange, onKeyDown }) {
+    return (
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+            {otp.map((digit, idx) => (
+                <input
+                    key={idx}
+                    id={`wizard-otp-${idx}`}
+                    type="text"
+                    inputMode="numeric"
+                    value={digit}
+                    onChange={e => onChange(idx, e.target.value)}
+                    onKeyDown={e => onKeyDown(idx, e)}
+                    style={{
+                        width: '45px', height: '52px', textAlign: 'center', fontSize: '20px',
+                        fontWeight: 700, backgroundColor: 'var(--bg-elevated)',
+                        border: '1px solid var(--border-primary)', borderRadius: '10px',
+                        color: 'var(--text-primary)', outline: 'none'
+                    }}
+                    autoFocus={idx === 0}
+                />
+            ))}
+        </div>
+    );
 }
 
-function formatDateKey(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function saveSession(user) {
+    // Save session similar to login page so they are logged in seamlessly
+    const session = JSON.stringify({ ...user, token: 'sorted-auth-v2' });
+    localStorage.setItem('user_session', session);
+    localStorage.setItem('customerData', session);
+    localStorage.setItem('customerId', user.id);
 }
 
 export default function BookingWizard() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
-    const [currentStep, setCurrentStep] = useState('contact');
+    const [currentStep, setCurrentStep] = useState('location'); // location -> logistics -> otp
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
     const wizardRef = useRef(null);
 
     const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
-    const [availabilityMap, setAvailabilityMap] = useState({}); // { 'YYYY-MM-DD': slots[] }
-    const [brands, setBrands] = useState([]);          // from /api/settings/booking-brands
+    const [brands, setBrands] = useState([]);
 
     const [formData, setFormData] = useState({
         category: '', subcategory: '', issue: '',
         brand: '', brandName: '',
-        pincode: '',
-        name: '', phone: '', email: '', whatsappAlerts: false,
-        flat_number: '', building_name: '', address: '', locality: '',
-        city: 'Mumbai', state: 'Maharashtra', zip: '',
+        pincode: '', locality: '', city: 'Mumbai', state: 'Maharashtra',
+        name: '', phone: '', email: '',
+        flat_number: '', building_name: '', address: '',
         specialInstructions: '',
-        selectedDate: '',   // ISO date string "YYYY-MM-DD"
-        selectedSlotId: '', // slot id
-        selectedSlotLabel: '',
-        lat: null, lng: null, // pin drop coordinates
     });
+
+    const [otp, setOtp] = useState(['', '', '', '', '', '']);
+    const [confirmationResult, setConfirmationResult] = useState(null);
+    const recaptchaInitRef = useRef(false);
+    const recaptchaVerifierRef = useRef(null);
 
     useEffect(() => {
         const init = async () => {
             try {
                 setLoading(true);
-                const [bookingRes, slotsRes, brandsRes] = await Promise.all([
+                const [bookingRes, brandsRes] = await Promise.all([
                     fetch('/api/settings/quick-booking'),
-                    fetch('/api/booking/available-slots?days=3'),
                     fetch('/api/settings/booking-brands'),
                 ]);
-                const [bookingData, slotsData, brandsData] = await Promise.all([
-                    bookingRes.json(), slotsRes.json(), brandsRes.json()
+                const [bookingData, brandsData] = await Promise.all([
+                    bookingRes.json(), brandsRes.json()
                 ]);
 
                 if (bookingData.success) {
@@ -79,7 +90,6 @@ export default function BookingWizard() {
                     const issues = subs.flatMap(s => s.issues || []);
                     setMetadata({ categories: cats, subcategories: subs, issues });
                 }
-                if (slotsData.success) setAvailabilityMap(slotsData.data || {});
                 if (brandsData.success) setBrands((brandsData.data || []).filter(b => b.is_active));
 
                 // Pre-fill from URL params
@@ -90,6 +100,7 @@ export default function BookingWizard() {
                 const urlPincode = searchParams.get('pincode') || getPincodeForLocality(urlLocality);
                 const brandId = searchParams.get('brand');
                 const brandName = searchParams.get('brandName');
+                
                 if (categoryId) {
                     setFormData(prev => ({
                         ...prev,
@@ -98,7 +109,6 @@ export default function BookingWizard() {
                         issue: issueId || '',
                         locality: urlLocality,
                         pincode: urlPincode,
-                        zip: urlPincode,
                         brand: brandId || '',
                         brandName: brandName || '',
                     }));
@@ -113,9 +123,8 @@ export default function BookingWizard() {
             }
         };
         init();
-    }, [searchParams]);
+    }, [searchParams, router]);
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
     const getName = (type, id) => {
         if (!id) return '—';
         const list = type === 'appliance' ? metadata.categories
@@ -125,91 +134,132 @@ export default function BookingWizard() {
         return found ? found.name : 'Selected';
     };
 
-    const handleLocalityChange = (localityName) => {
-        const autoPin = getPincodeForLocality(localityName);
-        setFormData(prev => ({ ...prev, locality: localityName, zip: autoPin || prev.zip }));
-    };
-
-    const selectedIssue = useMemo(() => metadata.issues.find(i => i.id?.toString() === formData.issue?.toString()), [metadata.issues, formData.issue]);
-    const issuePrice = selectedIssue?.price ?? null;
-    const issuePriceLabel = selectedIssue?.price_label || 'Starting from';
-
-    // The 3 dates and their active slots
-    const nextDates = useMemo(() => getNextDates(3), []);
-
-    const getSlotsForDate = (date) => {
-        const key = formatDateKey(date);
-        return availabilityMap[key] || [];
-    };
-
-    // Navigation — now 5 steps
     const scrollTop = () => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
         wizardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    const handleNext = () => {
-        scrollTop();
-        if (currentStep === 'contact') setCurrentStep('slot');
-        else if (currentStep === 'slot') setCurrentStep('fees');
-        else if (currentStep === 'fees') setCurrentStep('review');
-    };
-
-    const handleBack = () => {
-        scrollTop();
-        if (currentStep === 'slot') setCurrentStep('contact');
-        else if (currentStep === 'fees') setCurrentStep('slot');
-        else if (currentStep === 'review') setCurrentStep('fees');
-    };
-
-    const canProceedFromSlot = formData.selectedDate && formData.selectedSlotId;
-
-    const handleSubmit = async () => {
-        // ── Client-side validation before hitting the API ────────────────
-        const missing = [];
-        if (!formData.phone?.trim()) missing.push('Phone number (Step 1)');
-        if (!formData.name?.trim()) missing.push('Your name (Step 1)');
-        if (!formData.building_name?.trim()) missing.push('Building / Bunglow Name (Step 1)');
-        if (!formData.address?.trim()) missing.push('Street / landmark address (Step 1)');
-        if (!formData.locality?.trim()) missing.push('Locality (Step 1)');
-        if (!formData.selectedDate) missing.push('Preferred date (Step 2)');
-        if (!formData.selectedSlotId) missing.push('Time slot (Step 2)');
-        if (missing.length > 0) {
-            alert('Please fill in the following before completing your booking:\n\n• ' + missing.join('\n• '));
-            return;
+    const initRecaptcha = async () => {
+        if (recaptchaInitRef.current && window.recaptchaVerifier) return window.recaptchaVerifier;
+        try {
+            recaptchaInitRef.current = true;
+            const container = document.getElementById('wizard-recaptcha-container');
+            if (!container) { recaptchaInitRef.current = false; return null; }
+            container.innerHTML = '';
+            const verifier = new RecaptchaVerifier(auth, 'wizard-recaptcha-container', {
+                size: 'invisible',
+                callback: () => setError(''),
+                'expired-callback': () => { setError('Security check expired. Please try again.'); recaptchaInitRef.current = false; }
+            });
+            await verifier.render();
+            window.recaptchaVerifier = verifier;
+            recaptchaVerifierRef.current = verifier;
+            return verifier;
+        } catch (e) {
+            recaptchaInitRef.current = false;
+            return null;
         }
+    };
 
+    const sendOtp = async () => {
+        setError('');
+        if (!formData.phone || formData.phone.replace(/\D/g, '').length !== 10) {
+            setError('Enter a valid 10-digit mobile number.');
+            return false;
+        }
         setSubmitting(true);
         try {
-            // Resolve human-readable names from metadata
+            let verifier = recaptchaVerifierRef.current || window.recaptchaVerifier;
+            if (!verifier) verifier = await initRecaptcha();
+            if (!verifier) throw new Error('Security check failed. Please refresh.');
+            
+            const rawPhone = formData.phone.replace(/\D/g, '').slice(-10);
+            const result = await signInWithPhoneNumber(auth, `+91${rawPhone}`, verifier);
+            setConfirmationResult(result);
+            setOtp(['', '', '', '', '', '']);
+            return true;
+        } catch (err) {
+            if (err.code === 'auth/too-many-requests') setError('Too many attempts. Please wait a while.');
+            else setError(err.message || 'Failed to send OTP. Please try again.');
+            recaptchaInitRef.current = false;
+            return false;
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // ── Navigation Logic ──
+    const handleLocationNext = () => {
+        if (!formData.phone || formData.phone.replace(/\D/g, '').length !== 10) {
+            setError('Please enter a valid 10-digit mobile number.');
+            return;
+        }
+        if (!formData.locality) {
+            setError('Please enter your locality or pincode.');
+            return;
+        }
+        setError('');
+        scrollTop();
+        setCurrentStep('logistics');
+    };
+
+    const handleLogisticsNext = async () => {
+        if (!formData.name?.trim()) { setError('Please enter your full name.'); return; }
+        if (!formData.building_name?.trim()) { setError('Please enter your building name.'); return; }
+        if (!formData.address?.trim()) { setError('Please enter your street/landmark address.'); return; }
+        
+        setError('');
+        const sent = await sendOtp();
+        if (sent) {
+            scrollTop();
+            setCurrentStep('otp');
+        }
+    };
+
+    // ── OTP Handling ──
+    const handleOtpChange = (idx, val) => {
+        if (!/^\d*$/.test(val)) return;
+        const updated = [...otp]; updated[idx] = val.slice(-1); setOtp(updated);
+        if (val && idx < 5) document.getElementById(`wizard-otp-${idx + 1}`)?.focus();
+    };
+
+    const handleOtpKeyDown = (idx, e) => {
+        if (e.key === 'Backspace' && !otp[idx] && idx > 0) document.getElementById(`wizard-otp-${idx - 1}`)?.focus();
+    };
+
+    const handleConfirmBooking = async () => {
+        setError('');
+        if (!confirmationResult) { setError('Session expired. Please request OTP again.'); return; }
+        
+        const code = otp.join('');
+        if (code.length !== 6) { setError('Please enter the full 6-digit code.'); return; }
+        
+        setSubmitting(true);
+        try {
+            // 1. Verify OTP with Firebase
+            await confirmationResult.confirm(code);
+            
+            // 2. We need to grab or create the customer. We can securely let our own API handle it via phone lookup.
+            // Our /api/booking expects customer details and will auto-create the account/customer rows!
             const categoryName = getName('appliance', formData.category);
             const subcategoryName = getName('type', formData.subcategory);
             const issueName = getName('issue', formData.issue);
-            const resolvedBrandName = formData.brandName ||
-                brands.find(b => String(b.id) === String(formData.brand))?.name || '';
-
-            // Split name into first/last
+            const resolvedBrandName = formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name || '';
             const nameParts = (formData.name || '').trim().split(' ');
-            const firstName = nameParts[0] || '';
-            const lastName = nameParts.slice(1).join(' ') || '';
+            const rawPhone = formData.phone.replace(/\D/g, '').slice(-10);
 
             const payload = {
-                categoryId: formData.category,
-                categoryName,
-                subcategoryId: formData.subcategory,
-                subcategoryName,
-                issueId: formData.issue,
-                issueName,
-                brand: formData.brand,
-                brandName: resolvedBrandName,
-                pincode: formData.zip || formData.pincode,
+                categoryId: formData.category, categoryName,
+                subcategoryId: formData.subcategory, subcategoryName,
+                issueId: formData.issue, issueName,
+                brand: formData.brand, brandName: resolvedBrandName,
+                pincode: formData.pincode,
                 description: formData.specialInstructions,
                 customer: {
-                    firstName,
-                    lastName,
+                    firstName: nameParts[0] || '',
+                    lastName: nameParts.slice(1).join(' ') || '',
                     name: formData.name,
-                    email: formData.email,
-                    phone: formData.phone,
+                    phone: rawPhone,
                     address: {
                         flat_number: formData.flat_number,
                         building_name: formData.building_name,
@@ -217,13 +267,11 @@ export default function BookingWizard() {
                         locality: formData.locality,
                         city: formData.city,
                         state: formData.state,
-                        zip: formData.zip,
-                        latitude: formData.lat || null,
-                        longitude: formData.lng || null,
                     }
                 },
-                schedule: { date: formData.selectedDate, slot: formData.selectedSlotLabel }
+                // We leave schedule empty. The API defaults to 'booking_request'
             };
+
             const response = await fetch('/api/booking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -231,19 +279,30 @@ export default function BookingWizard() {
             });
             const result = await response.json();
             if (!result.success) throw new Error(result.error || 'Failed to complete booking');
-            // ── GTM conversion signal — fires the instant booking is confirmed ──
+
+            // 3. Log user into customer app natively so they bypass login screen next time
+            // We can fetch their auth token implicitly via our auth check endpoint
+            const authCheck = await fetch(`/api/customer/auth?phone=${rawPhone}`).then(r => r.json());
+            if (authCheck.exists && authCheck.customerId) {
+                saveSession({ id: authCheck.customerId, role: 'customer', phone: rawPhone, name: formData.name });
+            }
+
+            // 4. GTM tracking
             if (typeof window !== 'undefined') {
                 window.dataLayer = window.dataLayer || [];
                 window.dataLayer.push({ event: 'form_submit_success' });
             }
-            router.push('/booking/success?id=' + (result.bookingId || result.jobId));
-        } catch (error) {
-            console.error('Booking failed:', error);
-            alert(error.message || 'Failed to submit booking. Please try again.');
-        } finally {
-            setSubmitting(false);
+
+            // Redirect to customer dashboard with the booking success flash!
+            router.push(`/customer/dashboard?newBooking=${result.bookingId || result.bookingNumber || 'success'}`);
+
+        } catch (err) {
+            console.error('Booking failed:', err);
+            setError(err.message || 'Incorrect OTP or failed to submit booking. Please try again.');
+            setSubmitting(false); // only reset on error
         }
     };
+
 
     if (loading) {
         return (
@@ -255,462 +314,180 @@ export default function BookingWizard() {
 
     return (
         <div ref={wizardRef} className="booking-wizard-container animate-slide-in">
+            <div id="wizard-recaptcha-container"></div>
+            
             <div className="booking-card">
                 <div className="booking-header">
                     <BookingSteps currentStep={currentStep} />
                 </div>
 
                 <div className="booking-body">
+                    {error && (
+                        <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '8px', color: '#b91c1c', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <AlertCircle size={18} /> {error}
+                        </div>
+                    )}
 
-                    {/* ── Step 1: Contact Info ── */}
-                    {currentStep === 'contact' && (
+                    {/* ── STAGE 1: LEAD CAPTURE ── */}
+                    {currentStep === 'location' && (
                         <div className="step-content">
-                            <h2 style={{ marginBottom: 'var(--spacing-lg)' }}>How do we reach you?</h2>
+                            <h2 style={{ marginBottom: '8px' }}>Let's check Technician Availability</h2>
+                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xl)' }}>
+                                Enter your area details to lock in a same-day slot.
+                            </p>
 
-                            {/* Brand selector — editable in wizard */}
-                            {brands.length > 0 && (
-                                <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
-                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                        <span>🏷️</span> Appliance Brand
-                                        <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span>
-                                    </label>
-                                    <select
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
+                                <label className="form-label">Mobile Number *</label>
+                                <div style={{ position: 'relative' }}>
+                                    <Phone size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)' }} />
+                                    <span style={{ position: 'absolute', left: 40, top: 14, color: 'var(--text-tertiary)', fontSize: 15 }}>+91</span>
+                                    <input
+                                        type="tel"
+                                        placeholder="Enter your 10-digit number"
                                         className="form-input"
-                                        value={formData.brand}
-                                        onChange={e => {
-                                            const selectedBrand = brands.find(b => String(b.id) === e.target.value);
-                                            setFormData(prev => ({
-                                                ...prev,
-                                                brand: e.target.value,
-                                                brandName: selectedBrand?.name || ''
-                                            }));
-                                        }}
-                                        style={{ cursor: 'pointer' }}
-                                    >
-                                        <option value="">Select brand (optional)...</option>
-                                        {brands.map(b => (
-                                            <option key={b.id} value={b.id}>{b.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            <div className="form-grid">
-                                <div className="form-group">
-                                    <label className="form-label">Phone Number *</label>
-                                    <input type="tel" className="form-input" placeholder="+91-XXXXX XXXXX"
                                         value={formData.phone}
-                                        onChange={async e => {
-                                            const input = e.target.value;
-                                            // Handle deletions naturally
-                                            if (input.length < (formData.phone || '').length) {
-                                                setFormData(prev => ({ ...prev, phone: input }));
-                                                return;
-                                            }
-
-                                            let digits = input.replace(/\D/g, '');
-                                            // Strip +91 if present in raw input
-                                            if (input.includes('+91')) {
-                                                digits = digits.replace(/^91/, '');
-                                            } else if (digits.length > 10 && digits.startsWith('91')) {
-                                                digits = digits.substring(2);
-                                            }
-
-                                            if (digits.length > 10) {
-                                                digits = digits.slice(-10);
-                                            }
-
-                                            let formatted = input;
-                                            if (digits.length === 10) {
-                                                formatted = `+91-${digits.substring(0, 5)} ${digits.substring(5)}`;
-                                                
-                                                // Check duplicate
-                                                try {
-                                                    const res = await fetch(`/api/customer/auth?phone=${digits}`);
-                                                    const data = await res.json();
-                                                    if (data.exists && data.hasPassword) {
-                                                        setTimeout(() => {
-                                                            if (window.confirm("SignUp and claim your account to book a service")) {
-                                                                router.push('/login?redirect=/booking');
-                                                            } else {
-                                                                setFormData(prev => ({ ...prev, phone: '' }));
-                                                            }
-                                                        }, 50);
-                                                    }
-                                                } catch (err) {
-                                                    console.error('Phone check failed', err);
-                                                }
-                                            }
-
-                                            setFormData(prev => ({ ...prev, phone: formatted }));
-                                        }} />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Email Address <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
-                                    <input type="email" className="form-input" placeholder="your@email.com"
-                                        value={formData.email}
-                                        onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                                        onChange={e => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            // Handle cases where people paste +91
+                                            const digits = val.startsWith('91') && val.length > 10 ? val.slice(2, 12) : val.slice(0, 10);
+                                            setFormData(prev => ({ ...prev, phone: digits }));
+                                        }}
+                                        style={{ paddingLeft: '74px', fontSize: '16px', fontWeight: 600 }}
+                                        required
+                                    />
                                 </div>
                             </div>
 
-                            <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-lg)', marginTop: 'var(--spacing-lg)' }}>
-                                <div className="form-group">
-                                    <label className="form-label">Your Name *</label>
-                                    <input type="text" className="form-input" placeholder="Full name"
-                                        value={formData.name}
-                                        onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-xl)' }}>
+                                <label className="form-label">Locality / Pincode *</label>
+                                <div style={{ position: 'relative' }}>
+                                    <MapPin size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)', zIndex: 10 }} />
+                                    <LocalityCombobox
+                                        value={formData.locality}
+                                        pincode={formData.pincode}
+                                        onChange={(loc, pin) => setFormData(prev => ({
+                                            ...prev,
+                                            locality: loc,
+                                            pincode: pin || prev.pincode,
+                                        }))}
+                                        inputClassName="form-input"
+                                        dropdownZIndex={1100}
+                                        style={{ paddingLeft: '44px' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── STAGE 2: LOGISTICS ── */}
+                    {currentStep === 'logistics' && (
+                        <div className="step-content">
+                            <h2 style={{ marginBottom: '8px' }}>Technician Available Today! ✅</h2>
+                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>
+                                Where should our Sorted Solutions expert arrive?
+                            </p>
+                            <p style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-xs)', fontWeight: 600, marginBottom: 'var(--spacing-xl)' }}>
+                                We will call you within 15 mins to confirm your exact time slot.
+                            </p>
+
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <label className="form-label">Mobile Number</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '10px' }}>
+                                    <Phone size={16} color="var(--text-tertiary)" />
+                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>+91 {formData.phone}</span>
+                                    <button onClick={() => setCurrentStep('location')} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '13px', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
                                 </div>
                             </div>
 
-                            <div className="form-grid">
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <label className="form-label">Full Name *</label>
+                                <div style={{ position: 'relative' }}>
+                                    <User size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)' }} />
+                                    <input type="text" className="form-input" placeholder="Your name" style={{ paddingLeft: '44px' }}
+                                        value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="form-grid" style={{ marginBottom: 'var(--spacing-md)' }}>
                                 <div className="form-group">
                                     <label className="form-label">Flat / Wing <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
                                     <input type="text" className="form-input" placeholder="e.g. A-42"
-                                        value={formData.flat_number}
-                                        onChange={e => setFormData({ ...formData, flat_number: e.target.value })} />
+                                        value={formData.flat_number} onChange={e => setFormData({ ...formData, flat_number: e.target.value })} />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Building / Bunglow Name *</label>
+                                    <label className="form-label">Building Name *</label>
                                     <input type="text" className="form-input" placeholder="e.g. Sunrise Residency"
-                                        value={formData.building_name}
-                                        onChange={e => setFormData({ ...formData, building_name: e.target.value })} />
+                                        value={formData.building_name} onChange={e => setFormData({ ...formData, building_name: e.target.value })} />
                                 </div>
                             </div>
 
-                            <div className="form-group">
-                                <label className="form-label">Street, Landmark, Locality etc. *</label>
-                                <input type="text" className="form-input" placeholder="e.g. Near Reliance Fresh, MG Road"
-                                    value={formData.address}
-                                    onChange={e => setFormData({ ...formData, address: e.target.value })} />
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label">Locality / Area *</label>
-                                <LocalityCombobox
-                                    value={formData.locality}
-                                    pincode={formData.zip}
-                                    onChange={(loc, pin) => setFormData(prev => ({
-                                        ...prev,
-                                        locality: loc,
-                                        zip: pin || prev.zip,
-                                    }))}
-                                    inputClassName="form-input"
-                                    dropdownZIndex={1100}
-                                />
-                            </div>
-
-                            <div className="form-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-                                <div className="form-group">
-                                    <label className="form-label">City *</label>
-                                    <select className="form-input" value={formData.city}
-                                        onChange={e => setFormData({ ...formData, city: e.target.value })}
-                                        style={{ cursor: 'pointer' }}>
-                                        {MAHARASHTRA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <label className="form-label">Street, Landmark etc. *</label>
+                                <div style={{ position: 'relative' }}>
+                                    <Building size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)' }} />
+                                    <input type="text" className="form-input" placeholder="e.g. Near Reliance Fresh" style={{ paddingLeft: '44px' }}
+                                        value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                                 </div>
-                                <div className="form-group">
-                                    <label className="form-label">State *</label>
-                                    <select className="form-input" value={formData.state}
-                                        onChange={e => setFormData({ ...formData, state: e.target.value })}
-                                        style={{ cursor: 'pointer' }}>
-                                        {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* ── Pin Drop Map ── */}
-                            <div className="form-group">
-                                <ClientPinDropMap
-                                    label="📍 Confirm Your Location on Map"
-                                    building={formData.building_name || ''}
-                                    street={formData.address || ''}
-                                    localityQuery={formData.locality || ''}
-                                    pincodeQuery={formData.zip || ''}
-                                    initialLat={formData.lat}
-                                    initialLng={formData.lng}
-                                    onChange={({ lat, lng }) => setFormData(prev => ({ ...prev, lat, lng }))}
-                                    height="240px"
-                                />
                             </div>
 
                             <div className="form-group">
                                 <label className="form-label">Special Instructions <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
-                                <textarea className="form-textarea" rows={3}
-                                    value={formData.specialInstructions}
-                                    onChange={e => setFormData({ ...formData, specialInstructions: e.target.value })}
-                                    placeholder="Gate code, parking info, pet at home, etc." />
+                                <textarea className="form-textarea" rows={2} placeholder="Gate code, parking info, etc."
+                                    value={formData.specialInstructions} onChange={e => setFormData({ ...formData, specialInstructions: e.target.value })} />
                             </div>
                         </div>
                     )}
 
-                    {/* ── Step 2: Date & Time Slot ── */}
-                    {currentStep === 'slot' && (
-                        <div className="step-content">
-                            <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Choose a Date &amp; Time</h2>
-                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
-                                Pick your preferred slot — we'll confirm availability by SMS/WhatsApp.
+                    {/* ── STAGE 3: OTP VERIFICATION ── */}
+                    {currentStep === 'otp' && (
+                        <div className="step-content" style={{ textAlign: 'center' }}>
+                            <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                                <Phone size={24} color="var(--color-primary)" />
+                            </div>
+                            <h2 style={{ marginBottom: '8px' }}>Secure Your Booking</h2>
+                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xl)' }}>
+                                Enter the 6-digit code sent to <strong>+91 {formData.phone}</strong> via SMS/WhatsApp.
                             </p>
 
-                            {/* ── 3 Date Buttons ── */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xl)' }}>
-                                {nextDates.map((date, i) => {
-                                    const key = formatDateKey(date);
-                                    const slotCount = getSlotsForDate(date).length;
-                                    const isSelected = formData.selectedDate === key;
-                                    return (
-                                        <button
-                                            key={key}
-                                            onClick={() => setFormData(prev => ({ ...prev, selectedDate: key, selectedSlotId: '', selectedSlotLabel: '' }))}
-                                            style={{
-                                                padding: 'var(--spacing-md)',
-                                                borderRadius: 'var(--radius-md)',
-                                                border: isSelected ? '2px solid var(--color-primary)' : '2px solid var(--border-primary)',
-                                                backgroundColor: isSelected ? 'var(--color-primary)' : 'var(--bg-elevated)',
-                                                color: isSelected ? 'var(--text-inverse)' : 'var(--text-primary)',
-                                                cursor: 'pointer',
-                                                textAlign: 'center',
-                                                transition: 'all 0.15s ease',
-                                                boxShadow: isSelected ? 'var(--shadow-md)' : 'none',
-                                            }}
-                                        >
-                                            <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: 500, opacity: 0.8, marginBottom: '4px' }}>
-                                                {i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : SHORT_DAYS[date.getDay()]}
-                                            </div>
-                                            <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, lineHeight: 1 }}>
-                                                {date.getDate()}
-                                            </div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', opacity: 0.75, marginTop: '2px' }}>
-                                                {SHORT_MONTHS[date.getMonth()]}
-                                            </div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', marginTop: '6px', opacity: 0.7 }}>
-                                                {slotCount > 0 ? `${slotCount} slot${slotCount > 1 ? 's' : ''}` : 'No slots'}
-                                            </div>
-                                        </button>
-                                    );
-                                })}
+                            <div style={{ marginBottom: '24px' }}>
+                                <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
                             </div>
-
-                            {/* ── Available Slots for Selected Date ── */}
-                            {formData.selectedDate && (() => {
-                                const selDate = nextDates.find(d => formatDateKey(d) === formData.selectedDate);
-                                const daySlots = selDate ? getSlotsForDate(selDate) : [];
-                                return (
-                                    <div>
-                                        <h4 style={{ fontWeight: 600, marginBottom: 'var(--spacing-sm)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                            Available time slots
-                                        </h4>
-                                        {daySlots.length === 0 ? (
-                                            <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', color: 'var(--text-tertiary)' }}>
-                                                <AlertCircle size={24} style={{ marginBottom: '8px' }} />
-                                                <p style={{ margin: 0, fontSize: 'var(--font-size-sm)' }}>No slots available for this day.</p>
-                                                <p style={{ margin: '4px 0 0', fontSize: 'var(--font-size-xs)' }}>Please select another date.</p>
-                                            </div>
-                                        ) : (
-                                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                                                {daySlots.map(slot => {
-                                                    const isSelected = formData.selectedSlotId === slot.id;
-                                                    return (
-                                                        <button
-                                                            key={slot.id}
-                                                            onClick={() => setFormData(prev => ({ ...prev, selectedSlotId: slot.id, selectedSlotLabel: slot.label || `${slot.startTime} – ${slot.endTime}` }))}
-                                                            style={{
-                                                                padding: 'var(--spacing-md) var(--spacing-lg)',
-                                                                borderRadius: 'var(--radius-md)',
-                                                                border: isSelected ? '2px solid var(--color-primary)' : '2px solid var(--border-primary)',
-                                                                backgroundColor: isSelected ? 'rgba(99,102,241,0.15)' : 'var(--bg-elevated)',
-                                                                color: 'var(--text-primary)',
-                                                                cursor: 'pointer',
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: 'var(--spacing-md)',
-                                                                textAlign: 'left',
-                                                                transition: 'all 0.15s ease',
-                                                                boxShadow: isSelected ? 'var(--shadow-sm)' : 'none',
-                                                            }}
-                                                        >
-                                                            <Clock size={20} style={{ color: isSelected ? 'var(--color-primary)' : 'var(--text-tertiary)', flexShrink: 0 }} />
-                                                            <div style={{ flex: 1 }}>
-                                                                <div style={{ fontWeight: 600 }}>{slot.label || `${slot.startTime} – ${slot.endTime}`}</div>
-                                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                                                    {slot.startTime} – {slot.endTime} · Up to {slot.maxBookings} bookings
-                                                                </div>
-                                                            </div>
-                                                            {isSelected && <CheckCircle2 size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })()}
-
-                            {!formData.selectedDate && (
-                                <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
-                                    ↑ Select a date above to see available time slots
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* ── Step 3: Fee Preview ── */}
-                    {currentStep === 'fees' && (
-                            <div className="step-content">
-                                <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Fee Preview</h2>
-                                <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
-                                    Here's a transparent breakdown of what you can expect to pay.
-                                </p>
-
-                                {/* Fee cards */}
-                                <div style={{ display: 'grid', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
-
-                                    {/* Visiting / Diagnosing Fee */}
-                                    <div style={{
-                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                        padding: 'var(--spacing-md) var(--spacing-lg)',
-                                        backgroundColor: 'var(--bg-elevated)',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: '2px solid #f59e0b',
-                                    }}>
-                                        <div>
-                                            <div style={{ fontWeight: 700, fontSize: 'var(--font-size-base)', color: 'var(--text-primary)' }}>Visiting / Diagnosing Fee</div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
-                                                Payable at the time of visit
-                                                {formData.issue && (
-                                                    <span style={{ display: 'block', marginTop: '2px', color: 'var(--text-secondary)' }}>
-                                                        {getName('category', formData.category)} &gt; {getName('issue', formData.issue)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div style={{ textAlign: 'right' }}>
-                                            {issuePrice != null ? (
-                                                <>
-                                                    <div style={{ fontSize: '11px', color: '#d97706', fontWeight: 500 }}>{issuePriceLabel}</div>
-                                                    <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 800, color: '#d97706' }}>₹{Number(issuePrice).toLocaleString('en-IN')}</div>
-                                                </>
-                                            ) : (
-                                                <div style={{ fontSize: 'var(--font-size-sm)', color: '#d97706', fontStyle: 'italic', fontWeight: 700 }}>TBD on booking</div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Spare parts */}
-                                    <div style={{
-                                        padding: 'var(--spacing-md) var(--spacing-lg)',
-                                        backgroundColor: 'var(--bg-secondary)',
-                                        borderRadius: 'var(--radius-md)',
-                                        border: '1px dashed var(--border-primary)',
-                                        display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)'
-                                    }}>
-                                        <span style={{ fontSize: '1.4em', flexShrink: 0 }}>🔩</span>
-                                        <div>
-                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>Spare Parts — Extra</div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: 1.5 }}>
-                                                If spare parts are needed, the technician will quote the cost <strong>before starting any repair</strong>. You are free to decline.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Info bullets */}
-                                <div style={{ borderRadius: 'var(--radius-md)', border: '1px solid #fcd34d', overflow: 'hidden' }}>
-                                    <div style={{ padding: '10px var(--spacing-md)', backgroundColor: '#fef3c7', fontSize: 'var(--font-size-xs)', fontWeight: 700, color: '#92400e', letterSpacing: '0.04em' }}>HOW IT WORKS</div>
-                                    {[
-                                        { icon: '🔍', text: 'Technician visits and diagnoses the problem. Visiting fee is charged at this stage.' },
-                                        { icon: '💬', text: 'Technician shares repair cost + parts estimate. You approve before work begins.' },
-                                        { icon: '🛠️', text: 'Repair is carried out. You pay for parts + labour only after your approval.' },
-                                        { icon: '✅', text: 'Job is complete. Digital receipt emailed immediately.' },
-                                    ].map((item, i, arr) => (
-                                        <div key={i} style={{ display: 'flex', gap: '12px', padding: '10px var(--spacing-md)', borderTop: i === 0 ? 'none' : '1px solid #fde68a', backgroundColor: '#fefce8' }}>
-                                            <span style={{ fontSize: '1.1em', flexShrink: 0 }}>{item.icon}</span>
-                                            <span style={{ fontSize: 'var(--font-size-xs)', color: '#44403c', lineHeight: 1.5, fontWeight: 'bold' }}>{item.text}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                    )}
-
-                    {/* ── Step 4: Review (compact confirmation) ── */}
-                    {currentStep === 'review' && (
-                        <div className="step-content">
-                            <h2 style={{ marginBottom: 'var(--spacing-xs)' }}>Confirm Your Booking</h2>
-                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
-                                Everything looks good? Hit <strong>Complete Booking</strong> to lock it in.
-                            </p>
-
-                            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 'var(--spacing-md)' }}>
-                                {/* Service */}
-                                <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: '6px' }}>Service</div>
-                                    <div style={{ fontWeight: 600 }}>{getName('appliance', formData.category)} · {getName('issue', formData.issue)}</div>
-                                    {formData.brand && (
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                            🏷️ {formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name}
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Contact */}
-                                <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: '6px' }}>Contact & Address</div>
-                                    <div style={{ fontWeight: 600 }}>{formData.name}</div>
-                                    <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                        {formData.phone}{formData.email && ` · ${formData.email}`}
-                                    </div>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '4px' }}>
-                                        {[formData.flat_number, formData.building_name, formData.address, formData.locality, `${formData.city} – ${formData.zip}`].filter(Boolean).join(', ')}
-                                    </div>
-                                </div>
-
-                                {/* Appointment */}
-                                <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', color: 'var(--text-tertiary)', letterSpacing: '0.05em', marginBottom: '6px' }}>Appointment</div>
-                                    <div style={{ fontWeight: 600 }}>
-                                        {formData.selectedDate ? (() => {
-                                            const d = new Date(formData.selectedDate + 'T00:00:00');
-                                            return `${SHORT_DAYS[d.getDay()]}, ${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
-                                        })() : '—'}
-                                        {' · '}{formData.selectedSlotLabel || '—'}
-                                    </div>
-                                </div>
-
-                                {/* Fee reminder */}
-                                <div style={{ padding: 'var(--spacing-md)', backgroundColor: '#fefce8', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: '#92400e', fontWeight: 500 }}>Visiting / Diagnosing Fee</div>
-                                    <div style={{ fontWeight: 700, color: '#d97706' }}>{issuePrice != null ? `₹${Number(issuePrice).toLocaleString('en-IN')}` : 'TBD on booking'}</div>
-                                </div>
-                            </div>
-
-                            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'center' }}>
-                                By booking you agree to our terms. A confirmation SMS will be sent to {formData.phone || 'your number'}.
-                            </p>
                         </div>
                     )}
                 </div>
 
-                {/* ── Footer ── */}
+                {/* ── Footer / Buttons ── */}
                 <div className="booking-footer">
-                    {currentStep !== 'contact' ? (
-                        <button onClick={handleBack} className="btn btn-secondary">
+                    {currentStep === 'location' ? <div /> : (
+                        <button onClick={() => {
+                            if (currentStep === 'otp') setCurrentStep('logistics');
+                            else setCurrentStep('location');
+                        }} className="btn btn-secondary" disabled={submitting}>
                             <ChevronLeft size={18} /> Back
                         </button>
-                    ) : <div />}
+                    )}
 
-                    {currentStep === 'review' ? (
-                        <button onClick={handleSubmit} disabled={submitting} className="btn btn-primary"
-                            style={{ padding: '12px 32px' }}>
-                            {submitting ? 'Processing…' : 'Complete Booking'}
+                    {currentStep === 'location' && (
+                        <button onClick={handleLocationNext} className="btn btn-primary" style={{ padding: '12px 32px' }}>
+                            Check Availability
                         </button>
-                    ) : (
-                        <button
-                            onClick={handleNext}
-                            className="btn btn-primary"
-                            disabled={currentStep === 'slot' && !canProceedFromSlot}
-                            style={{ padding: '12px 32px', opacity: (currentStep === 'slot' && !canProceedFromSlot) ? 0.5 : 1, cursor: (currentStep === 'slot' && !canProceedFromSlot) ? 'not-allowed' : 'pointer' }}
-                        >
-                            Next Step <ChevronRight size={18} />
+                    )}
+                    
+                    {currentStep === 'logistics' && (
+                        <button onClick={handleLogisticsNext} disabled={submitting} className="btn btn-primary" style={{ padding: '12px 32px' }}>
+                            {submitting ? 'Sending...' : 'Send OTP & Confirm'}
                         </button>
+                    )}
+
+                    {currentStep === 'otp' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: 'auto', flex: 1 }}>
+                            <button onClick={handleConfirmBooking} disabled={submitting} className="btn btn-primary" style={{ padding: '12px 32px', width: '100%' }}>
+                                {submitting ? 'Verifying...' : 'Confirm Booking'}
+                            </button>
+                            <button onClick={sendOtp} disabled={submitting} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>
+                                Didn't receive it? Resend OTP
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

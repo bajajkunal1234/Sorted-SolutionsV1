@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import CustomerApp from '@/components/customer/CustomerApp';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import PWAPrompt from '@/components/common/PWAPrompt';
@@ -26,7 +26,9 @@ export default function CustomerDashboard() {
                 userType="customer"
                 userId={customerId}
             />
-            <CustomerApp />
+            <Suspense fallback={<div style={{ height: '100vh', background: '#0f172a' }} />}>
+                <CustomerApp />
+            </Suspense>
         </>
     );
 }
