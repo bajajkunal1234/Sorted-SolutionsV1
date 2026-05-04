@@ -128,6 +128,7 @@ export async function POST(request) {
             customer_id,
             property_id,
             appliance_type,
+            subcategory,
             brand,
             issue_type,
             description,
@@ -199,6 +200,7 @@ export async function POST(request) {
         // ── Build a clean booking_data JSONB blob for reference ───────────────
         const bookingData = {
             applianceType: appliance_type,
+            subcategoryName: subcategory || '',
             brandName: brand || '',
             issueType: issue_type || '',
             imageUrl: image_url || null,
@@ -258,6 +260,7 @@ export async function POST(request) {
                 property_id: property_id || null,
                 property: propertyBlob,            // JSONB blob for address display
                 category: appliance_type,          // appliance name in category column
+                subcategory: subcategory || null,  // subcategory name
                 issue: issue_type || null,         // issue text in issue column
                 description: description || null,  // optional description
                 scheduled_date: preferred_date,    // reuse website column
@@ -284,6 +287,7 @@ export async function POST(request) {
                         property_id: property_id || null,
                         property: propertyBlob,
                         category: appliance_type,
+                        subcategory: subcategory || null,
                         issue: issue_type || null,
                         description: description || null,
                         scheduled_date: preferred_date,

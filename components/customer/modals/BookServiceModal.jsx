@@ -48,6 +48,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
     // ── Form state ─────────────────────────────────────────────────────────────
     const [form, setForm] = useState({
         appliance: preSelectedAppliance?.type || '',
+        subcategory: '',
         brand: preSelectedAppliance?.brand || '',
         issueId: '',
         propertyId: '',
@@ -91,7 +92,6 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
             const cats = bookingData.success ? (bookingData.data?.categories || []) : []
             setAppliances(cats.filter(c => c.showOnBookingForm !== false))
 
-            // Flatten all issues from all subcategories
             const issues = []
             cats.forEach(cat => {
                 (cat.subcategories || []).forEach(sub => {
@@ -117,10 +117,16 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
         }
     }
 
-    // Filter issues by selected appliance
-    const filteredIssues = form.appliance
-        ? allIssues.filter(i => i.appliance.toLowerCase() === form.appliance.toLowerCase())
-        : allIssues
+    // Selected appliance object to get its subcategories
+    const selectedApplianceObj = appliances.find(a => a.name === form.appliance)
+    const availableSubcategories = selectedApplianceObj?.subcategories || []
+
+    // Filter issues by selected appliance and subcategory
+    const filteredIssues = allIssues.filter(i => {
+        if (form.appliance && i.appliance !== form.appliance) return false;
+        if (form.subcategory && i.subcategory !== form.subcategory) return false;
+        return true;
+    })
 
     useEffect(() => {
         if (!form.preferredDate) return
@@ -155,6 +161,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
     const handleSubmit = async () => {
         setError('')
         if (!form.appliance) return setError('Please select an appliance type')
+        if (availableSubcategories.length > 0 && !form.subcategory) return setError('Please select a subcategory or type')
         if (!form.brand) return setError('Please select a brand')
         if (!form.issueId) return setError('Please select an issue type')
         if (!form.propertyId) return setError('Please select a service location')
@@ -184,6 +191,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                 customer_id: customerId,
                 property_id: form.propertyId,
                 appliance_type: form.appliance,
+                subcategory: form.subcategory || null,
                 brand: form.brand,
                 issue_type: selectedIssue?.name || form.issueId,
                 issue_id: form.issueId,
@@ -249,13 +257,27 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                         <div>
                             <label style={S.label}>Appliance / Product *</label>
                             <select style={S.select} value={form.appliance}
-                                onChange={e => setForm(f => ({ ...f, appliance: e.target.value, issueId: '' }))}>
+                                onChange={e => setForm(f => ({ ...f, appliance: e.target.value, subcategory: '', issueId: '' }))}>
                                 <option value="">Select appliance type</option>
                                 {appliances.map(a => (
                                     <option key={a.id} value={a.name}>{a.name}</option>
                                 ))}
                             </select>
                         </div>
+
+                        {/* Subcategory */}
+                        {availableSubcategories.length > 0 && (
+                            <div>
+                                <label style={S.label}>Subcategory / Type *</label>
+                                <select style={S.select} value={form.subcategory}
+                                    onChange={e => setForm(f => ({ ...f, subcategory: e.target.value, issueId: '' }))}>
+                                    <option value="">Select type</option>
+                                    {availableSubcategories.map(s => (
+                                        <option key={s.id || s.name} value={s.name}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         {/* Brand */}
                         <div>
