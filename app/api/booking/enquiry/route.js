@@ -31,11 +31,11 @@ export async function POST(request) {
         const { data: enquiry, error } = await supabase.from('jobs').insert({
             job_number: jobNumber,
             status: 'enquiry',
+            customer_name: 'Website Lead',
             category: categoryName || categoryId || 'Appliance Repair',
             subcategory: subcategoryName || subcategoryId || '',
             issue: issueName || issueId || '',
             brand: brandName || brand || '',
-            locality: locality || pincode || '',
             notes: JSON.stringify(bookingData),
             source: 'Website Organic',
         }).select('id').single();
