@@ -67,25 +67,29 @@ function JobCard({ job, onClick, onCalculate }) {
 
     const overdue = isOverdue(dueDate);
 
-    if (job.status === 'booking_request') {
+    if (job.status === 'booking_request' || job.status === 'enquiry') {
+        const isEnquiry = job.status === 'enquiry';
         let bd = {};
         try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
         const slot = bd.schedule?.slot || job.scheduled_time || '';
         const day = bd.schedule?.date || (job.scheduled_date ? formatDate(job.scheduled_date) : '');
+        const primaryColor = isEnquiry ? '#ef4444' : '#f59e0b';
+        const bgColor = isEnquiry ? 'rgba(239,68,68,0.05)' : 'rgba(245,158,11,0.05)';
+        const titleText = isEnquiry ? 'NEW WEBSITE ENQUIRY' : 'NEW WEBSITE BOOKING';
 
         return (
             <div
                 ref={setNodeRef}
-                style={{ ...style, border: '2px solid #f59e0b', backgroundColor: 'rgba(245,158,11,0.05)' }}
+                style={{ ...style, border: `2px solid ${primaryColor}`, backgroundColor: bgColor }}
                 {...attributes}
                 {...listeners}
                 className="job-card"
                 onClick={onClick}
             >
-                <div style={{ backgroundColor: '#f59e0b', color: 'white', padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '4px 4px 0 0', margin: '-12px -12px 10px -12px', textAlign: 'center' }}>
-                    NEW WEBSITE BOOKING
+                <div style={{ backgroundColor: primaryColor, color: 'white', padding: '4px 8px', fontSize: '11px', fontWeight: 700, borderRadius: '4px 4px 0 0', margin: '-12px -12px 10px -12px', textAlign: 'center' }}>
+                    {titleText}
                 </div>
-                <h4 className="job-card-title">{jobType}</h4>
+                <h4 className="job-card-title">{bd.categoryName || jobType}</h4>
                 {customerName && <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '6px' }}>{customerName}</div>}
                 <div className="job-card-info">
                     <div className="job-card-info-item">
@@ -101,7 +105,7 @@ function JobCard({ job, onClick, onCalculate }) {
                 </div>
                 <button
                     className="btn btn-primary"
-                    style={{ width: '100%', marginTop: '12px', padding: '6px', fontSize: '12px', backgroundColor: '#f59e0b', border: 'none' }}
+                    style={{ width: '100%', marginTop: '12px', padding: '6px', fontSize: '12px', backgroundColor: primaryColor, border: 'none' }}
                 >
                     Create & Assign
                 </button>
