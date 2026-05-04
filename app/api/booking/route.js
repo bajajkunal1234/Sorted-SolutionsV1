@@ -20,7 +20,8 @@ export async function POST(request) {
             pincode,
             description,
             customer,
-            schedule
+            schedule,
+            enquiryId
         } = body
 
         // ── Validate mandatory fields ──────────────────────────────────────────
@@ -141,9 +142,11 @@ export async function POST(request) {
                 existingCx = cxCandidates.find(c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === last10);
             }
 
+            let customerAuthId = null;
+
             if (!existingCx) {
                 // Create a minimal customers row (no password — they haven't signed up yet)
-                const { error: cxInsertErr } = await supabase.from('customers').insert({
+                const { data: newCx, error: cxInsertErr } = await supabase.from('customers').insert({
                     name: customerFullName,
                     full_name: customerFullName,
                     phone: formattedMobile,
@@ -151,14 +154,18 @@ export async function POST(request) {
                     ledger_id: customerId,
                     customer_type: 'one_time',
                     profile_complete: false,
-                });
+                }).select('id').single();
                 if (cxInsertErr) console.warn('[booking] Could not create customers row:', cxInsertErr.message);
-            } else if (!existingCx.ledger_id) {
-                // Existing customers row missing ledger_id — link it now
-                const { error: updateLedgerErr } = await supabase.from('customers')
-                    .update({ ledger_id: customerId })
-                    .eq('id', existingCx.id);
-                if (updateLedgerErr) console.warn('[booking] Could not update ledger_id:', updateLedgerErr.message);
+                if (newCx) customerAuthId = newCx.id;
+            } else {
+                customerAuthId = existingCx.id;
+                if (!existingCx.ledger_id) {
+                    // Existing customers row missing ledger_id — link it now
+                    const { error: updateLedgerErr } = await supabase.from('customers')
+                        .update({ ledger_id: customerId })
+                        .eq('id', existingCx.id);
+                    if (updateLedgerErr) console.warn('[booking] Could not update ledger_id:', updateLedgerErr.message);
+                }
             }
         }
 
@@ -232,6 +239,7 @@ export async function POST(request) {
                     // Use account_id to avoid FK constraint on customers table
                     const insertResult = await supabase.from('customer_properties').insert({
                         account_id: customerId,
+                        customer_id: customerAuthId || customerId,
                         property_id: propertyId,
                         is_active: true,
                         linked_at: new Date().toISOString(),
@@ -240,7 +248,7 @@ export async function POST(request) {
                         // Fallback: try storing in both columns (some schemas may need this)
                         const { error: fallbackErr } = await supabase.from('customer_properties').insert({
                             account_id: customerId,
-                            customer_id: customerId,
+                            customer_id: customerAuthId || customerId,
                             property_id: propertyId,
                             is_active: true,
                             linked_at: new Date().toISOString(),
@@ -257,53 +265,76 @@ export async function POST(request) {
         }
 
         // ── Generate booking reference number ──────────────────────────────────
-        const bookingNumber = await generateJobNumber()
+        let bookingNumber = await generateJobNumber()
 
-        // ── Create the booking_request job ─────────────────────────────────────
-        const { data: job, error: jobError } = await supabase
-            .from('jobs')
-            .insert({
-                job_number: bookingNumber,
-                status: 'booking_request',
-                priority: 'normal',
-                customer_id: customerId,               // ← now linked (Fix 2)
-                property_id: propertyId,               // ← now linked (Fix 4)
-                customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
-                category: categoryName || categoryId,
-                subcategory: subcategoryName || subcategoryId,
-                issue: issueName || issueId,
-                description: description || '',
-                scheduled_date: schedule?.date || null,
-                scheduled_time: schedule?.slot || null,
-                source: 'website',
-                // Store full raw booking data for admin reference
-                notes: JSON.stringify({
-                    categoryId,
-                    categoryName,
-                    subcategoryId,
-                    subcategoryName,
-                    issueId,
-                    issueName,
-                    brand: brand || '',
-                    brandName: brandName || brand || '',
-                    pincode,
-                    description,
-                    schedule,
-                    customer: {
-                        firstName: customer.firstName,
-                        lastName: customer.lastName,
-                        name: `${customer.firstName} ${customer.lastName}`.trim(),
-                        phone: customer.phone,
-                        email: customer.email || '',
-                        address: customer.address || {}
-                    }
-                }),
-                created_at: new Date().toISOString()
+        // ── Create or Update the booking_request job ───────────────────────────
+        let job = null;
+        const jobData = {
+            job_number: bookingNumber,
+            status: 'booking_request',
+            priority: 'normal',
+            customer_id: customerId,               // ← now linked (Fix 2)
+            property_id: propertyId,               // ← now linked (Fix 4)
+            customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
+            category: categoryName || categoryId,
+            subcategory: subcategoryName || subcategoryId,
+            issue: issueName || issueId,
+            description: description || '',
+            scheduled_date: schedule?.date || null,
+            scheduled_time: schedule?.slot || null,
+            source: 'website',
+            // Store full raw booking data for admin reference
+            notes: JSON.stringify({
+                categoryId,
+                categoryName,
+                subcategoryId,
+                subcategoryName,
+                issueId,
+                issueName,
+                brand: brand || '',
+                brandName: brandName || brand || '',
+                pincode,
+                description,
+                schedule,
+                customer: {
+                    firstName: customer.firstName,
+                    lastName: customer.lastName,
+                    name: `${customer.firstName} ${customer.lastName}`.trim(),
+                    phone: customer.phone,
+                    email: customer.email || '',
+                    address: customer.address || {}
+                }
             })
-            .select('id')
-            .single()
+        };
 
-        if (jobError) throw jobError
+        if (enquiryId) {
+            // Read existing enquiry to keep its original job_number if needed
+            const { data: existingEnquiry } = await supabase.from('jobs').select('job_number').eq('id', enquiryId).single();
+            if (existingEnquiry && existingEnquiry.job_number) {
+                jobData.job_number = existingEnquiry.job_number;
+                bookingNumber = existingEnquiry.job_number;
+            }
+
+            const { data: updatedJob, error: jobError } = await supabase
+                .from('jobs')
+                .update(jobData)
+                .eq('id', enquiryId)
+                .select('id')
+                .single();
+            
+            if (jobError) throw jobError;
+            job = updatedJob;
+        } else {
+            jobData.created_at = new Date().toISOString();
+            const { data: newJob, error: jobError } = await supabase
+                .from('jobs')
+                .insert(jobData)
+                .select('id')
+                .single();
+            
+            if (jobError) throw jobError;
+            job = newJob;
+        }
 
         // ── Log interactions ───────────────────────────────────────────────────
         await supabase.from('job_interactions').insert([{
@@ -337,6 +368,7 @@ export async function POST(request) {
             bookingId: job.id,
             bookingNumber,
             customerId,
+            customerAuthId,
             message: "Booking request received! We'll call you to confirm."
         })
 

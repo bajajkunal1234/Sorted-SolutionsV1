@@ -14,8 +14,9 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     if (Object.keys(bd).length === 0 && booking.notes) {
         try { bd = JSON.parse(booking.notes); } catch (e) { /* ignore */ }
     }
+    const isEnquiry = booking.status === 'enquiry';
     const cust = bd.customer || {
-        name: booking.customer_name || '',
+        name: booking.customer_name || (isEnquiry ? 'Website Lead' : ''),
         phone: booking.customer_phone || '',
         email: booking.customer_email || '',
         address: {},
@@ -182,7 +183,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
             };
         }
         return {
-            name: cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim(),
+            name: cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || (isEnquiry ? 'Website Lead' : ''),
             mobile: cust.phone?.trim() || '',
             email: cust.email?.trim() || '',
             under: resolvedCustomerGroup,
@@ -295,7 +296,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
 
                 {/* Header */}
                 <div className="modal-header">
-                    <h2 className="modal-title">Review Booking Request</h2>
+                    <h2 className="modal-title">{isEnquiry ? 'Review Website Enquiry' : 'Review Booking Request'}</h2>
                     <button className="btn-icon" onClick={onClose}><X size={20} /></button>
                 </div>
 
@@ -310,7 +311,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                                 <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                         <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
-                                            {cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || 'Unknown'}
+                                            {cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim() || (isEnquiry ? 'Website Lead' : 'Unknown')}
                                         </h3>
                                         {checkingAccount && (
                                             <span style={{ fontSize: 11, color: 'var(--text-tertiary)', fontStyle: 'italic' }}>checking account…</span>

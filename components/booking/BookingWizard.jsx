@@ -189,7 +189,7 @@ export default function BookingWizard() {
     };
 
     // ── Navigation Logic ──
-    const handleLocationNext = () => {
+    const handleLocationNext = async () => {
         if (!formData.phone || formData.phone.replace(/\D/g, '').length !== 10) {
             setError('Please enter a valid 10-digit mobile number.');
             return;
@@ -199,6 +199,40 @@ export default function BookingWizard() {
             return;
         }
         setError('');
+
+        // NEW: Capture Enquiry in background
+        if (!formData.enquiryId) {
+            try {
+                const categoryName = getName('appliance', formData.category);
+                const subcategoryName = getName('type', formData.subcategory);
+                const issueName = Array.isArray(formData.issue) ? formData.issue.join(', ') : getName('issue', formData.issue);
+                const resolvedBrandName = formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name || '';
+                
+                const payload = {
+                    categoryId: formData.category, categoryName,
+                    subcategoryId: formData.subcategory, subcategoryName,
+                    issueId: formData.issue, issueName,
+                    brand: formData.brand, brandName: resolvedBrandName,
+                    pincode: formData.pincode,
+                    locality: formData.locality,
+                    phone: formData.phone.replace(/\D/g, '').slice(-10)
+                };
+                
+                // Do not await to avoid blocking the UI
+                fetch('/api/booking/enquiry', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(res => res.json()).then(data => {
+                    if (data.success && data.enquiryId) {
+                        setFormData(prev => ({ ...prev, enquiryId: data.enquiryId }));
+                    }
+                }).catch(e => console.error('Enquiry capture failed:', e));
+            } catch (e) {
+                console.error('Failed to prepare enquiry payload:', e);
+            }
+        }
+
         scrollTop();
         setCurrentStep('logistics');
     };
@@ -249,6 +283,7 @@ export default function BookingWizard() {
             const rawPhone = formData.phone.replace(/\D/g, '').slice(-10);
 
             const payload = {
+                enquiryId: formData.enquiryId,
                 categoryId: formData.category, categoryName,
                 subcategoryId: formData.subcategory, subcategoryName,
                 issueId: formData.issue, issueName,
@@ -282,9 +317,9 @@ export default function BookingWizard() {
             if (!result.success) throw new Error(result.error || 'Failed to complete booking');
 
             // 3. Log user into customer app natively so they bypass login screen next time
-            // The /api/booking endpoint returns the newly created or found customerId
-            if (result.customerId) {
-                saveSession({ id: result.customerId, role: 'customer', phone: rawPhone, name: formData.name });
+            // The /api/booking endpoint returns the newly created or found customerAuthId
+            if (result.customerAuthId || result.customerId) {
+                saveSession({ id: result.customerAuthId || result.customerId, role: 'customer', phone: rawPhone, name: formData.name });
             }
 
             // 4. GTM tracking

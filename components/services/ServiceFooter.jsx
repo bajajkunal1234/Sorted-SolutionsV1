@@ -26,9 +26,10 @@ export default function ServiceFooter() {
                     <div className="footer-links">
                         <a href="tel:+918928895590" className="footer-link"
                             onClick={() => { if (typeof window !== 'undefined') { window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'custom_call_click' }); } }}
+                            suppressHydrationWarning
                         >
                             <Phone size={16} />
-                            +91 89288 95590
+                            <span suppressHydrationWarning>+91 89288 95590</span>
                         </a>
                         <a href="mailto:info@sortedsolutions.com" className="footer-link">
                             <Mail size={16} />

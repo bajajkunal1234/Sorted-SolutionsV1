@@ -30,6 +30,7 @@ function JobsCardView({ jobs, onJobClick }) {
         }}>
             {jobs.map(job => {
                 const isBooking = job.status === 'booking_request';
+                const isEnquiry = job.status === 'enquiry';
                 const statusColor = getStatusColor(job.status);
                 // Handle different field names (camelCase vs snake_case)
                 const dueDate = job.scheduled_date || job.dueDate;
@@ -40,7 +41,7 @@ function JobsCardView({ jobs, onJobClick }) {
                 const priority = job.priority;
 
                 let bd = {};
-                if (isBooking) {
+                if (isBooking || isEnquiry) {
                     try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
                 }
 
@@ -50,7 +51,7 @@ function JobsCardView({ jobs, onJobClick }) {
                         onClick={() => onJobClick?.(job)}
                         style={{
                             backgroundColor: 'var(--bg-elevated)',
-                            border: isBooking ? '2px solid #f59e0b' : '1px solid var(--border-primary)',
+                            border: isEnquiry ? '2px solid #ef4444' : isBooking ? '2px solid #f59e0b' : '1px solid var(--border-primary)',
                             borderRadius: 'var(--radius-lg)',
                             overflow: 'hidden',
                             cursor: 'pointer',
@@ -62,14 +63,19 @@ function JobsCardView({ jobs, onJobClick }) {
                         onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-4px)';
                             e.currentTarget.style.boxShadow = 'var(--shadow-lg)';
-                            e.currentTarget.style.borderColor = isBooking ? '#f59e0b' : 'var(--color-primary)';
+                            e.currentTarget.style.borderColor = isEnquiry ? '#ef4444' : isBooking ? '#f59e0b' : 'var(--color-primary)';
                         }}
                         onMouseLeave={(e) => {
                             e.currentTarget.style.transform = 'translateY(0)';
                             e.currentTarget.style.boxShadow = 'none';
-                            e.currentTarget.style.borderColor = isBooking ? '#f59e0b' : 'var(--border-primary)';
+                            e.currentTarget.style.borderColor = isEnquiry ? '#ef4444' : isBooking ? '#f59e0b' : 'var(--border-primary)';
                         }}
                     >
+                        {isEnquiry && (
+                            <div style={{ backgroundColor: '#ef4444', color: 'white', padding: '4px 8px', fontSize: '10px', fontWeight: 800, textAlign: 'center' }}>
+                                NEW WEBSITE ENQUIRY
+                            </div>
+                        )}
                         {isBooking && (
                             <div style={{ backgroundColor: '#f59e0b', color: 'white', padding: '4px 8px', fontSize: '10px', fontWeight: 800, textAlign: 'center' }}>
                                 NEW WEBSITE BOOKING
@@ -134,7 +140,7 @@ function JobsCardView({ jobs, onJobClick }) {
                                 <User size={14} color="var(--text-secondary)" />
                                 <div>
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
-                                        {job.customer?.name || job.customer || (isBooking ? (bd.customer?.name || 'New Customer') : 'Walk-in')}
+                                        {job.customer?.name || job.customer || ((isBooking || isEnquiry) ? (bd.customer?.name || 'New Customer') : 'Walk-in')}
                                     </span>
                                     {job.property && (
                                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginLeft: 'var(--spacing-xs)' }}>
@@ -148,16 +154,16 @@ function JobsCardView({ jobs, onJobClick }) {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                 <MapPin size={14} style={{ color: 'var(--text-tertiary)' }} />
                                 <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                    {locality || (isBooking ? bd.customer?.address?.locality : 'No location')}
+                                    {locality || ((isBooking || isEnquiry) ? bd.customer?.address?.locality : 'No location')}
                                 </span>
                             </div>
 
                             {/* Due Date / Slot */}
-                            {(dueDate || isBooking) && (
+                            {(dueDate || isBooking || isEnquiry) && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                                     <Calendar size={14} style={{ color: 'var(--text-tertiary)' }} />
                                     <span style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
-                                        {isBooking
+                                        {(isBooking || isEnquiry)
                                             ? `${bd.schedule?.date || ''} ${bd.schedule?.slot ? `(${bd.schedule.slot})` : ''}`.trim() || 'No schedule'
                                             : new Date(dueDate).toLocaleDateString('en-GB')
                                         }
@@ -210,8 +216,8 @@ function JobsCardView({ jobs, onJobClick }) {
                                 alignItems: 'center',
                                 marginTop: 'auto'
                             }}>
-                                {isBooking ? (
-                                    <button className="btn btn-primary" style={{ width: '100%', fontSize: '12px', padding: '6px', backgroundColor: '#f59e0b', border: 'none' }}>
+                                {(isBooking || isEnquiry) ? (
+                                    <button className="btn btn-primary" style={{ width: '100%', fontSize: '12px', padding: '6px', backgroundColor: isEnquiry ? '#ef4444' : '#f59e0b', border: 'none' }}>
                                         Create & Assign
                                     </button>
                                 ) : (

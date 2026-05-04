@@ -32,7 +32,13 @@ export async function POST(request) {
         if (isPhone) {
             // Strip non-digits for flexible matching
             const digitsOnly = identifier.replace(/\D/g, '');
-            query = query.or(`phone.eq.${identifier.trim()},phone.eq.${digitsOnly}`);
+            const last10 = digitsOnly.slice(-10);
+            if (last10.length === 10) {
+                const loosePattern = '%' + last10.split('').join('%') + '%';
+                query = query.or(`phone.eq.${identifier.trim()},phone.eq.${digitsOnly},phone.ilike.${loosePattern}`);
+            } else {
+                query = query.or(`phone.eq.${identifier.trim()},phone.eq.${digitsOnly}`);
+            }
         } else {
             query = query.eq('username', clean);
         }

@@ -298,6 +298,7 @@ export default function FloatingCTA() {
                             window.dataLayer.push({ event: 'custom_call_click' });
                         }
                     }}
+                    suppressHydrationWarning
                 >
                     <span className="fcta-lbl">Book In 60s</span>
                     <div className="fcta-fab">

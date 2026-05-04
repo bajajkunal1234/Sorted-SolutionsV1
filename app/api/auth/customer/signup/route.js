@@ -39,11 +39,28 @@ export async function POST(request) {
         }
 
         // ── Check duplicates & Admin Claims ──────────────────────────────────
-        const { data: existingPhone } = await supabase
+        const digitsOnly = phone.replace(/\D/g, '');
+        const last10 = digitsOnly.slice(-10);
+        let query = supabase
             .from('customers')
-            .select('id, ledger_id, password_hash, full_name')
-            .eq('phone', phone)
-            .maybeSingle();
+            .select('id, ledger_id, password_hash, full_name, phone');
+        
+        if (last10.length === 10) {
+            const loosePattern = '%' + last10.split('').join('%') + '%';
+            query = query.or(`phone.eq.${phone},phone.ilike.${loosePattern}`);
+        } else {
+            query = query.eq('phone', phone);
+        }
+
+        const { data: candidates } = await query.limit(10);
+        let existingPhone = null;
+        if (candidates && candidates.length > 0) {
+            if (last10.length === 10) {
+                existingPhone = candidates.find(c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === last10);
+            } else {
+                existingPhone = candidates[0];
+            }
+        }
 
         if (existingPhone) {
             if (existingPhone.password_hash) {

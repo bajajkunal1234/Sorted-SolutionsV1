@@ -231,7 +231,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     // ── CRUD ──────────────────────────────────────────────────────
     const handleCreateJob   = async (newJob) => { try { await jobsAPI.create(newJob); await fetchJobs(); setShowCreateForm(false); } catch { alert('Failed to create job.'); } };
     const handleUpdateJob   = async (updated) => { if (updated === 'deleted') { await fetchJobs(); setSelectedJob(null); return; } try { await jobsAPI.update(updated.id, updated); await fetchJobs(); setSelectedJob(null); } catch { alert('Failed to update job.'); } };
-    const handleJobClick    = (job) => { if (job.status === 'booking_request') setReviewBooking(job); else setSelectedJob(job); };
+    const handleJobClick    = (job) => { if (job.status === 'booking_request' || job.status === 'enquiry') setReviewBooking(job); else setSelectedJob(job); };
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>

@@ -131,16 +131,21 @@ function BookingRequestCard({ booking, onConverted, onDismissed }) {
         category: bd.categoryName || booking.category || '',
         subcategory: bd.subcategoryName || booking.subcategory || '',
         issue: bd.issueName || booking.issue || '',
+        brand: bd.brandName || bd.brand || booking.brand || '',
         description: bd.description || '',
         scheduled_date: booking.scheduled_date || '',
         scheduled_time: booking.scheduled_time || '',
         customer_id: createdCustomer?.id || null,
         customer: createdCustomer || null,
-        property: createdCustomer ? {
+        property: booking.property_id ? {
+            id: booking.property_id,
+            property_name: 'Home',
+            address: fullAddress,
+        } : (createdCustomer ? {
             id: `booking-${booking.id}`,
             property_name: 'Home',
             address: fullAddress,
-        } : null,
+        } : null),
     };
 
     const timeAgo = () => {
