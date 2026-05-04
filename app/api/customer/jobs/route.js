@@ -303,12 +303,13 @@ export async function POST(request) {
                 }
                 // Log and return with retry result
                 // Log to job_interactions for admin job timeline visibility
-                await supabase.from('job_interactions').insert({
+                const { error: logRetryError } = await supabase.from('job_interactions').insert({
                     job_id: jobRetry.id,
                     type: 'created',
                     message: `Service request created via Customer App for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
                     user_name: customer_name,
-                }).catch(() => {});
+                });
+                if (logRetryError) console.warn('[customer/jobs] job_interactions retry insert failed:', logRetryError.message);
                 return NextResponse.json({ success: true, job: jobRetry, message: 'Service request created successfully' })
             }
             return NextResponse.json(
@@ -318,12 +319,13 @@ export async function POST(request) {
         }
 
         // -- Log to job_interactions (admin job timeline) and fire notification --
-        await supabase.from('job_interactions').insert({
+        const { error: logError } = await supabase.from('job_interactions').insert({
             job_id: job.id,
             type: 'created',
             message: `Service request created via Customer App for ${appliance_type}${issue_type ? ' \u2014 ' + issue_type : ''}`,
             user_name: customer_name,
-        }).catch(err => console.warn('[customer/jobs] job_interactions insert failed:', err.message));
+        });
+        if (logError) console.warn('[customer/jobs] job_interactions insert failed:', logError.message);
 
         // Fire notification so admin sees the incoming booking request immediately
         await fireNotification('booking_created_website', {
