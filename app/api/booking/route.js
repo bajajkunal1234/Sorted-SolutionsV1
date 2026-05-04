@@ -73,7 +73,7 @@ export async function POST(request) {
             const { data: existingAccounts } = await supabase
                 .from('accounts')
                 .select('id')
-                .or(`phone.eq.${normalizedPhone},phone.eq.+91${normalizedPhone},phone.eq.91${normalizedPhone}`)
+                .or(`mobile.eq.${normalizedPhone},mobile.eq.+91${normalizedPhone},mobile.eq.91${normalizedPhone}`)
                 .limit(1)
 
             if (existingAccounts && existingAccounts.length > 0) {
@@ -89,9 +89,8 @@ export async function POST(request) {
                         mobile: normalizedPhone,
                         email: customer.email || null,
                         type: 'customer',
-                        under: 'sundry-debtors',
+                        under: 'customers',
                         sku: newSKU,
-                        source: 'Website Booking',
                         acquisition_source: 'Website Organic',
                         opening_balance: 0,
                         balance_type: 'debit',
