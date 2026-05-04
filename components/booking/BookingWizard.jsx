@@ -281,10 +281,9 @@ export default function BookingWizard() {
             if (!result.success) throw new Error(result.error || 'Failed to complete booking');
 
             // 3. Log user into customer app natively so they bypass login screen next time
-            // We can fetch their auth token implicitly via our auth check endpoint
-            const authCheck = await fetch(`/api/customer/auth?phone=${rawPhone}`).then(r => r.json());
-            if (authCheck.exists && authCheck.customerId) {
-                saveSession({ id: authCheck.customerId, role: 'customer', phone: rawPhone, name: formData.name });
+            // The /api/booking endpoint returns the newly created or found customerId
+            if (result.customerId) {
+                saveSession({ id: result.customerId, role: 'customer', phone: rawPhone, name: formData.name });
             }
 
             // 4. GTM tracking
@@ -526,7 +525,7 @@ export default function BookingWizard() {
                     
                     {currentStep === 'logistics' && (
                         <button onClick={handleLogisticsNext} disabled={submitting} className="btn btn-primary" style={{ padding: '12px 32px' }}>
-                            {submitting ? 'Sending...' : 'Send OTP & Confirm'}
+                            {submitting ? 'Sending...' : 'Send OTP & Confirm Booking'}
                         </button>
                     )}
 
