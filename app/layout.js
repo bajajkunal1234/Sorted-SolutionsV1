@@ -55,7 +55,7 @@ export default function RootLayout({ children }) {
                     <GoogleTagsProvider />
                 </Suspense>
             </head>
-            <body style={{ overflowX: 'hidden', maxWidth: '100vw' }}>
+            <body style={{ overflowX: 'hidden', maxWidth: '100vw' }} suppressHydrationWarning>
                 {children}
                 {/*
                     Both ClickTracker and FloatingCTA are client components that use
