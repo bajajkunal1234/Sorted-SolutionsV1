@@ -197,7 +197,7 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                                 return `Diagnostics @ ₹${issueObj.price}`;
                             }
                         }
-                        return "    ";
+                        return "Select Issue to Continue";
                     })()}
                 </button>
             </form>
