@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle } from 'lucide-react';
 import BookingSteps from './BookingSteps';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
-import { getPincodeForLocality } from '@/lib/data/mumbaiLocalities';
+import { getPincodeForLocality, getLocalityForPincode } from '@/lib/data/mumbaiLocalities';
 import { auth } from '@/lib/firebase';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import './BookingWizard.css';
@@ -370,7 +370,16 @@ export default function BookingWizard() {
                                             value={formData.pincode}
                                             onChange={(e) => {
                                                 const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
-                                                setFormData(prev => ({ ...prev, pincode: pin }));
+                                                setFormData(prev => {
+                                                    const newState = { ...prev, pincode: pin };
+                                                    if (pin.length === 6 && !prev.locality) {
+                                                        const matchedLocality = getLocalityForPincode(pin);
+                                                        if (matchedLocality) {
+                                                            newState.locality = matchedLocality;
+                                                        }
+                                                    }
+                                                    return newState;
+                                                });
                                             }}
                                             style={{ paddingLeft: '44px' }}
                                         />
