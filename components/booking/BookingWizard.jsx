@@ -572,10 +572,19 @@ export default function BookingWizard() {
                                     {formData.address.trim().length > 0 && (
                                         <div className="form-group" style={{ marginBottom: 'var(--spacing-md)', animation: 'slideDown 0.3s ease-out' }}>
                                             <label className="form-label">Locality / Area</label>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '10px' }}>
-                                                <MapPin size={16} color="var(--text-tertiary)" />
-                                                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{formData.locality || formData.pincode}</span>
-                                                <button onClick={() => setCurrentStep('location')} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '13px', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
+                                            <div style={{ position: 'relative' }}>
+                                                <LocalityCombobox
+                                                    value={formData.locality}
+                                                    pincode={formData.pincode}
+                                                    showPincode={false}
+                                                    onChange={(loc, pin) => setFormData(prev => ({
+                                                        ...prev,
+                                                        locality: loc,
+                                                        pincode: pin || prev.pincode,
+                                                    }))}
+                                                    inputClassName="form-input"
+                                                    dropdownZIndex={1100}
+                                                />
                                             </div>
                                         </div>
                                     )}
