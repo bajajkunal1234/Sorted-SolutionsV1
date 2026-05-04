@@ -358,7 +358,7 @@ export default function BookingWizard() {
                                             else if (digits.startsWith('0') && digits.length === 11) digits = digits.slice(1);
                                             
                                             if (digits.length === 10) {
-                                                setFormData(prev => ({ ...prev, phone: `+91-${digits.slice(0, 5)} ${digits.slice(5)}` }));
+                                                setFormData(prev => ({ ...prev, phone: `${digits.slice(0, 5)} ${digits.slice(5)}` }));
                                             }
                                         }}
                                         style={{ paddingLeft: '74px', fontSize: '16px', fontWeight: 600 }}
@@ -437,7 +437,9 @@ export default function BookingWizard() {
                                 <label className="form-label">Mobile Number</label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '10px' }}>
                                     <Phone size={16} color="var(--text-tertiary)" />
-                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{formData.phone}</span>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                        +91-{formData.phone.replace(/\D/g, '').slice(0, 5)} {formData.phone.replace(/\D/g, '').slice(5)}
+                                    </span>
                                     <button onClick={() => setCurrentStep('location')} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '13px', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
                                 </div>
                             </div>
