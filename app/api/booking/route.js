@@ -111,6 +111,14 @@ export async function POST(request) {
                     console.warn('Could not create account record:', accError.message)
                 } else {
                     customerId = newAccount.id
+                    logInteractionServer({
+                        type: 'account-created-website',
+                        category: 'account',
+                        customerId: customerId,
+                        customerName: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || formattedMobile,
+                        description: `New ledger account created via Website Booking (${formattedMobile})`,
+                        source: 'Website',
+                    });
                 }
             }
         }
@@ -309,6 +317,7 @@ export async function POST(request) {
             type: 'booking-created-website',
             category: 'job',
             jobId: String(job.id),
+            customerId: customerId,
             customerName: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
             description: `Website booking: ${categoryName || categoryId} — ${subcategoryName || subcategoryId} (${bookingNumber})`,
             metadata: { bookingNumber, categoryId, subcategoryId, pincode, customerId },
