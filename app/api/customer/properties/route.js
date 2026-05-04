@@ -123,13 +123,13 @@ export async function PATCH(request) {
 
         if (error) throw error
 
-        const { data: customer } = await supabase.from('customers').select('name, phone, ledger_id').eq('id', customerId).single()
+        const { data: customerData } = await supabase.from('customers').select('name, phone, ledger_id').eq('id', customerId).single()
         
         await logInteractionServer({
             type: 'property-pin-refined',
             category: 'account',
-            customerId: customer?.ledger_id || null,
-            customerName: customer?.name || customer?.phone || 'Customer',
+            customerId: customerData?.ledger_id || null,
+            customerName: customerData?.name || customerData?.phone || 'Customer',
             description: `Customer pinned their exact location for ${property.address || property.building_name || 'their property'}`,
             source: 'Customer App'
         })
