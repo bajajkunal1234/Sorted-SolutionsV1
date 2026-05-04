@@ -65,28 +65,34 @@ export async function POST(request) {
         // ── Fix 2: Auto-upsert customer account ───────────────────────────────
         // Normalise phone: strip spaces/dashes, strip leading +91 / 0
         const rawPhone = (customer.phone || '').replace(/[\s\-]/g, '')
-        const normalizedPhone = rawPhone.replace(/^(\+91|91|0)/, '')
+        const last10 = rawPhone.slice(-10);
 
         let customerId = null
         {
-            // Look up existing account by phone
-            const { data: existingAccounts } = await supabase
+            // Look up existing account by phone using flexible pattern matching
+            const loosePattern = '%' + last10.split('').join('%') + '%';
+            const { data: candidates } = await supabase
                 .from('accounts')
-                .select('id')
-                .or(`mobile.eq.${normalizedPhone},mobile.eq.+91${normalizedPhone},mobile.eq.91${normalizedPhone}`)
-                .limit(1)
+                .select('id, mobile')
+                .ilike('mobile', loosePattern)
+                .limit(20)
 
-            if (existingAccounts && existingAccounts.length > 0) {
+            let existingAccount = null;
+            if (candidates && candidates.length > 0) {
+                existingAccount = candidates.find(c => c.mobile && c.mobile.replace(/\D/g, '').slice(-10) === last10);
+            }
+
+            if (existingAccount) {
                 // Reuse existing account
-                customerId = existingAccounts[0].id
+                customerId = existingAccount.id
             } else {
-                // Create a lightweight account under Customers group (with SKU)
+                const formattedMobile = `+91-${last10.slice(0, 5)} ${last10.slice(5)}`;
                 const newSKU = await generateAccountSKU('customer', 'sundry-debtors');
                 const { data: newAccount, error: accError } = await supabase
                     .from('accounts')
                     .insert({
-                        name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || normalizedPhone,
-                        mobile: normalizedPhone,
+                        name: customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || formattedMobile,
+                        mobile: formattedMobile,
                         email: customer.email || null,
                         type: 'customer',
                         under: 'customers',
@@ -112,19 +118,27 @@ export async function POST(request) {
         // -- Ensure a customers row exists so the visitor can access the Customer App later --
         // This also sets the ledger_id link so customer/jobs API can find their bookings.
         if (customerId) {
-            const customerFullName = customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || normalizedPhone;
-            const { data: existingCx } = await supabase
+            const formattedMobile = `+91-${last10.slice(0, 5)} ${last10.slice(5)}`;
+            const customerFullName = customer.name || `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || formattedMobile;
+            
+            const loosePattern = '%' + last10.split('').join('%') + '%';
+            const { data: cxCandidates } = await supabase
                 .from('customers')
-                .select('id, ledger_id')
-                .or(`phone.eq.${normalizedPhone},phone.eq.+91${normalizedPhone}`)
-                .maybeSingle();
+                .select('id, ledger_id, phone')
+                .ilike('phone', loosePattern)
+                .limit(20);
+
+            let existingCx = null;
+            if (cxCandidates && cxCandidates.length > 0) {
+                existingCx = cxCandidates.find(c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === last10);
+            }
 
             if (!existingCx) {
                 // Create a minimal customers row (no password — they haven't signed up yet)
                 const { error: cxInsertErr } = await supabase.from('customers').insert({
                     name: customerFullName,
                     full_name: customerFullName,
-                    phone: normalizedPhone,
+                    phone: formattedMobile,
                     email: customer.email || null,
                     ledger_id: customerId,
                     customer_type: 'one_time',
