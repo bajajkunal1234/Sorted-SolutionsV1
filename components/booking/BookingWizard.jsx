@@ -466,6 +466,15 @@ export default function BookingWizard() {
                                 </div>
                             </div>
 
+                            <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
+                                <label className="form-label">Locality / Area</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '10px' }}>
+                                    <MapPin size={16} color="var(--text-tertiary)" />
+                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{formData.locality || formData.pincode}</span>
+                                    <button onClick={() => setCurrentStep('location')} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '13px', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
+                                </div>
+                            </div>
+
                             <div className="form-group">
                                 <label className="form-label">Special Instructions <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
                                 <textarea className="form-textarea" rows={2} placeholder="Gate code, parking info, etc."
