@@ -88,6 +88,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
+    const [editJobFormJob, setEditJobFormJob] = useState(null);
     const [calculatorJob, setCalculatorJob] = useState(null);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [reviewBooking, setReviewBooking] = useState(null);
@@ -231,11 +232,16 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     // ── CRUD ──────────────────────────────────────────────────────
     const handleCreateJob   = async (newJob) => { try { await jobsAPI.create(newJob); await fetchJobs(); setShowCreateForm(false); } catch { alert('Failed to create job.'); } };
     const handleUpdateJob   = async (updated) => { if (updated === 'deleted') { await fetchJobs(); setSelectedJob(null); return; } try { await jobsAPI.update(updated.id, updated); await fetchJobs(); setSelectedJob(null); } catch { alert('Failed to update job.'); } };
+    const handleUpdateJobFromForm = async (updated) => { try { await jobsAPI.update(editJobFormJob.id, updated); await fetchJobs(); setEditJobFormJob(null); } catch { alert('Failed to update job.'); } };
+
     const handleJobClick    = (job) => { 
-        if ((job.status === 'booking_request' || job.status === 'enquiry') && job.source !== 'customer_app') 
+        if ((job.status === 'booking_request' || job.status === 'enquiry') && job.source !== 'customer_app') {
             setReviewBooking(job); 
-        else 
+        } else if (job.status === 'booking_request' && job.source === 'customer_app') {
+            setEditJobFormJob(job);
+        } else {
             setSelectedJob(job); 
+        }
     };
 
     return (
@@ -333,6 +339,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
             {reviewBooking && <BookingReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} onConverted={async () => { setReviewBooking(null); await fetchJobs(); }} onDismissed={async () => { setReviewBooking(null); await fetchJobs(); }} />}
             {selectedJob   && <JobDetailModal job={selectedJob} onClose={() => setSelectedJob(null)} onUpdate={handleUpdateJob} />}
             {showCreateForm && <CreateJobForm onClose={() => setShowCreateForm(false)} onCreate={handleCreateJob} />}
+            {editJobFormJob && <CreateJobForm existingJob={editJobFormJob} onClose={() => setEditJobFormJob(null)} onCreate={handleUpdateJobFromForm} />}
             {calculatorJob && <RepairCalculator job={calculatorJob} onClose={() => setCalculatorJob(null)} onCreateQuotation={(items) => { const j = calculatorJob; setCalculatorJob(null); setSelectedJob({ ...j, _calculatorItems: items }); }} />}
         </div>
     );
