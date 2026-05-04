@@ -331,10 +331,12 @@ export default function BookingWizard() {
                     {/* ── STAGE 1: LEAD CAPTURE ── */}
                     {currentStep === 'location' && (
                         <div className="step-content">
-                            <h2 style={{ marginBottom: '8px' }}>Let's check Technician Availability</h2>
-                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xl)' }}>
-                                Enter your area details to lock in a same-day slot.
-                            </p>
+                            <div style={{ textAlign: 'center' }}>
+                                <h2 style={{ marginBottom: '8px' }}>Let's check Technician Availability</h2>
+                                <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-xl)' }}>
+                                    Enter your area details to lock in a same-day slot.
+                                </p>
+                            </div>
 
                             <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
                                 <label className="form-label">Mobile Number *</label>
@@ -408,13 +410,15 @@ export default function BookingWizard() {
                     {/* ── STAGE 2: LOGISTICS ── */}
                     {currentStep === 'logistics' && (
                         <div className="step-content">
-                            <h2 style={{ marginBottom: '8px' }}>Technician Available Today! ✅</h2>
-                            <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>
-                                Where should our Sorted Solutions expert arrive?
-                            </p>
-                            <p style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-xs)', fontWeight: 600, marginBottom: 'var(--spacing-xl)' }}>
-                                We will call you within 15 mins to confirm your exact time slot.
-                            </p>
+                            <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
+                                <h2 style={{ marginBottom: '8px' }}>Technician Available Today! ✅</h2>
+                                <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>
+                                    Where should our Sorted Solutions expert arrive?
+                                </p>
+                                <p style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
+                                    We will call you within 15 mins to confirm your exact time slot.
+                                </p>
+                            </div>
 
                             <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
                                 <label className="form-label">Mobile Number</label>
