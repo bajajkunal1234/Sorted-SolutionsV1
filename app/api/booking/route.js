@@ -69,6 +69,7 @@ export async function POST(request) {
         const last10 = rawPhone.slice(-10);
 
         let customerId = null
+        let customerAuthId = null
         {
             // Look up existing account by phone using flexible pattern matching
             const loosePattern = '%' + last10.split('').join('%') + '%';
@@ -141,8 +142,6 @@ export async function POST(request) {
             if (cxCandidates && cxCandidates.length > 0) {
                 existingCx = cxCandidates.find(c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === last10);
             }
-
-            let customerAuthId = null;
 
             if (!existingCx) {
                 // Create a minimal customers row (no password — they haven't signed up yet)

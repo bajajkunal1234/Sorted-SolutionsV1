@@ -5,7 +5,7 @@ import './BookingWizard.css';
 
 const steps = [
     { id: 'location', name: 'Availability' },
-    { id: 'logistics', name: 'Logistics' },
+    { id: 'logistics', name: 'Booking' },
     { id: 'otp', name: 'Verification' },
 ];
 

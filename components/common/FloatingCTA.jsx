@@ -6,6 +6,7 @@
  * /customer, /login, /sitemap-page and any other internal routes.
  */
 
+import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 
 const PHONE  = '+918928895590'
@@ -44,9 +45,17 @@ const SoundWaves = () => (
 /* ── Component ───────────────────────────────────────────────────────────── */
 export default function FloatingCTA() {
     const pathname = usePathname()
+    const [mounted, setMounted] = useState(false)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     // Don't render on any internal/app route
     if (HIDDEN_PREFIXES.some(prefix => pathname?.startsWith(prefix))) return null
+
+    // Prevent hydration mismatch by only rendering after mount
+    if (!mounted) return null;
 
     return (
         <>
@@ -300,7 +309,10 @@ export default function FloatingCTA() {
                     }}
                     suppressHydrationWarning
                 >
-                    <span className="fcta-lbl">Book In 60s</span>
+                    <span className="fcta-lbl">
+                        <span className="fcta-lbl-main">Book In 60s</span>
+                        <span className="fcta-lbl-phone" suppressHydrationWarning>{PHONE}</span>
+                    </span>
                     <div className="fcta-fab">
                         <span className="fcta-fab-inner">
                             <PhoneIcon />
