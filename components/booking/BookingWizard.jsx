@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle } from 'lucide-react';
+import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle, CheckCircle } from 'lucide-react';
 import BookingSteps from './BookingSteps';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { getPincodeForLocality, getLocalityForPincode } from '@/lib/data/mumbaiLocalities';
@@ -341,8 +341,8 @@ export default function BookingWizard() {
                             <div className="form-group" style={{ marginBottom: 'var(--spacing-lg)' }}>
                                 <label className="form-label">Mobile Number *</label>
                                 <div style={{ position: 'relative' }}>
-                                    <Phone size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)' }} />
-                                    <span style={{ position: 'absolute', left: 40, top: 14, color: 'var(--text-tertiary)', fontSize: 15 }}>+91</span>
+                                    <Phone size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                    <span style={{ position: 'absolute', left: 40, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', fontSize: 15 }}>+91</span>
                                     <input
                                         type="tel"
                                         placeholder="Enter your 10-digit number"
@@ -362,14 +362,15 @@ export default function BookingWizard() {
 
                             <div className="form-group" style={{ marginBottom: 'var(--spacing-xl)' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                    <div style={{ position: 'relative' }}>
+                                    <div>
                                         <label className="form-label">Pincode</label>
-                                        <MapPin size={18} style={{ position: 'absolute', left: 14, top: 38, color: 'var(--text-tertiary)', zIndex: 10 }} />
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            placeholder="e.g. 400053"
-                                            value={formData.pincode}
+                                        <div style={{ position: 'relative' }}>
+                                            <MapPin size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', zIndex: 10 }} />
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                placeholder="e.g. 400053"
+                                                value={formData.pincode}
                                             onChange={(e) => {
                                                 const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
                                                 setFormData(prev => {
@@ -385,11 +386,13 @@ export default function BookingWizard() {
                                             }}
                                             style={{ paddingLeft: '44px' }}
                                         />
+                                        </div>
                                     </div>
                                     <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '14px', fontWeight: 600 }}>OR</div>
-                                    <div style={{ position: 'relative' }}>
+                                    <div>
                                         <label className="form-label">Locality</label>
-                                        <LocalityCombobox
+                                        <div style={{ position: 'relative' }}>
+                                            <LocalityCombobox
                                             value={formData.locality}
                                             pincode={formData.pincode}
                                             showPincode={false}
@@ -401,6 +404,7 @@ export default function BookingWizard() {
                                             inputClassName="form-input"
                                             dropdownZIndex={1100}
                                         />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -411,7 +415,9 @@ export default function BookingWizard() {
                     {currentStep === 'logistics' && (
                         <div className="step-content">
                             <div style={{ textAlign: 'center', marginBottom: 'var(--spacing-xl)' }}>
-                                <h2 style={{ marginBottom: '8px' }}>Technician Available Today! ✅</h2>
+                                <h2 style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    Technician Available Today! <span className="animate-tick" style={{ display: 'flex' }}><CheckCircle size={28} /></span>
+                                </h2>
                                 <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', marginBottom: '4px' }}>
                                     Where should our Sorted Solutions expert arrive?
                                 </p>
@@ -432,7 +438,7 @@ export default function BookingWizard() {
                             <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
                                 <label className="form-label">Full Name *</label>
                                 <div style={{ position: 'relative' }}>
-                                    <User size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)' }} />
+                                    <User size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                     <input type="text" className="form-input" placeholder="Your name" style={{ paddingLeft: '44px' }}
                                         value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
                                 </div>
@@ -454,7 +460,7 @@ export default function BookingWizard() {
                             <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
                                 <label className="form-label">Street, Landmark etc. *</label>
                                 <div style={{ position: 'relative' }}>
-                                    <Building size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)' }} />
+                                    <Building size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                     <input type="text" className="form-input" placeholder="e.g. Near Reliance Fresh" style={{ paddingLeft: '44px' }}
                                         value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                                 </div>
