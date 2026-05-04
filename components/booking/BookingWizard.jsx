@@ -478,6 +478,10 @@ export default function BookingWizard() {
                             <div style={{ marginBottom: '24px' }}>
                                 <OtpBoxes otp={otp} onChange={handleOtpChange} onKeyDown={handleOtpKeyDown} />
                             </div>
+                            
+                            <button onClick={sendOtp} disabled={submitting} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer', marginTop: '8px' }}>
+                                Didn't receive it? Resend OTP
+                            </button>
                         </div>
                     )}
                 </div>
@@ -508,14 +512,9 @@ export default function BookingWizard() {
                     )}
 
                     {currentStep === 'otp' && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: 'auto', flex: 1 }}>
-                            <button onClick={handleConfirmBooking} disabled={submitting} className="btn btn-primary" style={{ padding: '12px 32px', width: '100%' }}>
-                                {submitting ? 'Verifying...' : 'Confirm Booking'}
-                            </button>
-                            <button onClick={sendOtp} disabled={submitting} style={{ background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>
-                                Didn't receive it? Resend OTP
-                            </button>
-                        </div>
+                        <button onClick={handleConfirmBooking} disabled={submitting} className="btn btn-primary" style={{ padding: '12px 32px' }}>
+                            {submitting ? 'Verifying...' : 'Confirm Booking'}
+                        </button>
                     )}
                 </div>
             </div>
