@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Loader2, ChevronLeft, Phone, MapPin, Building, User } from 'lucide-react';
+import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle } from 'lucide-react';
 import BookingSteps from './BookingSteps';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { getPincodeForLocality } from '@/lib/data/mumbaiLocalities';
@@ -359,21 +359,38 @@ export default function BookingWizard() {
                             </div>
 
                             <div className="form-group" style={{ marginBottom: 'var(--spacing-xl)' }}>
-                                <label className="form-label">Locality / Pincode *</label>
-                                <div style={{ position: 'relative' }}>
-                                    <MapPin size={18} style={{ position: 'absolute', left: 14, top: 14, color: 'var(--text-tertiary)', zIndex: 10 }} />
-                                    <LocalityCombobox
-                                        value={formData.locality}
-                                        pincode={formData.pincode}
-                                        onChange={(loc, pin) => setFormData(prev => ({
-                                            ...prev,
-                                            locality: loc,
-                                            pincode: pin || prev.pincode,
-                                        }))}
-                                        inputClassName="form-input"
-                                        dropdownZIndex={1100}
-                                        style={{ paddingLeft: '44px' }}
-                                    />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                    <div style={{ position: 'relative' }}>
+                                        <label className="form-label">Pincode</label>
+                                        <MapPin size={18} style={{ position: 'absolute', left: 14, top: 38, color: 'var(--text-tertiary)', zIndex: 10 }} />
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="e.g. 400053"
+                                            value={formData.pincode}
+                                            onChange={(e) => {
+                                                const pin = e.target.value.replace(/\D/g, '').slice(0, 6);
+                                                setFormData(prev => ({ ...prev, pincode: pin }));
+                                            }}
+                                            style={{ paddingLeft: '44px' }}
+                                        />
+                                    </div>
+                                    <div style={{ textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '14px', fontWeight: 600 }}>OR</div>
+                                    <div style={{ position: 'relative' }}>
+                                        <label className="form-label">Locality</label>
+                                        <LocalityCombobox
+                                            value={formData.locality}
+                                            pincode={formData.pincode}
+                                            showPincode={false}
+                                            onChange={(loc, pin) => setFormData(prev => ({
+                                                ...prev,
+                                                locality: loc,
+                                                pincode: pin || prev.pincode,
+                                            }))}
+                                            inputClassName="form-input"
+                                            dropdownZIndex={1100}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -468,9 +485,11 @@ export default function BookingWizard() {
                     )}
 
                     {currentStep === 'location' && (
-                        <button onClick={handleLocationNext} className="btn btn-primary" style={{ padding: '12px 32px' }}>
-                            Check Availability
-                        </button>
+                        <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+                            <button onClick={handleLocationNext} className="btn btn-primary" style={{ padding: '12px 32px' }}>
+                                Check Availability
+                            </button>
+                        </div>
                     )}
                     
                     {currentStep === 'logistics' && (

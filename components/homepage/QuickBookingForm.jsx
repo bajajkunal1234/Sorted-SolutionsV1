@@ -190,15 +190,14 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                     className="book-button"
                     aria-label="Book technician"
                 >
-                    <Search size={18} />
                     {(() => {
                         if (formData.issue) {
                             const issueObj = visibleIssues.find(i => String(i.id) === formData.issue);
                             if (issueObj && issueObj.price) {
-                                return `Diagnostics @₹${issueObj.price}`;
+                                return `Diagnostics @ ₹${issueObj.price}`;
                             }
                         }
-                        return "Diagnostics @₹99";
+                        return "    ";
                     })()}
                 </button>
             </form>
