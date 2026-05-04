@@ -23,7 +23,7 @@ function getEmbedUrl(item) {
         // Extract shortcode from instagram.com/p/CODE/ or /reel/CODE/
         const m = url.match(/instagram\.com\/(?:p|reel|stories\/[^/]+)\/([A-Za-z0-9_-]+)/)
         if (m) return `https://www.instagram.com/p/${m[1]}/embed/`
-        return url
+        return null
     }
     if (type === 'facebook') {
         return `https://www.facebook.com/plugins/post.php?href=${encodeURIComponent(url)}&width=500&show_text=true&appId=`
@@ -110,6 +110,16 @@ function MediaRenderer({ item }) {
     }
 
     if (type === 'instagram') {
+        if (!embedUrl) {
+            return (
+                <div style={{ width: '100%', padding: '40px 20px', background: '#0a0f1e', textAlign: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <a href={item.url} target="_blank" rel="noreferrer" style={{ color: '#38bdf8', textDecoration: 'none', fontWeight: 600 }}>
+                        View post on Instagram
+                    </a>
+                </div>
+            )
+        }
+
         return (
             <div style={{ width: '100%', height: 480, background: '#0a0f1e', position: 'relative', overflow: 'hidden' }}>
                 {/* 
