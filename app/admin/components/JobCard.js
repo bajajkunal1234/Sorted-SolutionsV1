@@ -69,13 +69,15 @@ function JobCard({ job, onClick, onCalculate }) {
 
     if (job.status === 'booking_request' || job.status === 'enquiry') {
         const isEnquiry = job.status === 'enquiry';
+        const isCustomerApp = job.source === 'customer_app';
         let bd = {};
         try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
         const slot = bd.schedule?.slot || job.scheduled_time || '';
         const day = bd.schedule?.date || (job.scheduled_date ? formatDate(job.scheduled_date) : '');
-        const primaryColor = isEnquiry ? '#ef4444' : '#f59e0b';
-        const bgColor = isEnquiry ? 'rgba(239,68,68,0.05)' : 'rgba(245,158,11,0.05)';
-        const titleText = isEnquiry ? 'NEW WEBSITE ENQUIRY' : 'NEW WEBSITE BOOKING';
+        
+        const primaryColor = isEnquiry ? '#ef4444' : isCustomerApp ? '#3b82f6' : '#f59e0b';
+        const bgColor = isEnquiry ? 'rgba(239,68,68,0.05)' : isCustomerApp ? 'rgba(59,130,246,0.05)' : 'rgba(245,158,11,0.05)';
+        const titleText = isEnquiry ? 'NEW WEBSITE ENQUIRY' : isCustomerApp ? 'CUSTOMER APP BOOKING' : 'NEW WEBSITE BOOKING';
 
         return (
             <div
@@ -107,7 +109,7 @@ function JobCard({ job, onClick, onCalculate }) {
                     className="btn btn-primary"
                     style={{ width: '100%', marginTop: '12px', padding: '6px', fontSize: '12px', backgroundColor: primaryColor, border: 'none' }}
                 >
-                    Create & Assign
+                    {isCustomerApp ? 'Assign Technician' : 'Create & Assign'}
                 </button>
             </div>
         );

@@ -265,6 +265,7 @@ export async function POST(request) {
                 notes: JSON.stringify(bookingData), // full context as JSONB
                 priority: 'normal',
                 status: 'booking_request',
+                source: 'customer_app',
                 created_at: new Date().toISOString()
             })
             .select()
@@ -290,6 +291,7 @@ export async function POST(request) {
                         notes: JSON.stringify(bookingData),
                         priority: 'normal',
                         status: 'booking_request',
+                        source: 'customer_app',
                         created_at: new Date().toISOString()
                     })
                     .select()
