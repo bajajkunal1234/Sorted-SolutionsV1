@@ -348,10 +348,18 @@ export default function BookingWizard() {
                                         className="form-input"
                                         value={formData.phone}
                                         onChange={e => {
-                                            const val = e.target.value.replace(/\D/g, '');
-                                            // Handle cases where people paste +91
-                                            const digits = val.startsWith('91') && val.length > 10 ? val.slice(2, 12) : val.slice(0, 10);
-                                            setFormData(prev => ({ ...prev, phone: digits }));
+                                            const val = e.target.value;
+                                            setFormData(prev => ({ ...prev, phone: val }));
+                                        }}
+                                        onBlur={() => {
+                                            const raw = formData.phone || '';
+                                            let digits = raw.replace(/\D/g, '');
+                                            if (digits.startsWith('91') && digits.length === 12) digits = digits.slice(2);
+                                            else if (digits.startsWith('0') && digits.length === 11) digits = digits.slice(1);
+                                            
+                                            if (digits.length === 10) {
+                                                setFormData(prev => ({ ...prev, phone: `+91-${digits.slice(0, 5)} ${digits.slice(5)}` }));
+                                            }
                                         }}
                                         style={{ paddingLeft: '74px', fontSize: '16px', fontWeight: 600 }}
                                         required
@@ -429,7 +437,7 @@ export default function BookingWizard() {
                                 <label className="form-label">Mobile Number</label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '10px' }}>
                                     <Phone size={16} color="var(--text-tertiary)" />
-                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>+91 {formData.phone}</span>
+                                    <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>{formData.phone}</span>
                                     <button onClick={() => setCurrentStep('location')} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '13px', color: 'var(--color-primary)', cursor: 'pointer', fontWeight: 600 }}>Edit</button>
                                 </div>
                             </div>
