@@ -381,8 +381,12 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             match.property_name = p.property_name;
                         }
                     } else {
-                        // Before adding this brand new legacy property, verify if it's just a text-ghost of a structured DB property
-                        const legacyRawText = `${p.property_name || ''} ${p.address || ''} ${p.name || ''}`.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
+                        // Ignore generic labels like "Home" for ghost detection to prevent duplicates
+                        const ignoreLabels = ['home', 'office', 'other'];
+                        const propNameStr = ignoreLabels.includes((p.property_name || '').toLowerCase()) ? '' : (p.property_name || '');
+                        const nameStr = ignoreLabels.includes((p.name || '').toLowerCase()) ? '' : (p.name || '');
+                        
+                        const legacyRawText = `${propNameStr} ${p.address || ''} ${nameStr}`.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim();
                         const legacyTokens = legacyRawText.split(/\s+/).filter(t => t.length > 0);
                         
                         let isJustAGhost = false;
@@ -990,7 +994,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     addrStr = property.address.line1;
                                 }
                                 const dbAddrStr = [property.flat_number, property.building_name, addrStr, property.locality].filter(Boolean).join(', ');
-                                const displayLabel = property.property_name || property.label || dbAddrStr || `Property #${String(property.id).slice(0, 6)}`;
+                                const displayLabel = dbAddrStr || property.property_name || property.label || `Property #${String(property.id).slice(0, 6)}`;
                                 return (
                                     <option key={property.id} value={property.id}>
                                         {displayLabel}
