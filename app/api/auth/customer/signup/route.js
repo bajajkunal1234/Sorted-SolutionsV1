@@ -148,7 +148,6 @@ export async function POST(request) {
         if (insertError) throw insertError;
 
         // -- Normalise phone and generate SKU for the new account
-        const last10 = phone.replace(/\D/g, '').slice(-10);
         const newSKU = await generateAccountSKU('customer', 'sundry-debtors');
 
         const { data: accountEntry, error: accountError } = await supabase
