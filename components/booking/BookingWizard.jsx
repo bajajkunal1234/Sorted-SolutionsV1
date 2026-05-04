@@ -243,7 +243,7 @@ export default function BookingWizard() {
             // Our /api/booking expects customer details and will auto-create the account/customer rows!
             const categoryName = getName('appliance', formData.category);
             const subcategoryName = getName('type', formData.subcategory);
-            const issueName = getName('issue', formData.issue);
+            const issueName = Array.isArray(formData.issue) ? formData.issue.join(', ') : getName('issue', formData.issue);
             const resolvedBrandName = formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name || '';
             const nameParts = (formData.name || '').trim().split(' ');
             const rawPhone = formData.phone.replace(/\D/g, '').slice(-10);
@@ -267,6 +267,7 @@ export default function BookingWizard() {
                         locality: formData.locality,
                         city: formData.city,
                         state: formData.state,
+                        pincode: formData.pincode,
                     }
                 },
                 // We leave schedule empty. The API defaults to 'booking_request'

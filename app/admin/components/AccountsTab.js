@@ -1574,8 +1574,8 @@ ${body}
                             </thead>
                             <tbody>
                                 {filteredLedgers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map(ledger => {
-                                    const isNewOrganic = ledger.source === 'Customer Signup' && new Date(ledger.created_at) > new Date(Date.now() - 48 * 60 * 60 * 1000);
-                                    const rowBg = selectedItems.has(ledger.id) ? 'rgba(99,102,241,0.08)' : (isNewOrganic ? 'rgba(16,185,129,0.05)' : 'transparent');
+                                    const isNewAccount = new Date(ledger.created_at) > new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+                                    const rowBg = selectedItems.has(ledger.id) ? 'rgba(99,102,241,0.08)' : (isNewAccount ? 'rgba(16,185,129,0.05)' : 'transparent');
                                     return (
                                     <tr key={ledger.id}
                                         style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'default', transition: 'background-color var(--transition-fast)', backgroundColor: rowBg }}
@@ -1588,7 +1588,7 @@ ${body}
                                         <td onClick={() => setSelectedAccount(ledger)} style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, cursor: 'pointer' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 {ledger.name}
-                                                {isNewOrganic && <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: '#10b981', color: '#fff', textTransform: 'uppercase' }}>New</span>}
+                                                {isNewAccount && <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '9px', fontWeight: 700, backgroundColor: '#10b981', color: '#fff', textTransform: 'uppercase' }}>New</span>}
                                             </div>
                                         </td>
                                         {activeCols.map(col => renderCell(col, ledger))}
