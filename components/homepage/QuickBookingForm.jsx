@@ -62,8 +62,8 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                 setPrefilledIssueName(issueName || null);
             }
         };
-        window.addEventListener('prefillBookingIssue', handler);
-        return () => window.removeEventListener('prefillBookingIssue', handler);
+        window.addEventListener('bookingPreselect', handler);
+        return () => window.removeEventListener('bookingPreselect', handler);
     }, []);
 
     const visibleCategories = (settings.categories || []).filter(c => c.showOnBookingForm !== false);
