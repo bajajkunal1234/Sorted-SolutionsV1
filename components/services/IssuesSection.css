@@ -327,6 +327,32 @@
     color: var(--text-primary, #1e293b);
 }
 
+/* ── Load More Button ── */
+.issues-load-more {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 40px;
+}
+
+.btn-load-more {
+    padding: 12px 28px;
+    background: transparent;
+    border: 2px solid var(--color-primary, #6366f1);
+    color: var(--color-primary, #6366f1);
+    font-size: 0.95rem;
+    font-weight: 700;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-load-more:hover {
+    background: var(--color-primary, #6366f1);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
 /* ── Responsive ── */
 @media (max-width: 960px) {
     .issues-grid {
@@ -409,6 +435,10 @@
 
     .issue-card__cta {
         font-size: 0.75rem;
+    }
+
+    .issues-load-more {
+        margin-bottom: 24px;
     }
 
     .issues-footer {

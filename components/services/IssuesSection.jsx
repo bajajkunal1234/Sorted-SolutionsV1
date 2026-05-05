@@ -18,6 +18,7 @@ export default function IssuesSection({
     subcategoryId,
 }) {
     const [selectedIssue, setSelectedIssue] = useState(null)
+    const [showAll, setShowAll] = useState(false)
 
     const handleIssueClick = (issue) => {
         setSelectedIssue(issue.id)
@@ -41,6 +42,8 @@ export default function IssuesSection({
 
     if (!issues || issues.length === 0) return null
 
+    const visibleIssues = showAll ? issues : issues.slice(0, 4)
+
     return (
         <section className="issues-section" id="issues">
             <div className="issues-container">
@@ -53,7 +56,7 @@ export default function IssuesSection({
 
                 {/* ── Cards Grid ── */}
                 <div className="issues-grid">
-                    {issues.map((issue, index) => {
+                    {visibleIssues.map((issue, index) => {
                         const isSelected = selectedIssue === issue.id
                         const hasImage = !!issue.image
                         const hasPrice = !!issue.price
@@ -113,6 +116,17 @@ export default function IssuesSection({
                         )
                     })}
                 </div>
+
+                {issues.length > 4 && (
+                    <div className="issues-load-more">
+                        <button 
+                            className="btn-load-more" 
+                            onClick={() => setShowAll(!showAll)}
+                        >
+                            {showAll ? 'Show Less' : `Load More Issues (${issues.length - 4} More)`}
+                        </button>
+                    </div>
+                )}
 
                 {/* ── Footer nudge ── */}
                 <div className="issues-footer">
