@@ -190,6 +190,7 @@ export default async function SubCategoryPage({ params }) {
                             }
                         }
                     }
+                    console.log(`[SubCategoryPage] resolvedIssues count: ${resolvedIssues.length}`);
                 }
                 // Resolve Services (same issues but with price)
                 if (servicesSettings?.items?.length > 0) {

@@ -6,12 +6,12 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
-    const { data: jobs, error: jError } = await supabase
-        .from('jobs')
-        .select('*')
-        .in('job_number', ['JOB-1077', 'JOB-1076']);
-        
-    if (jError) console.error(jError);
-    else console.dir(jobs, { depth: null });
+    const { data: page, error } = await supabase
+        .from('page_settings')
+        .select('section_visibility')
+        .eq('page_id', 'sub-washing-machine-repair-front-load')
+        .single();
+    if (error) console.error(error);
+    console.dir(page, { maxArrayLength: null });
 }
 run();
