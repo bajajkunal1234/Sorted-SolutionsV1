@@ -223,9 +223,27 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     // ── Drag & Drop ───────────────────────────────────────────────
     const handleDragEnd = async ({ active, over }) => {
         if (!over) return;
+        if (groupBy !== 'status') {
+            alert('Drag & drop is only supported when grouped by Status.');
+            return;
+        }
+
+        let targetStatus = over.id;
+        
+        // If dropped over a job card, get the status of that job
+        const overJob = jobs.find(j => j.id === over.id);
+        if (overJob) {
+            targetStatus = overJob.status;
+        } else {
+            // Fallback: If somehow dropped on a column, try to infer the status from group name
+            targetStatus = targetStatus.toLowerCase().replace(/ /g, '_').replace('in_progress', 'in-progress');
+        }
+
+        if (active.id === over.id || !targetStatus) return;
+
         const prev = [...jobs];
-        setJobs(j => j.map(jj => jj.id === active.id ? { ...jj, status: over.id } : jj));
-        try { await jobsAPI.update(active.id, { status: over.id }); }
+        setJobs(j => j.map(jj => jj.id === active.id ? { ...jj, status: targetStatus } : jj));
+        try { await jobsAPI.update(active.id, { status: targetStatus }); }
         catch { setJobs(prev); alert('Failed to update job status.'); }
     };
 
