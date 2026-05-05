@@ -387,6 +387,13 @@ export default function WebsiteAnalytics() {
                             onClick={() => openDrawer('first_party_sessions', null, 'Recent Sessions', `Recent visitor sessions in last ${range}`)}/>
                         <MetricCard icon={Users} color="#fbbc04" label="Unique Visitors" value={fp?.uniqueVisitors} subtitle="Distinct devices" />
                         <MetricCard icon={Eye} color="#34a853" label="Page Views" value={fp?.pageViews} />
+                        <MetricCard
+                            icon={MousePointer} color="#ea4335"
+                            label="Google Ads Sessions"
+                            value={fp?.adsSessions ?? 0}
+                            subtitle={fp?.adsSessions > 0 ? "Visits from paid clicks (gclid)" : "Enable auto-tagging in Google Ads"}
+                            na={false}
+                        />
                     </div>
 
                     {/* First Party Top Pages */}

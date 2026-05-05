@@ -14,7 +14,8 @@ export async function POST(request) {
             session_id,
             utm_source,
             utm_medium,
-            utm_campaign
+            utm_campaign,
+            gclid          // Google Ads Click ID — present on first page of paid visit
         } = body;
 
         if (type === 'pageview' && !visitor_id) {
@@ -52,7 +53,8 @@ export async function POST(request) {
                         referrer,
                         utm_source,
                         utm_medium,
-                        utm_campaign
+                        utm_campaign,
+                        ...(gclid ? { gclid } : {})  // only set if present
                     });
             }
 

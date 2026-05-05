@@ -221,7 +221,8 @@ export async function GET(request) {
             { count: fpTotalSessions },
             { data: fpVisitorsData },
             { count: fpTotalPageViews },
-            { data: fpPageViewsData }
+            { data: fpPageViewsData },
+            { count: fpAdsSessions }      // sessions that had a gclid (Google Ads)
         ] = await Promise.all([
             supabase.from('jobs').select('*', { count: 'exact', head: true })
                 .eq('source', 'website'),
@@ -255,7 +256,12 @@ export async function GET(request) {
             supabase.from('page_views').select('*', { count: 'exact', head: true })
                 .gte('created_at', lookback),
             supabase.from('page_views').select('page_path, duration_seconds')
-                .gte('created_at', lookback)
+                .gte('created_at', lookback),
+
+            // Google Ads sessions (have a gclid stored)
+            supabase.from('visitor_sessions').select('*', { count: 'exact', head: true })
+                .not('gclid', 'is', null)
+                .gte('created_at', lookback),
         ])
 
         // ── Single pass aggregation over current period jobs
@@ -370,7 +376,8 @@ export async function GET(request) {
             sessions: fpTotalSessions || 0,
             uniqueVisitors: fpUniqueVisitors,
             pageViews: fpTotalPageViews || 0,
-            topPages: fpTopPages
+            topPages: fpTopPages,
+            adsSessions: fpAdsSessions || 0,   // sessions from Google Ads (had a gclid)
         };
 
         return NextResponse.json({

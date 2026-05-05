@@ -36,6 +36,17 @@ export default function FirstPartyTracker() {
         const utm_medium = searchParams.get('utm_medium');
         const utm_campaign = searchParams.get('utm_campaign');
 
+        // ── GCLID capture ──────────────────────────────────────────────────
+        // Google Ads appends ?gclid=... to landing page URLs when auto-tagging is ON.
+        // We read it from the URL, and persist it in sessionStorage so subsequent
+        // page navigations (which won't have gclid in the URL) still know this
+        // was a paid visit. Only the first session row creation needs to store it.
+        const gclidFromUrl = searchParams.get('gclid');
+        if (gclidFromUrl) {
+            sessionStorage.setItem('sorted_gclid', gclidFromUrl);
+        }
+        const gclid = sessionStorage.getItem('sorted_gclid') || null;
+
         // Track Page View
         fetch('/api/analytics/track', {
             method: 'POST',
@@ -49,7 +60,8 @@ export default function FirstPartyTracker() {
                 referrer,
                 utm_source,
                 utm_medium,
-                utm_campaign
+                utm_campaign,
+                gclid
             })
         })
         .then(res => res.json())
