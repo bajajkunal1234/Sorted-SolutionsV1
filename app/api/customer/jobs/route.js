@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { fireNotification } from '@/lib/fire-notification'
 import { generateJobNumber } from '@/lib/generateJobNumber'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic';
 
@@ -312,10 +313,22 @@ export async function POST(request) {
                 const { error: logRetryError } = await supabase.from('job_interactions').insert({
                     job_id: jobRetry.id,
                     type: 'created',
-                    message: `Service request created via Customer App for ${appliance_type}${issue_type ? ' — ' + issue_type : ''}`,
+                    message: `Service request created via Customer App for ${appliance_type}${issue_type ? ' \u2014 ' + issue_type : ''}`,
                     user_name: customer_name,
                 });
                 if (logRetryError) console.warn('[customer/jobs] job_interactions retry insert failed:', logRetryError.message);
+                
+                logInteractionServer({
+                    type: 'booking-created-app',
+                    category: 'job',
+                    jobId: String(jobRetry.id),
+                    customerId: account_id,
+                    customerName: customer_name,
+                    description: `Customer App booking: ${appliance_type}${issue_type ? ' \u2014 ' + issue_type : ''} (${job_number})`,
+                    metadata: { bookingNumber: job_number, appliance_type, issue_type, customerId: account_id },
+                    source: 'Customer App',
+                });
+
                 return NextResponse.json({ success: true, job: jobRetry, message: 'Service request created successfully' })
             }
             return NextResponse.json(
@@ -332,6 +345,17 @@ export async function POST(request) {
             user_name: customer_name,
         });
         if (logError) console.warn('[customer/jobs] job_interactions insert failed:', logError.message);
+
+        logInteractionServer({
+            type: 'booking-created-app',
+            category: 'job',
+            jobId: String(job.id),
+            customerId: account_id,
+            customerName: customer_name,
+            description: `Customer App booking: ${appliance_type}${issue_type ? ' \u2014 ' + issue_type : ''} (${job_number})`,
+            metadata: { bookingNumber: job_number, appliance_type, issue_type, customerId: account_id },
+            source: 'Customer App',
+        });
 
         // Fire notification so admin sees the incoming booking request immediately
         await fireNotification('booking_created_website', {

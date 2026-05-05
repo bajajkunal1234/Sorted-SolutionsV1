@@ -736,7 +736,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="modal-content" style={{ padding: 'var(--spacing-lg)', maxHeight: '70vh', overflowY: 'auto' }}>
+                        <div className="modal-content" style={{ padding: 'var(--spacing-lg)', maxHeight: '70vh', overflowY: 'auto', maxWidth: 'none' }}>
 
                             {/* Common Fields Section */}
                             <div style={{ marginBottom: 'var(--spacing-xl)' }}>
