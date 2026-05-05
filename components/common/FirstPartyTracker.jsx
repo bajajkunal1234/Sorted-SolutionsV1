@@ -17,6 +17,12 @@ export default function FirstPartyTracker() {
     const startTime = useRef(null);
 
     useEffect(() => {
+        // ── Skip internal / admin paths — never track these ──────────────────
+        // /admin, /technician, /customer are internal apps, not visitor pages.
+        const EXCLUDED_PATHS = ['/admin', '/technician', '/customer'];
+        if (EXCLUDED_PATHS.some(p => pathname.startsWith(p))) return;
+        // ─────────────────────────────────────────────────────────────────────
+
         // Initialize IDs
         let visitor_id = localStorage.getItem('sorted_visitor_id');
         if (!visitor_id) {

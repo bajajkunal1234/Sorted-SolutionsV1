@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabase } from '@/lib/supabase-server';
 
+// ── Owner/internal IP exclusion list ─────────────────────────────────────────
+// Requests from these IPs are silently ignored — no session or page-view stored.
+// Exact IPs or prefix strings (e.g. '152.58.' matches any 152.58.x.x)
+const EXCLUDED_IPS = [
+    '49.36.123.66',  // Owner device — exact IP
+    '152.58.',       // Owner ISP range — any IP starting with 152.58.
+];
+
+function isExcludedIp(rawIp) {
+    if (!rawIp || rawIp === 'unknown') return false;
+    // x-forwarded-for can be "client, proxy1, proxy2" — real client is first
+    const clientIp = rawIp.split(',')[0].trim();
+    return EXCLUDED_IPS.some(rule =>
+        rule.endsWith('.') ? clientIp.startsWith(rule) : clientIp === rule
+    );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function POST(request) {
     try {
         const body = await request.json();
@@ -10,30 +28,31 @@ export async function POST(request) {
             pathname,
             referrer,
             duration,
-            type, // 'pageview' or 'duration_update'
+            type,           // 'pageview' or 'duration_update'
             session_id,
             utm_source,
             utm_medium,
             utm_campaign,
-            gclid          // Google Ads Click ID — present on first page of paid visit
+            gclid           // Google Ads Click ID — present on first page of paid visit
         } = body;
 
         if (type === 'pageview' && !visitor_id) {
             return NextResponse.json({ success: false, error: 'Missing visitor_id' }, { status: 400 });
         }
 
-
         const supabase = createServerSupabase();
         if (!supabase) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
 
-        let currentSessionId = session_id;
-
-        // If it's a new pageview, we might need to create a session if one doesn't exist
-        // But for simplicity, the client sends a session_id. If it doesn't exist in DB, we create it.
-        // Actually, let's just UPSERT the session.
         if (type === 'pageview') {
-            const ip_address = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+            const rawIp = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
             const user_agent = request.headers.get('user-agent') || 'unknown';
+
+            // ── Silently drop owner / internal traffic ────────────────────────
+            if (isExcludedIp(rawIp)) {
+                return NextResponse.json({ success: true, ignored: true });
+            }
+
+            const ip_address = rawIp.split(',')[0].trim(); // clean client IP
 
             // Check if session exists
             const { data: existingSession } = await supabase
