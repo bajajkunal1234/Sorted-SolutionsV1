@@ -785,12 +785,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     >
                                         🧮 Calculate Repair Estimate
                                     </button>
-                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: savedQuotation ? 'rgba(139,92,246,0.15)' : 'var(--bg-secondary)', color: savedQuotation ? '#8b5cf6' : 'var(--text-primary)', border: savedQuotation ? '1px solid rgba(139,92,246,0.4)' : '1px solid var(--border-primary)' }} onClick={() => { setActiveForm('quotation'); }}>
-                                        <FileText size={18} style={{ marginRight: '8px' }} /> {savedQuotation ? '✏️ Edit Quotation' : 'Create Quotation (Blank)'}
-                                    </button>
-                                    <button className="btn" style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', backgroundColor: '#10b981', color: '#fff', border: 'none' }} onClick={() => setActiveForm('sales-invoice')}>
-                                        <CheckSquare size={18} style={{ marginRight: '8px' }} /> Create Sales Voucher
-                                    </button>
+
                                 </div>
                             </div>
                         </div>
