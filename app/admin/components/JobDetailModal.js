@@ -142,15 +142,44 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const bookingAddr = rawAddr.locality ? `${rawAddr.apartment || ''}, ${rawAddr.street || ''}, ${rawAddr.locality}, ${rawAddr.city}`.replace(/^, /, '') : null;
 
     let jobAddress = 'No address';
-    if (property.address) {
-        if (typeof property.address === 'object' && property.address.line1) {
-            jobAddress = `${property.address.line1}, ${property.address.locality || ''}`;
+    let jobAddressParts = []; // structured parts for multi-line display
+
+    if (property && (property.address || property.locality || property.flat_number || property.building_name)) {
+        // Property is the most reliable address source
+        const addr = property.address || {};
+        if (typeof addr === 'object' && addr.line1) {
+            // Structured address object (line1/line2/locality/city/pincode)
+            jobAddressParts = [
+                [addr.line1, addr.line2].filter(Boolean).join(', '),
+                [addr.locality, addr.city].filter(Boolean).join(', '),
+                addr.pincode
+            ].filter(Boolean);
         } else {
-            jobAddress = `${property.address}${property.locality ? ', ' + property.locality : ''}`;
+            // Flat property columns: flat_number, building_name, address (street), locality, city, pincode
+            const line1 = [property.flat_number, property.building_name, typeof addr === 'string' ? addr : property.address].filter(Boolean).join(', ');
+            const line2 = [property.locality, property.city || 'Mumbai'].filter(Boolean).join(', ');
+            const line3 = property.pincode;
+            jobAddressParts = [line1, line2, line3].filter(Boolean);
         }
+        jobAddress = jobAddressParts.join(', ');
     } else if (bookingAddr) {
-        jobAddress = bookingAddr;
+        // Booking request address from notes JSON
+        const rawAddrFull = bookingData.customer?.address || {};
+        jobAddressParts = [
+            [rawAddrFull.apartment, rawAddrFull.street].filter(Boolean).join(', '),
+            [rawAddrFull.locality, rawAddrFull.city].filter(Boolean).join(', '),
+            rawAddrFull.pincode
+        ].filter(Boolean);
+        jobAddress = jobAddressParts.join(', ') || bookingAddr;
+    } else if (customer.address || customer.locality) {
+        // Fallback: customer account address fields
+        const line1 = typeof customer.address === 'string' ? customer.address : '';
+        const line2 = [customer.locality, customer.city].filter(Boolean).join(', ');
+        const line3 = customer.pincode;
+        jobAddressParts = [line1, line2, line3].filter(Boolean);
+        jobAddress = jobAddressParts.join(', ');
     }
+
 
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
@@ -469,16 +498,30 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                         </a>
                                     </div>
                                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'flex-start' }}>
-                                        <MapPin size={16} style={{ marginTop: '2px' }} />
-                                        <a
-                                            href={jobAddress !== 'No address' ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(jobAddress)}` : '#'}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{ color: 'var(--color-primary)' }}
-                                            onClick={(e) => jobAddress === 'No address' && e.preventDefault()}
-                                        >
-                                            {jobAddress}
-                                        </a>
+                                        <MapPin size={16} style={{ marginTop: '3px', flexShrink: 0, color: 'var(--text-secondary)' }} />
+                                        <div style={{ lineHeight: 1.6 }}>
+                                            {jobAddressParts.length > 0 ? (
+                                                <>
+                                                    {jobAddressParts.map((part, i) => (
+                                                        <div key={i} style={{
+                                                            fontSize: i === 0 ? '14px' : '13px',
+                                                            fontWeight: i === 0 ? 500 : 400,
+                                                            color: i === 0 ? 'var(--text-primary)' : 'var(--text-secondary)'
+                                                        }}>{part}</div>
+                                                    ))}
+                                                    <a
+                                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(jobAddress)}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '4px 10px', borderRadius: 6, fontWeight: 600 }}
+                                                    >
+                                                        📍 Open in Maps
+                                                    </a>
+                                                </>
+                                            ) : (
+                                                <span style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>No address on file</span>
+                                            )}
+                                        </div>
                                     </div>
                                     <button
                                         className="btn btn-secondary"
