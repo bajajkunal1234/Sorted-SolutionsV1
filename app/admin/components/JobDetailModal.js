@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity } from 'lucide-react';
-import { formatDateTime, generatePreVisitChecklist, getLocalityFromAddress } from '@/lib/utils/helpers';
+import { formatDateTime, getLocalityFromAddress } from '@/lib/utils/helpers';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
 import LogNoteItem from './LogNoteItem';
 import SalesInvoiceForm from './accounts/SalesInvoiceForm';
@@ -155,7 +155,6 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const tabs = [
         { id: 'details', label: 'Details', icon: FileText },
         { id: 'interactions', label: 'Interactions', icon: Clock },
-        { id: 'checklist', label: 'Pre-Visit', icon: CheckSquare },
         { id: 'actions', label: 'Billing/Actions', icon: Tag }
     ];
 
@@ -375,7 +374,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
 
 
-    const preVisitChecklist = generatePreVisitChecklist(editedJob);
+
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -731,45 +730,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         />
                     )}
 
-                    {activeTab === 'checklist' && (
-                        <div>
-                            <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Pre-Visit Requirements</h3>
-                            <p style={{ color: 'var(--text-secondary)', marginBottom: 'var(--spacing-lg)' }}>
-                                Items the technician should carry for this visit:
-                            </p>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                                {preVisitChecklist.map(item => (
-                                    <div
-                                        key={item.id}
-                                        className="card"
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 'var(--spacing-md)',
-                                            padding: 'var(--spacing-md)',
-                                            backgroundColor: item.priority === 'high' ? 'rgba(239, 68, 68, 0.05)' : 'var(--bg-elevated)'
-                                        }}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={item.checked}
-                                            onChange={() => { }}
-                                            style={{ width: '18px', height: '18px' }}
-                                        />
-                                        <span style={{ flex: 1, fontWeight: item.priority === 'high' ? 600 : 400 }}>
-                                            {item.item}
-                                            {item.priority === 'high' && (
-                                                <span style={{ color: 'var(--color-danger)', marginLeft: 'var(--spacing-xs)' }}>
-                                                    (Priority)
-                                                </span>
-                                            )}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
