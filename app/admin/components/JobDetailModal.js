@@ -381,18 +381,31 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
                 {/* Header */}
                 <div className="modal-header">
-                    <div>
-                        <h2 className="modal-title">{jobTitle}</h2>
-                        {editedJob.job_number && (
-                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                Job #: {editedJob.job_number}
-                            </p>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <h2 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, marginBottom: '2px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {editedJob.customer_name || editedJob.customerName || editedJob.customer?.name || 'Customer'}
+                        </h2>
+                        {(editedJob.description || editedJob.job_type || editedJob.issueCategory) && (
+                            <div style={{ fontSize: '13px', fontWeight: 600, color: '#10b981', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                🔧 {editedJob.description || editedJob.job_type || editedJob.issueCategory}
+                            </div>
                         )}
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
+                            <span>•</span>
+                            <span style={{
+                                color: editedJob.status === 'completed' ? '#10b981' :
+                                       editedJob.status === 'cancelled' || editedJob.status === 'rejected' ? '#ef4444' :
+                                       editedJob.status === 'in-progress' ? '#3b82f6' : '#f59e0b',
+                                fontWeight: 600, textTransform: 'uppercase', fontSize: '11px'
+                            }}>{editedJob.status}</span>
+                        </div>
                     </div>
-                    <button className="btn-icon" onClick={onClose}>
-                        <X size={20} />
+                    <button className="btn-icon" onClick={onClose} style={{ flexShrink: 0, marginLeft: 8 }}>
+                        <X size={24} />
                     </button>
                 </div>
+
 
                 {/* Tabs */}
                 <div style={{
