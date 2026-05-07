@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
-import PrevisitRequirements from './reports/PrevisitRequirements';
+
 import WebsiteSettings from './reports/WebsiteSettings';
 import PrintSetup from './reports/PrintSetup';
 import IncentivesManagement from './reports/IncentivesManagement';
@@ -42,7 +42,7 @@ function ReportsTab() {
         { id: 'amc', label: 'AMC', icon: Shield, component: AMCTab, color: '#06b6d4', description: 'Annual Maintenance Contracts' },
         { id: 'interactions', label: 'Interactions', icon: History, component: InteractionsTab, color: '#ec4899', description: 'View all customer interactions' },
         { id: 'numbering', label: 'Voucher Numbering', icon: Settings, component: VoucherNumberingSettings, color: '#6366f1', description: 'Configure voucher sequences' },
-        { id: 'previsit', label: 'Pre-visit Checklist', icon: Clipboard, component: PrevisitRequirements, color: '#14b8a6', description: 'Manage pre-visit requirements' },
+
         { id: 'slots', label: 'Website Settings', icon: Clock, component: WebsiteSettings, color: '#f97316', description: 'Manage website content & forms' },
         { id: 'print', label: 'Print Setup', icon: Printer, component: PrintSetup, color: '#84cc16', description: 'Configure print templates' },
         { id: 'technicians', label: 'Technician Management', icon: Users, component: TechnicianManagement, color: '#3b82f6', description: 'Manage technician accounts, credentials and permissions' },
