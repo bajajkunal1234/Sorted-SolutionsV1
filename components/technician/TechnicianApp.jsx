@@ -37,6 +37,7 @@ function TechnicianApp() {
     const [activeTags, setActiveTags] = useState([]);
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
+    const [showClosedJobs, setShowClosedJobs] = useState(false); // hide closed/cancelled by default
     const [selectedJob, setSelectedJob] = useState(null);
     const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
     const [darkMode, setDarkMode] = useState(() => {
@@ -278,16 +279,18 @@ function TechnicianApp() {
         return { text: `${hours}h ${minutes}m`, color: '#10b981', urgent: false };
     };
 
-    // Get status badge color
+    // Get status badge color (9 canonical statuses)
     const getStatusColor = (status) => {
         const colors = {
-            'open': '#3b82f6',
-            'assigned': '#06b6d4',
-            'in-progress': '#f59e0b',
-            'quotation-sent': '#8b5cf6',
-            'repair': '#f97316',
-            'completed': '#10b981',
-            'closed': '#6b7280'
+            'new_job_request':   '#3b82f6',
+            'scheduled':         '#06b6d4',
+            'diagnosing_quoting':'#f59e0b',
+            'quotation_sent':    '#8b5cf6',
+            'parts_ordered':     '#f97316',
+            'work_in_progress':  '#10b981',
+            'cx_reschedule':     '#ec4899',
+            'cancelled':         '#ef4444',
+            'closed':            '#6b7280',
         };
         return colors[status] || '#6b7280';
     };
@@ -303,8 +306,11 @@ function TechnicianApp() {
         return badges[priority] || badges.normal;
     };
 
-    // Apply tag-based filters (mirrors admin applyTags logic)
+    // Apply filters — hide closed/cancelled by default
     const filteredJobs = jobs.filter(job => {
+        // Default: hide closed and cancelled unless toggled on
+        if (!showClosedJobs && (job.status === 'closed' || job.status === 'cancelled')) return false;
+
         const matchesSearch = !searchTerm ||
             (job.customerName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
             (job.product?.brand?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -591,8 +597,22 @@ function TechnicianApp() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Show Closed toggle */}
+                        <button
+                            onClick={() => setShowClosedJobs(v => !v)}
+                            title={showClosedJobs ? 'Hide closed & cancelled jobs' : 'Show closed & cancelled jobs'}
+                            style={{
+                                fontSize: '11px', padding: '3px 8px', borderRadius: '12px', border: '1px solid var(--border-primary)',
+                                backgroundColor: showClosedJobs ? '#6b7280' : 'var(--bg-secondary)',
+                                color: showClosedJobs ? '#fff' : 'var(--text-secondary)',
+                                cursor: 'pointer', fontWeight: showClosedJobs ? 600 : 400,
+                                display: 'flex', alignItems: 'center', gap: '4px',
+                            }}
+                        >
+                            {showClosedJobs ? '✓ Showing Closed' : `+${jobs.filter(j => j.status === 'closed' || j.status === 'cancelled').length} Closed`}
+                        </button>
                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
-                            {sortedJobs.length} / {jobs.length} jobs
+                            {sortedJobs.length} active jobs
                         </span>
                         <button
                             onClick={() => {
