@@ -5,7 +5,7 @@ import { Search, ChevronDown, X, Filter, Layers, ArrowUpDown, Plus, Trash2, Book
 
 // ─── Field definitions ────────────────────────────────────────────────────────
 const FILTER_FIELDS = [
-    { key: 'status',      label: 'Status',        type: 'select', options: ['assigned','in-progress','quotation-sent','completed','cancelled','booking_request'] },
+    { key: 'status',      label: 'Status',        type: 'select', options: ['new_job_request','scheduled','diagnosing_quoting','quotation_sent','parts_ordered','work_in_progress','cx_reschedule','cancelled','closed'] },
     { key: 'priority',    label: 'Priority',      type: 'select', options: ['urgent','high','normal','low'] },
     { key: 'locality',    label: 'Locality',      type: 'text' },
     { key: 'customer',    label: 'Customer',      type: 'text' },
@@ -56,12 +56,15 @@ const PRESET_FILTERS = [
     { id: 'urgent',    label: '🔴 Urgent',      filter: { priority: 'urgent' } },
     { id: 'today',     label: '📅 Due Today',   filter: { _preset: 'dueToday' } },
     { id: 'overdue',   label: '⚠️ Overdue',     filter: { _preset: 'overdue' } },
-    { id: 'booking_request',   label: '🔔 Booking Request',      filter: { status: 'booking_request' } },
-    { id: 'assigned',  label: '👤 Assigned',    filter: { status: 'assigned' } },
-    { id: 'inprog',    label: '🔧 In Progress', filter: { status: 'in-progress' } },
-    { id: 'quotation', label: '📄 Quotation Sent', filter: { status: 'quotation-sent' } },
-    { id: 'completed', label: '✅ Completed',   filter: { status: 'completed' } },
-    { id: 'cancelled', label: '❌ Cancelled',   filter: { status: 'cancelled' } },
+    { id: 'new_job_request',    label: '🔵 New Job Request',      filter: { status: 'new_job_request' } },
+    { id: 'scheduled',          label: '📅 Scheduled',            filter: { status: 'scheduled' } },
+    { id: 'diagnosing_quoting', label: '🔍 Diagnosing & Quoting', filter: { status: 'diagnosing_quoting' } },
+    { id: 'quotation_sent',     label: '📋 Quotation Sent',       filter: { status: 'quotation_sent' } },
+    { id: 'parts_ordered',      label: '🔩 Parts Ordered',        filter: { status: 'parts_ordered' } },
+    { id: 'work_in_progress',   label: '🔧 Work In Progress',     filter: { status: 'work_in_progress' } },
+    { id: 'cx_reschedule',      label: '📆 Cx Reschedule',        filter: { status: 'cx_reschedule' } },
+    { id: 'cancelled',          label: '❌ Cancelled',            filter: { status: 'cancelled' } },
+    { id: 'closed',             label: '✅ Closed',               filter: { status: 'closed' } },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
