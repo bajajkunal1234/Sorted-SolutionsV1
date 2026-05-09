@@ -20,7 +20,7 @@ export async function GET(request) {
         let query = supabase
             .from('accounts')
             .select('*')
-            .or('under.ilike.%customer%,under_name.ilike.%customer%,under.ilike.%debtor%,under_name.ilike.%debtor%')
+            .or('under.ilike.%customer%,under.ilike.%debtor%,type.eq.customer')
             .order('name', { ascending: true })
 
         if (search) {

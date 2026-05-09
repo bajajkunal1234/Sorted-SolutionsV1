@@ -617,10 +617,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             const allAccounts = await accountsAPI.getAll();
             const customersOnly = allAccounts.filter(a =>
                 a.type === 'customer' ||
-                a.under?.toLowerCase().includes('customer') ||
-                a.under?.toLowerCase().includes('debtor') ||
-                (a.under_name || '').toLowerCase().includes('customer') ||
-                (a.under_name || '').toLowerCase().includes('debtor')
+                (a.under || '').toLowerCase().includes('customer') ||
+                (a.under || '').toLowerCase().includes('debtor')
             );
             setCustomers(customersOnly);
 
