@@ -91,7 +91,7 @@ const JOURNEY_STEPS = [
 // ── Sub-components ──────────────────────────────────────────────────────────
 
 function StatusBadge({ status }) {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.booking_request
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.new_job_request
     const Icon = cfg.icon
     return (
         <div style={{
@@ -106,7 +106,7 @@ function StatusBadge({ status }) {
 }
 
 function JourneyBar({ status }) {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.booking_request
+    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.new_job_request
     const currentStep = cfg.step ?? 0
     if (status === 'cancelled') return null
 
@@ -157,9 +157,9 @@ function JourneyBar({ status }) {
 }
 
 function JobCard({ job, onClick }) {
-    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.booking_request
+    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.new_job_request
     const Icon = cfg.icon
-    const hasQuotation = job.status === 'quotation-sent'
+    const hasQuotation = job.status === 'quotation_sent'
 
     return (
         <div
@@ -368,7 +368,7 @@ function StarRating({ job, onRated }) {
 }
 
 function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
-    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.booking_request
+    const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.new_job_request
     const Icon = cfg.icon
 
     // Use stored lat/lng from property first — no geocoding needed
@@ -658,7 +658,7 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
 
 
                     {/* Map — shown for scheduled & work_in_progress. Live tracking only for work_in_progress */}
-                    {['scheduled', 'work_in_progress', 'assigned', 'in-progress'].includes(job.status) && custLocation && (
+                    {['scheduled', 'work_in_progress', 'cx_reschedule'].includes(job.status) && custLocation && (
                         <div style={{
                             background: 'rgba(255,255,255,0.03)', border: `1px solid ${job.status === 'work_in_progress' ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.06)'}`,
                             borderRadius: 14, overflow: 'hidden', marginBottom: 16
@@ -764,7 +764,7 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                     </div>
 
                     {/* Action Buttons — locked once technician is on the way */}
-                    {!['closed', 'completed', 'cancelled'].includes(job.status) && (() => {
+                    {!['closed', 'cancelled'].includes(job.status) && (() => {
                         const locked = !!job.on_way_at;
                         return (
                             <>
@@ -835,12 +835,12 @@ export default function ServicesPage() {
             const data = await res.json()
             const all = data.jobs || []
 
-            const activeStatuses = ['new_job_request','scheduled','diagnosing_quoting','quotation_sent','parts_ordered','work_in_progress','cx_reschedule','booking_request','assigned','in-progress','spare-part-needed','quotation-sent']
-            const pastStatuses = ['closed','completed','cancelled']
+            const activeStatuses = ['new_job_request','scheduled','diagnosing_quoting','quotation_sent','parts_ordered','work_in_progress','cx_reschedule']
+            const pastStatuses = ['closed','cancelled']
 
             if (filterStatus === 'all') setJobs(all)
             else if (filterStatus === 'active') setJobs(all.filter(j => activeStatuses.includes(j.status)))
-            else if (filterStatus === 'quotation') setJobs(all.filter(j => j.status === 'quotation_sent' || j.status === 'quotation-sent'))
+            else if (filterStatus === 'quotation') setJobs(all.filter(j => j.status === 'quotation_sent'))
             else if (filterStatus === 'past') setJobs(all.filter(j => pastStatuses.includes(j.status)))
 
             setError(null)
