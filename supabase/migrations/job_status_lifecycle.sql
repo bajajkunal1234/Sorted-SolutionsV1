@@ -11,6 +11,8 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS on_way_at           timestamptz;   -- 
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS arrived_at          timestamptz;   -- when tech clicks "Mark as Arrived"
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS quotation_approved_at  timestamptz;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS repair_note_added_at   timestamptz;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS started_at          timestamptz;   -- when job work actually starts
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS completed_at        timestamptz;   -- when job is closed/completed
 
 
 -- STEP 2: Drop any existing CHECK constraint on status (so migration doesn't violate it)
@@ -79,7 +81,7 @@ ORDER BY job_count DESC;
 SELECT column_name, data_type
 FROM information_schema.columns
 WHERE table_name = 'jobs'
-  AND column_name IN ('source', 'on_way_at', 'arrived_at', 'quotation_approved_at', 'repair_note_added_at')
+  AND column_name IN ('source', 'on_way_at', 'arrived_at', 'quotation_approved_at', 'repair_note_added_at', 'started_at', 'completed_at')
 ORDER BY column_name;
 
 -- Test the constraint is active (this should FAIL with a constraint violation):
