@@ -159,7 +159,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 }));
 
                 // Auto-match names to IDs for booking requests
-                if (existingJob?.status === 'booking_request') {
+                if (existingJob?.status === 'booking_request' || existingJob?.status === 'new_job_request') {
                     // Parse the booking notes JSON for richer matching data
                     let bookingNotes = {};
                     try {
@@ -738,7 +738,9 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                 // Details
                 description: formData.jobName,
-                status: existingJob ? existingJob.status : 'booking_request',
+                // New jobs created by admin start as 'new_job_request';
+                // auto-advance to 'scheduled' when a technician is assigned
+                status: existingJob ? existingJob.status : 'new_job_request',
                 priority: 'normal',
 
                 category: formData.product?.name || 'General',
@@ -756,9 +758,9 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 notes: formData.warranty ? `Warranty Claim: ${formData.warrantyProof}\n\n${formData.notes || ''}`.trim() : (formData.notes || ''),
             };
 
-            // If technician is assigned, set status to assigned
-            if (jobData.technician_id && jobData.status === 'booking_request') {
-                jobData.status = 'assigned';
+            // If technician is assigned on a brand-new job, advance to scheduled
+            if (jobData.technician_id && jobData.status === 'new_job_request') {
+                jobData.status = 'scheduled';
             }
 
             await onCreate(jobData);
