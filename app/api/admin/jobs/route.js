@@ -72,13 +72,16 @@ export async function POST(request) {
 
         if (error) throw error
 
-        // Log creation interaction
-        await supabase.from('job_interactions').insert([{
+        // ── Return immediately — run logging & notifications in the background ——
+        const responseData = NextResponse.json({ success: true, data });
+
+        // Fire-and-forget: do not await, these must not slow down the response
+        supabase.from('job_interactions').insert([{
             job_id: data.id,
             type: 'status-changed',
-            message: `Job created — status: new_job_request`,
+            message: `Job created — status: ${data.status}`,
             user_name: body.created_by || 'Admin'
-        }])
+        }]).catch(e => console.error('[jobs POST] interaction log:', e.message));
 
         logInteractionServer({
             type: 'job-created-admin',
@@ -91,14 +94,14 @@ export async function POST(request) {
             source: 'Admin',
         });
 
-        await fireNotification('job_created_admin', {
+        fireNotification('job_created_admin', {
             job_id: String(data.id),
             job_number: data.job_number,
             customer_id: body.customer_id ? String(body.customer_id) : undefined,
             customer_name: data.customer_name || undefined,
-        });
+        }).catch(e => console.error('[jobs POST] fireNotification:', e.message));
 
-        return NextResponse.json({ success: true, data })
+        return responseData;
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
@@ -145,7 +148,7 @@ export async function PUT(request) {
         if (updates.status && existing && updates.status !== existing.status) {
             const statusMsg = `Status changed: ${existing.status} → ${updates.status} by ${performedByName}`;
 
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id,
                 type: 'status-changed',
                 message: statusMsg,
@@ -166,7 +169,7 @@ export async function PUT(request) {
             // Fire notification for this status change
             const notifEvent = STATUS_TO_EVENT[updates.status];
             if (notifEvent) {
-                await fireNotification(notifEvent, {
+                fireNotification(notifEvent, {
                     job_id: String(id),
                     job_number: data.job_number,
                     customer_id: customerId || undefined,
@@ -182,7 +185,7 @@ export async function PUT(request) {
             const newName = updates.technician_name || updates.technician_id || 'Unknown'
             const oldName = existing.technician_name || (existing.technician_id ? existing.technician_id : 'Unassigned')
 
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id,
                 type: 'assigned',
                 message: `Technician assigned: ${oldName} → ${newName} by ${performedByName}`,
@@ -202,7 +205,7 @@ export async function PUT(request) {
             });
 
             // Fire job_assigned notification
-            await fireNotification('job_assigned', {
+            fireNotification('job_assigned', {
                 job_id: String(id),
                 job_number: data.job_number,
                 customer_id: customerId || undefined,
@@ -239,7 +242,7 @@ export async function PUT(request) {
             ...uiExtraChanges.filter(u => !serverChanges.some(s => s.startsWith(u.split(':')[0])))
         ];
         if (allExtraChanges.length > 0) {
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id,
                 type: 'edited',
                 message: `Updated by ${performedByName}: ${allExtraChanges.join('; ')}`,

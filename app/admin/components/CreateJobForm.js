@@ -91,7 +91,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             try {
                 // Fetch each resource individually to handle partial failures
                 const fetchPromises = [
-                    { key: 'customers', api: accountsAPI.getAll() },
+                    { key: 'customers', api: fetch('/api/admin/accounts?purpose=dropdown&type=customer').then(r=>r.json()).then(d=>d.data||[]) },
                     { key: 'technicians', api: techniciansAPI.getAll() },
                     { key: 'brands', api: bookingBrandsAPI.getAll() },
                     { key: 'websiteSettings', api: quickBookingAPI.getSettings() },

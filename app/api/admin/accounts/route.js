@@ -29,6 +29,27 @@ export async function GET(request) {
             return NextResponse.json({ success: true, data })
         }
 
+        // ── Fast dropdown path: only fields needed for autocomplete ──────────
+        const purpose = searchParams.get('purpose');
+        if (purpose === 'dropdown') {
+            let dropdownQuery = supabase
+                .from('accounts')
+                .select('id, name, mobile, phone, type, under_name, sku')
+                .neq('status', 'archived')
+                .order('name', { ascending: true })
+                .limit(1000);
+            if (type && type !== 'all') {
+                if (type === 'customer') {
+                    dropdownQuery = dropdownQuery.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%');
+                } else {
+                    dropdownQuery = dropdownQuery.eq('type', type);
+                }
+            }
+            const { data: dropData, error: dropErr } = await dropdownQuery;
+            if (dropErr) throw dropErr;
+            return NextResponse.json({ success: true, data: dropData });
+        }
+
         let query = supabase
             .from('accounts')
             .select('*, jobs:jobs(count), customers:customers(password_hash, image_url)')
