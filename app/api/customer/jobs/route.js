@@ -168,7 +168,7 @@ export async function POST(request) {
                 .select('id', { count: 'exact', head: true })
                 .eq('scheduled_date', preferred_date)
                 .eq('scheduled_time', preferred_time_slot)
-                .not('status', 'in', '("cancelled","rejected")')
+                .not('status', 'in', '("cancelled","closed")')
 
             if (existingCount >= matchedSlot.maxBookings) {
                 return NextResponse.json(
@@ -268,7 +268,7 @@ export async function POST(request) {
                 scheduled_time: preferred_time_slot,
                 notes: JSON.stringify(bookingData), // full context as JSONB
                 priority: 'normal',
-                status: 'booking_request',
+                status: 'new_job_request',
                 source: 'customer_app',
                 created_at: new Date().toISOString()
             })
@@ -295,7 +295,7 @@ export async function POST(request) {
                         scheduled_time: preferred_time_slot,
                         notes: JSON.stringify(bookingData),
                         priority: 'normal',
-                        status: 'booking_request',
+                        status: 'new_job_request',
                         source: 'customer_app',
                         created_at: new Date().toISOString()
                     })

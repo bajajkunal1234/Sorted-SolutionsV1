@@ -87,23 +87,13 @@ export async function GET(request) {
 
         const dateStrings = dates.map(d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
 
-        // 3. Fetch Existing Jobs to calculate capacity
-        const { data: existingJobs, error: jobsError } = await supabase
-            .from('jobs')
-            .select('scheduled_date, scheduled_time')
-            .in('scheduled_date', dateStrings)
-            .not('status', 'in', '("cancelled", "rejected", "booking_request")'); // booking_request handled separately or excluded? wait, booking_request occupies a slot. Keep them?
-            
-        // Wait, booking_request is unconfirmed, but we should probably count it so we don't overbook.
-        // The original booking logic checks `not.in.(cancelled,rejected,booking_request)`. So we exclude booking_request from capacity count.
-        // Actually, we must use the exact same logic as `app/api/booking/route.js`.
-        
-        // Let's refetch with the correct filter
+        // 3. Fetch Existing Jobs to calculate slot capacity
+        // Exclude only cancelled/closed — all other statuses occupy a slot
         const { data: activeJobs } = await supabase
             .from('jobs')
             .select('scheduled_date, scheduled_time')
             .in('scheduled_date', dateStrings)
-            .not('status', 'in', '("cancelled", "rejected", "booking_request")');
+            .not('status', 'in', '("cancelled","closed")');
 
         const jobCounts = {}; // { 'YYYY-MM-DD': { 'Slot Name': count } }
         (activeJobs || []).forEach(job => {
