@@ -81,7 +81,7 @@ export async function POST(request) {
             type: 'status-changed',
             message: `Job created — status: ${data.status}`,
             user_name: body.created_by || 'Admin'
-        }]).catch(e => console.error('[jobs POST] interaction log:', e.message));
+        }]).then(null, e => console.error('[jobs POST] interaction log:', e.message));
 
         logInteractionServer({
             type: 'job-created-admin',
@@ -161,11 +161,8 @@ export async function PUT(request) {
             const statusMsg = `Status changed: ${existing.status} → ${updates.status} by ${performedByName}`;
 
             supabase.from('job_interactions').insert([{
-                job_id: id,
-                type: 'status-changed',
-                message: statusMsg,
-                user_name: performedByName,
-            }]).catch(() => {});
+                job_id: id, type: 'status-changed', message: statusMsg, user_name: performedByName,
+            }]).then(null, () => {});
 
             logInteractionServer({
                 type: `job-status-${updates.status}`,
@@ -188,21 +185,20 @@ export async function PUT(request) {
                     technician_id: data.technician_id ? String(data.technician_id) : undefined,
                     customer_name: customerName || undefined,
                     technician_name: data.technician_name || undefined,
-                }).catch(err => console.error('[admin/jobs PUT] fireNotification error:', err.message));
+                }).catch(err => console.error('[admin/jobs PUT] notification error:', err.message));
             }
         }
 
         // ── 2. Log technician reassignment ───────────────────────────────────
         if (isAssigningTech && existing) {
-            const newName = updates.technician_name || updates.technician_id || 'Unknown'
-            const oldName = existing.technician_name || (existing.technician_id ? existing.technician_id : 'Unassigned')
+            const newName = updates.technician_name || updates.technician_id || 'Unknown';
+            const oldName = existing.technician_name || (existing.technician_id ? existing.technician_id : 'Unassigned');
 
             supabase.from('job_interactions').insert([{
-                job_id: id,
-                type: 'assigned',
+                job_id: id, type: 'assigned',
                 message: `Technician assigned: ${oldName} → ${newName} by ${performedByName}`,
                 user_name: performedByName,
-            }]).catch(() => {});
+            }]).then(null, () => {});
 
             logInteractionServer({
                 type: 'job-reassigned',
@@ -255,11 +251,10 @@ export async function PUT(request) {
         ];
         if (allExtraChanges.length > 0) {
             supabase.from('job_interactions').insert([{
-                job_id: id,
-                type: 'edited',
+                job_id: id, type: 'edited',
                 message: `Updated by ${performedByName}: ${allExtraChanges.join('; ')}`,
                 user_name: performedByName,
-            }]).catch(() => {});
+            }]).then(null, () => {});
 
             logInteractionServer({
                 type: 'job-edited',
