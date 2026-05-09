@@ -46,7 +46,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         let watchId;
         let channel;
 
-        if (editedJob?.status === 'in-progress') {
+        if (editedJob?.status === 'work_in_progress') {
             channel = supabase.channel(`tracking:job_${editedJob.id}`, {
                 config: { broadcast: { self: true, ack: false } }
             });
@@ -170,28 +170,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
     const handleMarkArrived = async () => {
         setMarkingArrival(true);
-        const arrivedAt = new Date().toISOString();
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // 1. Update arrived_at on job
-            await fetch(`/api/technician/jobs/${job.id}`, {
+            // Calls mark_arrived action → sets arrived_at + auto-advances status to diagnosing_quoting
+            const res = await fetch(`/api/technician/jobs/${job.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ arrived_at: arrivedAt, updated_by_name: techName, source: 'Technician App' })
+                body: JSON.stringify({ action: 'mark_arrived', updated_by_name: techName })
             });
-            // 2. Log arrival as a job interaction
-            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'arrived',
-                    category: 'job',
-                    message: `${techName} marked arrival at customer location`,
-                    user_name: techName,
-                    customer_id: editedJob.customerId || null
-                })
-            });
-            setEditedJob(prev => ({ ...prev, arrived_at: arrivedAt }));
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to mark arrival');
+            setEditedJob(prev => ({ 
+                ...prev, 
+                arrived_at: data.job?.arrived_at || new Date().toISOString(),
+                status: 'diagnosing_quoting'
+            }));
+            if (onJobUpdate) onJobUpdate(data.job);
         } catch (err) {
             alert('Could not mark arrival: ' + err.message);
         } finally {
@@ -955,23 +949,30 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 </div>
                             </div>
 
-                            {/* Start Job — shown when assigned */}
-                            {editedJob.status === 'assigned' && (
-                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #3b82f6', backgroundColor: 'rgba(59,130,246,0.04)' }}>
+                            {/* Start Job — shown when scheduled */}
+                            {editedJob.status === 'scheduled' && !editedJob.on_way_at && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        🚀 Ready to Start?
+                                        🚀 Ready to Head Out?
                                     </h3>
                                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
-                                        Tap below to mark this job as In Progress. This will start live location sharing so the customer can track your arrival.
+                                        Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
                                     </p>
                                     <button
                                         className="btn btn-primary"
-                                        style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                                        style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)' }}
                                         onClick={async () => {
                                             if (!navigator.geolocation) return alert('GPS not supported on this device');
                                             navigator.geolocation.getCurrentPosition(async () => {
-                                                await handleSaveStatus('in-progress');
-                                            }, (err) => alert('Please enable GPS permissions to Start Job.'));
+                                                // 1. Record on_way_at — locks cx from cancel/reschedule
+                                                const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                                await fetch(`/api/technician/jobs/${job.id}`, {
+                                                    method: 'PUT',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ action: 'mark_on_way', updated_by_name: techName })
+                                                });
+                                                setEditedJob(prev => ({ ...prev, on_way_at: new Date().toISOString() }));
+                                            }, () => alert('Please enable GPS permissions.'));
                                         }}
                                         disabled={loading}
                                     >
@@ -979,30 +980,36 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     </button>
                                 </div>
                             )}
+                            {editedJob.status === 'scheduled' && editedJob.on_way_at && (
+                                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    🛣️ On the way — customer notified. Location sharing active.
+                                </div>
+                            )}
 
-                            {editedJob.status === 'assigned' && (
-                                <div className="card" style={{ padding: 'var(--spacing-md)', border: editedJob.arrived_at ? '1px solid rgba(16,185,129,0.4)' : '2px solid #3b82f6' }}>
+                            {/* Mark as Arrived — shown when scheduled and on_way_at is set */}
+                            {editedJob.status === 'scheduled' && editedJob.on_way_at && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: editedJob.arrived_at ? '1px solid rgba(16,185,129,0.4)' : '2px solid #8b5cf6' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <MapPin size={18} color={editedJob.arrived_at ? '#10b981' : '#3b82f6'} />
+                                        <MapPin size={18} color={editedJob.arrived_at ? '#10b981' : '#8b5cf6'} />
                                         {editedJob.arrived_at ? 'Arrival Confirmed ✓' : 'At Customer Location?'}
                                     </h3>
                                     {editedJob.arrived_at ? (
                                         <div style={{ padding: '12px', backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 8, textAlign: 'center', fontSize: 13, color: '#10b981', fontWeight: 600 }}>
                                             ✓ Arrived at {new Date(editedJob.arrived_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>Arrival time recorded for performance tracking</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>Status auto-changed to Diagnosing &amp; Quoting</div>
                                         </div>
                                     ) : (
                                         <>
                                             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
-                                                Tap when you reach the customer's location — this records your on-time arrival for monthly incentive tracking.
+                                                Tap when you reach the customer — status will auto-advance to <strong>Diagnosing &amp; Quoting</strong> and your arrival is recorded.
                                             </p>
                                             <button
                                                 className="btn btn-primary"
                                                 onClick={handleMarkArrived}
                                                 disabled={markingArrival}
-                                                style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
+                                                style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
                                             >
-                                                {markingArrival ? '...' : '📍 Mark as Arrived'}
+                                                {markingArrival ? '⏳ Recording...' : '📍 Mark as Arrived'}
                                             </button>
                                         </>
                                     )}
@@ -1021,12 +1028,17 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     disabled={loading}
                                     style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
                                 >
-                                    <option value="booking_request">Booking Request</option>
-                                    <option value="assigned">Assigned</option>
-                                    <option value="in-progress">In Progress</option>
-                                    <option value="quotation-sent">Quotation Sent</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="cancelled">Cancelled</option>
+                                    {/* Tech-settable statuses only */}
+                                    <option value="scheduled">📅 Scheduled</option>
+                                    <option value="diagnosing_quoting">🔍 Diagnosing &amp; Quoting</option>
+                                    <option value="quotation_sent">📋 Quotation Sent</option>
+                                    <option value="parts_ordered">🔩 Parts Ordered</option>
+                                    <option value="work_in_progress">🔧 Work In Progress</option>
+                                    <option value="cx_reschedule">📆 Cx Reschedule</option>
+                                    {/* Read-only states shown for context but disabled */}
+                                    <option value="new_job_request" disabled>🔵 New Job Request (admin only)</option>
+                                    <option value="cancelled" disabled>❌ Cancelled (admin only)</option>
+                                    <option value="closed" disabled>✅ Closed (auto on payment)</option>
                                 </select>
                                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
                             </div>

@@ -15,49 +15,77 @@ import { supabase } from '@/lib/supabase'
 // ── Status configuration ────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-    booking_request: {
+    // ── New 9-status canonical values ──────────────────────────────────────
+    new_job_request: {
         color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)',
-        icon: Clock, label: 'Booking Requested', step: 0,
-        desc: 'Your request has been received and is being reviewed.'
+        icon: Clock, label: 'New Job Request', step: 0,
+        desc: 'Your request has been received and is being reviewed by our team.'
     },
-    assigned: {
+    scheduled: {
         color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.25)',
-        icon: Wrench, label: 'Technician Assigned', step: 1,
-        desc: 'A technician has been assigned and will contact you soon.'
+        icon: Wrench, label: 'Scheduled', step: 1,
+        desc: 'Your appointment is confirmed. A technician will visit you soon.'
     },
-    'in-progress': {
+    diagnosing_quoting: {
         color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.25)',
-        icon: Hammer, label: 'In Progress', step: 2,
-        desc: 'Your service is actively being worked on.'
+        icon: Hammer, label: 'Diagnosing & Quoting', step: 2,
+        desc: 'Our technician has arrived and is diagnosing the issue.'
     },
-    'spare-part-needed': {
+    quotation_sent: {
+        color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)',
+        icon: FileText, label: 'Quotation Sent', step: 3,
+        desc: "We've sent you a cost estimate. Please review and approve below."
+    },
+    parts_ordered: {
         color: '#f97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.25)',
-        icon: Package, label: 'Spare Part Needed', step: 2,
-        desc: 'A part has been ordered. Work will resume on arrival.'
+        icon: Package, label: 'Parts Ordered', step: 3,
+        desc: 'A part has been ordered for your repair. We\'ll update you when it arrives.'
     },
-    'quotation-sent': {
-        color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.25)',
-        icon: FileText, label: 'Quotation Sent', step: 2,
-        desc: 'We\'ve sent you a cost estimate. Please review and approve below.'
-    },
-    completed: {
+    work_in_progress: {
         color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)',
-        icon: CheckCircle, label: 'Completed', step: 4,
-        desc: 'Your service is complete. Thank you for choosing Sorted!'
+        icon: Hammer, label: 'Work In Progress', step: 4,
+        desc: 'Repair work is actively in progress at your location.'
+    },
+    cx_reschedule: {
+        color: '#06b6d4', bg: 'rgba(6,182,212,0.12)', border: 'rgba(6,182,212,0.25)',
+        icon: Calendar, label: 'Rescheduled', step: 1,
+        desc: 'You have rescheduled this appointment. We will confirm your new slot shortly.'
     },
     cancelled: {
         color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)',
         icon: XCircle, label: 'Cancelled', step: -1,
         desc: 'This service request has been cancelled.'
     },
+    closed: {
+        color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)',
+        icon: CheckCircle, label: 'Completed', step: 5,
+        desc: 'Your service is complete. Thank you for choosing Sorted!'
+    },
+    // ── Legacy fallbacks (normalised by API but kept for safety) ──────────
+    booking_request: {
+        color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)',
+        icon: Clock, label: 'New Job Request', step: 0,
+        desc: 'Your request has been received and is being reviewed.'
+    },
+    assigned: {
+        color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.25)',
+        icon: Wrench, label: 'Scheduled', step: 1,
+        desc: 'A technician has been assigned and will contact you soon.'
+    },
+    completed: {
+        color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)',
+        icon: CheckCircle, label: 'Completed', step: 5,
+        desc: 'Your service is complete. Thank you for choosing Sorted!'
+    },
 }
 
 const JOURNEY_STEPS = [
-    { label: 'Received', icon: Clock },
-    { label: 'Assigned', icon: Wrench },
-    { label: 'In Progress', icon: Hammer },
-    { label: 'Estimate', icon: FileText },
-    { label: 'Done', icon: CheckCircle },
+    { label: 'Received',   icon: Clock       },
+    { label: 'Scheduled',  icon: Calendar    },
+    { label: 'Diagnosing', icon: Hammer      },
+    { label: 'Estimate',   icon: FileText    },
+    { label: 'Repairing',  icon: Wrench      },
+    { label: 'Done',       icon: CheckCircle },
 ]
 
 // ── Sub-components ──────────────────────────────────────────────────────────
@@ -377,10 +405,10 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
         }
     }, [job?.address, job?.locality, custLocation, hasStoredCoords]);
 
-    // Live tracking — subscribe to technician location broadcasts when in-progress
+    // Live tracking — subscribe to technician location broadcasts when work_in_progress
     useEffect(() => {
         let channel;
-        if (job?.status === 'in-progress') {
+        if (job?.status === 'work_in_progress') {
             channel = supabase.channel(`tracking:job_${job.id}`);
             channel.on('broadcast', { event: 'location_update' }, (payload) => {
                 if (payload.payload) {
@@ -463,45 +491,72 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                         <JourneyBar status={job.status} />
                     </div>
 
-                    {/* Quotation section */}
-                    {job.status === 'quotation-sent' && (
+                    {/* Quotation section — shown for quotation_sent */}
+                    {job.status === 'quotation_sent' && (
                         <div style={{
                             background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)',
                             borderRadius: 14, padding: '16px', marginBottom: 16
                         }}>
                             <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <FileText size={13} /> Repair Estimate
+                                <FileText size={13} /> Repair Estimate Ready
                             </div>
                             <div style={{ fontSize: 13, color: '#c4b5fd', lineHeight: 1.6, marginBottom: 12 }}>
-                                Our technician has prepared a detailed cost estimate for your appliance repair. Please review the items below:
+                                Our technician has prepared a cost estimate. Review and approve to begin repairs, or call us to discuss.
                             </div>
                             <div style={{ display: 'flex', gap: 10 }}>
-                                <div style={{
+                                <a href="tel:+919082225163" style={{
                                     flex: 1, padding: '10px 14px', borderRadius: 10,
                                     background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.2)',
-                                    textAlign: 'center', fontSize: 12, color: '#c4b5fd', fontWeight: 600, cursor: 'pointer'
+                                    textAlign: 'center', fontSize: 12, color: '#c4b5fd', fontWeight: 600, cursor: 'pointer', textDecoration: 'none'
                                 }}>
                                     📞 Call to Discuss
-                                </div>
-                                <div style={{
-                                    flex: 1, padding: '10px 14px', borderRadius: 10,
-                                    background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
-                                    textAlign: 'center', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer',
-                                    boxShadow: '0 4px 12px rgba(139,92,246,0.3)'
-                                }}>
+                                </a>
+                                <button
+                                    onClick={async () => {
+                                        const customerId = localStorage.getItem('customerId');
+                                        if (!customerId) return;
+                                        try {
+                                            const res = await fetch(`/api/customer/jobs/${job.id}`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ action: 'approve_quotation', customerId })
+                                            });
+                                            const data = await res.json();
+                                            if (data.success) onClose?.();
+                                            else alert(data.error || 'Could not approve quotation');
+                                        } catch(e) { alert('Error: ' + e.message); }
+                                    }}
+                                    style={{
+                                        flex: 1, padding: '10px 14px', borderRadius: 10,
+                                        background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                                        border: 'none', textAlign: 'center', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer',
+                                        boxShadow: '0 4px 12px rgba(139,92,246,0.3)'
+                                    }}>
                                     ✓ Approve Estimate
-                                </div>
+                                </button>
                             </div>
                         </div>
                     )}
 
-                    {/* Star Rating for completed jobs */}
-                    {job.status === 'completed' && (
+                    {/* Parts Ordered info card */}
+                    {job.status === 'parts_ordered' && (
+                        <div style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Package size={13} /> Parts On Order
+                            </div>
+                            <div style={{ fontSize: 13, color: '#fed7aa', lineHeight: 1.5 }}>
+                                The technician has ordered parts needed for your repair. We'll schedule a follow-up visit once they arrive.
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Star Rating for closed jobs */}
+                    {(job.status === 'closed' || job.status === 'completed') && (
                         <StarRating job={job} onRated={() => {}} />
                     )}
 
-                    {/* Payment CTA for Completed Jobs */}
-                    {job.status === 'completed' && (() => {
+                    {/* Payment CTA for Closed Jobs */}
+                    {(job.status === 'closed' || job.status === 'completed') && (() => {
                         const [invoiceData, setInvoiceData] = React.useState(null);
                         const [invoiceLoading, setInvoiceLoading] = React.useState(false);
                         const [payInitiated, setPayInitiated] = React.useState(false);
@@ -602,20 +657,19 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                     })()}
 
 
-                    {/* Map — shown for assigned & in-progress. Live tracking (tech pin) only for in-progress */}
-                    {['assigned', 'in-progress'].includes(job.status) && custLocation && (
+                    {/* Map — shown for scheduled & work_in_progress. Live tracking only for work_in_progress */}
+                    {['scheduled', 'work_in_progress', 'assigned', 'in-progress'].includes(job.status) && custLocation && (
                         <div style={{
-                            background: 'rgba(255,255,255,0.03)', border: `1px solid ${job.status === 'in-progress' ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                            background: 'rgba(255,255,255,0.03)', border: `1px solid ${job.status === 'work_in_progress' ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.06)'}`,
                             borderRadius: 14, overflow: 'hidden', marginBottom: 16
                         }}>
                             <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <MapPin size={16} color={job.status === 'in-progress' ? '#38bdf8' : '#10b981'} />
+                                    <MapPin size={16} color={job.status === 'work_in_progress' ? '#38bdf8' : '#10b981'} />
                                     <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>
-                                        {job.status === 'in-progress' ? 'Live Technician Tracking' : 'Your Service Location'}
+                                        {job.status === 'work_in_progress' ? 'Live Technician Tracking' : 'Your Service Location'}
                                     </div>
                                 </div>
-                                {/* Precise coordinates badge */}
                                 {hasStoredCoords && (
                                     <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: 20, border: '1px solid rgba(16,185,129,0.2)' }}>
                                         📍 Precise
@@ -629,8 +683,8 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                                     fitBounds={!!(techLocation && custLocation)}
                                 />
                             </div>
-                            <div style={{ padding: '12px 16px', background: job.status === 'in-progress' ? 'rgba(56,189,248,0.05)' : 'rgba(16,185,129,0.05)', fontSize: 12, color: job.status === 'in-progress' ? '#bae6fd' : '#a7f3d0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                {job.status === 'in-progress'
+                            <div style={{ padding: '12px 16px', background: job.status === 'work_in_progress' ? 'rgba(56,189,248,0.05)' : 'rgba(16,185,129,0.05)', fontSize: 12, color: job.status === 'work_in_progress' ? '#bae6fd' : '#a7f3d0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                                {job.status === 'work_in_progress'
                                     ? (<><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8', display: 'inline-block', animation: 'pulse 2s infinite' }} /> Technician is on their way — location updates live</>)
                                     : '📌 Your home pin — technician will navigate here'}
                             </div>
@@ -709,31 +763,47 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                         </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    {!['completed', 'cancelled'].includes(job.status) && (
-                        <div style={{ display: 'flex', gap: 12 }}>
-                            <button
-                                onClick={() => onRescheduleClick()}
-                                style={{
-                                    flex: 1, padding: '14px',
-                                    background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.25)',
-                                    borderRadius: 14, color: '#38bdf8', fontSize: 13, fontWeight: 700, cursor: 'pointer'
-                                }}
-                            >
-                                Reschedule
-                            </button>
-                            <button
-                                onClick={() => onCancel(job.id)}
-                                style={{
-                                    flex: 1, padding: '14px',
-                                    background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.2)',
-                                    borderRadius: 14, color: '#ef4444', fontSize: 13, fontWeight: 700, cursor: 'pointer'
-                                }}
-                            >
-                                Cancel Request
-                            </button>
-                        </div>
-                    )}
+                    {/* Action Buttons — locked once technician is on the way */}
+                    {!['closed', 'completed', 'cancelled'].includes(job.status) && (() => {
+                        const locked = !!job.on_way_at;
+                        return (
+                            <>
+                                {locked && (
+                                    <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 12, color: '#fbbf24', fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>
+                                        🛣️ Technician is on the way — cancel &amp; reschedule are disabled. Please call us if needed.
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 12 }}>
+                                    <button
+                                        onClick={() => !locked && onRescheduleClick()}
+                                        disabled={locked}
+                                        style={{
+                                            flex: 1, padding: '14px',
+                                            background: locked ? 'rgba(255,255,255,0.04)' : 'rgba(56,189,248,0.1)',
+                                            border: `1px solid ${locked ? 'rgba(255,255,255,0.08)' : 'rgba(56,189,248,0.25)'}`,
+                                            borderRadius: 14, color: locked ? '#334155' : '#38bdf8',
+                                            fontSize: 13, fontWeight: 700, cursor: locked ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        Reschedule
+                                    </button>
+                                    <button
+                                        onClick={() => !locked && onCancel(job.id)}
+                                        disabled={locked}
+                                        style={{
+                                            flex: 1, padding: '14px',
+                                            background: locked ? 'rgba(255,255,255,0.04)' : 'rgba(239,68,68,0.07)',
+                                            border: `1px solid ${locked ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.2)'}`,
+                                            borderRadius: 14, color: locked ? '#334155' : '#ef4444',
+                                            fontSize: 13, fontWeight: 700, cursor: locked ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        Cancel Request
+                                    </button>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
         </>
@@ -765,12 +835,12 @@ export default function ServicesPage() {
             const data = await res.json()
             const all = data.jobs || []
 
-            const activeStatuses = ['booking_request', 'assigned', 'in-progress', 'spare-part-needed', 'quotation-sent']
-            const pastStatuses = ['completed', 'cancelled']
+            const activeStatuses = ['new_job_request','scheduled','diagnosing_quoting','quotation_sent','parts_ordered','work_in_progress','cx_reschedule','booking_request','assigned','in-progress','spare-part-needed','quotation-sent']
+            const pastStatuses = ['closed','completed','cancelled']
 
             if (filterStatus === 'all') setJobs(all)
             else if (filterStatus === 'active') setJobs(all.filter(j => activeStatuses.includes(j.status)))
-            else if (filterStatus === 'quotation') setJobs(all.filter(j => j.status === 'quotation-sent'))
+            else if (filterStatus === 'quotation') setJobs(all.filter(j => j.status === 'quotation_sent' || j.status === 'quotation-sent'))
             else if (filterStatus === 'past') setJobs(all.filter(j => pastStatuses.includes(j.status)))
 
             setError(null)

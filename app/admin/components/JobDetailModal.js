@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity } from 'lucide-react';
 import { formatDateTime, getLocalityFromAddress } from '@/lib/utils/helpers';
+import { getStatusConfig, SOURCE_LABELS, JOB_STATUSES } from '@/lib/jobStatuses';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
 import LogNoteItem from './LogNoteItem';
 import SalesInvoiceForm from './accounts/SalesInvoiceForm';
@@ -419,15 +420,23 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 🔧 {editedJob.description || editedJob.job_type || editedJob.issueCategory}
                             </div>
                         )}
-                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
                             <span>•</span>
-                            <span style={{
-                                color: editedJob.status === 'completed' ? '#10b981' :
-                                       editedJob.status === 'cancelled' || editedJob.status === 'rejected' ? '#ef4444' :
-                                       editedJob.status === 'in-progress' ? '#3b82f6' : '#f59e0b',
-                                fontWeight: 600, textTransform: 'uppercase', fontSize: '11px'
-                            }}>{editedJob.status}</span>
+                            {(() => {
+                                const cfg = getStatusConfig(editedJob.status);
+                                return (
+                                    <span style={{ color: cfg.color, fontWeight: 700, textTransform: 'uppercase', fontSize: '11px', background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 5, padding: '1px 6px' }}>
+                                        {cfg.label}
+                                    </span>
+                                );
+                            })()}
+                            {/* Sub-status badge for New Job Request */}
+                            {editedJob.status === 'new_job_request' && editedJob.source && SOURCE_LABELS[editedJob.source] && (
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: SOURCE_LABELS[editedJob.source].color, background: `${SOURCE_LABELS[editedJob.source].color}18`, border: `1px solid ${SOURCE_LABELS[editedJob.source].color}30`, borderRadius: 5, padding: '1px 6px' }}>
+                                    {SOURCE_LABELS[editedJob.source].emoji} {SOURCE_LABELS[editedJob.source].label}
+                                </span>
+                            )}
                         </div>
                     </div>
                     <button className="btn-icon" onClick={onClose} style={{ flexShrink: 0, marginLeft: 8 }}>
@@ -803,12 +812,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             onChange={(e) => setEditedJob({ ...editedJob, status: e.target.value })}
                                             style={{ backgroundColor: 'var(--bg-elevated)' }}
                                         >
-                                            <option value="booking_request">Booking Request</option>
-                                            <option value="assigned">Assigned</option>
-                                            <option value="in-progress">In Progress</option>
-                                            <option value="quotation-sent">Quotation Sent</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="cancelled">Cancelled</option>
+                                        <option value="new_job_request">🔵 New Job Request</option>
+                                            <option value="scheduled">📅 Scheduled</option>
+                                            <option value="diagnosing_quoting">🔍 Diagnosing &amp; Quoting</option>
+                                            <option value="quotation_sent">📋 Quotation Sent</option>
+                                            <option value="parts_ordered">🔩 Parts Ordered</option>
+                                            <option value="work_in_progress">🔧 Work In Progress</option>
+                                            <option value="cx_reschedule">📆 Cx Reschedule</option>
+                                            <option value="cancelled">❌ Cancelled</option>
+                                            <option value="closed">✅ Closed</option>
                                         </select>
                                     </div>
                                     <div className="form-group">
