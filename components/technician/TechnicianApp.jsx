@@ -37,7 +37,6 @@ function TechnicianApp() {
     const [activeTags, setActiveTags] = useState([]);
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
-    const [showClosedJobs, setShowClosedJobs] = useState(false); // hide closed/cancelled by default
     const [selectedJob, setSelectedJob] = useState(null);
     const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
     const [darkMode, setDarkMode] = useState(() => {
@@ -231,7 +230,11 @@ function TechnicianApp() {
         fetchIncentives();
         fetchProfile();
 
-        // Setup real-time listener
+        // 30-second polling — reliable fallback in case Supabase realtime misses an event
+        // Ensures status changes made in admin always propagate to technician within 30s
+        const pollInterval = setInterval(fetchJobs, 30000);
+
+        // Setup real-time listener (best-effort; polling handles missed events)
         const channel = supabase
             .channel(`technician:jobs:${technicianId}`)
             .on(
@@ -242,13 +245,12 @@ function TechnicianApp() {
                     table: 'jobs',
                     filter: `technician_id=eq.${technicianId}`
                 },
-                (payload) => {
-                    fetchJobs();
-                }
+                () => { fetchJobs(); }
             )
             .subscribe();
 
         return () => {
+            clearInterval(pollInterval);
             supabase.removeChannel(channel);
         };
     }, [technicianId]);
@@ -306,10 +308,8 @@ function TechnicianApp() {
         return badges[priority] || badges.normal;
     };
 
-    // Apply filters — hide closed/cancelled by default
+    // Apply filters — closed/cancelled already excluded by API
     const filteredJobs = jobs.filter(job => {
-        // Default: hide closed and cancelled unless toggled on
-        if (!showClosedJobs && (job.status === 'closed' || job.status === 'cancelled')) return false;
 
         const matchesSearch = !searchTerm ||
             (job.customerName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -597,20 +597,6 @@ function TechnicianApp() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {/* Show Closed toggle */}
-                        <button
-                            onClick={() => setShowClosedJobs(v => !v)}
-                            title={showClosedJobs ? 'Hide closed & cancelled jobs' : 'Show closed & cancelled jobs'}
-                            style={{
-                                fontSize: '11px', padding: '3px 8px', borderRadius: '12px', border: '1px solid var(--border-primary)',
-                                backgroundColor: showClosedJobs ? '#6b7280' : 'var(--bg-secondary)',
-                                color: showClosedJobs ? '#fff' : 'var(--text-secondary)',
-                                cursor: 'pointer', fontWeight: showClosedJobs ? 600 : 400,
-                                display: 'flex', alignItems: 'center', gap: '4px',
-                            }}
-                        >
-                            {showClosedJobs ? '✓ Showing Closed' : `+${jobs.filter(j => j.status === 'closed' || j.status === 'cancelled').length} Closed`}
-                        </button>
                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                             {sortedJobs.length} active jobs
                         </span>

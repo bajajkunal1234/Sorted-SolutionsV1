@@ -16,7 +16,7 @@ export async function GET(request) {
             )
         }
 
-        // Build query
+        // Build query — always exclude closed and cancelled; technician only sees active work
         let query = supabase
             .from('jobs')
             .select(`
@@ -25,9 +25,10 @@ export async function GET(request) {
                 assigned_technician:technicians(id, name, phone)
             `)
             .eq('technician_id', technicianId)
+            .not('status', 'in', '("closed","cancelled")')  // hard filter — technicians never see closed/cancelled
             .order('created_at', { ascending: false })
 
-        // Filter by status if provided
+        // Optional additional status filter (e.g. ?status=scheduled for a specific view)
         if (status && status !== 'all') {
             query = query.eq('status', status)
         }
@@ -127,7 +128,7 @@ export async function GET(request) {
                 defect: job.issue || '',
                 issueCategory: job.category || '',
                 priority: job.priority || 'normal',
-                status: job.status || 'open',
+                status: job.status || 'new_job_request',
                 assignedTo: job.technician_id,
                 assignedAt: job.created_at,
                 dueDate: job.scheduled_date || job.due_date,
