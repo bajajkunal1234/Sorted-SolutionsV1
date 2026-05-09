@@ -26,6 +26,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
+    // Parts Ordered gate — shows inline note modal before setting parts_ordered
+    const [showPartsNoteModal, setShowPartsNoteModal] = useState(false);
+    const [partsNoteText, setPartsNoteText] = useState('');
+    const [partsNoteLoading, setPartsNoteLoading] = useState(false);
 
     // Payment collection state
     const [payAmount, setPayAmount] = useState('');
@@ -1024,7 +1028,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 <select 
                                     className="form-select" 
                                     value={editedJob.status}
-                                    onChange={(e) => handleSaveStatus(e.target.value)}
+                                    onChange={(e) => {
+                                        const newStatus = e.target.value;
+                                        if (newStatus === 'parts_ordered') {
+                                            // Gate: require repair note first
+                                            setShowPartsNoteModal(true);
+                                        } else {
+                                            handleSaveStatus(newStatus);
+                                        }
+                                    }}
                                     disabled={loading}
                                     style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
                                 >
@@ -1062,6 +1074,73 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     )}
                 </div>
             </div>
+
+            {/* ── Parts Ordered Gate Modal ── */}
+            {showPartsNoteModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 24px calc(28px + env(safe-area-inset-bottom))' }}>
+                        <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            🔩 Parts Ordered — Repair Note Required
+                        </h3>
+                        <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 18, lineHeight: 1.5 }}>
+                            Describe the part(s) you have ordered. This note is sent to the customer and logged for admin visibility.
+                        </p>
+                        <textarea
+                            value={partsNoteText}
+                            onChange={e => setPartsNoteText(e.target.value)}
+                            placeholder="e.g. Ordered Samsung WM drain pump — ETA 3 days. Will call to reschedule once received."
+                            style={{
+                                width: '100%', minHeight: 100, padding: 14, borderRadius: 12, fontSize: 14, lineHeight: 1.5,
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                color: '#f8fafc', resize: 'vertical', boxSizing: 'border-box'
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                            <button
+                                onClick={() => { setShowPartsNoteModal(false); setPartsNoteText(''); }}
+                                style={{ flex: 1, padding: '14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={!partsNoteText.trim() || partsNoteLoading}
+                                onClick={async () => {
+                                    if (!partsNoteText.trim()) return;
+                                    setPartsNoteLoading(true);
+                                    const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                    try {
+                                        // 1. Add repair note (sets repair_note_added_at on job)
+                                        const noteRes = await fetch(`/api/technician/jobs/${job.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'add_repair_note', repair_note: partsNoteText.trim(), updated_by_name: techName })
+                                        });
+                                        const noteData = await noteRes.json();
+                                        if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
+                                        // 2. Now set status to parts_ordered
+                                        await handleSaveStatus('parts_ordered');
+                                        setEditedJob(prev => ({ ...prev, repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString() }));
+                                        setShowPartsNoteModal(false);
+                                        setPartsNoteText('');
+                                    } catch (err) {
+                                        alert('Could not save repair note: ' + err.message);
+                                    } finally {
+                                        setPartsNoteLoading(false);
+                                    }
+                                }}
+                                style={{
+                                    flex: 2, padding: '14px', borderRadius: 12,
+                                    background: partsNoteText.trim() ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
+                                    border: 'none', color: '#fff', fontWeight: 700, cursor: partsNoteText.trim() ? 'pointer' : 'not-allowed', fontSize: 14
+                                }}
+                            >
+                                {partsNoteLoading ? '⏳ Saving...' : '🔩 Confirm Parts Ordered'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Document Generation Forms */}
             <div onClick={e => e.stopPropagation()}>

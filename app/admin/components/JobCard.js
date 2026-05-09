@@ -67,17 +67,18 @@ function JobCard({ job, onClick, onCalculate }) {
 
     const overdue = isOverdue(dueDate);
 
-    if (job.status === 'booking_request' || job.status === 'enquiry') {
-        const isEnquiry = job.status === 'enquiry';
+    if (job.status === 'booking_request' || job.status === 'new_job_request' || job.status === 'enquiry') {
+        const isEnquiry = job.status === 'enquiry' || job.source === 'website_enquiry';
         const isCustomerApp = job.source === 'customer_app';
+        const isWebsiteBooking = job.source === 'website_booking';
         let bd = {};
         try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
         const slot = bd.schedule?.slot || job.scheduled_time || '';
         const day = bd.schedule?.date || (job.scheduled_date ? formatDate(job.scheduled_date) : '');
-        
+
         const primaryColor = isEnquiry ? '#ef4444' : isCustomerApp ? '#3b82f6' : '#f59e0b';
         const bgColor = isEnquiry ? 'rgba(239,68,68,0.05)' : isCustomerApp ? 'rgba(59,130,246,0.05)' : 'rgba(245,158,11,0.05)';
-        const titleText = isEnquiry ? 'NEW WEBSITE ENQUIRY' : isCustomerApp ? 'CUSTOMER APP BOOKING' : 'NEW WEBSITE BOOKING';
+        const titleText = isEnquiry ? '🟡 BOOKING ENQUIRY' : isCustomerApp ? '🔵 CUSTOMER APP BOOKING' : '🟢 WEBSITE BOOKING';
 
         return (
             <div

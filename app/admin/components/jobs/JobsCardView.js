@@ -1,22 +1,13 @@
 'use client'
 
 import { Calendar, MapPin, User, AlertCircle } from 'lucide-react';
-import { getInitials, getLocalityFromAddress } from '@/lib/utils/helpers';
+import { getInitials, getLocalityFromAddress, getStatusColor } from '@/lib/utils/helpers';
 
 function JobsCardView({ jobs, onJobClick }) {
-    const getStatusColor = (status) => {
-        const colors = {
-            'pending': '#f59e0b',
-            'assigned': '#3b82f6',
-            'in-progress': '#8b5cf6',
-            'completed': '#10b981',
-            'cancelled': '#ef4444'
-        };
-        return colors[status] || '#6b7280';
-    };
+
 
     const isOverdue = (dueDate, status) => {
-        if (status === 'completed' || status === 'cancelled') return false;
+        if (['completed','cancelled','closed'].includes(status)) return false;
         if (!dueDate) return false;
         return new Date(dueDate) < new Date();
     };
@@ -29,7 +20,7 @@ function JobsCardView({ jobs, onJobClick }) {
             gap: 'var(--spacing-md)'
         }}>
             {jobs.map(job => {
-                const isBooking = job.status === 'booking_request';
+                const isBooking = job.status === 'booking_request' || job.status === 'new_job_request';
                 const isEnquiry = job.status === 'enquiry';
                 const statusColor = getStatusColor(job.status);
                 // Handle different field names (camelCase vs snake_case)
@@ -255,7 +246,7 @@ function JobsCardView({ jobs, onJobClick }) {
                                             color: statusColor,
                                             textTransform: 'capitalize'
                                         }}>
-                                            {job.status.replace('-', ' ')}
+                                            {job.status.replace(/_/g, ' ').replace(/-/g, ' ')}
                                         </div>
                                     </>
                                 )}

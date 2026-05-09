@@ -12,7 +12,7 @@ import JobsTableView from './jobs/JobsTableView';
 import JobsListView from './jobs/JobsListView';
 import BookingReviewModal from './jobs/BookingReviewModal';
 import { jobsAPI } from '@/lib/adminAPI';
-import { sortJobs, groupJobsBy } from '@/lib/utils/helpers';
+import { sortJobs, groupJobsBy, STATUS_ORDER } from '@/lib/utils/helpers';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 
@@ -208,7 +208,20 @@ function JobsTab({ jobToOpen, onJobOpened }) {
         return sortJobs(filtered, sortBy, sortOrder);
     }, [jobs, activeTags, searchTerm, sortBy, sortOrder]);
 
-    const groupedJobs = useMemo(() => groupJobsBy(processedJobs, groupBy), [processedJobs, groupBy]);
+    const groupedJobs = useMemo(() => {
+        const raw = groupJobsBy(processedJobs, groupBy);
+        if (groupBy !== 'status') return raw;
+        // Sort columns in canonical 9-status lifecycle order
+        const ordered = {};
+        STATUS_ORDER.forEach(statusKey => {
+            // groupJobsBy title-cases the status key for the group name
+            const groupName = statusKey.replace(/_/g, ' ').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            if (raw[groupName]) ordered[groupName] = raw[groupName];
+        });
+        // Append any remaining groups not in STATUS_ORDER (safety net)
+        Object.keys(raw).forEach(k => { if (!ordered[k]) ordered[k] = raw[k]; });
+        return ordered;
+    }, [processedJobs, groupBy]);
 
     // ── Tag management ────────────────────────────────────────────
     const handleAddTag = (tag) => setActiveTags(prev => [...prev.filter(t => t.id !== tag.id), tag]);
@@ -235,8 +248,8 @@ function JobsTab({ jobToOpen, onJobOpened }) {
         if (overJob) {
             targetStatus = overJob.status;
         } else {
-            // Fallback: If somehow dropped on a column, try to infer the status from group name
-            targetStatus = targetStatus.toLowerCase().replace(/ /g, '_').replace('in_progress', 'in-progress');
+            // Normalise: column group names are title-cased — convert back to snake_case status value
+            targetStatus = targetStatus.toLowerCase().replace(/ /g, '_');
         }
 
         if (active.id === over.id || !targetStatus) return;
