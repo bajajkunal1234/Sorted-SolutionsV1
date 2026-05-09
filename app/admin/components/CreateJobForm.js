@@ -115,10 +115,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 // Filter for customers: either direct type or under a customer/debtor group
                 const customersOnly = allAccounts.filter(a =>
                     a.type === 'customer' ||
-                    a.under?.toLowerCase().includes('customer') ||
-                    a.under?.toLowerCase().includes('debtor') ||
-                    (a.under_name || '').toLowerCase().includes('customer') ||
-                    (a.under_name || '').toLowerCase().includes('debtor')
+                    (a.under || '').toLowerCase().includes('customer') ||
+                    (a.under || '').toLowerCase().includes('debtor')
                 );
                 setCustomers(customersOnly);
                 setTechnicians(data.technicians || []);

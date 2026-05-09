@@ -34,7 +34,7 @@ export async function GET(request) {
         if (purpose === 'dropdown') {
             let dropdownQuery = supabase
                 .from('accounts')
-                .select('id, name, mobile, phone, type, under_name, sku')
+                .select('id, name, mobile, phone, type, under')
                 .neq('status', 'archived')
                 .order('name', { ascending: true })
                 .limit(1000);

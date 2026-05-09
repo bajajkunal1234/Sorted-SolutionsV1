@@ -111,7 +111,19 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json()
-        const { id, _changeLog, ...updates } = body
+        const { id, _changeLog, ...rawUpdates } = body
+
+        // ── Sanitize: only pass known DB columns to Supabase ────────────────
+        // Prevents client UI fields (join objects, computed props) from causing errors
+        const ALLOWED = ['status','priority','technician_id','technician_name',
+            'description','notes','internal_notes','scheduled_date','scheduled_time',
+            'category','subcategory','appliance','brand','issue','model',
+            'amount','property','thumbnail','rental_id','amc_id','source',
+            'on_way_at','arrived_at','quotation_approved_at','repair_note_added_at',
+            'completed_at','started_at','updated_by'];
+        const updates = Object.fromEntries(
+            Object.entries(rawUpdates).filter(([k]) => ALLOWED.includes(k))
+        );
 
         // Fetch current state for diffing
         const { data: existing } = await supabase
