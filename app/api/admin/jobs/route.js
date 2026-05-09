@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { fireNotification } from '@/lib/fire-notification'
 import { generateJobNumber } from '@/lib/generateJobNumber'
+import { STATUS_TO_EVENT } from '@/lib/jobStatuses'
 
 // GET - Fetch all jobs or filter by query params
 export async function GET(request) {
@@ -60,6 +61,9 @@ export async function POST(request) {
             body.job_number = await generateJobNumber();
         }
 
+        // New jobs always start as new_job_request
+        if (!body.status) body.status = 'new_job_request';
+
         const { data, error } = await supabase
             .from('jobs')
             .insert([body])
@@ -68,15 +72,14 @@ export async function POST(request) {
 
         if (error) throw error
 
-        // Create initial interaction
+        // Log creation interaction
         await supabase.from('job_interactions').insert([{
             job_id: data.id,
-            type: 'created',
-            message: `Job created by ${body.created_by || 'Admin'}`,
+            type: 'status-changed',
+            message: `Job created — status: new_job_request`,
             user_name: body.created_by || 'Admin'
         }])
 
-        // Log to global interactions
         logInteractionServer({
             type: 'job-created-admin',
             category: 'job',
@@ -88,7 +91,6 @@ export async function POST(request) {
             source: 'Admin',
         });
 
-        // Fire notification trigger for new job created by admin (awaiting instead of fire-and-forget)
         await fireNotification('job_created_admin', {
             job_id: String(data.id),
             job_number: data.job_number,
@@ -106,14 +108,24 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json()
-        const { id, _changeLog, ...updates } = body  // _changeLog is meta from the UI, not stored in DB
+        const { id, _changeLog, ...updates } = body
 
-        // Fetch current state for diffing ALL changed fields server-side
+        // Fetch current state for diffing
         const { data: existing } = await supabase
             .from('jobs')
-            .select('technician_id, technician_name, status, customer_id, customer_name, job_number, priority, scheduled_date, scheduled_time, description, notes, category, subcategory, issue, rental_id, amc_id')
+            .select('technician_id, technician_name, status, customer_id, customer_name, job_number, priority, scheduled_date, scheduled_time, description, notes, category, subcategory, issue, rental_id, amc_id, source')
             .eq('id', id)
             .single()
+
+        // ── Auto-assign side effect ──────────────────────────────────────────
+        // When admin assigns a technician to a new_job_request, auto-advance to scheduled
+        const isAssigningTech = updates.technician_id && updates.technician_id !== existing?.technician_id;
+        const currentlyNewRequest = existing?.status === 'new_job_request';
+        const statusBeingSetManually = !!updates.status;
+
+        if (isAssigningTech && currentlyNewRequest && !statusBeingSetManually) {
+            updates.status = 'scheduled';
+        }
 
         const { data, error } = await supabase
             .from('jobs')
@@ -129,31 +141,54 @@ export async function PUT(request) {
         const customerName = data.customer_name || null
         const performedByName = body.updated_by || 'Admin'
 
-        // 1 — Log status lifecycle changes
-        const statusInteractionMap = {
-            assigned: { type: 'job-assigned', description: `Job #${jobRef} assigned to technician` },
-            in_progress: { type: 'job-started', description: `Job #${jobRef} marked in-progress` },
-            completed: { type: 'job-completed', description: `Job #${jobRef} marked completed` },
-            cancelled: { type: 'job-cancelled', description: `Job #${jobRef} cancelled` },
-        };
-        const statusLog = updates.status ? statusInteractionMap[updates.status] : null;
-        if (statusLog) {
+        // ── 1. Log status change interaction (ALL statuses) ─────────────────
+        if (updates.status && existing && updates.status !== existing.status) {
+            const statusMsg = `Status changed: ${existing.status} → ${updates.status} by ${performedByName}`;
+
+            await supabase.from('job_interactions').insert([{
+                job_id: id,
+                type: 'status-changed',
+                message: statusMsg,
+                user_name: performedByName,
+            }]).catch(() => {});
+
             logInteractionServer({
-                type: statusLog.type,
+                type: `job-status-${updates.status}`,
                 category: 'job',
                 jobId: String(id),
                 customerId,
                 customerName,
                 performedByName,
-                description: statusLog.description,
+                description: `Job #${jobRef} — ${statusMsg}`,
                 source: 'Admin',
             });
+
+            // Fire notification for this status change
+            const notifEvent = STATUS_TO_EVENT[updates.status];
+            if (notifEvent) {
+                await fireNotification(notifEvent, {
+                    job_id: String(id),
+                    job_number: data.job_number,
+                    customer_id: customerId || undefined,
+                    technician_id: data.technician_id ? String(data.technician_id) : undefined,
+                    customer_name: customerName || undefined,
+                    technician_name: data.technician_name || undefined,
+                }).catch(err => console.error('[admin/jobs PUT] fireNotification error:', err.message));
+            }
         }
 
-        // 2 — Log technician reassignment
-        if (updates.technician_id !== undefined && existing && updates.technician_id !== existing.technician_id) {
+        // ── 2. Log technician reassignment ───────────────────────────────────
+        if (isAssigningTech && existing) {
             const newName = updates.technician_name || updates.technician_id || 'Unknown'
             const oldName = existing.technician_name || (existing.technician_id ? existing.technician_id : 'Unassigned')
+
+            await supabase.from('job_interactions').insert([{
+                job_id: id,
+                type: 'assigned',
+                message: `Technician assigned: ${oldName} → ${newName} by ${performedByName}`,
+                user_name: performedByName,
+            }]).catch(() => {});
+
             logInteractionServer({
                 type: 'job-reassigned',
                 category: 'job',
@@ -165,9 +200,19 @@ export async function PUT(request) {
                 metadata: { from_technician: oldName, to_technician: newName },
                 source: 'Admin',
             });
+
+            // Fire job_assigned notification
+            await fireNotification('job_assigned', {
+                job_id: String(id),
+                job_number: data.job_number,
+                customer_id: customerId || undefined,
+                technician_id: String(updates.technician_id),
+                customer_name: customerName || undefined,
+                technician_name: updates.technician_name || undefined,
+            }).catch(() => {});
         }
 
-        // 3 — Server-side diff ALL changed fields (does not rely on UI sending _changeLog)
+        // ── 3. Log field-level changes ───────────────────────────────────────
         const fieldLabels = {
             priority: 'Priority',
             scheduled_date: 'Scheduled date',
@@ -186,16 +231,21 @@ export async function PUT(request) {
                 serverChanges.push(`${label} changed: "${existing[field] || '—'}" → "${updates[field] || '—'}"`);
             }
         }
-        // Also include any UI-provided changes that aren't status/technician (they may have extra context)
         const uiExtraChanges = Array.isArray(_changeLog)
             ? _changeLog.filter(c => !c.startsWith('Status changed') && !c.startsWith('Technician reassigned'))
             : [];
-        // Merge, deduplicate by prefix
         const allExtraChanges = [
             ...serverChanges,
             ...uiExtraChanges.filter(u => !serverChanges.some(s => s.startsWith(u.split(':')[0])))
         ];
         if (allExtraChanges.length > 0) {
+            await supabase.from('job_interactions').insert([{
+                job_id: id,
+                type: 'edited',
+                message: `Updated by ${performedByName}: ${allExtraChanges.join('; ')}`,
+                user_name: performedByName,
+            }]).catch(() => {});
+
             logInteractionServer({
                 type: 'job-edited',
                 category: 'job',
@@ -209,67 +259,20 @@ export async function PUT(request) {
             });
         }
 
-        // Also insert into job_interactions for timeline visibility
-        if (allExtraChanges.length > 0) {
-            supabase.from('job_interactions').insert([{
-                job_id: id,
-                type: 'edited',
-                message: `Updated by ${performedByName}: ${allExtraChanges.join('; ')}`,
-                user_name: performedByName,
-            }]).then(() => {}).catch(() => {});
-        }
-
-        // Fire notification trigger for relevant status changes (fire-and-forget)
-        // Map DB status values to Notification Center event type IDs
-        const statusToEventType = {
-            'assigned':         'job_assigned',
-            'in-progress':      'job_started',
-            'in_progress':      'job_started',
-            'completed':        'job_completed',
-            'cancelled':        'job_cancelled',
-            'quotation-sent':   'quotation_sent',
-            'quotation_sent':   'quotation_sent',
-            'booking_request':  'booking_created_website',
-        };
-        const notifEvent = updates.status ? statusToEventType[updates.status] : null;
-        if (notifEvent) {
-            await fireNotification(notifEvent, {
-                job_id: String(id),
-                job_number: data.job_number,
-                customer_id: data.customer_id ? String(data.customer_id) : undefined,
-                technician_id: data.assigned_to ? String(data.assigned_to) : undefined,
-                customer_name: data.customer_name || undefined,
-                technician_name: data.technician_name || undefined,
-            });
-        }
-        // Also fire job_assigned if a technician was newly assigned (even without status change)
-        if (updates.technician_id !== undefined && existing && updates.technician_id !== existing.technician_id && updates.technician_id) {
-            await fireNotification('job_assigned', {
-                job_id: String(id),
-                job_number: data.job_number,
-                customer_id: data.customer_id ? String(data.customer_id) : undefined,
-                technician_id: String(updates.technician_id),
-                customer_name: data.customer_name || undefined,
-                technician_name: updates.technician_name || undefined,
-            });
-        }
-
-        // Side effect: If job is marked as completed, generate a draft invoice
-        if (updates.status === 'completed') {
+        // ── 4. Auto-generate invoice when job is CLOSED ──────────────────────
+        if (updates.status === 'closed') {
             try {
-                // customer_id IS the account id directly (no more customers table lookup)
                 const accountId = data.customer_id;
                 const accountName = data.customer_name;
 
                 if (accountId) {
-                    // Check for existing invoice for this job
-                    const { data: existing } = await supabase
+                    const { data: existingInv } = await supabase
                         .from('sales_invoices')
                         .select('id')
                         .eq('job_id', id)
                         .single()
 
-                    if (!existing) {
+                    if (!existingInv) {
                         const year = new Date().getFullYear();
                         const invoiceNumber = `INV-${year}-${Math.floor(Math.random() * 9000) + 1000}`;
                         const baseAmount = data.amount || 800;
@@ -294,14 +297,14 @@ export async function PUT(request) {
                                 taxRate: gstRate,
                                 total: baseAmount + taxAmount
                             }]
-                        })
+                        });
 
                         await supabase.from('job_interactions').insert([{
                             job_id: id,
                             type: 'sales-invoice-created-draft',
-                            message: `Automated draft invoice ${invoiceNumber} generated on job completion.`,
+                            message: `Automated draft invoice ${invoiceNumber} generated on job closure.`,
                             user_name: 'System'
-                        }])
+                        }]).catch(() => {});
                     }
                 }
             } catch (automatedError) {
@@ -321,7 +324,6 @@ export async function DELETE(request) {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
 
-        // Fetch job info before deleting for logging
         const { data: job } = await supabase
             .from('jobs')
             .select('id, job_number, customer_id, customer_name, category, subcategory, status, technician_name')
@@ -335,7 +337,6 @@ export async function DELETE(request) {
 
         if (error) throw error
 
-        // Log the deletion
         if (job) {
             logInteractionServer({
                 type: 'job-deleted',
