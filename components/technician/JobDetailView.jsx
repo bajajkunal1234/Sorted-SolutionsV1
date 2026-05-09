@@ -81,22 +81,24 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             if (!job?.id) return;
             try {
                 // Fetch fresh job + both interaction sources simultaneously
-                const [jobRes, intRes, jobIntRes, quotaRes] = await Promise.all([
+                // Note: skip admin/transactions here — requires admin auth, not available to technician
+                const [jobRes, intRes, jobIntRes] = await Promise.all([
                     fetch(`/api/technician/jobs/${job.id}`),
                     fetch(`/api/admin/interactions?job_id=${job.id}`),
                     fetch(`/api/technician/jobs/${job.id}/interactions`),
-                    fetch(`/api/admin/transactions?type=quotation&job_id=${job.id}`)
                 ]);
                 const jobData = await jobRes.json();
                 const intData = await intRes.json().catch(() => ({ data: [] }));
                 const jobIntData = await jobIntRes.json().catch(() => ({ data: [] }));
-                
+
+                // Try to load quotation from technician-accessible route (graceful fallback)
                 try {
-                    const quotaData = await quotaRes.json();
-                    if (quotaData.success && quotaData.data?.length > 0) {
-                        setSavedQuotation(quotaData.data[0]);
+                    const quotaRes = await fetch(`/api/technician/jobs/${job.id}/quotation`);
+                    if (quotaRes.ok) {
+                        const quotaData = await quotaRes.json();
+                        if (quotaData.success && quotaData.data?.length > 0) setSavedQuotation(quotaData.data[0]);
                     }
-                } catch (e) { console.error('Failed to load quotation', e); }
+                } catch (e) { /* quotation not available — silently skip */ }
 
                 if (jobData.success) {
                     // Merge and sort both interaction sources
@@ -162,8 +164,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 source: 'Technician App',
             });
 
-            setEditedJob(prev => ({ ...prev, status: newStatus }));
-            if (onJobUpdate) onJobUpdate(data.job);
+            const merged = { ...editedJob, status: newStatus };
+            setEditedJob(merged);
+            // Pass the correctly-shaped merged job to parent (raw data.job has DB field names, not transformed ones)
+            if (onJobUpdate) onJobUpdate(merged);
             alert('Status updated successfully!');
         } catch (err) {
             setError(err.message);

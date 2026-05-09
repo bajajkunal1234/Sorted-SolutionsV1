@@ -1385,12 +1385,14 @@ function TechnicianApp() {
                     job={selectedJob}
                     onClose={() => setSelectedJob(null)}
                     onJobUpdate={(updatedJob) => {
-                        // Update the job in the jobs list
-                        setJobs(prevJobs =>
-                            prevJobs.map(j => j.id === updatedJob.id ? { ...j, ...updatedJob } : j)
-                        );
-                        // Do not close the modal here to allow WhatsApp popup or manual exit
-                        // Optionally refetch jobs to ensure data consistency
+                        // Update both the jobs list AND the selectedJob so the header/status reflects immediately
+                        if (updatedJob) {
+                            setSelectedJob(prev => ({ ...prev, ...updatedJob }));
+                            setJobs(prevJobs =>
+                                prevJobs.map(j => j.id === updatedJob.id ? { ...j, ...updatedJob } : j)
+                            );
+                        }
+                        // Background refetch for full consistency
                         setTimeout(() => {
                             if (technicianId) {
                                 fetch(`/api/technician/jobs?technicianId=${technicianId}`)
