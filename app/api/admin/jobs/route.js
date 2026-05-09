@@ -309,12 +309,12 @@ export async function PUT(request) {
                             }]
                         });
 
-                        await supabase.from('job_interactions').insert([{
+                        supabase.from('job_interactions').insert([{
                             job_id: id,
                             type: 'sales-invoice-created-draft',
                             message: `Automated draft invoice ${invoiceNumber} generated on job closure.`,
                             user_name: 'System'
-                        }]).catch(() => {});
+                        }]).then(null, () => {});
                     }
                 }
             } catch (automatedError) {
