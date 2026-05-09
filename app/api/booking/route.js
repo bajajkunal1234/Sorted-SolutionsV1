@@ -52,7 +52,7 @@ export async function POST(request) {
                     .select('id', { count: 'exact', head: true })
                     .eq('scheduled_date', schedule.date)
                     .eq('scheduled_time', schedule.slot)
-                    .not('status', 'in', '("cancelled","rejected","booking_request")')
+                    .not('status', 'in', '("cancelled","closed")')
 
                 if (existingCount >= matchedSlot.maxBookings) {
                     return NextResponse.json(
@@ -270,7 +270,7 @@ export async function POST(request) {
         let job = null;
         const jobData = {
             job_number: bookingNumber,
-            status: 'booking_request',
+            status: 'new_job_request',
             priority: 'normal',
             customer_id: customerId,               // ← now linked (Fix 2)
             property_id: propertyId,               // ← now linked (Fix 4)
@@ -386,7 +386,7 @@ export async function GET() {
         const { data, error } = await supabase
             .from('jobs')
             .select('*')
-            .eq('status', 'booking_request')
+            .eq('status', 'new_job_request')
             .order('created_at', { ascending: false })
 
         if (error) throw error

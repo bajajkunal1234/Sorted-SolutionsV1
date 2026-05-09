@@ -171,9 +171,9 @@ export async function PUT(request, { params }) {
                 .eq('id', id);
             if (error) return NextResponse.json({ error: 'Failed to record on_way_at' }, { status: 500 });
 
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id, type: 'on-way', message: `Technician is on the way`, user_name: techName
-            }]).catch(() => {});
+            }]).then(null, () => {});
 
             return NextResponse.json({ success: true, message: 'on_way_at recorded' });
         }
@@ -191,15 +191,15 @@ export async function PUT(request, { params }) {
             if (error) return NextResponse.json({ error: 'Failed to record arrival' }, { status: 500 });
 
             const statusMsg = `Status changed: ${existing?.status} → diagnosing_quoting by ${techName} (arrived)`;
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id, type: 'status-changed', message: statusMsg, user_name: techName
-            }]).catch(() => {});
+            }]).then(null, () => {});
             logInteractionServer({
                 type: 'job-status-diagnosing_quoting', category: 'job', jobId: String(id),
                 customerId, customerName, performedByName: techName,
                 description: `Job #${jobRef} — ${statusMsg}`, source: 'Technician App'
             });
-            await fireNotification('job_diagnosing', {
+            fireNotification('job_diagnosing', {
                 job_id: String(id), job_number: existing?.job_number,
                 customer_id: customerId || undefined,
                 technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
@@ -219,11 +219,11 @@ export async function PUT(request, { params }) {
                 .eq('id', id);
             if (error) return NextResponse.json({ error: 'Failed to record repair note' }, { status: 500 });
 
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id, type: 'repair-note-added',
                 message: updates.note_text ? `Repair note added: ${updates.note_text}` : 'Repair note added',
                 user_name: techName
-            }]).catch(() => {});
+            }]).then(null, () => {});
 
             return NextResponse.json({ success: true, message: 'Repair note recorded' });
         }
@@ -240,15 +240,15 @@ export async function PUT(request, { params }) {
             if (error) return NextResponse.json({ error: 'Failed to approve quotation' }, { status: 500 });
 
             const statusMsg = `Quotation approved by customer (confirmed by ${techName}) — status: work_in_progress`;
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id, type: 'quotation-approved', message: statusMsg, user_name: techName
-            }]).catch(() => {});
+            }]).then(null, () => {});
             logInteractionServer({
                 type: 'quotation-approved', category: 'job', jobId: String(id),
                 customerId, customerName, performedByName: techName,
                 description: `Job #${jobRef} — ${statusMsg}`, source: 'Technician App'
             });
-            await fireNotification('quotation_approved', {
+            fireNotification('quotation_approved', {
                 job_id: String(id), job_number: existing?.job_number,
                 customer_id: customerId || undefined,
                 technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
@@ -270,15 +270,15 @@ export async function PUT(request, { params }) {
             if (error) return NextResponse.json({ error: 'Failed to close job' }, { status: 500 });
 
             const statusMsg = `Full payment collected by ${techName} — status: closed`;
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id, type: 'status-changed', message: statusMsg, user_name: techName
-            }]).catch(() => {});
+            }]).then(null, () => {});
             logInteractionServer({
                 type: 'job-status-closed', category: 'job', jobId: String(id),
                 customerId, customerName, performedByName: techName,
                 description: `Job #${jobRef} — ${statusMsg}`, source: 'Technician App'
             });
-            await fireNotification('job_closed', {
+            fireNotification('job_closed', {
                 job_id: String(id), job_number: existing?.job_number,
                 customer_id: customerId || undefined,
                 technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
@@ -314,6 +314,7 @@ export async function PUT(request, { params }) {
             .single();
 
         if (error) {
+            console.error('[technician/jobs PUT] DB error:', error.message);
             return NextResponse.json({ error: 'Failed to update job' }, { status: 500 });
         }
 
@@ -333,9 +334,9 @@ export async function PUT(request, { params }) {
         // Log status change
         if (updates.status && existing && updates.status !== existing.status) {
             const statusMsg = `Status changed: ${existing.status} → ${updates.status} by ${techName}`;
-            await supabase.from('job_interactions').insert([{
+            supabase.from('job_interactions').insert([{
                 job_id: id, type: 'status-changed', message: statusMsg, user_name: techName
-            }]).catch(() => {});
+            }]).then(null, () => {});
             logInteractionServer({
                 type: `job-status-${updates.status}`, category: 'job', jobId: String(id),
                 customerId, customerName, performedByName: techName,
@@ -344,12 +345,12 @@ export async function PUT(request, { params }) {
 
             const notifEvent = STATUS_TO_EVENT[updates.status];
             if (notifEvent) {
-                await fireNotification(notifEvent, {
+                fireNotification(notifEvent, {
                     job_id: String(id), job_number: existing?.job_number,
                     customer_id: customerId || undefined,
                     technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
                     customer_name: customerName || undefined, technician_name: techName,
-                }).catch(err => console.error('[technician/jobs PUT] fireNotification Error:', err.message));
+                }).catch(err => console.error('[technician/jobs PUT] notification error:', err.message));
             }
         }
 

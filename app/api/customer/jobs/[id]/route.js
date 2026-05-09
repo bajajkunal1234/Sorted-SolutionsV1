@@ -116,11 +116,11 @@ export async function PATCH(request, { params }) {
 
             if (updateError) return NextResponse.json({ error: 'Failed to cancel job' }, { status: 500 })
 
-            await supabase.from('job_interactions').insert({
+            supabase.from('job_interactions').insert({
                 job_id: id, type: 'status-changed',
                 message: 'Customer cancelled the service request — status: cancelled',
                 user_name: 'Customer'
-            }).catch(() => {});
+            }).then(null, () => {});
 
             logInteractionServer({
                 type: 'job-cancelled', category: 'job', jobId: String(id),
@@ -131,7 +131,7 @@ export async function PATCH(request, { params }) {
                 source: 'Customer App'
             });
 
-            await fireNotification('job_cancelled', {
+            fireNotification('job_cancelled', {
                 job_id: String(id), job_number: job.job_number,
                 customer_id: job.customer_id ? String(job.customer_id) : undefined,
                 technician_id: job.technician_id ? String(job.technician_id) : undefined,
@@ -172,11 +172,11 @@ export async function PATCH(request, { params }) {
             const oldSlot = `${job.scheduled_date || '?'} ${job.scheduled_time || ''}`.trim();
             const newSlot = `${scheduled_date} ${scheduled_time}`;
 
-            await supabase.from('job_interactions').insert({
+            supabase.from('job_interactions').insert({
                 job_id: id, type: 'status-changed',
                 message: `Customer rescheduled: ${oldSlot} → ${newSlot} — status: cx_reschedule`,
                 user_name: 'Customer'
-            }).catch(() => {});
+            }).then(null, () => {});
 
             logInteractionServer({
                 type: 'job-rescheduled-cx', category: 'job', jobId: String(id),
@@ -187,7 +187,7 @@ export async function PATCH(request, { params }) {
                 source: 'Customer App'
             });
 
-            await fireNotification('job_rescheduled_cx', {
+            fireNotification('job_rescheduled_cx', {
                 job_id: String(id), job_number: job.job_number,
                 customer_id: job.customer_id ? String(job.customer_id) : undefined,
                 technician_id: job.technician_id ? String(job.technician_id) : undefined,
@@ -209,11 +209,11 @@ export async function PATCH(request, { params }) {
 
             if (updateError) return NextResponse.json({ error: 'Failed to approve quotation' }, { status: 500 })
 
-            await supabase.from('job_interactions').insert({
+            supabase.from('job_interactions').insert({
                 job_id: id, type: 'quotation-approved',
                 message: 'Customer approved the quotation — status: work_in_progress',
                 user_name: 'Customer'
-            }).catch(() => {});
+            }).then(null, () => {});
 
             logInteractionServer({
                 type: 'quotation-approved', category: 'job', jobId: String(id),
@@ -224,7 +224,7 @@ export async function PATCH(request, { params }) {
                 source: 'Customer App'
             });
 
-            await fireNotification('quotation_approved', {
+            fireNotification('quotation_approved', {
                 job_id: String(id), job_number: job.job_number,
                 customer_id: job.customer_id ? String(job.customer_id) : undefined,
                 technician_id: job.technician_id ? String(job.technician_id) : undefined,
@@ -254,11 +254,11 @@ export async function PATCH(request, { params }) {
 
             if (updateError) return NextResponse.json({ error: 'Failed to save rating' }, { status: 500 })
 
-            await supabase.from('job_interactions').insert({
+            supabase.from('job_interactions').insert({
                 job_id: id, type: 'customer-rated',
                 message: `Customer gave ${ratingNum} star${ratingNum !== 1 ? 's' : ''}${ratingNote ? `: "${ratingNote}"` : ''}`,
                 user_name: 'Customer',
-            }).catch(() => {});
+            }).then(null, () => {});
 
             return NextResponse.json({ success: true, job: updatedJob })
         }
