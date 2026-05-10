@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 import { fireNotification } from '@/lib/fire-notification'
 
+export const dynamic = 'force-dynamic';
+
 // GET - Fetch AMCs or plans
 export async function GET(request) {
     try {
@@ -49,19 +51,31 @@ export async function GET(request) {
                         .select('id, name, mobile, phone, email, mailing_address, gstin')
                         .in('id', customerIds)
 
-                    const { data: props } = await supabase
-                        .from('customer_properties')
-                        .select('customer_id, properties(address, locality, city)')
-                        .in('customer_id', customerIds)
+                    const { data: webCustomers } = await supabase
+                        .from('customers')
+                        .select('id, ledger_id')
+                        .in('ledger_id', customerIds)
+                    
+                    let props = null;
+                    if (webCustomers && webCustomers.length > 0) {
+                        const webCustomerIds = webCustomers.map(c => c.id)
+                        const res = await supabase
+                            .from('customer_properties')
+                            .select('customer_id, properties(address, locality, city)')
+                            .in('customer_id', webCustomerIds)
+                        props = res.data
+                    }
                         
                     const accountMap = Object.fromEntries((accounts || []).map(a => [a.id, {...a, property: null}]))
                     
-                    if (props) {
+                    if (props && webCustomers) {
                         props.forEach(p => {
-                            if (accountMap[p.customer_id] && p.properties) {
+                            // Find the matching ledger_id
+                            const webCustomer = webCustomers.find(c => c.id === p.customer_id)
+                            if (webCustomer && accountMap[webCustomer.ledger_id] && p.properties) {
                                 // Just pick the first property for display
-                                if (!accountMap[p.customer_id].property) {
-                                    accountMap[p.customer_id].property = p.properties;
+                                if (!accountMap[webCustomer.ledger_id].property) {
+                                    accountMap[webCustomer.ledger_id].property = p.properties;
                                 }
                             }
                         })
