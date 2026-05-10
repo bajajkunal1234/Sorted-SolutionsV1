@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
             .single()
 
         if (error || !job) {
-            return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+            return NextResponse.json({ error: 'Job not found', details: error?.message, hint: error?.hint, code: error?.code }, { status: 404 })
         }
 
         // Fetch rental / AMC data separately — graceful: null if view doesn't exist or no match

@@ -82,10 +82,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             try {
                 // Fetch fresh job + both interaction sources simultaneously
                 // Note: skip admin/transactions here — requires admin auth, not available to technician
+                const t = Date.now();
                 const [jobRes, intRes, jobIntRes] = await Promise.all([
-                    fetch(`/api/technician/jobs/${job.id}`),
-                    fetch(`/api/admin/interactions?job_id=${job.id}`),
-                    fetch(`/api/technician/jobs/${job.id}/interactions`),
+                    fetch(`/api/technician/jobs/${job.id}?t=${t}`),
+                    fetch(`/api/admin/interactions?job_id=${job.id}&t=${t}`),
+                    fetch(`/api/technician/jobs/${job.id}/interactions?t=${t}`),
                 ]);
                 const jobData = await jobRes.json();
                 const intData = await intRes.json().catch(() => ({ data: [] }));

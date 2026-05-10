@@ -179,7 +179,7 @@ function TechnicianApp() {
         const fetchJobs = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`/api/technician/jobs?technicianId=${technicianId}`);
+                const response = await fetch(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch jobs');
@@ -603,7 +603,7 @@ function TechnicianApp() {
                         <button
                             onClick={() => {
                                 setLoading(true);
-                                fetch(`/api/technician/jobs?technicianId=${technicianId}`)
+                                fetch(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
                                     .then(r => r.json())
                                     .then(d => { setJobs(d.jobs || []); setError(null); })
                                     .catch(() => setError('Failed to refresh.'))
@@ -1381,7 +1381,7 @@ function TechnicianApp() {
                         // Background refetch for full consistency
                         setTimeout(() => {
                             if (technicianId) {
-                                fetch(`/api/technician/jobs?technicianId=${technicianId}`)
+                                fetch(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
                                     .then(res => res.json())
                                     .then(data => setJobs(data.jobs || []))
                                     .catch(err => console.error('Error refreshing jobs:', err));
