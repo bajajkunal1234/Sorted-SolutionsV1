@@ -401,7 +401,7 @@ function TechnicianApp() {
     sortedJobs.forEach(job => {
         let key;
         if (groupBy === 'status') {
-            key = job.status ? job.status.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
+            key = job.status ? job.status.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
         } else if (groupBy === 'due-date') {
             if (!job.dueDate) { key = 'No Date'; }
             else {
