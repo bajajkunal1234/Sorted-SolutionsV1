@@ -28,6 +28,7 @@ import AMCDetailsModal from './reports/AMCDetailsModal';
 import RentReceiptsModal from './reports/RentReceiptsModal';
 import WhatsAppShareModal from './accounts/WhatsAppShareModal';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
+import PrintAgreementModal from './reports/PrintAgreementModal';
 
 function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const [activeTab, setActiveTab] = useState('accounts');

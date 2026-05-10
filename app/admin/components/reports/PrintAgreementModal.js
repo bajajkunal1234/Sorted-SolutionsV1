@@ -55,8 +55,8 @@ export default function PrintAgreementModal({ type, data, onClose }) {
         if (recordData.delivery_property) {
            addressStr = recordData.delivery_property.address || '';
            if (recordData.delivery_property.locality) addressStr += `, ${recordData.delivery_property.locality}`;
-        } else if (customer.address) {
-            addressStr = customer.address;
+        } else if (customer.address || customer.mailing_address) {
+            addressStr = customer.address || customer.mailing_address;
             if (customer.city) addressStr += `, ${customer.city}`;
             if (customer.state) addressStr += `, ${customer.state}`;
             if (customer.pincode) addressStr += ` - ${customer.pincode}`;
@@ -86,6 +86,14 @@ export default function PrintAgreementModal({ type, data, onClose }) {
             processed = processed.replace(/\[AMC_AMOUNT\]/g, recordData.amc_amount || 0);
             processed = processed.replace(/\[CONTRACT_VALUE\]/g, recordData.amc_amount || 0);
             processed = processed.replace(/\[NEXT_SERVICE_DATE\]/g, recordData.next_service_date ? new Date(recordData.next_service_date).toLocaleDateString('en-GB') : 'N/A');
+            
+            // Services and Terms from amc_plans
+            let servicesHtml = 'N/A';
+            if (recordData.amc_plans?.services && Array.isArray(recordData.amc_plans.services) && recordData.amc_plans.services.length > 0) {
+                servicesHtml = `<ul style="margin:0; padding-left:20px;">` + recordData.amc_plans.services.map(s => `<li>${s.name || s}</li>`).join('') + `</ul>`;
+            }
+            processed = processed.replace(/\[SERVICES_INCLUDED\]/g, servicesHtml);
+            processed = processed.replace(/\[PLAN_TERMS\]/g, recordData.amc_plans?.terms ? `<p style="white-space: pre-wrap;">${recordData.amc_plans.terms}</p>` : 'N/A');
         }
 
         // Company Details
@@ -119,7 +127,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
         customerAddressStr = data.delivery_property.address || '';
         if (data.delivery_property.locality) customerAddressStr += `, ${data.delivery_property.locality}`;
     } else {
-        customerAddressStr = customer.address || '';
+        customerAddressStr = customer.address || customer.mailing_address || '';
         if (customer.city) customerAddressStr += `, ${customer.city}`;
         if (customer.state) customerAddressStr += `, ${customer.state}`;
         if (customer.pincode) customerAddressStr += ` - ${customer.pincode}`;
@@ -182,6 +190,25 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                             position: 'relative'
                         }}
                     >
+                        {/* Watermark Logo */}
+                        {settings?.show_logo && (settings?.logo_url || '/logo_watermark.jpg') && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                transform: 'translate(-50%, -50%)',
+                                opacity: 0.05,
+                                pointerEvents: 'none',
+                                zIndex: 0,
+                                width: '60%',
+                                height: '60%',
+                                backgroundImage: \`url('\${settings?.logo_url || '/logo_watermark.jpg'}')\`,
+                                backgroundRepeat: 'no-repeat',
+                                backgroundPosition: 'center',
+                                backgroundSize: 'contain'
+                            }}></div>
+                        )}
+                        <div style={{ position: 'relative', zIndex: 1 }}>
                         {/* Company Header matching Invoice */}
                         <div style={{ 
                             display: 'flex', 
@@ -283,6 +310,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                                     </div>
                                 </div>
                             )}
+                        </div>
                         </div>
                     </div>
                 </div>

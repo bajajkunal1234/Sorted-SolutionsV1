@@ -47,8 +47,17 @@ const amcTemplate = `
         </tbody>
     </table>
 
-    <h2 style="border-bottom: 2px solid #3b82f6; padding-bottom: 8px; color: #1d4ed8; text-transform: uppercase; font-size: 16px; letter-spacing: 1px; margin-top: 30px;">4. Service Schedule</h2>
-    <p style="font-size: 13px; line-height: 1.6;">
+    <h2 style="border-bottom: 2px solid #3b82f6; padding-bottom: 8px; color: #1d4ed8; text-transform: uppercase; font-size: 16px; letter-spacing: 1px; margin-top: 30px;">4. Services Included</h2>
+    <div style="font-size: 13px; line-height: 1.6; margin-top: 10px; padding: 10px; background-color: #f8fafc; border: 1px solid #cbd5e1;">
+        [SERVICES_INCLUDED]
+    </div>
+
+    <h2 style="border-bottom: 2px solid #3b82f6; padding-bottom: 8px; color: #1d4ed8; text-transform: uppercase; font-size: 16px; letter-spacing: 1px; margin-top: 30px;">5. Plan Terms & Conditions</h2>
+    <div style="font-size: 12px; line-height: 1.6; color: #475569; margin-top: 10px;">
+        [PLAN_TERMS]
+    </div>
+
+    <p style="font-size: 13px; line-height: 1.6; margin-top: 20px;">
         The next scheduled service visit under this contract is due on or around <strong>[NEXT_SERVICE_DATE]</strong>. 
         Our technician will contact you prior to the visit to coordinate a convenient time.
     </p>
