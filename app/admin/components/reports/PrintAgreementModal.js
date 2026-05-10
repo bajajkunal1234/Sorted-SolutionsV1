@@ -217,7 +217,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                                 top: '50%',
                                 left: '50%',
                                 transform: 'translate(-50%, -50%)',
-                                opacity: 0.05,
+                                opacity: 0.1,
                                 pointerEvents: 'none',
                                 zIndex: 0,
                                 width: '60%',
