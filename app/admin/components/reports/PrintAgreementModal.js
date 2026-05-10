@@ -67,6 +67,8 @@ export default function PrintAgreementModal({ type, data, onClose }) {
 
         // Product Details
         processed = processed.replace(/\[PRODUCT_NAME\]/g, planName);
+        processed = processed.replace(/\[PRODUCT_BRAND\]/g, recordData.product_brand || 'N/A');
+        processed = processed.replace(/\[PRODUCT_MODEL\]/g, recordData.product_model || 'N/A');
         processed = processed.replace(/\[SERIAL_NUMBER\]/g, serialNumber);
 
         // Dates
@@ -82,6 +84,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
             processed = processed.replace(/\[NEXT_RENT_DUE\]/g, recordData.next_rent_due_date ? new Date(recordData.next_rent_due_date).toLocaleDateString('en-GB') : 'N/A');
         } else if (agreementType === 'amc') {
             processed = processed.replace(/\[AMC_AMOUNT\]/g, recordData.amc_amount || 0);
+            processed = processed.replace(/\[CONTRACT_VALUE\]/g, recordData.amc_amount || 0);
             processed = processed.replace(/\[NEXT_SERVICE_DATE\]/g, recordData.next_service_date ? new Date(recordData.next_service_date).toLocaleDateString('en-GB') : 'N/A');
         }
 
