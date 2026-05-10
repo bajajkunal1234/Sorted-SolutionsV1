@@ -112,10 +112,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         }))
                     ].sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
 
-                    setEditedJob({
-                        ...jobData.job,
-                        interactions: allInt
-                    });
+                    const freshJob = { ...jobData.job, interactions: allInt };
+                    setEditedJob(freshJob);
+
+                    // Sync Kanban — if the DB status differs from the list's stale value, push
+                    // the update up so the card moves to the correct column immediately
+                    if (jobData.job.status !== job.status && onJobUpdate) {
+                        onJobUpdate(freshJob);
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load fresh job details', err);
