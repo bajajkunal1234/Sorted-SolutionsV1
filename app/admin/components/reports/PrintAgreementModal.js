@@ -202,7 +202,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                                 zIndex: 0,
                                 width: '60%',
                                 height: '60%',
-                                backgroundImage: \`url('\${settings?.logo_url || '/logo_watermark.jpg'}')\`,
+                                backgroundImage: `url('${settings?.logo_url || '/logo_watermark.jpg'}')`,
                                 backgroundRepeat: 'no-repeat',
                                 backgroundPosition: 'center',
                                 backgroundSize: 'contain'
