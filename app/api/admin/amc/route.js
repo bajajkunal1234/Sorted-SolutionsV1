@@ -21,7 +21,7 @@ export async function GET(request) {
         } else if (type === 'active') {
             let query = supabase
                 .from('active_amcs')
-                .select('*, amc_plans(name), accounts(id, name, phone, mobile, email, mailing_address, gstin), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')
+                .select('*, amc_plans(name), jobs(id, job_number, description, status, priority, scheduled_date, scheduled_time, technician_name, created_at)')
                 .order('created_at', { ascending: false })
 
             if (customerId) {
@@ -30,7 +30,7 @@ export async function GET(request) {
                 if (authCustomers && authCustomers.length > 0) {
                     lookupIds = [...lookupIds, ...authCustomers.map(c => c.id)];
                 }
-                query = query.in('account_id', lookupIds);
+                query = query.in('customer_id', lookupIds);
             }
             if (status) query = query.eq('status', status)
 
@@ -39,6 +39,40 @@ export async function GET(request) {
 
             const { data, error } = await query
             if (error) throw error
+
+            // Enrich with account name if customer_id exists
+            if (data && data.length > 0) {
+                const customerIds = [...new Set(data.map(r => r.customer_id).filter(Boolean))]
+                if (customerIds.length > 0) {
+                    const { data: accounts } = await supabase
+                        .from('accounts')
+                        .select('id, name, mobile, phone, email, mailing_address, gstin')
+                        .in('id', customerIds)
+
+                    const { data: props } = await supabase
+                        .from('customer_properties')
+                        .select('customer_id, properties(address, locality, city)')
+                        .in('customer_id', customerIds)
+                        
+                    const accountMap = Object.fromEntries((accounts || []).map(a => [a.id, {...a, property: null}]))
+                    
+                    if (props) {
+                        props.forEach(p => {
+                            if (accountMap[p.customer_id] && p.properties) {
+                                // Just pick the first property for display
+                                if (!accountMap[p.customer_id].property) {
+                                    accountMap[p.customer_id].property = p.properties;
+                                }
+                            }
+                        })
+                    }
+
+                    data.forEach(r => {
+                        r.accounts = accountMap[r.customer_id] || null
+                    })
+                }
+            }
+
             return NextResponse.json({ success: true, data })
         } else {
             return NextResponse.json({ success: false, error: 'Invalid type' }, { status: 400 })
@@ -57,12 +91,8 @@ export async function POST(request) {
 
         const tableName = type === 'plan' ? 'amc_plans' : 'active_amcs'
 
-        // For active AMC inserts: map customer_id → account_id (actual FK column)
+        // Use body directly for insert
         let insertBody = { ...body };
-        if (type === 'amc' && insertBody.customer_id !== undefined && insertBody.account_id === undefined) {
-            insertBody.account_id = insertBody.customer_id;
-            delete insertBody.customer_id;
-        }
 
         const { data, error } = await supabase
             .from(tableName)
@@ -73,9 +103,9 @@ export async function POST(request) {
         if (error) throw error
 
         // Notify customer when a new AMC contract is activated
-        if (type === 'amc' && data && data.account_id) {
+        if (type === 'amc' && data && data.customer_id) {
             await fireNotification('rental_contract_created', {
-                customer_id: String(data.account_id),
+                customer_id: String(data.customer_id),
                 customer_name: data.customer_name || undefined,
             }).catch(err => console.error('[amc/fireNotification]:', err.message));
         }
