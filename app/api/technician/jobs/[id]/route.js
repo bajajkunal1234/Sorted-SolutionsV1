@@ -7,20 +7,32 @@ import { STATUS_TO_EVENT, TECH_SETTABLE_STATUSES } from '@/lib/jobStatuses'
 export async function GET(request, { params }) {
     try {
         const { id } = params
+        // Do NOT join active_rentals / active_amcs inline — they are views that may not exist
+        // in all environments; a failed join returns error=truthy and causes a blanket 404.
         const { data: job, error } = await supabase
             .from('jobs')
             .select(`
                 *,
                 customer:accounts(*),
-                assigned_technician:technicians(id, name, phone),
-                rental:active_rentals(*),
-                amc:active_amcs(*)
+                assigned_technician:technicians(id, name, phone)
             `)
             .eq('id', id)
             .single()
 
-        if (error) {
+        if (error || !job) {
             return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+        }
+
+        // Fetch rental / AMC data separately — graceful: null if view doesn't exist or no match
+        let rentalData = null
+        let amcData = null
+        if (job.rental_id) {
+            const res = await supabase.from('active_rentals').select('*').eq('id', job.rental_id).maybeSingle()
+            rentalData = res.data || null
+        }
+        if (job.amc_id) {
+            const res = await supabase.from('active_amcs').select('*').eq('id', job.amc_id).maybeSingle()
+            amcData = res.data || null
         }
 
         // Resolve property JSONB blob into normalised address fields
@@ -125,9 +137,9 @@ export async function GET(request, { params }) {
             description: job.description || '',
             thumbnail: job.thumbnail || null,
             rental_id: job.rental_id || null,
-            rental: job.rental || null,
+            rental: rentalData,
             amc_id: job.amc_id || null,
-            amc: job.amc || null,
+            amc: amcData,
             // Lifecycle timestamps
             on_way_at: job.on_way_at || null,
             arrived_at: job.arrived_at || null,
