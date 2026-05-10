@@ -55,6 +55,10 @@ export default function PrintAgreementModal({ type, data, onClose }) {
         if (recordData.delivery_property) {
            addressStr = recordData.delivery_property.address || '';
            if (recordData.delivery_property.locality) addressStr += `, ${recordData.delivery_property.locality}`;
+        } else if (customer.property) {
+            addressStr = customer.property.address || '';
+            if (customer.property.locality) addressStr += `, ${customer.property.locality}`;
+            if (customer.property.city) addressStr += `, ${customer.property.city}`;
         } else if (customer.address || customer.mailing_address) {
             addressStr = customer.address || customer.mailing_address;
             if (customer.city) addressStr += `, ${customer.city}`;
@@ -90,10 +94,22 @@ export default function PrintAgreementModal({ type, data, onClose }) {
             // Services and Terms from amc_plans
             let servicesHtml = 'N/A';
             if (recordData.amc_plans?.services && Array.isArray(recordData.amc_plans.services) && recordData.amc_plans.services.length > 0) {
-                servicesHtml = `<ul style="margin:0; padding-left:20px;">` + recordData.amc_plans.services.map(s => `<li>${s.name || s}</li>`).join('') + `</ul>`;
+                servicesHtml = `<ul style="margin:0; padding-left:20px;">` + recordData.amc_plans.services.map(s => {
+                    const name = s.item || s.name || s;
+                    const freq = s.frequency ? ` (${s.frequency})` : '';
+                    const qty = s.quantity > 1 ? ` x${s.quantity}` : '';
+                    return `<li>${name}${qty}${freq}</li>`;
+                }).join('') + `</ul>`;
             }
             processed = processed.replace(/\[SERVICES_INCLUDED\]/g, servicesHtml);
-            processed = processed.replace(/\[PLAN_TERMS\]/g, recordData.amc_plans?.terms ? `<p style="white-space: pre-wrap;">${recordData.amc_plans.terms}</p>` : 'N/A');
+            
+            let termsHtml = 'N/A';
+            if (recordData.amc_plans?.terms) {
+                termsHtml = `<p style="white-space: pre-wrap;">${recordData.amc_plans.terms}</p>`;
+            } else if (printSettings?.amc_terms && printSettings.amc_terms.length > 0) {
+                termsHtml = `<ol style="margin:0; padding-left:20px;">` + printSettings.amc_terms.map(t => `<li style="margin-bottom: 4px;">${t}</li>`).join('') + `</ol>`;
+            }
+            processed = processed.replace(/\[PLAN_TERMS\]/g, termsHtml);
         }
 
         // Company Details
@@ -126,6 +142,10 @@ export default function PrintAgreementModal({ type, data, onClose }) {
     if (data?.delivery_property) {
         customerAddressStr = data.delivery_property.address || '';
         if (data.delivery_property.locality) customerAddressStr += `, ${data.delivery_property.locality}`;
+    } else if (customer.property) {
+        customerAddressStr = customer.property.address || '';
+        if (customer.property.locality) customerAddressStr += `, ${customer.property.locality}`;
+        if (customer.property.city) customerAddressStr += `, ${customer.property.city}`;
     } else {
         customerAddressStr = customer.address || customer.mailing_address || '';
         if (customer.city) customerAddressStr += `, ${customer.city}`;
@@ -274,10 +294,9 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                             style={{ outline: 'none', minHeight: '300px', fontSize: '13px', color: '#1e293b', lineHeight: '1.8' }}
                         />
 
-                        {/* Terms & Conditions and Signatures block aligned to bottom */}
-                        <div style={{ position: 'absolute', bottom: '20mm', left: '20mm', right: '20mm' }}>
-                            {/* Terms & Conditions */}
-                            {settings?.show_terms && termsList.length > 0 && (
+                        <div style={{ marginTop: 'auto', paddingTop: '30px' }}>
+                            {/* Terms & Conditions (Only shown if [PLAN_TERMS] wasn't used or is a rental) */}
+                            {settings?.show_terms && termsList.length > 0 && type === 'rental' && (
                                 <div style={{ marginBottom: '30px', borderTop: '1px solid #cbd5e1', paddingTop: '15px' }}>
                                     <h4 style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px', color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                                         Standard Terms & Conditions
