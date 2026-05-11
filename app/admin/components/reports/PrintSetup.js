@@ -413,10 +413,22 @@ function InvoicePreview({ settings, previewType, terms }) {
     const gstBreakdown = settings.gstBreakdown || settings.gst_breakdown || { showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18 };
 
     const mockItems = [
-        { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, amount: 1770, terms_conditions: ['30 days service warranty', 'Gas leak not covered'] },
-        { id: 2, desc: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, amount: 2950, terms_conditions: ['90 days warranty on gas refilling'] },
-        { id: 3, desc: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, amount: 1062, terms_conditions: [] }
+        { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, terms_conditions: ['30 days service warranty', 'Gas leak not covered'] },
+        { id: 2, desc: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, terms_conditions: ['90 days warranty on gas refilling'] },
+        { id: 3, desc: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, terms_conditions: [] }
     ];
+
+    const subtotal = mockItems.reduce((acc, item) => acc + (item.qty * item.rate), 0);
+    
+    let taxAmount = 0;
+    if (settings.showGST) {
+        if (gstBreakdown.showCGST && gstBreakdown.showSGST) {
+            taxAmount = (subtotal * gstBreakdown.cgstRate / 100) + (subtotal * gstBreakdown.sgstRate / 100);
+        } else if (gstBreakdown.showIGST) {
+            taxAmount = subtotal * gstBreakdown.igstRate / 100;
+        }
+    }
+    const grandTotal = subtotal + taxAmount;
 
     const mergedTerms = [...terms];
     mockItems.forEach(item => {
@@ -500,8 +512,8 @@ function InvoicePreview({ settings, previewType, terms }) {
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.hsn}</td>
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.qty}</td>
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>₹{row.rate}</td>
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.tax}%</td>
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#1e293b', fontWeight: 600 }}>₹{row.amount}</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{settings.showGST ? `${row.tax}%` : '-'}</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#1e293b', fontWeight: 600 }}>₹{(row.qty * row.rate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -512,18 +524,18 @@ function InvoicePreview({ settings, previewType, terms }) {
                     <div style={{ width: '280px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}>
                             <span style={{ color: '#64748b' }}>Subtotal:</span>
-                            <span style={{ fontWeight: 600 }}>₹4,450.00</span>
+                            <span style={{ fontWeight: 600 }}>₹{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         {settings.showGST && (
                             <>
-                                {gstBreakdown.showCGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>CGST ({gstBreakdown.cgstRate}%):</span><span>₹{(4450 * gstBreakdown.cgstRate / 100).toFixed(2)}</span></div>}
-                                {gstBreakdown.showSGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>SGST ({gstBreakdown.sgstRate}%):</span><span>₹{(4450 * gstBreakdown.sgstRate / 100).toFixed(2)}</span></div>}
-                                {gstBreakdown.showIGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>IGST ({gstBreakdown.igstRate}%):</span><span>₹{(4450 * gstBreakdown.igstRate / 100).toFixed(2)}</span></div>}
+                                {gstBreakdown.showCGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>CGST ({gstBreakdown.cgstRate}%):</span><span>₹{(subtotal * gstBreakdown.cgstRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>}
+                                {gstBreakdown.showSGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>SGST ({gstBreakdown.sgstRate}%):</span><span>₹{(subtotal * gstBreakdown.sgstRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>}
+                                {gstBreakdown.showIGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>IGST ({gstBreakdown.igstRate}%):</span><span>₹{(subtotal * gstBreakdown.igstRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>}
                             </>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: `2px solid ${themeColor}`, fontSize: '16px', fontWeight: 800, color: themeColor, marginTop: '4px' }}>
                             <span>Grand Total:</span>
-                            <span style={{ color: accentColor }}>₹5,250.00</span>
+                            <span style={{ color: accentColor }}>₹{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                     </div>
                 </div>
