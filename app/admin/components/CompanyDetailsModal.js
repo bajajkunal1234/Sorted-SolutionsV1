@@ -11,6 +11,7 @@ function CompanyDetailsModal({ onClose, onSaved }) {
     const [uploadingLogo, setUploadingLogo] = useState(false);
 
     const [data, setData] = useState({
+        id: null,
         company_name: '',
         company_address: '',
         gst_number: '',
@@ -27,6 +28,7 @@ function CompanyDetailsModal({ onClose, onSaved }) {
             .then(ps => {
                 if (ps) {
                     setData({
+                        id:              ps.id,
                         company_name:    ps.company_name    || '',
                         company_address: ps.company_address || '',
                         gst_number:      ps.gst_number      || '',
