@@ -179,7 +179,48 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json()
-        const { id, ...updates } = body
+        const { id, ...rawUpdates } = body
+
+        // ── Column allowlist: only DB columns go to Supabase ──────────────────
+        const ALLOWED_COLUMNS = [
+            'name', 'sku', 'type', 'job_type', 'category', 'brand', 'description', 'images',
+            'unit_of_measure', 'opening_balance_qty', 'opening_balance_date',
+            'current_stock', 'min_stock_level',
+            'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
+            'gst_applicable', 'gst_rate', 'hsn_code', 'hsn_description',
+            'service_terms_template', 'status', 'terms_conditions'
+        ];
+
+        // camelCase → snake_case aliases
+        const ALIAS_MAP = {
+            currentStock:      'current_stock',
+            minStockLevel:     'min_stock_level',
+            reorderLevel:      'min_stock_level',
+            salePrice:         'sale_price',
+            purchasePrice:     'purchase_price',
+            dealerPrice:       'dealer_price',
+            retailPrice:       'retail_price',
+            unitOfMeasure:     'unit_of_measure',
+            hsnCode:           'hsn_code',
+            hsnDescription:    'hsn_description',
+            sacCode:           'hsn_code',
+            gstApplicable:     'gst_applicable',
+            gstRate:           'gst_rate',
+            openingBalanceQty: 'opening_balance_qty',
+        };
+
+        const aliased = { ...rawUpdates };
+        for (const [camel, snake] of Object.entries(ALIAS_MAP)) {
+            if (aliased[camel] !== undefined && aliased[snake] === undefined) {
+                aliased[snake] = aliased[camel];
+            }
+            delete aliased[camel];
+        }
+
+        const updates = {};
+        for (const col of ALLOWED_COLUMNS) {
+            if (aliased[col] !== undefined) updates[col] = aliased[col];
+        }
 
         const { data, error } = await supabase
             .from('inventory')
