@@ -45,6 +45,12 @@ function PrintSetup() {
                     gst: data.gst_number || ''
                 });
                 setSettings({
+                    companyName: data.company_name || '',
+                    companyAddress: data.company_address || '',
+                    companyEmail: data.company_email || '',
+                    companyPhone: data.company_phone || '',
+                    gstNumber: data.gst_number || '',
+                    logoUrl: data.logo_url || '',
                     showLogo: data.show_logo ?? true,
                     showGST: data.show_gst ?? true,
                     showTerms: data.show_terms ?? true,
@@ -227,28 +233,6 @@ function PrintSetup() {
                     
                     {/* Top Section: Global Layout & Branding */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 'var(--spacing-lg)' }}>
-                        <div style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)', backgroundColor: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.2)' }}>
-                            <Building2 size={28} style={{ color: '#6366f1', flexShrink: 0, marginTop: 2 }} />
-                            <div style={{ flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>Company Information</h4>
-                                    <a
-                                        href="#"
-                                        onClick={e => { e.preventDefault(); document.querySelector('[data-company-details-btn]')?.click(); }}
-                                        style={{ fontSize: 'var(--font-size-xs)', color: '#6366f1', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500, textDecoration: 'none' }}
-                                    >
-                                        <ExternalLink size={12} /> Edit in Company Details
-                                    </a>
-                                </div>
-                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.6 }}>
-                                    {companyPreview.name
-                                        ? <><strong style={{ color: 'var(--text-primary)' }}>{companyPreview.name}</strong>{companyPreview.email && ` · ${companyPreview.email}`}{companyPreview.gst && ` · GSTIN: ${companyPreview.gst}`}</>
-                                        : <span style={{ fontStyle: 'italic', color: 'var(--text-tertiary)' }}>No company details saved yet. Click "Company Details" in the top-right of this page.</span>
-                                    }
-                                </p>
-                            </div>
-                        </div>
-
                         <div style={card}>
                             <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Global Print Options</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
