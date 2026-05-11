@@ -266,9 +266,9 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     const handleUpdateJobFromForm = async (updated) => { try { await jobsAPI.update(editJobFormJob.id, updated); await fetchJobs(); setEditJobFormJob(null); } catch (err) { alert('Failed to update job: ' + err.message); } };
 
     const handleJobClick    = (job) => { 
-        if ((job.status === 'booking_request' || job.status === 'enquiry') && job.source !== 'customer_app') {
+        if ((job.status === 'booking_request' || job.status === 'new_job_request' || job.status === 'enquiry') && job.source !== 'customer_app') {
             setReviewBooking(job); 
-        } else if (job.status === 'booking_request' && job.source === 'customer_app') {
+        } else if ((job.status === 'booking_request' || job.status === 'new_job_request') && job.source === 'customer_app') {
             setEditJobFormJob(job);
         } else {
             setSelectedJob(job); 

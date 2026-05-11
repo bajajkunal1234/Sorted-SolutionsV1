@@ -110,7 +110,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
         try {
             await jobsAPI.update(booking.id, {
                 ...jobData,
-                status: jobData.technician_id ? 'assigned' : 'booking_request',
+                status: jobData.technician_id ? 'assigned' : 'new_job_request',
             });
             onConverted();
         } catch (err) {
@@ -201,7 +201,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     const jobPrefill = useMemo(() => ({
         id: booking.id,
         job_number: booking.job_number,
-        status: 'booking_request',
+        status: 'new_job_request',
         category: bd.categoryName || booking.category || '',
         subcategory: bd.subcategoryName || booking.subcategory || '',
         appliance: bd.applianceName || booking.appliance || bd.categoryName || booking.category || '',
