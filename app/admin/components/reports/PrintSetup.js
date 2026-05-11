@@ -4,6 +4,61 @@ import { useState, useEffect } from 'react';
 import { Printer, Save, Eye, Plus, Trash2, CheckCircle, Building2, ExternalLink } from 'lucide-react';
 import { printSettingsAPI } from '@/lib/adminAPI';
 
+// ── Shared style for section cards ────────────────────────────────────────
+const card = {
+    backgroundColor: 'var(--bg-elevated)',
+    border: '1px solid var(--border-primary)',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--spacing-lg)'
+};
+
+const label = (text, required) => (
+    <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px', color: 'var(--text-primary)' }}>
+        {text}{required && <span style={{ color: 'var(--color-danger)', marginLeft: '2px' }}>*</span>}
+    </label>
+);
+
+const checkRow = (checked, onChange, text) => (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', padding: '6px 0' }}>
+        <input type="checkbox" checked={checked} onChange={onChange} style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)' }} />
+        <span style={{ fontSize: 'var(--font-size-sm)' }}>{text}</span>
+    </label>
+);
+
+const TermsBlock = ({ title, items, handlers, defaultText }) => (
+    <div style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{title}</h4>
+            <button className="btn btn-secondary" onClick={() => handlers.add(defaultText)} style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Plus size={14} /> Add Term
+            </button>
+        </div>
+        {items.length === 0 && (
+            <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic', margin: 0 }}>
+                No terms yet. Click "Add Term" to add one.
+            </p>
+        )}
+        <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '220px', overflow: 'auto' }}>
+            {items.map((term, index) => (
+                <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                    <span style={{ minWidth: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'right' }}>{index + 1}.</span>
+                    <input
+                        type="text"
+                        value={term}
+                        onChange={(e) => handlers.update(index, e.target.value)}
+                        className="form-input"
+                        style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
+                        placeholder="Enter term..."
+                    />
+                    <button onClick={() => handlers.delete(index)} style={{ padding: '4px', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
+                        <Trash2 size={14} />
+                    </button>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 function PrintSetup() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -143,61 +198,13 @@ function PrintSetup() {
         );
     }
 
-    // ── Shared style for section cards ────────────────────────────────────────
-    const card = {
-        backgroundColor: 'var(--bg-elevated)',
-        border: '1px solid var(--border-primary)',
-        borderRadius: 'var(--radius-lg)',
-        padding: 'var(--spacing-lg)'
-    };
-
-    const label = (text, required) => (
-        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: '4px', color: 'var(--text-primary)' }}>
-            {text}{required && <span style={{ color: 'var(--color-danger)', marginLeft: '2px' }}>*</span>}
-        </label>
-    );
-
-    const checkRow = (checked, onChange, text) => (
-        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', padding: '6px 0' }}>
-            <input type="checkbox" checked={checked} onChange={onChange} style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)' }} />
-            <span style={{ fontSize: 'var(--font-size-sm)' }}>{text}</span>
-        </label>
-    );
-
-    const TermsBlock = ({ title, items, handlers, defaultText }) => (
-        <div style={card}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>{title}</h4>
-                <button className="btn btn-secondary" onClick={() => handlers.add(defaultText)} style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Plus size={14} /> Add Term
-                </button>
+    if (isLoading) {
+        return (
+            <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                Loading print settings...
             </div>
-            {items.length === 0 && (
-                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic', margin: 0 }}>
-                    No terms yet. Click "Add Term" to add one.
-                </p>
-            )}
-            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '220px', overflow: 'auto' }}>
-                {items.map((term, index) => (
-                    <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
-                        <span style={{ minWidth: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'right' }}>{index + 1}.</span>
-                        <input
-                            type="text"
-                            value={term}
-                            onChange={(e) => handlers.update(index, e.target.value)}
-                            className="form-input"
-                            style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
-                            placeholder="Enter term..."
-                        />
-                        <button onClick={() => handlers.delete(index)} style={{ padding: '4px', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}>
-                            <Trash2 size={14} />
-                        </button>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-
+        );
+    }
     const getActiveTermsData = () => {
         if (activeTab === 'invoice') return { title: 'Invoice Terms & Conditions', items: invoiceTerms, handlers: invoiceH, gstKey: 'invoiceShowGST' };
         if (activeTab === 'quotation') return { title: 'Quotation Terms & Conditions', items: quotationTerms, handlers: quotationH, gstKey: 'quotationShowGST' };
