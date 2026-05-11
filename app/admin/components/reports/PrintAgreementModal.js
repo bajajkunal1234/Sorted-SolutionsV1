@@ -313,18 +313,17 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                             {settings?.include_signature && (
                                 <div style={{ 
                                     display: 'flex', 
-                                    justifyContent: 'space-between', 
+                                    justifyContent: 'flex-end', 
                                     alignItems: 'flex-end',
                                     pageBreakInside: 'avoid'
                                 }}>
-                                    <div style={{ textAlign: 'center' }}>
-                                        <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>Customer Acknowledgment</p>
-                                        <div style={{ width: '180px', borderBottom: '1px solid #cbd5e1', height: '40px', marginBottom: '8px' }}></div>
-                                        <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{customer.name || data?.customerName || 'Customer'}</p>
-                                    </div>
-                                    <div style={{ textAlign: 'center' }}>
+                                    <div style={{ textAlign: 'center', minWidth: '180px' }}>
                                         <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>For {settings?.company_name}</p>
-                                        <div style={{ width: '180px', borderBottom: '1px solid #cbd5e1', height: '40px', marginBottom: '8px' }}></div>
+                                        <div style={{ width: '180px', height: '60px', borderBottom: '1px solid #cbd5e1', marginBottom: '8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                                            {settings?.signature_url && (
+                                                <img src={settings.signature_url} alt="Signature" style={{ maxHeight: '50px', maxWidth: '160px', objectFit: 'contain', marginBottom: '4px' }} />
+                                            )}
+                                        </div>
                                         <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>Authorized Signatory</p>
                                     </div>
                                 </div>

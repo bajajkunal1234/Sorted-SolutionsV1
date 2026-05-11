@@ -108,6 +108,7 @@ function PrintSetup() {
                     pan: data.pan || '',
                     website: data.website || '',
                     logoUrl: data.logo_url || '',
+                    signatureUrl: data.signature_url || '',
                     showLogo: data.show_logo ?? true,
                     showGST: data.show_gst ?? true,
                     showTerms: data.show_terms ?? true,
@@ -560,14 +561,16 @@ function InvoicePreview({ settings, previewType, terms }) {
 
             {/* Signature */}
             {settings.includeSignature && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 30px', marginBottom: '30px' }}>
-                    {['Customer Signature', `For ${settings.companyName || 'Company'}`].map((sig, i) => (
-                        <div key={i} style={{ textAlign: 'center' }}>
-                            <div style={{ width: '180px', height: '50px', borderBottom: '1px solid #cbd5e1', marginBottom: '8px' }} />
-                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>{sig}</div>
-                            {i === 1 && <div style={{ fontSize: '10px', color: '#94a3b8' }}>Authorized Signatory</div>}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 30px', marginBottom: '30px' }}>
+                    <div style={{ textAlign: 'center', minWidth: '180px' }}>
+                        <div style={{ width: '180px', height: '60px', borderBottom: '1px solid #cbd5e1', marginBottom: '8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                            {settings.signatureUrl && (
+                                <img src={settings.signatureUrl} alt="Signature" style={{ maxHeight: '50px', maxWidth: '160px', objectFit: 'contain', marginBottom: '4px' }} />
+                            )}
                         </div>
-                    ))}
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>For {settings.companyName || 'Company'}</div>
+                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>Authorized Signatory</div>
+                    </div>
                 </div>
             )}
 

@@ -19,6 +19,7 @@ function CompanyDetailsModal({ onClose, onSaved }) {
         company_phone: '',
         website: '',
         logo_url: null,
+        signature_url: null,
     });
 
     useEffect(() => {
@@ -34,6 +35,7 @@ function CompanyDetailsModal({ onClose, onSaved }) {
                         company_phone:   ps.company_phone   || '',
                         website:         ps.website         || '',
                         logo_url:        ps.logo_url        || null,
+                        signature_url:   ps.signature_url   || null,
                     });
                 }
             })
@@ -41,7 +43,7 @@ function CompanyDetailsModal({ onClose, onSaved }) {
             .finally(() => setLoading(false));
     }, []);
 
-    const handleLogoUpload = async (e) => {
+    const handleImageUpload = async (e, field) => {
         const file = e.target.files[0];
         if (!file) return;
         try {
@@ -53,9 +55,9 @@ function CompanyDetailsModal({ onClose, onSaved }) {
             const res = await fetch('/api/upload', { method: 'POST', body: fd });
             const json = await res.json();
             if (!json.success) throw new Error(json.error || 'Upload failed');
-            setData(prev => ({ ...prev, logo_url: json.url }));
+            setData(prev => ({ ...prev, [field]: json.url }));
         } catch (err) {
-            alert('Logo upload failed: ' + err.message);
+            alert('Upload failed: ' + err.message);
         } finally {
             setUploadingLogo(false);
         }
@@ -120,7 +122,7 @@ function CompanyDetailsModal({ onClose, onSaved }) {
                                     Company Logo
                                 </label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                                    <input type="file" accept="image/*" id="co-logo-upload" style={{ display: 'none' }} onChange={handleLogoUpload} disabled={uploadingLogo} />
+                                    <input type="file" accept="image/*" id="co-logo-upload" style={{ display: 'none' }} onChange={e => handleImageUpload(e, 'logo_url')} disabled={uploadingLogo} />
                                     <label htmlFor="co-logo-upload" className="btn btn-secondary" style={{ margin: 0, cursor: uploadingLogo ? 'wait' : 'pointer', padding: '6px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
                                         <Upload size={14} />
                                         {uploadingLogo ? 'Uploading...' : 'Upload Logo'}
@@ -133,6 +135,27 @@ function CompanyDetailsModal({ onClose, onSaved }) {
                                     )}
                                 </div>
                                 <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>PNG with transparent background recommended</p>
+                            </div>
+
+                            {/* Signature */}
+                            <div>
+                                <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
+                                    Authorized Signature
+                                </label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                    <input type="file" accept="image/png" id="co-signature-upload" style={{ display: 'none' }} onChange={e => handleImageUpload(e, 'signature_url')} disabled={uploadingLogo} />
+                                    <label htmlFor="co-signature-upload" className="btn btn-secondary" style={{ margin: 0, cursor: uploadingLogo ? 'wait' : 'pointer', padding: '6px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <Upload size={14} />
+                                        Upload Signature
+                                    </label>
+                                    {data.signature_url && (
+                                        <>
+                                            <img src={data.signature_url} alt="Signature" style={{ height: 44, maxWidth: 140, objectFit: 'contain', border: 'none', borderRadius: 0, backgroundColor: 'transparent', padding: 4 }} />
+                                            <button onClick={() => setData(p => ({ ...p, signature_url: null }))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 12 }}>Remove</button>
+                                        </>
+                                    )}
+                                </div>
+                                <p style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>PNG with transparent background required (e.g. for {data.company_name || 'your company'})</p>
                             </div>
 
                             {field('Company Name', <Building2 size={14} />, 'company_name', 'text', { placeholder: 'e.g. Sorted Solutions' })}

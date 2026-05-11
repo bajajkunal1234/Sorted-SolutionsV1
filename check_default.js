@@ -6,9 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function run() {
-  const { data, error } = await supabase.rpc('get_triggers'); // likely doesn't exist
-  if (error) {
-     // fallback: lets just query pg_catalog using postgres connection string if available, or just use the REST API to fetch a row and see if anything is there.
-  }
+  const { data, error } = await supabase.from('jobs').select('technician_id').eq('job_number', 'JOB-1102').single();
+  console.log(data);
 }
 run();
