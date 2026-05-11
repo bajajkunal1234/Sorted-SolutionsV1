@@ -20,8 +20,8 @@ function JobsCardView({ jobs, onJobClick }) {
             gap: 'var(--spacing-md)'
         }}>
             {jobs.map(job => {
-                const isBooking = job.status === 'booking_request' || job.status === 'new_job_request';
-                const isEnquiry = job.status === 'enquiry';
+                const isEnquiry = job.status === 'enquiry' || job.source === 'website_enquiry' || job.source === 'Website Organic';
+                const isBooking = (job.status === 'booking_request' || job.status === 'new_job_request') && !isEnquiry;
                 const statusColor = getStatusColor(job.status);
                 // Handle different field names (camelCase vs snake_case)
                 const dueDate = job.scheduled_date || job.dueDate;

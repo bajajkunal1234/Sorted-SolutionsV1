@@ -68,9 +68,9 @@ function JobCard({ job, onClick, onCalculate }) {
     const overdue = isOverdue(dueDate);
 
     if (job.status === 'booking_request' || job.status === 'new_job_request' || job.status === 'enquiry') {
-        const isEnquiry = job.status === 'enquiry' || job.source === 'website_enquiry';
+        const isEnquiry = job.status === 'enquiry' || job.source === 'website_enquiry' || job.source === 'Website Organic';
         const isCustomerApp = job.source === 'customer_app';
-        const isWebsiteBooking = job.source === 'website_booking';
+        const isWebsiteBooking = job.source === 'website_booking' || job.source === 'website';
         let bd = {};
         try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
         const slot = bd.schedule?.slot || job.scheduled_time || '';
@@ -78,7 +78,7 @@ function JobCard({ job, onClick, onCalculate }) {
 
         const primaryColor = isEnquiry ? '#ef4444' : isCustomerApp ? '#3b82f6' : '#f59e0b';
         const bgColor = isEnquiry ? 'rgba(239,68,68,0.05)' : isCustomerApp ? 'rgba(59,130,246,0.05)' : 'rgba(245,158,11,0.05)';
-        const titleText = isEnquiry ? '🟡 BOOKING ENQUIRY' : isCustomerApp ? '🔵 CUSTOMER APP BOOKING' : '🟢 WEBSITE BOOKING';
+        const titleText = isEnquiry ? '🔴 WEBSITE ENQUIRY' : isCustomerApp ? '🔵 CUSTOMER APP BOOKING' : '🟢 WEBSITE BOOKING';
 
         return (
             <div
