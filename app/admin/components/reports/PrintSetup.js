@@ -50,6 +50,8 @@ function PrintSetup() {
                     companyEmail: data.company_email || '',
                     companyPhone: data.company_phone || '',
                     gstNumber: data.gst_number || '',
+                    pan: data.pan || '',
+                    website: data.website || '',
                     logoUrl: data.logo_url || '',
                     showLogo: data.show_logo ?? true,
                     showGST: data.show_gst ?? true,
@@ -453,10 +455,13 @@ function InvoicePreview({ settings, previewType, terms }) {
                     <div style={{ fontWeight: 700, fontSize: '20px', color: companyTextColor }}>{settings.companyName || 'Your Company Name'}</div>
                     {settings.companyAddress && <div style={{ fontSize: '12px', color: companySubColor, marginTop: '4px', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{settings.companyAddress}</div>}
                     <div style={{ fontSize: '12px', color: companySubColor, marginTop: '4px' }}>
-                        {[settings.companyPhone, settings.companyEmail].filter(Boolean).join(' · ')}
+                        {[settings.companyPhone, settings.companyEmail, settings.website].filter(Boolean).join(' · ')}
                     </div>
                     {settings.showGST && settings.gstNumber && (
                         <div style={{ fontSize: '11px', color: companySubColor, marginTop: '4px', fontFamily: 'monospace' }}>GSTIN: {settings.gstNumber}</div>
+                    )}
+                    {settings.pan && (
+                        <div style={{ fontSize: '11px', color: companySubColor, marginTop: '2px', fontFamily: 'monospace' }}>PAN: {settings.pan}</div>
                     )}
                 </div>
                 <div style={{ textAlign: 'right' }}>
