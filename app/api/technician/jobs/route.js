@@ -25,7 +25,7 @@ export async function GET(request) {
                 assigned_technician:technicians(id, name, phone)
             `)
             .eq('technician_id', technicianId)
-            .not('status', 'in', '("closed","cancelled")')  // hard filter — technicians never see closed/cancelled
+            .not('status', 'in', '("closed","cancelled","new_job_request","booking_request","enquiry")')  // hard filter — technicians never see unvetted or closed jobs
             .order('created_at', { ascending: false })
 
         // Optional additional status filter (e.g. ?status=scheduled for a specific view)
