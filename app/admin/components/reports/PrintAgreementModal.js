@@ -251,7 +251,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                                 <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
                                     {settings?.company_phone} | {settings?.company_email}
                                 </p>
-                                {settings?.show_gst && settings?.gst_number && (
+                                {(type === 'rental' ? settings?.rental_show_gst : settings?.amc_show_gst) && settings?.gst_number && (
                                     <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>
                                         GSTIN: {settings.gst_number}
                                     </p>

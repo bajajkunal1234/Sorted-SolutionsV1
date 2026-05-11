@@ -86,7 +86,7 @@ export default function SetupInvoiceModal({ type, data, onClose }) {
     const subtotal = items.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
     
     // Tax calculations (simplified based on settings)
-    const showGST = settings?.show_gst;
+    const showGST = settings?.invoice_show_gst;
     const gstBreakdown = settings?.gst_breakdown || { showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18 };
     
     let taxAmount = 0;
@@ -249,7 +249,7 @@ export default function SetupInvoiceModal({ type, data, onClose }) {
                                 <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b' }}>
                                     {settings?.company_phone} | {settings?.company_email}
                                 </p>
-                                {settings?.show_gst && settings?.gst_number && (
+                                {settings?.invoice_show_gst && settings?.gst_number && (
                                     <p style={{ margin: '5px 0', fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>
                                         GSTIN: {settings.gst_number}
                                     </p>
@@ -310,7 +310,7 @@ export default function SetupInvoiceModal({ type, data, onClose }) {
                                     <span style={{ color: '#475569' }}>Subtotal:</span>
                                     <span style={{ fontWeight: 600 }}>₹{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
-                                {settings?.show_gst && taxes.map((tax, idx) => (
+                                {settings?.invoice_show_gst && taxes.map((tax, idx) => (
                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #e2e8f0', fontSize: '14px' }}>
                                         <span style={{ color: '#475569' }}>{tax.label}:</span>
                                         <span>₹{tax.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
