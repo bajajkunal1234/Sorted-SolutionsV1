@@ -407,6 +407,8 @@ function PrintSetup() {
 function InvoicePreview({ settings, previewType, terms }) {
     const fontSize = settings.fontSize === 'small' ? '12px' : settings.fontSize === 'large' ? '16px' : '14px';
     const tStyle = settings.templateStyle;
+    
+    const gstBreakdown = settings.gstBreakdown || settings.gst_breakdown || { showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18 };
 
     const mockItems = [
         { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, amount: 1770, terms_conditions: ['30 days service warranty', 'Gas leak not covered'] },
@@ -509,9 +511,9 @@ function InvoicePreview({ settings, previewType, terms }) {
                         </div>
                         {settings.showGST && (
                             <>
-                                {settings.gstBreakdown.showCGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>CGST ({settings.gstBreakdown.cgstRate}%):</span><span>₹{(4450 * settings.gstBreakdown.cgstRate / 100).toFixed(2)}</span></div>}
-                                {settings.gstBreakdown.showSGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>SGST ({settings.gstBreakdown.sgstRate}%):</span><span>₹{(4450 * settings.gstBreakdown.sgstRate / 100).toFixed(2)}</span></div>}
-                                {settings.gstBreakdown.showIGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>IGST ({settings.gstBreakdown.igstRate}%):</span><span>₹{(4450 * settings.gstBreakdown.igstRate / 100).toFixed(2)}</span></div>}
+                                {gstBreakdown.showCGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>CGST ({gstBreakdown.cgstRate}%):</span><span>₹{(4450 * gstBreakdown.cgstRate / 100).toFixed(2)}</span></div>}
+                                {gstBreakdown.showSGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>SGST ({gstBreakdown.sgstRate}%):</span><span>₹{(4450 * gstBreakdown.sgstRate / 100).toFixed(2)}</span></div>}
+                                {gstBreakdown.showIGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>IGST ({gstBreakdown.igstRate}%):</span><span>₹{(4450 * gstBreakdown.igstRate / 100).toFixed(2)}</span></div>}
                             </>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: `2px solid ${themeColor}`, fontSize: '16px', fontWeight: 800, color: themeColor, marginTop: '4px' }}>
