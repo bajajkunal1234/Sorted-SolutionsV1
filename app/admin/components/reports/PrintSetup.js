@@ -18,6 +18,10 @@ function PrintSetup() {
         fontSize: 'medium',
         includeSignature: true,
         templateStyle: 'modern-boxes',
+        invoiceShowGST: false,
+        quotationShowGST: false,
+        rentalShowGST: false,
+        amcShowGST: false,
     });
 
     const [invoiceTerms, setInvoiceTerms] = useState([]);
@@ -48,6 +52,10 @@ function PrintSetup() {
                     fontSize: data.font_size || 'medium',
                     includeSignature: data.include_signature ?? true,
                     templateStyle: data.template_style || 'modern-boxes',
+                    invoiceShowGST: data.invoice_show_gst ?? false,
+                    quotationShowGST: data.quotation_show_gst ?? false,
+                    rentalShowGST: data.rental_show_gst ?? false,
+                    amcShowGST: data.amc_show_gst ?? false,
                 });
                 setInvoiceTerms(data.invoice_terms || []);
                 setQuotationTerms(data.quotation_terms || []);
@@ -61,6 +69,7 @@ function PrintSetup() {
         }
     };
 
+    const [activeTab, setActiveTab] = useState('invoice');
     const [showPreview, setShowPreview] = useState(false);
     const [previewType, setPreviewType] = useState('invoice');
 
@@ -90,7 +99,11 @@ function PrintSetup() {
                 invoice_terms: invoiceTerms,
                 quotation_terms: quotationTerms,
                 rental_terms: rentalTerms,
-                amc_terms: amcTerms
+                amc_terms: amcTerms,
+                invoice_show_gst: settings.invoiceShowGST,
+                quotation_show_gst: settings.quotationShowGST,
+                rental_show_gst: settings.rentalShowGST,
+                amc_show_gst: settings.amcShowGST,
             };
             await printSettingsAPI.update(payload);
             setSaveSuccess(true);
@@ -177,6 +190,15 @@ function PrintSetup() {
         </div>
     );
 
+    const getActiveTermsData = () => {
+        if (activeTab === 'invoice') return { title: 'Invoice Terms & Conditions', items: invoiceTerms, handlers: invoiceH, gstKey: 'invoiceShowGST' };
+        if (activeTab === 'quotation') return { title: 'Quotation Terms & Conditions', items: quotationTerms, handlers: quotationH, gstKey: 'quotationShowGST' };
+        if (activeTab === 'rental') return { title: 'Rental Agreement Terms', items: rentalTerms, handlers: rentalH, gstKey: 'rentalShowGST' };
+        return { title: 'AMC Agreement Terms', items: amcTerms, handlers: amcH, gstKey: 'amcShowGST' };
+    };
+
+    const activeTermsData = getActiveTermsData();
+
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
@@ -184,15 +206,10 @@ function PrintSetup() {
                 <div>
                     <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '2px' }}>Print Setup</h3>
                     <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: 0 }}>
-                        Company branding, GST settings, and T&C for invoices, quotations, rentals and AMC
+                        Company branding, layout, and document-specific T&C/GST settings
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
-                    {['invoice', 'quotation', 'rental', 'amc'].map(type => (
-                        <button key={type} className="btn btn-secondary" onClick={() => { setPreviewType(type); setShowPreview(true); }} style={{ padding: '8px 14px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Eye size={14} /> {type.charAt(0).toUpperCase() + type.slice(1)}
-                        </button>
-                    ))}
                     <button
                         className="btn btn-primary"
                         onClick={handleSave}
@@ -204,14 +221,12 @@ function PrintSetup() {
                 </div>
             </div>
 
-            {/* Content */}
+            {/* Content Container */}
             <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-lg)' }}>
-
-                    {/* ── LEFT COLUMN ──────────────────────────────────────── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-
-                        {/* Company Info — read-only summary, edited via Company Details button */}
+                <div style={{ maxWidth: '1400px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                    
+                    {/* Top Section: Global Layout & Branding */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: 'var(--spacing-lg)' }}>
                         <div style={{ ...card, display: 'flex', alignItems: 'flex-start', gap: 'var(--spacing-md)', backgroundColor: 'rgba(99,102,241,0.04)', border: '1px solid rgba(99,102,241,0.2)' }}>
                             <Building2 size={28} style={{ color: '#6366f1', flexShrink: 0, marginTop: 2 }} />
                             <div style={{ flex: 1 }}>
@@ -234,52 +249,41 @@ function PrintSetup() {
                             </div>
                         </div>
 
-
-                        {/* Print Options */}
                         <div style={card}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Print Options</h4>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                                    <div>
-                                        {label('Paper Size')}
-                                        <select value={settings.paperSize} onChange={e => setSettings(p => ({ ...p, paperSize: e.target.value }))} className="form-input" style={{ width: '100%' }}>
-                                            <option value="A4">A4 (210 × 297 mm)</option>
-                                            <option value="A5">A5 (148 × 210 mm)</option>
-                                            <option value="Letter">Letter (216 × 279 mm)</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        {label('Font Size')}
-                                        <select value={settings.fontSize} onChange={e => setSettings(p => ({ ...p, fontSize: e.target.value }))} className="form-input" style={{ width: '100%' }}>
-                                            <option value="small">Small (12px)</option>
-                                            <option value="medium">Medium (14px)</option>
-                                            <option value="large">Large (16px)</option>
-                                        </select>
-                                    </div>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Global Print Options</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                <div>
+                                    {label('Paper Size')}
+                                    <select value={settings.paperSize} onChange={e => setSettings(p => ({ ...p, paperSize: e.target.value }))} className="form-input" style={{ width: '100%' }}>
+                                        <option value="A4">A4 (210 × 297 mm)</option>
+                                        <option value="A5">A5 (148 × 210 mm)</option>
+                                        <option value="Letter">Letter (216 × 279 mm)</option>
+                                    </select>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                    {checkRow(settings.showLogo, e => setSettings(p => ({ ...p, showLogo: e.target.checked })), 'Show company logo on documents')}
-                                    {checkRow(settings.showGST, e => setSettings(p => ({ ...p, showGST: e.target.checked })), 'Show GSTIN on header')}
-                                    {checkRow(settings.showTerms, e => setSettings(p => ({ ...p, showTerms: e.target.checked })), 'Show Terms & Conditions on documents')}
-                                    {checkRow(settings.includeSignature, e => setSettings(p => ({ ...p, includeSignature: e.target.checked })), 'Include signature section at bottom')}
+                                <div>
+                                    {label('Font Size')}
+                                    <select value={settings.fontSize} onChange={e => setSettings(p => ({ ...p, fontSize: e.target.value }))} className="form-input" style={{ width: '100%' }}>
+                                        <option value="small">Small (12px)</option>
+                                        <option value="medium">Medium (14px)</option>
+                                        <option value="large">Large (16px)</option>
+                                    </select>
                                 </div>
                             </div>
+                            <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                {checkRow(settings.showLogo, e => setSettings(p => ({ ...p, showLogo: e.target.checked })), 'Show company logo on documents')}
+                                {checkRow(settings.includeSignature, e => setSettings(p => ({ ...p, includeSignature: e.target.checked })), 'Include signature section at bottom')}
+                            </div>
                         </div>
-                    </div>
 
-                    {/* ── RIGHT COLUMN ─────────────────────────────────────── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-
-                        {/* Template Styles */}
                         <div style={card}>
-                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Invoice Template Style</h4>
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>Template Style</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
                                 {templateStyles.map(tmpl => (
                                     <div
                                         key={tmpl.id}
                                         onClick={() => setSettings(p => ({ ...p, templateStyle: tmpl.id }))}
                                         style={{
-                                            padding: 'var(--spacing-md)',
+                                            padding: 'var(--spacing-sm) var(--spacing-md)',
                                             backgroundColor: settings.templateStyle === tmpl.id ? 'rgba(99,102,241,0.08)' : 'var(--bg-secondary)',
                                             border: `2px solid ${settings.templateStyle === tmpl.id ? '#6366f1' : 'var(--border-primary)'}`,
                                             borderRadius: 'var(--radius-md)',
@@ -290,28 +294,100 @@ function PrintSetup() {
                                             gap: 'var(--spacing-sm)'
                                         }}
                                     >
-                                        <div style={{ width: '20px', height: '20px', borderRadius: '50%', border: `2px solid ${settings.templateStyle === tmpl.id ? '#6366f1' : 'var(--border-primary)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                            {settings.templateStyle === tmpl.id && <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#6366f1' }} />}
+                                        <div style={{ width: '16px', height: '16px', borderRadius: '50%', border: `2px solid ${settings.templateStyle === tmpl.id ? '#6366f1' : 'var(--border-primary)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                            {settings.templateStyle === tmpl.id && <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#6366f1' }} />}
                                         </div>
-                                        <div>
-                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>{tmpl.name}</div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>{tmpl.description}</div>
-                                        </div>
+                                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-xs)', color: 'var(--text-primary)' }}>{tmpl.name}</div>
                                     </div>
                                 ))}
                             </div>
                         </div>
+                    </div>
 
-                        {/* Terms blocks */}
-                        <TermsBlock title="Invoice Terms & Conditions" items={invoiceTerms} handlers={invoiceH} defaultText="New invoice term..." />
-                        <TermsBlock title="Quotation Terms & Conditions" items={quotationTerms} handlers={quotationH} defaultText="New quotation term..." />
-                        <TermsBlock title="Rental Agreement Terms" items={rentalTerms} handlers={rentalH} defaultText="New rental term..." />
-                        <TermsBlock title="AMC Agreement Terms" items={amcTerms} handlers={amcH} defaultText="New AMC term..." />
+                    {/* Tabs Navigation */}
+                    <div className="modal-tabs" style={{ display: 'flex', borderBottom: '2px solid var(--border-primary)', marginTop: 'var(--spacing-md)' }}>
+                        {[
+                            { id: 'invoice', label: 'Invoices' },
+                            { id: 'quotation', label: 'Quotations' },
+                            { id: 'rental', label: 'Rentals' },
+                            { id: 'amc', label: 'AMC Contracts' }
+                        ].map(tab => (
+                            <button
+                                key={tab.id}
+                                className={`modal-tab ${activeTab === tab.id ? 'active' : ''}`}
+                                onClick={() => setActiveTab(tab.id)}
+                                style={{
+                                    padding: 'var(--spacing-sm) var(--spacing-lg)',
+                                    fontSize: 'var(--font-size-sm)',
+                                    fontWeight: activeTab === tab.id ? 600 : 500,
+                                    borderBottom: activeTab === tab.id ? '2px solid var(--color-primary)' : 'none',
+                                    color: activeTab === tab.id ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    outline: 'none'
+                                }}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Tab Content */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)' }}>
+                        {/* Settings for specific document type */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div style={card}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
+                                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Settings
+                                </h4>
+                                {checkRow(
+                                    settings[activeTermsData.gstKey],
+                                    e => setSettings(p => ({ ...p, [activeTermsData.gstKey]: e.target.checked })),
+                                    `Apply GST on ${activeTab}s`
+                                )}
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px', marginLeft: '28px' }}>
+                                    If checked, GST calculations and breakdowns will be displayed on the document.
+                                </div>
+                            </div>
+                            
+                            <TermsBlock 
+                                title={activeTermsData.title} 
+                                items={activeTermsData.items} 
+                                handlers={activeTermsData.handlers} 
+                                defaultText="Enter term..." 
+                            />
+                        </div>
+
+                        {/* Live Preview for the active tab */}
+                        <div style={{ ...card, padding: 0, overflow: 'hidden', height: '600px', display: 'flex', flexDirection: 'column', backgroundColor: '#e2e8f0' }}>
+                            <div style={{ padding: '10px 16px', backgroundColor: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' }}>Live Preview</span>
+                                <button className="btn-icon" onClick={() => { setPreviewType(activeTab); setShowPreview(true); }} title="Fullscreen Preview"><Eye size={16} /></button>
+                            </div>
+                            <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+                                <div style={{ 
+                                    backgroundColor: '#fff', 
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+                                    transform: 'scale(0.85)', 
+                                    transformOrigin: 'top center',
+                                    minHeight: '842px',
+                                    width: '100%',
+                                    maxWidth: '800px',
+                                    margin: '0 auto'
+                                }}>
+                                    <InvoicePreview 
+                                        settings={{...settings, showGST: settings[activeTermsData.gstKey]}} 
+                                        previewType={activeTab}
+                                        terms={activeTermsData.items}
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* ── Preview Modal ──────────────────────────────────────────── */}
+            {/* ── Fullscreen Preview Modal ──────────────────────────────────────────── */}
             {showPreview && (
                 <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 'var(--spacing-md)' }}>
                     <div style={{ backgroundColor: '#ffffff', borderRadius: 'var(--radius-lg)', maxWidth: '900px', width: '100%', maxHeight: '92vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
@@ -331,7 +407,9 @@ function PrintSetup() {
                         </div>
 
                         {/* The actual preview document */}
-                        <InvoicePreview settings={settings} previewType={previewType}
+                        <InvoicePreview 
+                            settings={{...settings, showGST: settings[previewType === 'invoice' ? 'invoiceShowGST' : previewType === 'quotation' ? 'quotationShowGST' : previewType === 'rental' ? 'rentalShowGST' : 'amcShowGST']}} 
+                            previewType={previewType}
                             terms={previewType === 'invoice' ? invoiceTerms : previewType === 'quotation' ? quotationTerms : previewType === 'rental' ? rentalTerms : amcTerms}
                         />
                     </div>
@@ -345,6 +423,23 @@ function PrintSetup() {
 function InvoicePreview({ settings, previewType, terms }) {
     const fontSize = settings.fontSize === 'small' ? '12px' : settings.fontSize === 'large' ? '16px' : '14px';
     const tStyle = settings.templateStyle;
+
+    const mockItems = [
+        { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, amount: 1770, terms_conditions: ['30 days service warranty', 'Gas leak not covered'] },
+        { id: 2, desc: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, amount: 2950, terms_conditions: ['90 days warranty on gas refilling'] },
+        { id: 3, desc: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, amount: 1062, terms_conditions: [] }
+    ];
+
+    const mergedTerms = [...terms];
+    mockItems.forEach(item => {
+        if (item.terms_conditions && item.terms_conditions.length > 0) {
+            item.terms_conditions.forEach(t => {
+                if (!mergedTerms.includes(t)) {
+                    mergedTerms.push(t);
+                }
+            });
+        }
+    });
 
     const themeColor = tStyle === 'modern-boxes' ? '#1e293b' : tStyle === 'classic-lines' ? '#374151' : tStyle === 'minimal-clean' ? '#6366f1' : '#1e40af';
     const accentColor = tStyle === 'modern-boxes' ? '#6366f1' : tStyle === 'classic-lines' ? '#10b981' : tStyle === 'minimal-clean' ? '#6366f1' : '#1e40af';
@@ -407,15 +502,15 @@ function InvoicePreview({ settings, previewType, terms }) {
                         </tr>
                     </thead>
                     <tbody>
-                        {[
-                            ['1', 'AC Service – Split Unit 1.5 Ton', '998519', '1', '₹1,500', '18%', '₹1,770'],
-                            ['2', 'Gas Refilling – R32 Refrigerant', '271600', '1', '₹2,500', '18%', '₹2,950'],
-                            ['3', 'Spare Parts (Capacitor)', '8536', '2', '₹450', '18%', '₹1,062'],
-                        ].map((row, ri) => (
+                        {mockItems.map((row, ri) => (
                             <tr key={ri} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                {row.map((cell, ci) => (
-                                    <td key={ci} style={{ padding: '10px 12px', fontSize: '13px', textAlign: ci > 2 ? 'right' : 'left', color: ci === 6 ? '#1e293b' : '#374151', fontWeight: ci === 6 ? 600 : 400 }}>{cell}</td>
-                                ))}
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.id}</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.desc}</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.hsn}</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.qty}</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>₹{row.rate}</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.tax}%</td>
+                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#1e293b', fontWeight: 600 }}>₹{row.amount}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -444,11 +539,11 @@ function InvoicePreview({ settings, previewType, terms }) {
             </div>
 
             {/* Terms */}
-            {settings.showTerms && terms.length > 0 && (
+            {settings.showTerms && mergedTerms.length > 0 && (
                 <div style={{ margin: '0 30px', padding: '16px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', marginBottom: '24px' }}>
                     <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8', marginBottom: '8px' }}>Terms & Conditions</div>
                     <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', color: '#64748b', lineHeight: 1.6 }}>
-                        {terms.map((t, i) => <li key={i} style={{ marginBottom: '3px' }}>{t}</li>)}
+                        {mergedTerms.map((t, i) => <li key={i} style={{ marginBottom: '3px' }}>{t}</li>)}
                     </ol>
                 </div>
             )}

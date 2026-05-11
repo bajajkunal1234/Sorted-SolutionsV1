@@ -58,7 +58,10 @@ function NewProductForm({
         purchasePrice: '',
         salePrice: '',
         dealerPrice: '',
-        retailPrice: ''
+        retailPrice: '',
+
+        // T&C Points
+        termsConditions: []
     });
 
     const [imagePreview, setImagePreview] = useState([]);
@@ -190,7 +193,8 @@ function NewProductForm({
                 hsn_description: formData.hsnDescription || null,
                 service_terms_template: formData.serviceTermsTemplate || null,
                 job_type: formData.jobType || null,
-                status: 'active'
+                status: 'active',
+                terms_conditions: formData.termsConditions
             };
 
             if (onSave) {
@@ -752,6 +756,61 @@ function NewProductForm({
                                 </div>
                             )}
                         </div>
+
+                        {/* ── 7. Terms & Conditions ────────────────────────── */}
+                        <div className="card mb-md">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                <h3 style={{ margin: 0 }}>Item-Specific Terms & Conditions</h3>
+                                <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={() => setFormData({ ...formData, termsConditions: [...formData.termsConditions, ''] })}
+                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                    <Plus size={14} /> Add Point
+                                </button>
+                            </div>
+                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: 'var(--spacing-md)' }}>
+                                Add warranty or usage terms specific to this product/service. These will automatically print on the quotation or invoice when sold.
+                            </div>
+                            
+                            {formData.termsConditions.length === 0 ? (
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                                    No specific terms added.
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                                    {formData.termsConditions.map((term, index) => (
+                                        <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                            <span style={{ minWidth: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'right' }}>{index + 1}.</span>
+                                            <input
+                                                type="text"
+                                                value={term}
+                                                onChange={(e) => {
+                                                    const newTerms = [...formData.termsConditions];
+                                                    newTerms[index] = e.target.value;
+                                                    setFormData({ ...formData, termsConditions: newTerms });
+                                                }}
+                                                className="form-input"
+                                                style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px 10px' }}
+                                                placeholder="Enter term..."
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const newTerms = formData.termsConditions.filter((_, i) => i !== index);
+                                                    setFormData({ ...formData, termsConditions: newTerms });
+                                                }}
+                                                style={{ padding: '4px', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                     </div>
 
                     <div className="modal-footer">

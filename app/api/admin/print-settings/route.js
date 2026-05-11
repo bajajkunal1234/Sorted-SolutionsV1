@@ -7,7 +7,8 @@ const ALLOWED_COLUMNS = [
     'gst_number', 'pan', 'website', 'logo_url',
     'show_logo', 'show_gst', 'show_terms',
     'paper_size', 'font_size', 'include_signature', 'template_style',
-    'gst_breakdown', 'invoice_terms', 'quotation_terms', 'rental_terms', 'amc_terms'
+    'gst_breakdown', 'invoice_terms', 'quotation_terms', 'rental_terms', 'amc_terms',
+    'invoice_show_gst', 'quotation_show_gst', 'rental_show_gst', 'amc_show_gst'
 ]
 
 // GET - Fetch print settings

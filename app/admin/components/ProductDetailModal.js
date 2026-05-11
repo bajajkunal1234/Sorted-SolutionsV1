@@ -27,7 +27,8 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
         sale_price: parseFloat(product.sale_price) || 0,
         purchase_price: parseFloat(product.purchase_price) || 0,
         current_stock: parseFloat(product.current_stock) || 0,
-        min_stock_level: parseInt(product.min_stock_level) || 0
+        min_stock_level: parseInt(product.min_stock_level) || 0,
+        terms_conditions: Array.isArray(product.terms_conditions) ? product.terms_conditions : []
     });
 
     // Inline add category / brand
@@ -502,6 +503,69 @@ function ProductDetailModal({ product, onClose, onUpdate, onDelete, categories =
                                     </div>
                                 </div>
                             )}
+
+                            {/* ── Item-Specific Terms & Conditions ─────────── */}
+                            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                                    <div>
+                                        <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>
+                                            Item-Specific Terms & Conditions
+                                        </h3>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                            These terms print automatically when this item is quoted or sold.
+                                        </div>
+                                    </div>
+                                    {isEditing && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-secondary"
+                                            onClick={() => setEditedProduct({ ...editedProduct, terms_conditions: [...(editedProduct.terms_conditions || []), ''] })}
+                                            style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                            <Plus size={14} /> Add Point
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {(!editedProduct.terms_conditions || editedProduct.terms_conditions.length === 0) ? (
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                                        No specific terms added.
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                                        {editedProduct.terms_conditions.map((term, index) => (
+                                            <div key={index} style={{ display: 'flex', gap: 'var(--spacing-xs)', alignItems: 'center' }}>
+                                                <span style={{ minWidth: '20px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textAlign: 'right' }}>{index + 1}.</span>
+                                                <input
+                                                    type="text"
+                                                    value={term}
+                                                    onChange={(e) => {
+                                                        const newTerms = [...editedProduct.terms_conditions];
+                                                        newTerms[index] = e.target.value;
+                                                        setEditedProduct({ ...editedProduct, terms_conditions: newTerms });
+                                                    }}
+                                                    disabled={!isEditing}
+                                                    className="form-input"
+                                                    style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '6px 10px', backgroundColor: isEditing ? 'var(--bg-primary)' : 'var(--bg-elevated)' }}
+                                                    placeholder="Enter term..."
+                                                />
+                                                {isEditing && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const newTerms = editedProduct.terms_conditions.filter((_, i) => i !== index);
+                                                            setEditedProduct({ ...editedProduct, terms_conditions: newTerms });
+                                                        }}
+                                                        style={{ padding: '4px', border: 'none', background: 'none', color: 'var(--color-danger)', cursor: 'pointer' }}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
 
                             {/* ── Stock Adjustment — Products Only ─────────── */}
                             {product.type === 'product' && (

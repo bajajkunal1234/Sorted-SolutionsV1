@@ -46,7 +46,7 @@ export async function POST(request) {
             'current_stock', 'min_stock_level',
             'purchase_price', 'sale_price', 'dealer_price', 'retail_price',
             'gst_applicable', 'gst_rate', 'hsn_code', 'hsn_description',
-            'service_terms_template', 'status'
+            'service_terms_template', 'status', 'terms_conditions'
         ];
 
         // camelCase → snake_case aliases
