@@ -118,9 +118,9 @@ export async function PUT(request) {
         const ALLOWED = ['status','priority','technician_id','technician_name',
             'description','notes','internal_notes','scheduled_date','scheduled_time',
             'category','subcategory','appliance','brand','issue','model',
-            'amount','property','thumbnail','rental_id','amc_id','source',
+            'amount','property','property_id','thumbnail','rental_id','amc_id','source',
             'on_way_at','arrived_at','quotation_approved_at','repair_note_added_at',
-            'completed_at','started_at','updated_by'];
+            'completed_at','started_at','updated_by','customer_id','customer_name'];
         const updates = Object.fromEntries(
             Object.entries(rawUpdates).filter(([k]) => ALLOWED.includes(k))
         );
