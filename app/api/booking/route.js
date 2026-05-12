@@ -32,6 +32,14 @@ export async function POST(request) {
             )
         }
 
+        // Format phone number to standard +91-XXXXX XXXXX format
+        if (customer.phone) {
+            const rawPhone = customer.phone.replace(/\D/g, '').slice(-10);
+            if (rawPhone.length === 10) {
+                customer.phone = `+91-${rawPhone.slice(0, 5)} ${rawPhone.slice(5)}`;
+            }
+        }
+
         // ── Fix 3: Slot capacity check ─────────────────────────────────────────
         if (schedule?.date && schedule?.slot) {
             // Fetch slot config to get maxBookings
