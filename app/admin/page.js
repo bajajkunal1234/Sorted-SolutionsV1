@@ -11,6 +11,7 @@ import './admin.css'
 import './modal-improvements.css'
 import NotificationBell from '@/components/common/NotificationBell'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
+import DashboardFollowups from './components/DashboardFollowups'
 
 export default function AdminApp() {
     const router = useRouter()
@@ -96,8 +97,12 @@ export default function AdminApp() {
                                 </div>
                             )}
                         </div>
-                        <p>Dashboard with ERP features coming soon...</p>
-                        <div className="portal-links">
+                        
+                        <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+                            <DashboardFollowups />
+                        </div>
+
+                        <div className="portal-links" style={{ marginTop: 'var(--spacing-xl)' }}>
                             <a href="/technician" className="portal-link">
                                 → Go to Technician Portal
                             </a>

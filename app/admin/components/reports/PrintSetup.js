@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Printer, Save, Eye, Plus, Trash2, CheckCircle, Building2, ExternalLink } from 'lucide-react';
+import { Printer, Save, Eye, Plus, Trash2, CheckCircle, Building2, ExternalLink, X } from 'lucide-react';
 import { printSettingsAPI } from '@/lib/adminAPI';
 
 // ── Shared style for section cards ────────────────────────────────────────
@@ -81,8 +81,6 @@ function PrintSetup() {
 
     const [invoiceTerms, setInvoiceTerms] = useState([]);
     const [quotationTerms, setQuotationTerms] = useState([]);
-    const [rentalTerms, setRentalTerms] = useState([]);
-    const [amcTerms, setAmcTerms] = useState([]);
 
     useEffect(() => {
         fetchSettings();
@@ -123,8 +121,6 @@ function PrintSetup() {
                 });
                 setInvoiceTerms(data.invoice_terms || []);
                 setQuotationTerms(data.quotation_terms || []);
-                setRentalTerms(data.rental_terms || []);
-                setAmcTerms(data.amc_terms || []);
             }
         } catch (error) {
             console.error('Failed to load print settings:', error);
@@ -162,12 +158,8 @@ function PrintSetup() {
                 template_style: settings.templateStyle,
                 invoice_terms: invoiceTerms,
                 quotation_terms: quotationTerms,
-                rental_terms: rentalTerms,
-                amc_terms: amcTerms,
                 invoice_show_gst: settings.invoiceShowGST,
                 quotation_show_gst: settings.quotationShowGST,
-                rental_show_gst: settings.rentalShowGST,
-                amc_show_gst: settings.amcShowGST,
             };
             await printSettingsAPI.update(payload);
             setSaveSuccess(true);
@@ -188,8 +180,6 @@ function PrintSetup() {
 
     const invoiceH = makeTermsHandlers(invoiceTerms, setInvoiceTerms);
     const quotationH = makeTermsHandlers(quotationTerms, setQuotationTerms);
-    const rentalH = makeTermsHandlers(rentalTerms, setRentalTerms);
-    const amcH = makeTermsHandlers(amcTerms, setAmcTerms);
 
     if (isLoading) {
         return (
@@ -208,9 +198,7 @@ function PrintSetup() {
     }
     const getActiveTermsData = () => {
         if (activeTab === 'invoice') return { title: 'Invoice Terms & Conditions', items: invoiceTerms, handlers: invoiceH, gstKey: 'invoiceShowGST' };
-        if (activeTab === 'quotation') return { title: 'Quotation Terms & Conditions', items: quotationTerms, handlers: quotationH, gstKey: 'quotationShowGST' };
-        if (activeTab === 'rental') return { title: 'Rental Agreement Terms', items: rentalTerms, handlers: rentalH, gstKey: 'rentalShowGST' };
-        return { title: 'AMC Agreement Terms', items: amcTerms, handlers: amcH, gstKey: 'amcShowGST' };
+        return { title: 'Quotation Terms & Conditions', items: quotationTerms, handlers: quotationH, gstKey: 'quotationShowGST' };
     };
 
     const activeTermsData = getActiveTermsData();
@@ -302,9 +290,7 @@ function PrintSetup() {
                     <div className="modal-tabs" style={{ display: 'flex', borderBottom: '2px solid var(--border-primary)', marginTop: 'var(--spacing-md)' }}>
                         {[
                             { id: 'invoice', label: 'Invoices' },
-                            { id: 'quotation', label: 'Quotations' },
-                            { id: 'rental', label: 'Rentals' },
-                            { id: 'amc', label: 'AMC Contracts' }
+                            { id: 'quotation', label: 'Quotations' }
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -354,6 +340,24 @@ function PrintSetup() {
 
                         {/* Live Preview for the active tab */}
                         <div style={{ ...card, padding: 0, overflow: 'hidden', height: '600px', display: 'flex', flexDirection: 'column', backgroundColor: '#e2e8f0' }}>
+                            <>
+                                <div style={{ padding: '10px 16px', backgroundColor: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' }}>Live Preview</span>
+                                    <button className="btn-icon" onClick={() => { setPreviewType(activeTab); setShowPreview(true); }} title="Fullscreen Preview"><Eye size={16} /></button>
+                                </div>
+                                    <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+                                        <div style={{ 
+                                            backgroundColor: '#fff', 
+                                            boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+                                            transform: 'scale(0.85)', 
+                                            transformOrigin: 'top center',
+                                            minHeight: '842px',
+                                            width: '100%',
+                                            maxWidth: '800px',
+                                            margin: '0 auto'
+                                        }}>
+                                            <InvoicePreview 
+                                                settings={{...settings, showGST: settings[activeTermsData.gstKey]}} 
                             <div style={{ padding: '10px 16px', backgroundColor: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' }}>Live Preview</span>
                                 <button className="btn-icon" onClick={() => { setPreviewType(activeTab); setShowPreview(true); }} title="Fullscreen Preview"><Eye size={16} /></button>
@@ -402,9 +406,9 @@ function PrintSetup() {
 
                         {/* The actual preview document */}
                         <InvoicePreview 
-                            settings={{...settings, showGST: settings[previewType === 'invoice' ? 'invoiceShowGST' : previewType === 'quotation' ? 'quotationShowGST' : previewType === 'rental' ? 'rentalShowGST' : 'amcShowGST']}} 
+                            settings={{...settings, showGST: settings[previewType === 'invoice' ? 'invoiceShowGST' : 'quotationShowGST']}} 
                             previewType={previewType}
-                            terms={previewType === 'invoice' ? invoiceTerms : previewType === 'quotation' ? quotationTerms : previewType === 'rental' ? rentalTerms : amcTerms}
+                            terms={previewType === 'invoice' ? invoiceTerms : quotationTerms}
                         />
                     </div>
                 </div>
@@ -507,9 +511,13 @@ function InvoicePreview({ settings, previewType, terms }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
                     <thead>
                         <tr style={{ backgroundColor: tStyle === 'modern-boxes' ? themeColor : tStyle === 'professional-grid' ? '#f1f5f9' : '#f8fafc', color: tStyle === 'modern-boxes' ? '#fff' : '#1e293b' }}>
-                            {['#', 'Description', 'HSN', 'Qty', 'Rate', 'Tax%', 'Amount'].map((h, i) => (
-                                <th key={h} style={{ padding: '10px 12px', textAlign: i > 2 ? 'right' : 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>{h}</th>
-                            ))}
+                            <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>#</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Description</th>
+                            {settings.showGST && <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>HSN</th>}
+                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Qty</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Rate</th>
+                            {settings.showGST && <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Tax%</th>}
+                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Amount</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -517,10 +525,10 @@ function InvoicePreview({ settings, previewType, terms }) {
                             <tr key={ri} style={{ borderBottom: '1px solid #e2e8f0' }}>
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.id}</td>
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.desc}</td>
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.hsn}</td>
+                                {settings.showGST && <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.hsn}</td>}
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.qty}</td>
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>₹{row.rate}</td>
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{settings.showGST ? `${row.tax}%` : '-'}</td>
+                                {settings.showGST && <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.tax}%</td>}
                                 <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#1e293b', fontWeight: 600 }}>₹{(row.qty * row.rate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                             </tr>
                         ))}

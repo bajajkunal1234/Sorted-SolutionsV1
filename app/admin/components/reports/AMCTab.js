@@ -5,6 +5,8 @@ import { Shield, Plus, Edit2, Trash2, TrendingUp, DollarSign, Calendar, AlertCir
 import { amcAPI } from '@/lib/adminAPI';
 import AMCPlanForm from './AMCPlanForm';
 import NewAMCForm from './NewAMCForm';
+import CreateJobForm from '../CreateJobForm';
+import { jobsAPI } from '@/lib/adminAPI';
 import AgreementTemplateEditor from './AgreementTemplateEditor';
 import PrintAgreementModal from './PrintAgreementModal';
 import TerminationModal from './TerminationModal';
@@ -20,6 +22,7 @@ function AMCTab() {
     const [showAMCDetails, setShowAMCDetails] = useState(false);
     const [selectedAmcForDetails, setSelectedAmcForDetails] = useState(null);
     const [terminateTarget, setTerminateTarget] = useState(null);
+    const [amcForService, setAmcForService] = useState(null);
     const [plans, setPlans] = useState([]);
     const [activeAMCs, setActiveAMCs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -265,7 +268,7 @@ function AMCTab() {
                                         <button
                                             className="btn btn-secondary"
                                             style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                                            onClick={() => alert(`Schedule Service for ${amc.accounts?.name}\n\nAMC: ${amc.plan_name}\nProduct: ${amc.product_brand} ${amc.product_model}\nNext Service: ${amc.next_service_type || 'General Service'}\n\nThis will create a new job and assign a technician.`)}
+                                            onClick={() => setAmcForService(amc)}
                                         >
                                             Schedule Service
                                         </button>
@@ -578,6 +581,34 @@ function AMCTab() {
                     customerId={terminateTarget.customer_id}
                     onClose={() => setTerminateTarget(null)}
                     onSuccess={() => { setTerminateTarget(null); fetchData(); }}
+                />
+            )}
+
+            {amcForService && (
+                <CreateJobForm
+                    onClose={() => setAmcForService(null)}
+                    onCreate={async (jobData) => {
+                        try {
+                            setLoading(true);
+                            await jobsAPI.create(jobData);
+                            alert('Job created successfully!');
+                            setAmcForService(null);
+                        } catch (err) {
+                            alert('Failed to create job: ' + err.message);
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                    existingJob={{
+                        customer_id: amcForService.customer_id,
+                        customer: amcForService.accounts || { id: amcForService.customer_id, name: amcForService.customer_name },
+                        category: 'AMC Service',
+                        brand: amcForService.product_brand,
+                        appliance: amcForService.product_brand + ' ' + amcForService.product_model,
+                        issue: amcForService.next_service_type || 'General Service',
+                        notes: `AMC: ${amcForService.plan_name || amcForService.amc_plans?.name}\nProduct Model: ${amcForService.product_model}\nSerial Number: ${amcForService.serial_number}`,
+                        property: { address: amcForService.accounts?.address || '' }
+                    }}
                 />
             )}
         </div>

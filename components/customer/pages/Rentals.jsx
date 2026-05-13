@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Package, Calendar, AlertCircle, CheckCircle, ChevronRight, Phone } from 'lucide-react'
+import { Package, Calendar, AlertCircle, CheckCircle, ChevronRight, Phone, Wrench } from 'lucide-react'
+import BookServiceModal from '../modals/BookServiceModal'
 
 const PLAN_COLORS = ['#10b981', '#38bdf8', '#f59e0b', '#8b5cf6']
 
@@ -36,6 +37,7 @@ export default function RentalsPage() {
     const [rentals, setRentals] = useState([])
     const [plans, setPlans] = useState([])
     const [activeTab, setActiveTab] = useState('my') // 'my' | 'browse'
+    const [requestModal, setRequestModal] = useState({ show: false, rental: null })
 
     useEffect(() => {
         fetchData()
@@ -176,13 +178,25 @@ export default function RentalsPage() {
                                     </div>
 
                                     {/* Support CTA */}
-                                    <a href="tel:+919999999999" style={{
-                                        marginTop: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                        background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)',
-                                        borderRadius: 12, padding: '12px', textDecoration: 'none', color: '#10b981', fontSize: 13, fontWeight: 600,
-                                    }}>
-                                        <Phone size={14} /> Contact for Rent Payment / Support
-                                    </a>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setRequestModal({ show: true, rental: r }); }}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                                background: 'rgba(16,185,129,0.1)', border: 'none',
+                                                borderRadius: 12, padding: '12px', color: '#10b981', fontSize: 13, fontWeight: 700, cursor: 'pointer'
+                                            }}
+                                        >
+                                            <Wrench size={14} /> Request Service
+                                        </button>
+                                        <a href="tel:+919999999999" style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                                            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                            borderRadius: 12, padding: '12px', textDecoration: 'none', color: '#f8fafc', fontSize: 13, fontWeight: 600,
+                                        }}>
+                                            <Phone size={14} /> Contact Support
+                                        </a>
+                                    </div>
                                 </div>
                             )
                         })
@@ -328,6 +342,22 @@ export default function RentalsPage() {
 
                     )}
                 </div>
+            )}
+
+            {/* Book Service Modal */}
+            {requestModal.show && (
+                <BookServiceModal
+                    isOpen={true}
+                    onClose={() => setRequestModal({ show: false, rental: null })}
+                    preSelectedAppliance={{
+                        type: requestModal.rental?.productCategory || requestModal.rental?.productName,
+                        brand: ''
+                    }}
+                    onBook={(job) => {
+                        // Refresh or show success
+                        alert('Service request created successfully!')
+                    }}
+                />
             )}
         </div>
     )

@@ -1026,7 +1026,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
   <thead><tr style="background:${bg};color:${color}">
     <th style="padding:8px 10px;text-align:left;font-size:11px">#</th>
     <th style="padding:8px 10px;text-align:left;font-size:11px">Service / Product</th>
-    <th style="padding:8px 10px;text-align:center;font-size:11px">HSN/SAC</th>
+    ${showGST ? `<th style="padding:8px 10px;text-align:center;font-size:11px">HSN/SAC</th>` : ''}
     <th style="padding:8px 10px;text-align:center;font-size:11px">Qty</th>
     <th style="padding:8px 10px;text-align:center;font-size:11px">Unit</th>
     <th style="padding:8px 10px;text-align:right;font-size:11px">Rate (Incl.)</th>
@@ -1039,7 +1039,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
   <tr style="background:${i % 2 === 0 ? bg1 : bg2}">
     <td style="padding:8px 10px;border-bottom:1px solid ${bd}">${i + 1}</td>
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};font-weight:500">${it.description || it.name || ''}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;font-family:monospace;font-size:11px;color:#64748b">${it.hsn || '—'}</td>
+    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;font-family:monospace;font-size:11px;color:#64748b">${it.hsn || '—'}</td>` : ''}
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center">${it.qty || it.quantity || 1}</td>
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;color:#64748b">${it.unit || 'Nos'}</td>
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right">${rupee}${fmt(rateIncl(it))}</td>
@@ -1065,7 +1065,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     </table>
   </div>`;
 
-        const hsnBoxHtml = (bg, bd) => hsnEntries.length === 0 ? '' : `
+        const hsnBoxHtml = (bg, bd) => !showGST || hsnEntries.length === 0 ? '' : `
   <div style="margin-top:12px;padding:10px 14px;background:${bg};border:1px solid ${bd};border-radius:6px">
     <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;margin-bottom:6px">HSN/SAC Description</div>
     <table>

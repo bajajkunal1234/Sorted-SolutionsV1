@@ -170,10 +170,10 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
     const [depositReceipt, setDepositReceipt] = useState(null);
     const [advanceReceipt, setAdvanceReceipt] = useState(null);
 
-    // Post-creation success state
     const [successData, setSuccessData] = useState(null);
     const [showPrintAgreement, setShowPrintAgreement] = useState(false);
     const [showPrintInvoice, setShowPrintInvoice] = useState(false);
+    const [generateInvoice, setGenerateInvoice] = useState(true);
 
     const [formData, setFormData] = useState({
         customerId: '',
@@ -299,6 +299,62 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
             });
 
             if (result) {
+                if (generateInvoice && (formData.selectedTenure.setupFee > 0 || formData.rentAdvance > 0)) {
+                    const items = [];
+                    let subtotal = 0;
+                    if (formData.selectedTenure.setupFee > 0) {
+                        items.push({
+                            id: Date.now(),
+                            description: `Rental Setup Fee: ${selectedPlan?.product_name}`,
+                            qty: 1,
+                            rate: Number(formData.selectedTenure.setupFee),
+                            discount: 0,
+                            taxRate: 18,
+                            total: Number(formData.selectedTenure.setupFee) * 1.18,
+                            isCharge: false
+                        });
+                        subtotal += Number(formData.selectedTenure.setupFee);
+                    }
+                    if (formData.rentAdvance > 0) {
+                        items.push({
+                            id: Date.now() + 1,
+                            description: `Rent Advance: ${selectedPlan?.product_name}`,
+                            qty: 1,
+                            rate: Number(formData.rentAdvance),
+                            discount: 0,
+                            taxRate: 18,
+                            total: Number(formData.rentAdvance) * 1.18,
+                            isCharge: false
+                        });
+                        subtotal += Number(formData.rentAdvance);
+                    }
+                    
+                    const invoiceData = {
+                        account_id: formData.customerId,
+                        account_name: customers.find(c => String(c.id) === String(formData.customerId))?.name,
+                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                        date: new Date().toISOString().split('T')[0],
+                        items,
+                        items_subtotal: subtotal,
+                        subtotal,
+                        discount: 0,
+                        charges_total: 0,
+                        cgst: (subtotal * 9) / 100,
+                        sgst: (subtotal * 9) / 100,
+                        igst: 0,
+                        total_tax: (subtotal * 18) / 100,
+                        total_amount: Math.round(subtotal * 1.18),
+                        __formType: 'sales',
+                        status: 'finalized',
+                        notes: `Generated for Rental Setup: ${selectedPlan?.product_name}`
+                    };
+
+                    try {
+                        await transactionsAPI.create(invoiceData, 'sales_invoice');
+                    } catch (e) {
+                        console.error('Failed to auto-generate invoice', e);
+                    }
+                }
                 setSuccessData(result);
             }
         } catch (error) {
@@ -524,6 +580,22 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                                 <textarea className="form-input" value={formData.notes}
                                     onChange={e => update('notes', e.target.value)} rows="3"
                                     placeholder="Any special instructions or notes..." />
+                            </div>
+
+                            {/* Invoice Generation Toggle */}
+                            <div className="form-group" style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={generateInvoice}
+                                        onChange={(e) => setGenerateInvoice(e.target.checked)}
+                                        style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)' }}
+                                    />
+                                    <span>Automatically generate Sales Invoice for Setup/Advance</span>
+                                </label>
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px', marginLeft: '24px' }}>
+                                    If checked and there are setup fees or rent advance, an invoice will be created and saved in the Transactions tab.
+                                </div>
                             </div>
 
                             {/* Summary */}

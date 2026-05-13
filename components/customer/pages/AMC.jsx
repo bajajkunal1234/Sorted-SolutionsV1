@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Shield, Calendar, CheckCircle, AlertCircle, ChevronRight, Clock } from 'lucide-react'
+import { Shield, Calendar, CheckCircle, AlertCircle, ChevronRight, Clock, Wrench } from 'lucide-react'
+import BookServiceModal from '../modals/BookServiceModal'
 
 const PLAN_COLORS = ['#8b5cf6', '#38bdf8', '#10b981', '#f59e0b']
 
@@ -28,6 +29,7 @@ export default function AMCPage() {
     const [plans, setPlans] = useState([])
     const [activeTab, setActiveTab] = useState('my') // 'my' | 'explore'
     const [selectedContract, setSelectedContract] = useState(null)
+    const [requestModal, setRequestModal] = useState({ show: false, contract: null })
 
     useEffect(() => {
         fetchData()
@@ -159,6 +161,22 @@ export default function AMCPage() {
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    {/* Actions */}
+                                    <div style={{ marginTop: 16, borderTop: '1px dashed rgba(255,255,255,0.1)', paddingTop: 16 }}>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); setRequestModal({ show: true, contract: c }); }}
+                                            style={{
+                                                width: '100%', padding: '12px', borderRadius: 12, border: 'none',
+                                                background: 'rgba(139,92,246,0.15)', color: '#a78bfa',
+                                                fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8
+                                            }}
+                                        >
+                                            <Wrench size={16} />
+                                            Request Service
+                                        </button>
+                                    </div>
                                 </div>
                             )
                         })
@@ -227,6 +245,22 @@ export default function AMCPage() {
                         </a>
                     </div>
                 </div>
+            )}
+
+            {/* Book Service Modal */}
+            {requestModal.show && (
+                <BookServiceModal
+                    isOpen={true}
+                    onClose={() => setRequestModal({ show: false, contract: null })}
+                    preSelectedAppliance={{
+                        type: requestModal.contract?.productCategory || requestModal.contract?.productType,
+                        brand: requestModal.contract?.productBrand
+                    }}
+                    onBook={(job) => {
+                        // Refresh or show success
+                        alert('Service request created successfully!')
+                    }}
+                />
             )}
         </div>
     )

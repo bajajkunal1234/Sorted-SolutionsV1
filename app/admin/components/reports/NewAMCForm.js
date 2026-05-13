@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, RefreshCcw, CheckCircle, Printer, FileText } from 'lucide-react';
-import { accountsAPI } from '@/lib/adminAPI';
+import { accountsAPI, transactionsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import PrintAgreementModal from './PrintAgreementModal';
 import SetupInvoiceModal from './SetupInvoiceModal';
@@ -23,10 +23,10 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
         notes: ''
     });
 
-    // Post-creation success state
     const [successData, setSuccessData] = useState(null);
     const [showPrintAgreement, setShowPrintAgreement] = useState(false);
     const [showPrintInvoice, setShowPrintInvoice] = useState(false);
+    const [generateInvoice, setGenerateInvoice] = useState(true);
 
     useEffect(() => {
         const fetchCustomers = async () => {
@@ -68,6 +68,41 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
         try {
             const result = await onSave(amcData);
             if (result) {
+                if (generateInvoice) {
+                    const invoiceData = {
+                        account_id: formData.customerId,
+                        account_name: customerName,
+                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                        date: new Date().toISOString().split('T')[0],
+                        items: [{
+                            id: Date.now(),
+                            description: `AMC: ${selectedPlan.name} for ${formData.productBrand} ${formData.productModel}`,
+                            qty: 1,
+                            rate: Number(selectedPlan.price),
+                            discount: 0,
+                            taxRate: 18,
+                            total: Number(selectedPlan.price) * 1.18,
+                            isCharge: false
+                        }],
+                        items_subtotal: Number(selectedPlan.price),
+                        subtotal: Number(selectedPlan.price),
+                        discount: 0,
+                        charges_total: 0,
+                        cgst: (Number(selectedPlan.price) * 9) / 100,
+                        sgst: (Number(selectedPlan.price) * 9) / 100,
+                        igst: 0,
+                        total_tax: (Number(selectedPlan.price) * 18) / 100,
+                        total_amount: Math.round(Number(selectedPlan.price) * 1.18),
+                        __formType: 'sales',
+                        status: 'finalized',
+                        notes: `Generated for AMC: ${selectedPlan.name} (${formData.productBrand})`
+                    };
+                    try {
+                        await transactionsAPI.create(invoiceData, 'sales_invoice');
+                    } catch (e) {
+                        console.error('Failed to auto-generate invoice', e);
+                    }
+                }
                 setSuccessData(result);
             }
         } catch (err) {
@@ -372,6 +407,22 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
                                 rows="3"
                                 placeholder="Any special instructions or notes..."
                             />
+                        </div>
+
+                        {/* Invoice Generation Toggle */}
+                        <div className="form-group" style={{ padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', margin: 0, fontWeight: 600 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={generateInvoice}
+                                    onChange={(e) => setGenerateInvoice(e.target.checked)}
+                                    style={{ width: '16px', height: '16px', accentColor: 'var(--color-primary)' }}
+                                />
+                                <span>Automatically generate Sales Invoice for this AMC</span>
+                            </label>
+                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '4px', marginLeft: '24px' }}>
+                                If checked, an invoice will be created and saved in the Transactions tab.
+                            </div>
                         </div>
 
                         {/* Summary */}
