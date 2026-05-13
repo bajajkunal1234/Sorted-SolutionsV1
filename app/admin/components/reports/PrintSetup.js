@@ -1,9 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Printer, Save, Eye, Plus, Trash2, CheckCircle, Building2, ExternalLink, X } from 'lucide-react';
+import { Save, Eye, Plus, Trash2, CheckCircle, X } from 'lucide-react';
 import { printSettingsAPI } from '@/lib/adminAPI';
-import AgreementTemplateEditor from './AgreementTemplateEditor';
 
 // ── Shared style for section cards ────────────────────────────────────────
 const card = {
@@ -199,8 +198,7 @@ function PrintSetup() {
     }
     const getActiveTermsData = () => {
         if (activeTab === 'invoice') return { title: 'Invoice Terms & Conditions', items: invoiceTerms, handlers: invoiceH, gstKey: 'invoiceShowGST' };
-        if (activeTab === 'quotation') return { title: 'Quotation Terms & Conditions', items: quotationTerms, handlers: quotationH, gstKey: 'quotationShowGST' };
-        return { title: '', items: [], handlers: {}, gstKey: '' };
+        return { title: 'Quotation Terms & Conditions', items: quotationTerms, handlers: quotationH, gstKey: 'quotationShowGST' };
     };
 
     const activeTermsData = getActiveTermsData();
@@ -292,9 +290,7 @@ function PrintSetup() {
                     <div className="modal-tabs" style={{ display: 'flex', borderBottom: '2px solid var(--border-primary)', marginTop: 'var(--spacing-md)' }}>
                         {[
                             { id: 'invoice', label: 'Invoices' },
-                            { id: 'quotation', label: 'Quotations' },
-                            { id: 'rental', label: 'Rental Agreements' },
-                            { id: 'amc', label: 'AMC Contracts' }
+                            { id: 'quotation', label: 'Quotations' }
                         ].map(tab => (
                             <button
                                 key={tab.id}
@@ -317,71 +313,57 @@ function PrintSetup() {
                     </div>
 
                     {/* Tab Content */}
-                    {(activeTab === 'rental' || activeTab === 'amc') ? (
-                        <div style={{ ...card, padding: 'var(--spacing-md)', marginTop: 'var(--spacing-md)', backgroundColor: 'var(--bg-primary)', minHeight: '600px' }}>
-                            <AgreementTemplateEditor 
-                                type={activeTab} 
-                                title={`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Agreement Template`}
-                                placeholders={
-                                    activeTab === 'rental' 
-                                        ? ['Date', 'Customer_Name', 'Customer_Phone', 'Customer_Email', 'Customer_Address', 'Customer_Aadhar', 'Property_Address', 'Rent_Amount', 'Security_Deposit', 'Setup_Fee', 'Product_Details', 'Next_Due_Date', 'Sign_Date']
-                                        : ['Date', 'Customer_Name', 'Customer_Phone', 'Customer_Email', 'Customer_Address', 'Property_Address', 'AMC_Amount', 'Services_Included', 'Product_Details', 'Start_Date', 'End_Date', 'Sign_Date']
-                                }
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)' }}>
+                        {/* Settings for specific document type */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            <div style={card}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
+                                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Settings
+                                </h4>
+                                {checkRow(
+                                    settings[activeTermsData.gstKey],
+                                    e => setSettings(p => ({ ...p, [activeTermsData.gstKey]: e.target.checked })),
+                                    `Apply GST on ${activeTab}s`
+                                )}
+                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px', marginLeft: '28px' }}>
+                                    If checked, GST calculations and breakdowns will be displayed on the document.
+                                </div>
+                            </div>
+                            
+                            <TermsBlock 
+                                title={activeTermsData.title} 
+                                items={activeTermsData.items} 
+                                handlers={activeTermsData.handlers} 
+                                defaultText="Enter term..." 
                             />
                         </div>
-                    ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)' }}>
-                            {/* Settings for specific document type */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                                <div style={card}>
-                                    <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                                        {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Settings
-                                    </h4>
-                                    {checkRow(
-                                        settings[activeTermsData.gstKey],
-                                        e => setSettings(p => ({ ...p, [activeTermsData.gstKey]: e.target.checked })),
-                                        `Apply GST on ${activeTab}s`
-                                    )}
-                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginTop: '2px', marginLeft: '28px' }}>
-                                        If checked, GST calculations and breakdowns will be displayed on the document.
-                                    </div>
-                                </div>
-                                
-                                <TermsBlock 
-                                    title={activeTermsData.title} 
-                                    items={activeTermsData.items} 
-                                    handlers={activeTermsData.handlers} 
-                                    defaultText="Enter term..." 
-                                />
+
+                        {/* Live Preview for the active tab */}
+                        <div style={{ ...card, padding: 0, overflow: 'hidden', height: '600px', display: 'flex', flexDirection: 'column', backgroundColor: '#e2e8f0' }}>
+                            <div style={{ padding: '10px 16px', backgroundColor: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' }}>Live Preview</span>
+                                <button className="btn-icon" onClick={() => { setPreviewType(activeTab); setShowPreview(true); }} title="Fullscreen Preview"><Eye size={16} /></button>
                             </div>
-    
-                            {/* Live Preview for the active tab */}
-                            <div style={{ ...card, padding: 0, overflow: 'hidden', height: '600px', display: 'flex', flexDirection: 'column', backgroundColor: '#e2e8f0' }}>
-                                <div style={{ padding: '10px 16px', backgroundColor: '#cbd5e1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' }}>Live Preview</span>
-                                    <button className="btn-icon" onClick={() => { setPreviewType(activeTab); setShowPreview(true); }} title="Fullscreen Preview"><Eye size={16} /></button>
-                                </div>
-                                <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-                                    <div style={{ 
-                                        backgroundColor: '#fff', 
-                                        boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
-                                        transform: 'scale(0.85)', 
-                                        transformOrigin: 'top center',
-                                        minHeight: '842px',
-                                        width: '100%',
-                                        maxWidth: '800px',
-                                        margin: '0 auto'
-                                    }}>
-                                        <InvoicePreview 
-                                            settings={{...settings, showGST: settings[activeTermsData.gstKey]}} 
-                                            previewType={activeTab}
-                                            terms={activeTermsData.items}
-                                        />
-                                    </div>
+                            <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+                                <div style={{ 
+                                    backgroundColor: '#fff', 
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
+                                    transform: 'scale(0.85)', 
+                                    transformOrigin: 'top center',
+                                    minHeight: '842px',
+                                    width: '100%',
+                                    maxWidth: '800px',
+                                    margin: '0 auto'
+                                }}>
+                                    <InvoicePreview 
+                                        settings={{...settings, showGST: settings[activeTermsData.gstKey]}} 
+                                        previewType={activeTab}
+                                        terms={activeTermsData.items}
+                                    />
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
 
