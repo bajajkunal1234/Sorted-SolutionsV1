@@ -135,7 +135,7 @@ export async function GET(request) {
         if (type === 'all') {
             const tables = ['sales_invoices', 'purchase_invoices', 'receipt_vouchers', 'payment_vouchers'];
             const results = await Promise.all(tables.map(async (table) => {
-                let query = supabase.from(table).select('*')
+                let query = supabase.from(table).select('*, accounts(mobile, email, address, gstin, state)')
                 if (accountId) query = query.eq('account_id', accountId)
                 if (startDate) query = query.gte('date', startDate)
                 if (endDate) query = query.lte('date', endDate)
@@ -155,7 +155,7 @@ export async function GET(request) {
 
         let query = supabase
             .from(tableName)
-            .select('*')
+            .select('*, accounts(mobile, email, address, gstin, state)')
             .order('date', { ascending: false })
             .limit(100)
 

@@ -399,173 +399,76 @@ function PrintSetup() {
     );
 }
 
-// ── Reusable preview component (also referenced by SetupInvoiceModal concept) ─
+// ── Reusable preview component that uses the actual global print engine ─
 function InvoicePreview({ settings, previewType, terms }) {
-    const fontSize = settings.fontSize === 'small' ? '12px' : settings.fontSize === 'large' ? '16px' : '14px';
-    const tStyle = settings.templateStyle;
-    
-    const gstBreakdown = settings.gstBreakdown || settings.gst_breakdown || { showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18 };
+    const [html, setHtml] = useState('');
 
-    const mockItems = [
-        { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, terms_conditions: ['[Example Item-Specific Term] 90 days warranty on gas refilling'] },
-        { id: 2, desc: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, terms_conditions: [] },
-        { id: 3, desc: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, terms_conditions: [] }
-    ];
+    useEffect(() => {
+        if (typeof window !== 'undefined' && window.generatePrintHtml) {
+            // Map camelCase settings back to the snake_case format the engine expects
+            const snakeSettings = {
+                company_name: settings.companyName,
+                company_address: settings.companyAddress,
+                company_phone: settings.companyPhone,
+                company_email: settings.companyEmail,
+                website: settings.website,
+                gst_number: settings.gstNumber,
+                pan: settings.pan,
+                show_logo: settings.showLogo,
+                logo_url: settings.logoUrl,
+                show_gst: settings.showGST,
+                show_terms: settings.showTerms,
+                paper_size: settings.paperSize,
+                font_size: settings.fontSize,
+                include_signature: settings.includeSignature,
+                signature_url: settings.signatureUrl,
+                template_style: settings.templateStyle,
+                invoice_terms: previewType === 'invoice' ? terms : [],
+                quotation_terms: previewType === 'quotation' ? terms : []
+            };
 
-    const subtotal = mockItems.reduce((acc, item) => acc + (item.qty * item.rate), 0);
-    
-    let taxAmount = 0;
-    if (settings.showGST) {
-        if (gstBreakdown.showCGST && gstBreakdown.showSGST) {
-            taxAmount = (subtotal * gstBreakdown.cgstRate / 100) + (subtotal * gstBreakdown.sgstRate / 100);
-        } else if (gstBreakdown.showIGST) {
-            taxAmount = subtotal * gstBreakdown.igstRate / 100;
+            const mockItems = [
+                { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, terms_conditions: ['[Example Item-Specific Term] 90 days warranty on gas refilling'], cgst: settings.showGST ? 135 : 0, sgst: settings.showGST ? 135 : 0, amount: 1500 },
+                { id: 2, desc: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, terms_conditions: [], cgst: settings.showGST ? 225 : 0, sgst: settings.showGST ? 225 : 0, amount: 2500 },
+                { id: 3, desc: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, terms_conditions: [], cgst: settings.showGST ? 81 : 0, sgst: settings.showGST ? 81 : 0, amount: 900 }
+            ];
+
+            const subtotal = 1500 + 2500 + 900;
+            const totalTax = settings.showGST ? (135+135 + 225+225 + 81+81) : 0;
+            const grandTotal = subtotal + totalTax;
+
+            const mockData = {
+                invoice_number: previewType === 'invoice' ? 'INV-2026-0042' : 'QUO-2026-0042',
+                account_name: 'Sample Customer Name',
+                account_phone: '+91 98765 12345',
+                billing_address: '123 Customer Street, Andheri West, Mumbai - 400053',
+                date: new Date().toISOString(),
+                items: mockItems,
+                amount: grandTotal,
+                total_amount: grandTotal,
+                subtotal: subtotal,
+                cgst: settings.showGST ? 441 : 0,
+                sgst: settings.showGST ? 441 : 0,
+                total_tax: totalTax
+            };
+
+            // Remove the window.print() script from the generated HTML for the preview
+            const rawHtml = window.generatePrintHtml(mockData, previewType === 'invoice' ? 'sales' : 'quotations', snakeSettings);
+            const safeHtml = rawHtml.replace(/<script>window\.onload[\s\S]*?<\/script>/, '');
+            setHtml(safeHtml);
         }
-    }
-    const grandTotal = subtotal + taxAmount;
-
-    const mergedTerms = [...terms];
-    mockItems.forEach(item => {
-        if (item.terms_conditions && item.terms_conditions.length > 0) {
-            item.terms_conditions.forEach(t => {
-                if (!mergedTerms.includes(t)) {
-                    mergedTerms.push(t);
-                }
-            });
-        }
-    });
-
-    const themeColor = tStyle === 'modern-boxes' ? '#1e293b' : tStyle === 'classic-lines' ? '#374151' : tStyle === 'minimal-clean' ? '#6366f1' : '#1e40af';
-    const accentColor = tStyle === 'modern-boxes' ? '#6366f1' : tStyle === 'classic-lines' ? '#10b981' : tStyle === 'minimal-clean' ? '#6366f1' : '#1e40af';
-
-    const headerStyle = tStyle === 'modern-boxes'
-        ? { backgroundColor: themeColor, color: '#fff', padding: '24px 30px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }
-        : tStyle === 'professional-grid'
-            ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '24px 30px', borderBottom: `3px solid ${themeColor}` }
-            : { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '24px 30px', borderBottom: tStyle === 'classic-lines' ? `2px solid ${themeColor}` : `1px solid #e2e8f0` };
-
-    const companyTextColor = tStyle === 'modern-boxes' ? '#fff' : '#1e293b';
-    const companySubColor = tStyle === 'modern-boxes' ? 'rgba(255,255,255,0.75)' : '#64748b';
-
-    const docTitle = previewType === 'invoice' ? (settings.showGST ? 'TAX INVOICE' : 'INVOICE') : 'QUOTATION';
-    const refPrefix = previewType === 'invoice' ? 'INV' : previewType === 'quotation' ? 'QUO' : previewType === 'rental' ? 'RA' : 'AMC';
+    }, [settings, previewType, terms]);
 
     return (
-        <div style={{ padding: '30px', backgroundColor: '#ffffff', color: '#000000', fontFamily: 'Arial, sans-serif', fontSize }}>
-            {/* Header */}
-            <div style={headerStyle}>
-                <div>
-                    {settings.showLogo && settings.logoUrl && (
-                        <img src={settings.logoUrl} alt="Logo" style={{ height: '52px', marginBottom: '12px', display: 'block' }} />
-                    )}
-                    <div style={{ fontWeight: 700, fontSize: '20px', color: companyTextColor }}>{settings.companyName || 'Your Company Name'}</div>
-                    {settings.companyAddress && <div style={{ fontSize: '12px', color: companySubColor, marginTop: '4px', whiteSpace: 'pre-wrap', lineHeight: 1.4 }}>{settings.companyAddress}</div>}
-                    <div style={{ fontSize: '12px', color: companySubColor, marginTop: '4px' }}>
-                        {[settings.companyPhone, settings.companyEmail, settings.website].filter(Boolean).join(' · ')}
+        <div style={{ backgroundColor: '#f1f5f9', display: 'flex', justifyContent: 'center', height: '100%', minHeight: '800px', overflow: 'hidden' }}>
+            <div style={{ width: '100%', height: '100%', backgroundColor: '#fff', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                {html ? (
+                    <iframe srcDoc={html} style={{ width: '100%', height: '100%', border: 'none' }} title="Print Preview" />
+                ) : (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                        Loading preview engine... (If this persists, refresh the page to inject the print script)
                     </div>
-                    {settings.showGST && settings.gstNumber && (
-                        <div style={{ fontSize: '11px', color: companySubColor, marginTop: '4px', fontFamily: 'monospace' }}>GSTIN: {settings.gstNumber}</div>
-                    )}
-                    {settings.pan && (
-                        <div style={{ fontSize: '11px', color: companySubColor, marginTop: '2px', fontFamily: 'monospace' }}>PAN: {settings.pan}</div>
-                    )}
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '22px', fontWeight: 800, color: tStyle === 'modern-boxes' ? '#fff' : accentColor, letterSpacing: '1px' }}>{docTitle}</div>
-                    <div style={{ fontSize: '12px', color: tStyle === 'modern-boxes' ? 'rgba(255,255,255,0.7)' : '#64748b', marginTop: '8px' }}>
-                        <div>#{refPrefix}-2026-0042</div>
-                        <div>Date: {new Date().toLocaleDateString('en-GB')}</div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Bill To */}
-            <div style={{ padding: '20px 30px', backgroundColor: tStyle === 'minimal-clean' ? '#f9fafb' : 'transparent', borderBottom: tStyle !== 'modern-boxes' ? '1px solid #e2e8f0' : 'none' }}>
-                <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: '#94a3b8', marginBottom: '6px' }}>Bill To</div>
-                <div style={{ fontWeight: 700, fontSize: '14px', color: '#1e293b' }}>Sample Customer Name</div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>123 Customer Street, Andheri West, Mumbai · 400053</div>
-                <div style={{ fontSize: '12px', color: '#64748b' }}>+91 98765 12345</div>
-            </div>
-
-            {/* Items Table */}
-            <div style={{ padding: '0 30px 20px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: tStyle === 'modern-boxes' ? themeColor : tStyle === 'professional-grid' ? '#f1f5f9' : '#f8fafc', color: tStyle === 'modern-boxes' ? '#fff' : '#1e293b' }}>
-                            <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>#</th>
-                            <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Description</th>
-                            {settings.showGST && <th style={{ padding: '10px 12px', textAlign: 'left', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>HSN</th>}
-                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Qty</th>
-                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Rate</th>
-                            {settings.showGST && <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Tax%</th>}
-                            <th style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, fontSize: '12px', borderBottom: `2px solid ${tStyle === 'minimal-clean' ? '#e2e8f0' : themeColor}` }}>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {mockItems.map((row, ri) => (
-                            <tr key={ri} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.id}</td>
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.desc}</td>
-                                {settings.showGST && <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'left', color: '#374151', fontWeight: 400 }}>{row.hsn}</td>}
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.qty}</td>
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>₹{row.rate}</td>
-                                {settings.showGST && <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#374151', fontWeight: 400 }}>{row.tax}%</td>}
-                                <td style={{ padding: '10px 12px', fontSize: '13px', textAlign: 'right', color: '#1e293b', fontWeight: 600 }}>₹{(row.qty * row.rate).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-
-                {/* Totals */}
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                    <div style={{ width: '280px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}>
-                            <span style={{ color: '#64748b' }}>Subtotal:</span>
-                            <span style={{ fontWeight: 600 }}>₹{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        {settings.showGST && (
-                            <>
-                                {gstBreakdown.showCGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>CGST ({gstBreakdown.cgstRate}%):</span><span>₹{(subtotal * gstBreakdown.cgstRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>}
-                                {gstBreakdown.showSGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>SGST ({gstBreakdown.sgstRate}%):</span><span>₹{(subtotal * gstBreakdown.sgstRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>}
-                                {gstBreakdown.showIGST && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderBottom: '1px solid #e2e8f0', fontSize: '13px' }}><span style={{ color: '#64748b' }}>IGST ({gstBreakdown.igstRate}%):</span><span>₹{(subtotal * gstBreakdown.igstRate / 100).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>}
-                            </>
-                        )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderTop: `2px solid ${themeColor}`, fontSize: '16px', fontWeight: 800, color: themeColor, marginTop: '4px' }}>
-                            <span>Grand Total:</span>
-                            <span style={{ color: accentColor }}>₹{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Terms */}
-            {settings.showTerms && mergedTerms.length > 0 && (
-                <div style={{ margin: '0 30px', padding: '16px', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', marginBottom: '24px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8', marginBottom: '8px' }}>Terms & Conditions</div>
-                    <ol style={{ margin: 0, paddingLeft: '18px', fontSize: '11px', color: '#64748b', lineHeight: 1.6 }}>
-                        {mergedTerms.map((t, i) => <li key={i} style={{ marginBottom: '3px' }}>{t}</li>)}
-                    </ol>
-                </div>
-            )}
-
-            {/* Signature */}
-            {settings.includeSignature && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0 30px', marginBottom: '30px' }}>
-                    <div style={{ textAlign: 'center', minWidth: '180px' }}>
-                        <div style={{ width: '180px', height: '60px', borderBottom: '1px solid #cbd5e1', marginBottom: '8px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-                            {settings.signatureUrl && (
-                                <img src={settings.signatureUrl} alt="Signature" style={{ maxHeight: '50px', maxWidth: '160px', objectFit: 'contain', marginBottom: '4px' }} />
-                            )}
-                        </div>
-                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>For {settings.companyName || 'Company'}</div>
-                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>Authorized Signatory</div>
-                    </div>
-                </div>
-            )}
-
-            {/* Footer */}
-            <div style={{ borderTop: '1px solid #e2e8f0', padding: '12px 30px', textAlign: 'center', fontSize: '10px', color: '#94a3b8' }}>
-                This is a computer-generated document. {settings.companyName} · {settings.companyPhone} · {settings.companyEmail}
+                )}
             </div>
         </div>
     );

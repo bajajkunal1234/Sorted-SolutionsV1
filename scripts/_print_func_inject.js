@@ -1,14 +1,14 @@
-    const handlePrintItem = (item, tab) => {
+    const generatePrintHtml = (item, tab, settingsOverride) => {
         const ref       = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
         const acct      = item.account_name || '';
-        const acctPhone = item.account_phone || '';
-        const acctGSTIN = item.account_gstin || '';
-        const acctAddr  = item.billing_address || '';
+        const acctPhone = item.account_phone || item.accounts?.mobile || '';
+        const acctGSTIN = item.account_gstin || item.accounts?.gstin || '';
+        const acctAddr  = item.billing_address || item.accounts?.address?.full_address || item.accounts?.address || '';
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
 
-        const ps           = printSettingsRef.current || {};
+        const ps           = settingsOverride || (typeof printSettingsRef !== 'undefined' ? printSettingsRef.current : null) || window._globalPrintSettings || {};
         const companyName  = ps.company_name    || 'Your Company';
         const companyAddr  = ps.company_address || '';
         const companyPhone = ps.company_phone   || '';
@@ -340,7 +340,15 @@ ${body}
         else if (tStyle === 'minimal-clean') html = arctic();
         else                                 html = crimsonGrid();
 
+        return html;
+    };
+
+    window.generatePrintHtml = generatePrintHtml;
+
+    const handlePrintItem = (item, tab) => {
+        const html = generatePrintHtml(item, tab, null);
         const w = window.open('', '_blank');
         if (w) { w.document.write(html); w.document.close(); }
     };
+    window.handlePrintItem = handlePrintItem;
 

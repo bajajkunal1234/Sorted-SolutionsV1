@@ -942,11 +942,11 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             return [a.street, a.city, a.state, a.pincode].filter(Boolean).join(', ');
         };
         const acct       = item.account_name || liveLedger.name || '';
-        const acctPhone  = item.account_phone  || item.account_mobile || liveLedger.mobile || liveLedger.phone || '';
-        const acctMobile = item.account_mobile || item.account_phone  || liveLedger.mobile || liveLedger.phone || '';
-        const acctEmail  = item.account_email  || liveLedger.email || '';
-        const acctGSTIN  = item.account_gstin  || liveLedger.gstin || '';
-        const acctAddr   = item.account_address || item.billing_address || buildAddr(liveLedger);
+        const acctPhone  = item.account_phone  || item.accounts?.mobile || item.account_mobile || liveLedger.mobile || liveLedger.phone || '';
+        const acctMobile = item.account_mobile || item.accounts?.mobile || item.account_phone  || liveLedger.mobile || liveLedger.phone || '';
+        const acctEmail  = item.account_email  || item.accounts?.email || liveLedger.email || '';
+        const acctGSTIN  = item.account_gstin  || item.accounts?.gstin || liveLedger.gstin || '';
+        const acctAddr   = item.account_address || item.billing_address || item.accounts?.address?.full_address || item.accounts?.address || buildAddr(liveLedger);
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
