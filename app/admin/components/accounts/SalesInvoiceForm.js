@@ -6,7 +6,7 @@ import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
-import { accountsAPI, inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
+import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
 function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, prefillItems }) {
     const buildInitialItems = () => {
@@ -68,7 +68,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         items: buildInitialItems(),
         notes: existingInvoice?.notes || '',
         terms: existingInvoice?.terms || 'Payment due within 30 days.\nLate payments subject to 2% monthly interest.',
-        technician: existingInvoice?.technician || ''
+        technician: existingInvoice?.technician || '',
+        showTax: existingInvoice?.showTax !== undefined ? existingInvoice.showTax : true
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
@@ -82,11 +83,15 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
     useEffect(() => {
         Promise.all([
             inventoryAPI.getAll(),
-            productLinksAPI.getAll().catch(() => [])
-        ]).then(([data, links]) => {
+            productLinksAPI.getAll().catch(() => []),
+            printSettingsAPI.get().catch(() => null)
+        ]).then(([data, links, printData]) => {
             const svcList = (data || []).filter(p => p.type === 'service' || p.product_type === 'service');
             setServices(svcList);
             setProductLinks(links || []);
+            if (printData && existingInvoice?.showTax === undefined) {
+                setFormData(prev => ({ ...prev, showTax: printData.invoice_show_gst ?? printData.show_gst ?? true }));
+            }
         }).catch(() => {});
     }, []);
 
@@ -97,7 +102,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         const subtotal = item.qty * item.rate;
         const discountAmount = item.discount || 0;
         const taxableAmount = subtotal - discountAmount;
-        const taxAmount = (taxableAmount * (item.taxRate || 0)) / 100;
+        const taxAmount = formData.showTax ? (taxableAmount * (item.taxRate || 0)) / 100 : 0;
         return taxableAmount + taxAmount;
     };
 
@@ -112,20 +117,22 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         const isInterState = formData.accountState !== companyState;
         let cgst = 0, sgst = 0, igst = 0;
 
-        formData.items.forEach(item => {
-            const itemTaxable = (item.qty * item.rate) - (item.discount || 0);
-            const taxAmount = (itemTaxable * (item.taxRate || 0)) / 100;
-            if (isInterState) { igst += taxAmount; }
-            else { cgst += taxAmount / 2; sgst += taxAmount / 2; }
-        });
-        // Also apply GST on charges (using 18% default if no rate specified)
-        charges.forEach(c => {
-            const amt = Number(c.amount) || 0;
-            const rate = Number(c.taxRate) || 18;
-            const tax = (amt * rate) / 100;
-            if (isInterState) { igst += tax; }
-            else { cgst += tax / 2; sgst += tax / 2; }
-        });
+        if (formData.showTax) {
+            formData.items.forEach(item => {
+                const itemTaxable = (item.qty * item.rate) - (item.discount || 0);
+                const taxAmount = (itemTaxable * (item.taxRate || 0)) / 100;
+                if (isInterState) { igst += taxAmount; }
+                else { cgst += taxAmount / 2; sgst += taxAmount / 2; }
+            });
+            // Also apply GST on charges (using 18% default if no rate specified)
+            charges.forEach(c => {
+                const amt = Number(c.amount) || 0;
+                const rate = Number(c.taxRate) || 18;
+                const tax = (amt * rate) / 100;
+                if (isInterState) { igst += tax; }
+                else { cgst += tax / 2; sgst += tax / 2; }
+            });
+        }
 
         const totalTax = cgst + sgst + igst;
         const totalAmount = combinedTaxable + totalTax;
@@ -269,7 +276,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 rate: c.amount,
                 discount: 0,
                 taxRate: c.taxRate,
-                total: c.amount * (1 + (c.taxRate || 0) / 100)
+                total: formData.showTax ? c.amount * (1 + (c.taxRate || 0) / 100) : c.amount
             }))
         ];
 
@@ -406,7 +413,9 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                         <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Qty *</th>
                                         <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '12%' }}>Rate *</th>
                                         <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Disc.</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '10%' }}>Tax %</th>
+                                        {formData.showTax && (
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '10%' }}>Tax %</th>
+                                        )}
                                         <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '13%' }}>Total</th>
                                         <th style={{ padding: 'var(--spacing-xs)', width: '5%' }}></th>
                                     </tr>
@@ -492,20 +501,22 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                                     style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
                                                 />
                                             </td>
-                                            <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                <select
-                                                    className="form-input"
-                                                    value={item.taxRate}
-                                                    onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
-                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                                >
-                                                    <option value="0">0%</option>
-                                                    <option value="5">5%</option>
-                                                    <option value="12">12%</option>
-                                                    <option value="18">18%</option>
-                                                    <option value="28">28%</option>
-                                                </select>
-                                            </td>
+                                            {formData.showTax && (
+                                                <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                    <select
+                                                        className="form-input"
+                                                        value={item.taxRate}
+                                                        onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
+                                                        style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                    >
+                                                        <option value="0">0%</option>
+                                                        <option value="5">5%</option>
+                                                        <option value="12">12%</option>
+                                                        <option value="18">18%</option>
+                                                        <option value="28">28%</option>
+                                                    </select>
+                                                </td>
+                                            )}
                                             <td style={{ padding: 'var(--spacing-xs)', textAlign: 'right', fontWeight: 600 }}>
                                                 ₹{(item.total || 0).toFixed(2)}
                                             </td>
@@ -628,23 +639,27 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                     </div>
                                 </>
                             )}
-                            {totals.cgst > 0 && (
+                            {formData.showTax && (
                                 <>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
-                                        <span>CGST:</span>
-                                        <span style={{ fontWeight: 600 }}>₹{totals.cgst.toFixed(2)}</span>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
-                                        <span>SGST:</span>
-                                        <span style={{ fontWeight: 600 }}>₹{totals.sgst.toFixed(2)}</span>
-                                    </div>
+                                    {totals.cgst > 0 && (
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
+                                                <span>CGST:</span>
+                                                <span style={{ fontWeight: 600 }}>₹{totals.cgst.toFixed(2)}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', color: '#10b981' }}>
+                                                <span>SGST:</span>
+                                                <span style={{ fontWeight: 600 }}>₹{totals.sgst.toFixed(2)}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                    {totals.igst > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b' }}>
+                                            <span>IGST:</span>
+                                            <span style={{ fontWeight: 600 }}>₹{totals.igst.toFixed(2)}</span>
+                                        </div>
+                                    )}
                                 </>
-                            )}
-                            {totals.igst > 0 && (
-                                <div style={{ display: 'flex', justifyContent: 'space-between', color: '#f59e0b' }}>
-                                    <span>IGST:</span>
-                                    <span style={{ fontWeight: 600 }}>₹{totals.igst.toFixed(2)}</span>
-                                </div>
                             )}
                             <div style={{
                                 display: 'flex',

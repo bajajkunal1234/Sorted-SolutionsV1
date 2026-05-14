@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, MessageSquare, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine } from 'lucide-react';
-import { inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
+import { inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
 // ── Price resolution ─────────────────────────────────────────────────────────
 // priceType: 'sale' | 'dealer' | 'mrp' | 'custom'
@@ -23,6 +23,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     const [search, setSearch]             = useState('');
     const [filter, setFilter]             = useState('all'); // 'all' | 'product' | 'service'
     const [basket, setBasket]             = useState([]); // { ...item, qty, priceType, customPrice }
+    const [showTax, setShowTax]           = useState(true);
     const [basketOpen, setBasketOpen]     = useState(false);
     const [showManual, setShowManual]     = useState(false);
     const [manualItem, setManualItem]     = useState({ name: '', rate: '', type: 'product' });
@@ -32,10 +33,13 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         job?.warranty_status === 'in-warranty';
 
     useEffect(() => {
-        Promise.all([inventoryAPI.getAll(), productLinksAPI.getAll().catch(() => [])])
-            .then(([inv, links]) => {
+        Promise.all([inventoryAPI.getAll(), productLinksAPI.getAll().catch(() => []), printSettingsAPI.get().catch(() => null)])
+            .then(([inv, links, printData]) => {
                 setInventory(inv || []);
                 setProductLinks(links || []);
+                if (printData) {
+                    setShowTax(printData.show_gst ?? true);
+                }
             })
             .finally(() => setLoading(false));
     }, []);
@@ -109,7 +113,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
 
     // ── Totals (use resolved price per item) ──────────────────────────────────
     const subtotal  = basket.reduce((s, b) => s + b.qty * getPrice(b), 0);
-    const gst       = basket.reduce((s, b) => s + b.qty * getPrice(b) * (b.tax_rate || 18) / 100, 0);
+    const gst       = showTax ? basket.reduce((s, b) => s + b.qty * getPrice(b) * (b.tax_rate || 18) / 100, 0) : 0;
     const total     = subtotal + gst;
     const itemCount = basket.reduce((s, b) => s + b.qty, 0);
 
@@ -128,7 +132,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         const lines = basket
             .map((b, i) => `${i + 1}. ${b.name} × ${b.qty} = ₹${fmt(b.qty * getPrice(b))}`)
             .join('\n');
-        const text = `*Repair Estimate*\nJob: ${job?.job_number || ''}\n\n${lines}\n\nSubtotal: ₹${fmt(subtotal)}\nGST: ₹${fmt(Math.round(gst))}\n*Total: ₹${fmt(Math.round(total))}*\n\nPlease confirm to proceed.`;
+        const text = `*Repair Estimate*\nJob: ${job?.job_number || ''}\n\n${lines}\n\nSubtotal: ₹${fmt(subtotal)}${showTax ? `\nGST: ₹${fmt(Math.round(gst))}` : ''}\n*Total: ₹${fmt(Math.round(total))}*\n\nPlease confirm to proceed.`;
         window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
     };
 
@@ -392,9 +396,11 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
                                     <span>Subtotal</span><span>₹{fmt(subtotal)}</span>
                                 </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                                    <span>GST</span><span>₹{fmt(Math.round(gst))}</span>
-                                </div>
+                                {showTax && (
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                        <span>GST</span><span>₹{fmt(Math.round(gst))}</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

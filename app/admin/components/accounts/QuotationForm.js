@@ -6,7 +6,7 @@ import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
-import { accountsAPI, inventoryAPI, productLinksAPI } from '@/lib/adminAPI';
+import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
 function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems }) {
     // Build initial items from prefillItems (from RepairCalculator) or existingQuotation or blank
@@ -63,7 +63,6 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         subject: existingQuotation?.subject || '',
         items: buildInitialItems(),
         notes: existingQuotation?.notes || '',
-        terms: existingQuotation?.terms || 'Quotation valid for 30 days.\nPrices subject to change without notice.\nPayment terms: 50% advance, 50% on completion.',
         showTax: existingQuotation?.showTax !== undefined ? existingQuotation.showTax : true
     });
 
@@ -74,15 +73,19 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
     const [services, setServices] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
 
-    // Fetch services and product-links
+    // Fetch services and product-links and print settings
     useEffect(() => {
         Promise.all([
             inventoryAPI.getAll(),
-            productLinksAPI.getAll().catch(() => [])
-        ]).then(([data, links]) => {
+            productLinksAPI.getAll().catch(() => []),
+            printSettingsAPI.get().catch(() => null)
+        ]).then(([data, links, printSettings]) => {
             const svcList = (data || []).filter(p => p.type === 'service' || p.product_type === 'service');
             setServices(svcList);
             setProductLinks(links || []);
+            if (printSettings && existingQuotation?.showTax === undefined) {
+                setFormData(prev => ({ ...prev, showTax: printSettings.quotation_show_gst ?? printSettings.show_gst ?? true }));
+            }
         }).catch(() => {});
     }, []);
 
@@ -658,33 +661,19 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                         </div>
                     </div>
 
-                    {/* Notes & Terms */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                        <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Notes
-                            </label>
-                            <textarea
-                                className="form-input"
-                                value={formData.notes}
-                                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                rows="3"
-                                placeholder="Additional notes..."
-                                style={{ width: '100%', resize: 'vertical' }}
-                            />
-                        </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Terms & Conditions
-                            </label>
-                            <textarea
-                                className="form-input"
-                                value={formData.terms}
-                                onChange={(e) => setFormData({ ...formData, terms: e.target.value })}
-                                rows="3"
-                                style={{ width: '100%', resize: 'vertical' }}
-                            />
-                        </div>
+                    {/* Notes */}
+                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                            Notes
+                        </label>
+                        <textarea
+                            className="form-input"
+                            value={formData.notes}
+                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            rows="3"
+                            placeholder="Additional notes..."
+                            style={{ width: '100%', resize: 'vertical' }}
+                        />
                     </div>
                 </div>
 
