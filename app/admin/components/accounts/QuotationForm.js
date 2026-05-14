@@ -24,16 +24,17 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                     rate: it.rate || 0,
                     discount: 0,
                     taxRate: it.taxRate || 18,
+                    terms_conditions: it.terms_conditions || [],
                     total: it.qty * it.rate
                 }));
         }
-        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }];
+        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, terms_conditions: [], total: 0 }];
     };
 
     const buildInitialCharges = () => {
         if (existingQuotation?.items) {
             return existingQuotation.items.filter(i => i.isCharge).map(i => ({
-                id: i.id, serviceId: i.productId, name: i.description, amount: i.rate, taxRate: i.taxRate
+                id: i.id, serviceId: i.productId, name: i.description, amount: i.rate, taxRate: i.taxRate, terms_conditions: i.terms_conditions || []
             }));
         }
         if (prefillItems?.length) {
@@ -44,7 +45,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                     serviceId: it.productId || null,
                     name: it.description,
                     amount: it.rate || 0,
-                    taxRate: it.taxRate || 18
+                    taxRate: it.taxRate || 18,
+                    terms_conditions: it.terms_conditions || []
                 }));
         }
         return [];
@@ -177,6 +179,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             rate: it.rate || 0,
             discount: it.discount || 0,
             taxRate: it.taxRate || 18,
+            terms_conditions: it.terms_conditions || [],
             total: (it.qty || 1) * (it.rate || 0)
         }));
 
@@ -185,7 +188,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             serviceId: it.productId || '',
             name: it.description,
             amount: (it.qty || 1) * (it.rate || 0),
-            taxRate: it.taxRate || 18
+            taxRate: it.taxRate || 18,
+            terms_conditions: it.terms_conditions || []
         }));
         
         setFormData(prev => ({
@@ -246,6 +250,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 rate: c.amount,
                 discount: 0,
                 taxRate: c.taxRate,
+                terms_conditions: c.terms_conditions || [],
                 total: formData.showTax ? c.amount * (1 + (c.taxRate || 0) / 100) : c.amount
             }))
         ];
@@ -437,7 +442,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                                                                 description: productDetails.description,
                                                                 hsn: productDetails.hsn,
                                                                 rate: productDetails.rate,
-                                                                taxRate: productDetails.taxRate
+                                                                taxRate: productDetails.taxRate,
+                                                                terms_conditions: productDetails.terms_conditions || []
                                                             };
                                                             newItems[index].total = calculateItemTotal(newItems[index]);
                                                             setFormData({ ...formData, items: newItems });
@@ -451,7 +457,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                                                                         serviceId: link.service.id,
                                                                         name: link.service.name,
                                                                         amount: link.service.sale_price || 0,
-                                                                        taxRate: link.service.gst_rate || 18
+                                                                        taxRate: link.service.gst_rate || 18,
+                                                                        terms_conditions: link.service.terms_conditions || []
                                                                     }]);
                                                                 }
                                                             }
