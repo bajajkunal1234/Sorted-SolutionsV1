@@ -79,7 +79,7 @@ function InventoryTableView({ products, onProductClick, categories = [], visible
     const someSelected = selectedIds.size > 0 && selectedIds.size < products.length;
 
     return (
-        <div>
+        <div style={{ width: '100%' }}>
             {/* ── Bulk action bar ── */}
             {selectedIds.size > 0 && (
                 <div style={{
@@ -87,7 +87,8 @@ function InventoryTableView({ products, onProductClick, categories = [], visible
                     padding: '8px 14px',
                     backgroundColor: 'rgba(99,102,241,0.08)',
                     borderBottom: '1px solid rgba(99,102,241,0.2)',
-                    fontSize: '13px', color: 'var(--text-primary)'
+                    fontSize: '13px', color: 'var(--text-primary)',
+                    flexShrink: 0
                 }}>
                     <CheckSquare size={14} style={{ color: '#6366f1' }} />
                     <span><strong>{selectedIds.size}</strong> item{selectedIds.size !== 1 ? 's' : ''} selected</span>
@@ -130,7 +131,7 @@ function InventoryTableView({ products, onProductClick, categories = [], visible
                 </div>
             )}
 
-            <div style={{ overflowX: 'auto' }}>
+            <div style={{ width: '100%' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                     <thead>
                         <tr>
