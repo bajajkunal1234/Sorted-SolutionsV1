@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react';
-import { X, MessageCircle, Copy, Check, ExternalLink } from 'lucide-react';
+import { X, MessageCircle, Copy, Check, ExternalLink, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 
 /**
  * QuotationWhatsAppPopup
@@ -125,16 +126,29 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                     </span>
                 </div>
 
-                {/* Tracking link */}
+                {/* Tracking link & QR Code */}
                 <div style={{
                     background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)',
-                    borderRadius: 12, padding: '12px 14px', marginBottom: 20
+                    borderRadius: 12, padding: '16px', marginBottom: 20,
+                    display: 'flex', alignItems: 'center', gap: '16px'
                 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                        📱 Customer Tracking Link
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                            📱 Customer Tracking Link
+                        </div>
+                        <div style={{ fontSize: 13, color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'monospace', marginBottom: 8 }}>
+                            {trackingUrl}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                            Customer can scan the QR to view this estimate on their phone.
+                        </div>
                     </div>
-                    <div style={{ fontSize: 13, color: '#cbd5e1', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                        {trackingUrl}
+                    <div style={{
+                        padding: '8px', background: '#ffffff', borderRadius: '8px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0
+                    }}>
+                        <QRCodeSVG value={trackingUrl} size={80} level="L" />
                     </div>
                 </div>
 

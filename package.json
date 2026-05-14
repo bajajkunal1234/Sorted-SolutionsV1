@@ -25,6 +25,7 @@
     "lucide-react": "^0.294.0",
     "next": "^14.0.0",
     "node-fetch": "^3.3.2",
+    "qrcode.react": "^4.2.0",
     "razorpay": "^2.9.6",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
