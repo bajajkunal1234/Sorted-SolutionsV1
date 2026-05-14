@@ -17,7 +17,6 @@
         const companyGstin = ps.gst_number      || '';
         const showLogo     = ps.show_logo !== false;
         const logoUrl      = showLogo && ps.logo_url ? ps.logo_url : null;
-        const showGST      = ps.show_gst !== false;
         const showTerms    = ps.show_terms !== false;
         const showSig      = ps.include_signature !== false;
         const tStyle       = ps.template_style || 'modern-boxes';
@@ -26,7 +25,6 @@
 
         const termsMap = { sales: 'invoice_terms', purchases: 'invoice_terms', quotations: 'quotation_terms', rentals: 'rental_terms', amc: 'amc_terms' };
         const terms = Array.isArray(ps[termsMap[tab] || 'invoice_terms']) ? ps[termsMap[tab] || 'invoice_terms'] : [];
-        const docTitle = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : 'TAX INVOICE';
 
         // Tally-style GST from saved invoice fields
         const cgstAmt = Number(item.cgst || 0);
@@ -34,6 +32,9 @@
         const igstAmt = Number(item.igst || 0);
         const totalTax = cgstAmt + sgstAmt + igstAmt;
         const taxableBase = Number(amount) - totalTax;
+
+        const showGST      = (ps.show_gst !== false) && (totalTax > 0);
+        const docTitle = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : (showGST ? 'TAX INVOICE' : 'INVOICE');
 
         const effRate = (amt) => {
             if (amt <= 0 || taxableBase <= 0) return '';
@@ -122,7 +123,7 @@
         <td style="padding:9px 0 4px;font-size:15px;font-weight:800;color:${accentColor}">Grand Total</td>
         <td style="padding:9px 0 4px;text-align:right;font-size:17px;font-weight:900;color:${accentColor}">${rupee}${fmt(amount)}</td>
       </tr>
-      <tr><td colspan="2" style="font-size:9px;color:#94a3b8;text-align:right;padding-top:2px">Amounts in INR &middot; Rates incl. GST</td></tr>
+      <tr><td colspan="2" style="font-size:9px;color:#94a3b8;text-align:right;padding-top:2px">Amounts in INR ${showGST ? '&middot; Rates excl. GST' : ''}</td></tr>
     </table>
   </div>`;
 
