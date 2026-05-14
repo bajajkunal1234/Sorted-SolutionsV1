@@ -16,7 +16,7 @@ import { supabase } from '@/lib/supabase';
 
 
 export default function JobDetailView({ job, onClose, onJobUpdate }) {
-    const [activeTab, setActiveTab] = useState('details');
+    const [activeTab, setActiveTab] = useState('actions');
     const [editedJob, setEditedJob] = useState(job);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -528,45 +528,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
                     {activeTab === 'details' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                            {/* Customer Card */}
-                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Customer Info</h3>
-                                <div style={{ display: 'grid', gap: '12px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <Phone size={16} color="var(--text-secondary)" />
-                                        <a href={`tel:${editedJob.mobile}`} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                        <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
-                                        <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.5 }}>
-                                            {editedJob.address && (
-                                                <div style={{ fontWeight: 500 }}>{editedJob.address}</div>
-                                            )}
-                                            {(editedJob.locality || editedJob.city) && (
-                                                <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
-                                                    {[editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')}
-                                                </div>
-                                            )}
-                                            {!editedJob.address && !editedJob.locality && (
-                                                <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
-                                            )}
-                                            <a
-                                                href={
-                                                    storedLat && storedLng
-                                                        ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
-                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
-                                                }
-                                                target="_blank" rel="noreferrer"
-                                                onClick={handleMapClick}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
-                                            >
-                                                {storedLat && storedLng ? '📍 Navigate (Precise)' : 'Open in Maps ›'}
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                             {/* Appliance Card */}
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -768,6 +729,45 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+
+                            {/* Customer Card */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Customer Info</h3>
+                                <div style={{ display: 'grid', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <Phone size={16} color="var(--text-secondary)" />
+                                        <a href={`tel:${editedJob.mobile}`} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                                        <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
+                                        <div style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.5 }}>
+                                            {editedJob.address && (
+                                                <div style={{ fontWeight: 500 }}>{editedJob.address}</div>
+                                            )}
+                                            {(editedJob.locality || editedJob.city) && (
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                                    {[editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')}
+                                                </div>
+                                            )}
+                                            {!editedJob.address && !editedJob.locality && (
+                                                <span style={{ color: 'var(--text-tertiary)' }}>No address on file</span>
+                                            )}
+                                            <a
+                                                href={
+                                                    storedLat && storedLng
+                                                        ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
+                                                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
+                                                }
+                                                target="_blank" rel="noreferrer"
+                                                onClick={handleMapClick}
+                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
+                                            >
+                                                {storedLat && storedLng ? '📍 Navigate (Precise)' : 'Open in Maps ›'}
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
                             {/* ═══════════════════════════════════════════════════
                                 COLLECT PAYMENT — standalone, any time
