@@ -188,10 +188,7 @@ function PropertyManagerModal({ onClose }) {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
-    // Smart Match State
-    const [propertyMatches, setPropertyMatches] = useState([])
-    const [selectedExisting, setSelectedExisting] = useState(null)
-    const [matchChecked, setMatchChecked] = useState(false)
+
     
     // Pin editing state
     const [expandedPin, setExpandedPin] = useState(null)
@@ -233,55 +230,15 @@ function PropertyManagerModal({ onClose }) {
         }));
     }
 
-    const handleSave = async (forceMatch = false) => {
+    const handleSave = async () => {
         setError('')
         const customerId = localStorage.getItem('customerId')
         if (!customerId) { setError('Session expired. Please log in again.'); return }
-
-        if (selectedExisting) {
-            // Link to existing property
-            setSaving(true)
-            try {
-                const res = await fetch('/api/customer/properties', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ customer_id: customerId, property_id: selectedExisting.id }),
-                })
-                const data = await res.json()
-                if (!data.success) throw new Error(data.error || 'Failed to link property')
-                fetchProperties()
-                setView('list')
-            } catch (err) { setError(err.message) }
-            finally { setSaving(false) }
-            return
-        }
 
         // Create new property
         if (!form.address.trim()) { setError('Please enter your street address.'); return }
         if (!form.city.trim()) { setError('Please enter your city.'); return }
         if (!form.pincode.trim() || form.pincode.length !== 6) { setError('Please enter a valid pincode.'); return }
-
-        // Exact Match Logic
-        if (!matchChecked && !forceMatch && form.flat_number?.trim() && form.building_name?.trim()) {
-            setSaving(true)
-            try {
-                const res = await fetch(`/api/customer/properties?search=${form.pincode}`)
-                const data = await res.json()
-                if (data.success && data.properties?.length > 0) {
-                    const exact = data.properties.filter(p => 
-                        p.flat_number?.trim().toLowerCase() === form.flat_number.trim().toLowerCase() && 
-                        p.building_name?.trim().toLowerCase() === form.building_name.trim().toLowerCase()
-                    )
-                    if (exact.length > 0) {
-                        setPropertyMatches(exact)
-                        setMatchChecked(true)
-                        setSaving(false)
-                        return
-                    }
-                }
-            } catch(e){}
-            setSaving(false)
-        }
 
         setSaving(true)
         try {
@@ -367,16 +324,20 @@ function PropertyManagerModal({ onClose }) {
 
                     <div>
                         <label style={S.label}>Locality *</label>
-                        <select 
-                            style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }} 
-                            value={form.locality} 
-                            onChange={handleLocalityChange}
-                        >
-                            <option value="">Select your area</option>
-                            {MUMBAI_LOCALITIES.map((loc) => (
-                                <option key={loc.name} value={loc.name}>{loc.name}</option>
-                            ))}
-                        </select>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                list="localities-list"
+                                style={S.input}
+                                placeholder="Select or type your area"
+                                value={form.locality}
+                                onChange={handleLocalityChange}
+                            />
+                            <datalist id="localities-list">
+                                {MUMBAI_LOCALITIES.map((loc) => (
+                                    <option key={loc.name} value={loc.name} />
+                                ))}
+                            </datalist>
+                        </div>
                     </div>
 
                     <div>
@@ -389,91 +350,54 @@ function PropertyManagerModal({ onClose }) {
                         />
                     </div>
 
-                    {/* Smart Match Banner */}
-                    {propertyMatches.length > 0 && !selectedExisting && (
-                        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 14, padding: '16px', marginTop: 8 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>
-                                📍 Properties found at this pincode
-                            </div>
-                            {propertyMatches.map(p => (
-                                <div key={p.id} style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '12px', marginBottom: 8 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#f8fafc', marginBottom: 2 }}>
-                                        {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}
-                                    </div>
-                                    <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 10 }}>{[p.locality, p.city].filter(Boolean).join(', ')}</div>
-                                    <button onClick={() => setSelectedExisting(p)} style={{ width: '100%', padding: '8px', background: 'rgba(245,158,11,0.2)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 8, color: '#f59e0b', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                                        ✓ Link this address
-                                    </button>
-                                </div>
-                            ))}
-                            <button onClick={() => { setPropertyMatches([]); setMatchChecked(true); setTimeout(() => handleSave(true), 0); }} style={{ width: '100%', padding: '8px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', borderRadius: 8, color: '#64748b', fontSize: 12, cursor: 'pointer', marginTop: 4 }}>
-                                None of these — enter manually
-                            </button>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                            <label style={S.label}>Flat / Wing</label>
+                            <input style={S.input} value={form.flat_number} onChange={e => setForm(p => ({...p, flat_number: e.target.value}))} placeholder="e.g. A-402" />
                         </div>
-                    )}
-
-                    {selectedExisting && (
-                        <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 12, padding: '12px 14px', color: '#10b981', fontSize: 13 }}>
-                            <div style={{ fontWeight: 700, marginBottom: 4 }}>✓ Linking to existing property:</div>
-                            <div style={{ color: '#a7f3d0' }}>{[selectedExisting.flat_number, selectedExisting.building_name, selectedExisting.address].filter(Boolean).join(', ')}, {selectedExisting.locality}</div>
-                            <button onClick={() => setSelectedExisting(null)} style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 11, cursor: 'pointer', padding: 0, textDecoration: 'underline', marginTop: 8 }}>
-                                Change
-                            </button>
+                        <div>
+                            <label style={S.label}>Building Name</label>
+                            <input style={S.input} value={form.building_name} onChange={e => setForm(p => ({...p, building_name: e.target.value}))} placeholder="e.g. Sea View Apts" />
                         </div>
-                    )}
+                    </div>
+                    <div>
+                        <label style={S.label}>Street Address *</label>
+                        <input style={S.input} value={form.address} onChange={e => setForm(p => ({...p, address: e.target.value}))} placeholder="Opposite Bank of India, Main Road" />
+                    </div>
 
-                    {!selectedExisting && (propertyMatches.length === 0 || matchChecked) && (
-                        <>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <label style={S.label}>Flat / Wing</label>
-                                    <input style={S.input} value={form.flat_number} onChange={e => setForm(p => ({...p, flat_number: e.target.value}))} placeholder="e.g. A-402" />
-                                </div>
-                                <div>
-                                    <label style={S.label}>Building Name</label>
-                                    <input style={S.input} value={form.building_name} onChange={e => setForm(p => ({...p, building_name: e.target.value}))} placeholder="e.g. Sea View Apts" />
-                                </div>
-                            </div>
-                            <div>
-                                <label style={S.label}>Street Address *</label>
-                                <input style={S.input} value={form.address} onChange={e => setForm(p => ({...p, address: e.target.value}))} placeholder="Opposite Bank of India, Main Road" />
-                            </div>
-
-                            {/* Pin Drop Map */}
-                            <ClientPinDropMap
-                                building={form.building_name || ''}
-                                street={form.address || ''}
-                                localityQuery={form.locality || ''}
-                                pincodeQuery={form.pincode || ''}
-                                initialLat={form.lat}
-                                initialLng={form.lng}
-                                onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}
-                                height="220px"
-                                label="📍 Confirm your pin on map"
-                            />
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                                <div>
-                                    <label style={S.label}>Property Type</label>
-                                    <select style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }} value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value}))}>
-                                        <option value="apartment">Apartment</option>
-                                        <option value="house">House</option>
-                                        <option value="office">Office</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style={S.label}>City *</label>
-                                    <input style={S.input} value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="Mumbai..." />
-                                </div>
-                            </div>
-                        </>
-                    )}
+                    {/* Pin Drop Map */}
+                    <ClientPinDropMap
+                        building={form.building_name || ''}
+                        street={form.address || ''}
+                        localityQuery={form.locality || ''}
+                        pincodeQuery={form.pincode || ''}
+                        initialLat={form.lat}
+                        initialLng={form.lng}
+                        onChange={({ lat, lng }) => setForm(p => ({ ...p, lat, lng }))}
+                        height="220px"
+                        label="📍 Confirm your pin on map"
+                    />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                            <label style={S.label}>Property Type</label>
+                            <select style={{ ...S.input, appearance: 'none', background: 'rgba(30,41,59,0.9)' }} value={form.type} onChange={e => setForm(p => ({...p, type: e.target.value}))}>
+                                <option value="apartment">Apartment</option>
+                                <option value="house">House</option>
+                                <option value="office">Office</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style={S.label}>City *</label>
+                            <input style={S.input} value={form.city} onChange={e => setForm(p => ({...p, city: e.target.value}))} placeholder="Mumbai..." />
+                        </div>
+                    </div>
 
                     <button onClick={handleSave} disabled={saving} style={{
                         padding: '14px', background: 'linear-gradient(135deg, #38bdf8, #3b82f6)', border: 'none',
                         borderRadius: 14, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.7 : 1,
                         marginTop: 8
                     }}>
-                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : (selectedExisting ? 'Link Property' : 'Save Address')}
+                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : 'Save Address'}
                     </button>
                 </div>
             </Modal>

@@ -69,11 +69,11 @@ function CustomerPropertiesTab({ customerId }) {
     const handleLocalityChange = (e) => {
         const localityName = e.target.value;
         const found = MUMBAI_LOCALITIES.find(l => l.name === localityName);
-        setNewProperty({
-            ...newProperty,
+        setNewProperty(prev => ({
+            ...prev,
             locality: localityName,
-            pincode: found ? found.pincode : ''
-        });
+            pincode: found ? found.pincode : prev.pincode
+        }));
     };
 
     const handleAddProperty = async (forceCreate = false) => {
@@ -265,12 +265,20 @@ function CustomerPropertiesTab({ customerId }) {
                         onChange={(e) => setNewProperty({ ...newProperty, address: e.target.value })}
                     />
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-sm)' }}>
-                        <select className="form-input" value={newProperty.locality} onChange={handleLocalityChange}>
-                            <option value="">Select Locality...</option>
-                            {MUMBAI_LOCALITIES.map((loc) => (
-                                <option key={loc.name} value={loc.name}>{loc.name}</option>
-                            ))}
-                        </select>
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                list="localities-list-admin"
+                                className="form-input"
+                                placeholder="Select or type Locality..."
+                                value={newProperty.locality}
+                                onChange={handleLocalityChange}
+                            />
+                            <datalist id="localities-list-admin">
+                                {MUMBAI_LOCALITIES.map((loc) => (
+                                    <option key={loc.name} value={loc.name} />
+                                ))}
+                            </datalist>
+                        </div>
                         <input
                             type="text"
                             className="form-input"
