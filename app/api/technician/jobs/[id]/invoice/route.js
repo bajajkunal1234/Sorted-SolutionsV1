@@ -10,13 +10,12 @@ export async function GET(request, { params }) {
         const { data, error } = await supabase
             .from('transactions')
             .select('*')
-            .eq('type', 'quotation')
+            .eq('type', 'sales')
             .eq('job_id', id)
             .order('created_at', { ascending: false });
 
-        // If the table doesn't exist yet or has another error, just return empty gracefully
         if (error) {
-            console.error('Error fetching quotation for job', id, error);
+            console.error('Error fetching invoice for job', id, error);
             return NextResponse.json({ success: true, data: [] });
         }
 
