@@ -5,56 +5,51 @@ import { X, MessageCircle, Copy, Check, ExternalLink, QrCode } from 'lucide-reac
 import { QRCodeSVG } from 'qrcode.react';
 
 /**
- * QuotationWhatsAppPopup
+ * DocumentWhatsAppPopup
  * Props:
- *  - quotation: { quote_number, items, total_amount, subtotal, cgst, sgst, igst, total_tax }
+ *  - document: { quote_number, invoice_number, items, total_amount, subtotal, cgst, sgst, igst, total_tax }
+ *  - type: 'quotation' | 'invoice'
  *  - job: { id, job_number, customer_name, customer_phone (optional) }
  *  - onClose: () => void
  */
-export default function QuotationWhatsAppPopup({ quotation, job, onClose }) {
+export default function DocumentWhatsAppPopup({ document, type = 'quotation', job, onClose }) {
     const [copied, setCopied] = useState(false);
 
-    if (!quotation || !job) return null;
+    if (!document || !job) return null;
 
-    // Build the public tracking link – points to the customer app services tab
-    // The customer logs in and sees their job + quotation details there
-    const baseUrl = typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.host}`
-        : '';
+    const baseUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}` : '';
     const trackingUrl = `${baseUrl}/customer/dashboard`;
 
-    // Format line items
-    const lineItems = (quotation.items || [])
+    const lineItems = (document.items || [])
         .filter(i => i.description)
-        .map(i => {
-            const itemTotal = ((i.qty || 1) * (i.rate || 0)).toFixed(0);
-            return `  • ${i.description} (${i.qty || 1} × ₹${(i.rate || 0).toLocaleString()}) = ₹${Number(itemTotal).toLocaleString()}`;
-        })
+        .map(i => `  • ${i.description} (${i.qty || 1} × ₹${(i.rate || 0).toLocaleString()}) = ₹${Number(((i.qty || 1) * (i.rate || 0)).toFixed(0)).toLocaleString()}`)
         .join('\n');
 
-    const grandTotal = (quotation.total_amount || 0).toLocaleString();
-    const quoteNum = quotation.quote_number || '';
+    const grandTotal = (document.total_amount || 0).toLocaleString();
+    const docNum = type === 'invoice' ? document.invoice_number : document.quote_number;
     const jobNum = job.job_number || job.id?.slice(0, 8) || '';
     const customerName = job.customer_name || 'Customer';
 
+    const isInvoice = type === 'invoice';
+
     const message = `Hello ${customerName}! 👋
 
-We've prepared a repair estimate for your service request (Job #${jobNum}).
+We've prepared your ${isInvoice ? 'final invoice' : 'repair estimate'} for service request (Job #${jobNum}).
 
-📋 *Quotation ${quoteNum}*
+📋 *${isInvoice ? 'Invoice' : 'Quotation'} ${docNum || ''}*
 
 *Items:*
 ${lineItems || '  (See details in the app)'}
 
-${quotation.cgst > 0 ? `Subtotal: ₹${(quotation.subtotal || 0).toLocaleString()}
-CGST: ₹${(quotation.cgst || 0).toFixed(2)}
-SGST: ₹${(quotation.sgst || 0).toFixed(2)}
+${document.cgst > 0 ? `Subtotal: ₹${(document.subtotal || 0).toLocaleString()}
+CGST: ₹${(document.cgst || 0).toFixed(2)}
+SGST: ₹${(document.sgst || 0).toFixed(2)}
 ` : ''}*Total Amount: ₹${grandTotal}*
 
 📱 View & track your service request here:
 ${trackingUrl}
 
-Please review and let us know if you'd like to proceed. Feel free to call us for any queries!
+${isInvoice ? 'Thank you for choosing us! You can pay securely via the link above.' : 'Please review and let us know if you\'d like to proceed.'} Feel free to call us for any queries.
 
 — Sorted Solutions`;
 
@@ -98,7 +93,7 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
                     <div>
                         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc' }}>
-                            📤 Send Quotation
+                            📤 Send {isInvoice ? 'Invoice' : 'Quotation'}
                         </h2>
                         <p style={{ margin: '4px 0 0', fontSize: 13, color: '#64748b' }}>
                             Share via WhatsApp with a tracking link
@@ -122,7 +117,7 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
                     <span style={{ fontSize: 13, fontWeight: 600, color: '#10b981' }}>
-                        Quotation saved — Job status set to Quotation Sent
+                        {isInvoice ? 'Invoice created successfully!' : 'Quotation saved — Job status set to Quotation Sent'}
                     </span>
                 </div>
 
@@ -140,7 +135,7 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
                             {trackingUrl}
                         </div>
                         <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                            Customer can scan the QR to view this estimate on their phone.
+                            Customer can scan the QR to view this {isInvoice ? 'invoice' : 'estimate'} on their phone.
                         </div>
                     </div>
                     <div style={{

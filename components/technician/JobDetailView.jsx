@@ -8,7 +8,7 @@ import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { logInteraction } from '@/lib/interactions';
 import RepairCalculator from '@/components/common/RepairCalculator';
-import QuotationWhatsAppPopup from '@/components/common/QuotationWhatsAppPopup';
+import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
 import LiveMap from '@/components/common/LiveMap';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
@@ -23,7 +23,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [activeForm, setActiveForm] = useState(null);
     const [calculatorItems, setCalculatorItems] = useState(null);
     const [savedQuotation, setSavedQuotation] = useState(null);
-    const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
+    const [savedInvoice, setSavedInvoice] = useState(null);
+    const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type: 'quotation' | 'invoice', doc: object }
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
     // Parts Ordered gate — shows inline note modal before setting parts_ordered
@@ -92,14 +93,23 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 const intData = await intRes.json().catch(() => ({ data: [] }));
                 const jobIntData = await jobIntRes.json().catch(() => ({ data: [] }));
 
-                // Try to load quotation from technician-accessible route (graceful fallback)
+                // Try to load quotation and invoice from technician-accessible routes
                 try {
-                    const quotaRes = await fetch(`/api/technician/jobs/${job.id}/quotation`);
+                    const [quotaRes, invRes] = await Promise.all([
+                        fetch(`/api/technician/jobs/${job.id}/quotation`),
+                        fetch(`/api/technician/jobs/${job.id}/invoice`)
+                    ]);
                     if (quotaRes.ok) {
                         const quotaData = await quotaRes.json();
                         if (quotaData.success && quotaData.data?.length > 0) setSavedQuotation(quotaData.data[0]);
                     }
-                } catch (e) { /* quotation not available — silently skip */ }
+                    if (invRes.ok) {
+                        const invData = await invRes.json();
+                        // Support both formats depending on how /invoice route is built
+                        if (invData.success && invData.data?.length > 0) setSavedInvoice(invData.data[0]);
+                        else if (invData.success && invData.invoice) setSavedInvoice(invData.invoice);
+                    }
+                } catch (e) { /* silent fail */ }
 
                 if (jobData.success) {
                     // Merge and sort both interaction sources
@@ -1073,23 +1083,114 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <FilePlus size={18} color="#10b981" /> Documents & Billing
+                                    <FilePlus size={18} color="#10b981" /> Quotation Approval & Billing
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
-                                    {savedQuotation ? (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                    {savedInvoice ? (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
                                             <div>
-                                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
-                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
+                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
                                             </div>
                                             <button
                                                 className="btn"
-                                                style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
-                                                onClick={() => setActiveForm('quotation')}
+                                                style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
                                             >
-                                                Edit / Send
+                                                View / Send
                                             </button>
                                         </div>
+                                    ) : savedQuotation ? (
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                </div>
+                                                {/* Edit goes away if approved */}
+                                                {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
+                                                    <button
+                                                        className="btn"
+                                                        style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                        onClick={() => setActiveForm('quotation')}
+                                                    >
+                                                        Edit / Send
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {/* Approval Flow */}
+                                            {['work_in_progress', 'completed', 'closed'].includes(editedJob.status) ? (
+                                                <>
+                                                    <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                                        <CheckCircle size={16} /> 
+                                                        {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
+                                                            ? '✅ Cx Approved from App' 
+                                                            : '✅ Estimate Approved'}
+                                                    </div>
+                                                    <button
+                                                        className="btn"
+                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
+                                                        disabled={loading}
+                                                        onClick={async () => {
+                                                            setLoading(true);
+                                                            try {
+                                                                const res = await fetch(`/api/admin/transactions?type=sales`, {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        account_id: savedQuotation.account_id,
+                                                                        job_id: editedJob.id,
+                                                                        date: new Date().toISOString().split('T')[0],
+                                                                        due_date: new Date().toISOString().split('T')[0],
+                                                                        reference: savedQuotation.quote_number,
+                                                                        status: 'unpaid',
+                                                                        items: savedQuotation.items,
+                                                                        subtotal: savedQuotation.subtotal,
+                                                                        cgst: savedQuotation.cgst,
+                                                                        sgst: savedQuotation.sgst,
+                                                                        igst: savedQuotation.igst,
+                                                                        total_tax: savedQuotation.total_tax,
+                                                                        total_amount: savedQuotation.total_amount,
+                                                                        notes: 'Auto-generated from approved quotation',
+                                                                        terms: savedQuotation.terms
+                                                                    })
+                                                                });
+                                                                const data = await res.json();
+                                                                if (data.success) {
+                                                                    setSavedInvoice(data.data);
+                                                                    fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Technician' })
+                                                                    }).catch(() => {});
+                                                                    setShowWhatsappPopup({ type: 'invoice', doc: data.data });
+                                                                } else throw new Error(data.error);
+                                                            } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
+                                                            finally { setLoading(false); }
+                                                        }}
+                                                    >
+                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : '🚀 Auto-Create Final Invoice'}
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    className="btn"
+                                                    style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
+                                                    onClick={async () => {
+                                                        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                                        await handleSaveStatus('work_in_progress');
+                                                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: techName })
+                                                        }).catch(() => {});
+                                                        // Force fetch fresh data to get interaction
+                                                        setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Customer', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
+                                                    }}
+                                                >
+                                                    ✓ Mark as Customer Approved
+                                                </button>
+                                            )}
+                                        </>
                                     ) : (
                                         <button
                                             className="btn"
@@ -1099,14 +1200,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                             🧮 Calculate Repair Estimate
                                         </button>
                                     )}
-
-                                    <button
-                                        className="btn"
-                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#10b98120', color: '#10b981', border: '1px solid #10b98140', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
-                                        onClick={() => setActiveForm('sales-invoice')}
-                                    >
-                                        📄 Create Sales Invoice
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1228,18 +1321,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
                             }).catch(() => {});
                             setActiveForm(null); setCalculatorItems(null);
-                            setShowWhatsappPopup(true);
+                            setShowWhatsappPopup({ type: 'quotation', doc: savedData });
                         }}
                         defaultAccount={{ id: editedJob.customerId, name: editedJob.customerName, gstin: editedJob.customer?.gstin, state: editedJob.customer?.address?.state || 'Maharashtra' }}
                         prefillItems={calculatorItems}
                         existingQuotation={savedQuotation}
                     />
                 )}
+                {/* Manual Sales Invoice Form is now hidden from the UI but could still be opened programmatically */}
                 {activeForm === 'sales-invoice' && (
                     <SalesInvoiceForm 
                         onClose={() => setActiveForm(null)}
                         onSave={async (data) => {
-                            // 1. Save sales invoice to DB
                             let savedData = data;
                             try {
                                 const saveRes = await fetch(`/api/admin/transactions?type=sales`, {
@@ -1250,7 +1343,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 const saveJson = await saveRes.json();
                                 if (saveJson.success) savedData = saveJson.data;
                             } catch (e) { console.error('Failed to save sales invoice', e); }
-                            
+                            setSavedInvoice(savedData);
                             fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
@@ -1262,10 +1355,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     />
                 )}
                 {showWhatsappPopup && (
-                    <QuotationWhatsAppPopup
-                        quotation={savedQuotation}
+                    <DocumentWhatsAppPopup
+                        document={showWhatsappPopup.doc}
+                        type={showWhatsappPopup.type}
                         job={{ id: editedJob.id, job_number: editedJob.job_number, customer_name: editedJob.customerName, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone }}
-                        onClose={() => setShowWhatsappPopup(false)}
+                        onClose={() => setShowWhatsappPopup(null)}
                     />
                 )}
             </div>
