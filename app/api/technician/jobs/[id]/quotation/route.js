@@ -8,9 +8,8 @@ export async function GET(request, { params }) {
         const { id } = params;
 
         const { data, error } = await supabase
-            .from('transactions')
+            .from('quotations')
             .select('*')
-            .eq('type', 'quotation')
             .eq('job_id', id)
             .order('created_at', { ascending: false });
 
