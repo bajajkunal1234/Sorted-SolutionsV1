@@ -1126,7 +1126,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                         <CheckCircle size={16} /> 
                                                         {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
                                                             ? '✅ Cx Approved from App' 
-                                                            : '✅ Estimate Approved'}
+                                                            : '✅ Cx Said to Proceed'}
                                                     </div>
                                                     <button
                                                         className="btn"
@@ -1143,6 +1143,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                         job_id: editedJob.id,
                                                                         date: new Date().toISOString().split('T')[0],
                                                                         due_date: new Date().toISOString().split('T')[0],
+                                                                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
                                                                         reference: savedQuotation.quote_number,
                                                                         status: 'unpaid',
                                                                         items: savedQuotation.items,
@@ -1184,7 +1185,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                             body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: techName })
                                                         }).catch(() => {});
                                                         // Force fetch fresh data to get interaction
-                                                        setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Customer', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
+                                                        setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: techName, timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
                                                     }}
                                                 >
                                                     ✓ Mark as Customer Approved
