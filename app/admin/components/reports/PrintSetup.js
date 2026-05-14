@@ -447,7 +447,7 @@ function InvoicePreview({ settings, previewType, terms }) {
     const companyTextColor = tStyle === 'modern-boxes' ? '#fff' : '#1e293b';
     const companySubColor = tStyle === 'modern-boxes' ? 'rgba(255,255,255,0.75)' : '#64748b';
 
-    const docTitle = previewType === 'invoice' ? 'TAX INVOICE' : previewType === 'quotation' ? 'QUOTATION' : previewType === 'rental' ? 'RENTAL AGREEMENT' : 'AMC AGREEMENT';
+    const docTitle = previewType === 'invoice' ? (settings.showGST ? 'TAX INVOICE' : 'INVOICE') : 'QUOTATION';
     const refPrefix = previewType === 'invoice' ? 'INV' : previewType === 'quotation' ? 'QUO' : previewType === 'rental' ? 'RA' : 'AMC';
 
     return (
@@ -475,7 +475,6 @@ function InvoicePreview({ settings, previewType, terms }) {
                     <div style={{ fontSize: '12px', color: tStyle === 'modern-boxes' ? 'rgba(255,255,255,0.7)' : '#64748b', marginTop: '8px' }}>
                         <div>#{refPrefix}-2026-0042</div>
                         <div>Date: {new Date().toLocaleDateString('en-GB')}</div>
-                        {previewType !== 'invoice' || <div>Due: {new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-GB')}</div>}
                     </div>
                 </div>
             </div>

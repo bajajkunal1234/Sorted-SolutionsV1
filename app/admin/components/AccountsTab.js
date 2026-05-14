@@ -971,7 +971,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
         const termsMap = { sales: 'invoice_terms', purchases: 'invoice_terms', quotations: 'quotation_terms', rentals: 'rental_terms', amc: 'amc_terms' };
         const terms = Array.isArray(ps[termsMap[tab] || 'invoice_terms']) ? ps[termsMap[tab] || 'invoice_terms'] : [];
-        const docTitle = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : 'TAX INVOICE';
+        const docTitle = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : (showGST ? 'TAX INVOICE' : 'INVOICE');
 
         // Tally-style GST from saved invoice fields
         const cgstAmt = Number(item.cgst || 0);

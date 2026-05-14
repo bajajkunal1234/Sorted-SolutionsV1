@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+
 // Columns that exist in the print_settings table
 const ALLOWED_COLUMNS = [
     'company_name', 'company_address', 'company_phone', 'company_email',

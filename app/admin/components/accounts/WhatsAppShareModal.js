@@ -171,7 +171,7 @@ export default function WhatsAppShareModal({ item, tab, onClose, onPrint, printS
     };
 
     const docTypeLabel = {
-        sales: 'Tax Invoice',
+        sales: 'Invoice',
         purchases: 'Purchase Invoice',
         quotations: 'Quotation',
         receipts: 'Receipt',
