@@ -47,6 +47,7 @@ function TechnicianApp() {
         return true;
     });
     const [showCollectPayment, setShowCollectPayment] = useState(false);
+    const [showJobSelectorModal, setShowJobSelectorModal] = useState(false);
 
     // Apply dark mode theme class initially and on change
     useEffect(() => {
@@ -1090,6 +1091,25 @@ function TechnicianApp() {
                     )}
                 </div>
 
+                {/* Estimate Calculator Card */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #8b5cf6', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
+                    onClick={() => setShowJobSelectorModal(true)}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
+                                <Calculator size={20} color="#8b5cf6" /> Estimate Calculator
+                            </h3>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                Create an invoice or quotation for a job
+                            </p>
+                        </div>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                </div>
+
                 {/* Collect Payment Card */}
                 <div 
                     className="card"
@@ -1402,6 +1422,104 @@ function TechnicianApp() {
                         // Optionally refresh the Dashboard or active jobs
                     }}
                 />
+            )}
+            {/* Job Selector Modal for Estimate Calculator */}
+            {showJobSelectorModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: 'var(--spacing-md)'
+                }}
+                    onClick={() => setShowJobSelectorModal(false)}
+                >
+                    <div
+                        style={{
+                            backgroundColor: 'var(--bg-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-lg)',
+                            maxWidth: '500px',
+                            width: '100%',
+                            maxHeight: '80vh',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxShadow: 'var(--shadow-xl)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                <Calculator size={20} color="#8b5cf6" /> Select Job for Estimate
+                            </h3>
+                            <button onClick={() => setShowJobSelectorModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', paddingRight: '4px' }}>
+                            {jobs.filter(j => j.status !== 'closed' && j.status !== 'cancelled').length === 0 ? (
+                                <div style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                    No active jobs found.
+                                </div>
+                            ) : (
+                                jobs.filter(j => j.status !== 'closed' && j.status !== 'cancelled').map(job => (
+                                    <div 
+                                        key={job.id} 
+                                        style={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center', 
+                                            padding: '12px', 
+                                            backgroundColor: 'var(--bg-elevated)', 
+                                            border: '1px solid var(--border-primary)', 
+                                            borderRadius: 'var(--radius-md)' 
+                                        }}
+                                    >
+                                        <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    #{job.job_number || String(job.id).slice(0, 8)}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>
+                                                {job.customerName || 'Walk-in Customer'}
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {job.description || job.product?.type || job.issueCategory || 'Service Job'}
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                setCalculatorJob(job);
+                                                setShowJobSelectorModal(false);
+                                            }}
+                                            style={{ 
+                                                padding: '6px 12px', 
+                                                backgroundColor: '#8b5cf6', 
+                                                color: '#fff', 
+                                                border: 'none', 
+                                                borderRadius: '6px', 
+                                                fontSize: '12px', 
+                                                fontWeight: 600, 
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            Select
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
         </>
