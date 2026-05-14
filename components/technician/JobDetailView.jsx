@@ -1140,6 +1140,10 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                     headers: { 'Content-Type': 'application/json' },
                                                                     body: JSON.stringify({
                                                                         account_id: savedQuotation.account_id,
+                                                                        account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
+                                                                        accountGSTIN: savedQuotation.accountGSTIN || '',
+                                                                        accountState: savedQuotation.accountState || 'Maharashtra',
+                                                                        billing_address: savedQuotation.billing_address || editedJob.address?.full_address || '',
                                                                         job_id: editedJob.id,
                                                                         date: new Date().toISOString().split('T')[0],
                                                                         due_date: new Date().toISOString().split('T')[0],
