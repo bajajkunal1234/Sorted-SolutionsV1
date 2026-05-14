@@ -10,7 +10,7 @@ import SalesInvoiceForm from './accounts/SalesInvoiceForm';
 import QuotationForm from './accounts/QuotationForm';
 import { jobsAPI, interactionsAPI } from '@/lib/adminAPI';
 import RepairCalculator from '@/components/common/RepairCalculator';
-import QuotationWhatsAppPopup from '@/components/common/QuotationWhatsAppPopup';
+import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
 
 function JobDetailModal({ job, onClose, onUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -966,8 +966,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 />
             )}
             {showWhatsappPopup && (
-                <QuotationWhatsAppPopup
-                    quotation={savedQuotation}
+                <DocumentWhatsAppPopup
+                    document={savedQuotation}
+                    type="quotation"
                     job={{ ...editedJob, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone || editedJob.customer_phone }}
                     onClose={() => setShowWhatsappPopup(false)}
                 />
