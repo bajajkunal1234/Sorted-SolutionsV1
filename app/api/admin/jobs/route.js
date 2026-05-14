@@ -269,58 +269,6 @@ export async function PUT(request) {
             });
         }
 
-        // ── 4. Auto-generate invoice when job is CLOSED ──────────────────────
-        if (updates.status === 'closed') {
-            try {
-                const accountId = data.customer_id;
-                const accountName = data.customer_name;
-
-                if (accountId) {
-                    const { data: existingInv } = await supabase
-                        .from('sales_invoices')
-                        .select('id')
-                        .eq('job_id', id)
-                        .single()
-
-                    if (!existingInv) {
-                        const year = new Date().getFullYear();
-                        const invoiceNumber = `INV-${year}-${Math.floor(Math.random() * 9000) + 1000}`;
-                        const baseAmount = data.amount || 800;
-                        const gstRate = 18;
-                        const taxAmount = (baseAmount * gstRate) / 100;
-
-                        await supabase.from('sales_invoices').insert({
-                            invoice_number: invoiceNumber,
-                            reference: invoiceNumber,
-                            account_id: accountId,
-                            account_name: accountName,
-                            job_id: id,
-                            date: new Date().toISOString().split('T')[0],
-                            status: 'draft',
-                            subtotal: baseAmount,
-                            total_tax: taxAmount,
-                            total_amount: baseAmount + taxAmount,
-                            items: [{
-                                description: `${data.category || 'Repair'} Service - ${data.job_number}`,
-                                qty: 1,
-                                rate: baseAmount,
-                                taxRate: gstRate,
-                                total: baseAmount + taxAmount
-                            }]
-                        });
-
-                        supabase.from('job_interactions').insert([{
-                            job_id: id,
-                            type: 'sales-invoice-created-draft',
-                            message: `Automated draft invoice ${invoiceNumber} generated on job closure.`,
-                            user_name: 'System'
-                        }]).then(null, () => {});
-                    }
-                }
-            } catch (automatedError) {
-                console.error('Failed to generate automated invoice:', automatedError)
-            }
-        }
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
