@@ -1038,25 +1038,32 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
   <thead><tr style="background:${bg};color:${color}">
     <th style="padding:8px 10px;text-align:left;font-size:11px">#</th>
     <th style="padding:8px 10px;text-align:left;font-size:11px">Service / Product</th>
-    ${showGST ? `<th style="padding:8px 10px;text-align:center;font-size:11px">HSN/SAC</th>` : ''}
+    ${showGST ? '<th style="padding:8px 10px;text-align:center;font-size:11px">HSN/SAC</th>' : ''}
     <th style="padding:8px 10px;text-align:center;font-size:11px">Qty</th>
     <th style="padding:8px 10px;text-align:center;font-size:11px">Unit</th>
-    <th style="padding:8px 10px;text-align:right;font-size:11px">Rate (Incl.)</th>
-    <th style="padding:8px 10px;text-align:right;font-size:11px">Total</th>
+    <th style="padding:8px 10px;text-align:right;font-size:11px">Rate</th>
+    ${showGST ? '<th style="padding:8px 10px;text-align:right;font-size:11px">Tax%</th>' : ''}
+    <th style="padding:8px 10px;text-align:right;font-size:11px">Amount</th>
   </tr></thead>`;
 
         const trows = (bg1, bg2, bd) => itemsList.length === 0
-            ? `<tr><td colspan="7" style="padding:18px;text-align:center;color:#94a3b8;font-style:italic">No items</td></tr>`
-            : itemsList.map((it, i) => `
+            ? `<tr><td colspan="${showGST ? 8 : 6}" style="padding:18px;text-align:center;color:#94a3b8;font-style:italic">No items</td></tr>`
+            : itemsList.map((it, i) => {
+                const qty = it.qty || it.quantity || 1;
+                const rate = it.rate || 0;
+                const amount = qty * rate;
+                return `
   <tr style="background:${i % 2 === 0 ? bg1 : bg2}">
     <td style="padding:8px 10px;border-bottom:1px solid ${bd}">${i + 1}</td>
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};font-weight:500">${it.description || it.name || ''}</td>
-    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;font-family:monospace;font-size:11px;color:#64748b">${it.hsn || '—'}</td>` : ''}
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center">${it.qty || it.quantity || 1}</td>
+    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;font-family:monospace;font-size:11px;color:#64748b">${it.hsn || it.hsn_code || '—'}</td>` : ''}
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center">${qty}</td>
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;color:#64748b">${it.unit || 'Nos'}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right">${rupee}${fmt(rateIncl(it))}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;font-weight:700">${rupee}${fmt(it.total || it.amount || 0)}</td>
-  </tr>`).join('');
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right">${rupee}${fmt(rate)}</td>
+    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;color:#64748b">${it.tax || it.taxRate || 0}%</td>` : ''}
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;font-weight:700">${rupee}${fmt(amount)}</td>
+  </tr>`;
+            }).join('');
 
         const totalsHtml = (accentColor, borderTop) => `
   <div style="display:flex;justify-content:flex-end;margin-top:14px">
@@ -1146,7 +1153,7 @@ ${body}
   <div style="padding:14px 32px 14px 20px">
     <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:5px">Grand Total</div>
     <div style="font-size:28px;font-weight:900;color:${gold}">${rupee}${fmt(amount)}</div>
-    <div style="font-size:10px;color:#64748b;margin-top:2px">Incl. all taxes</div>
+    ${showGST ? `<div style="font-size:10px;color:#64748b;margin-top:2px">Incl. all taxes</div>` : ''}
   </div>
 </div>
 <div style="padding:14px 32px">
@@ -1266,7 +1273,7 @@ ${body}
     <div style="padding:12px 32px 12px 20px">
       <div class="gl">Invoice Total</div>
       <div style="font-size:28px;font-weight:900;color:${R}">${rupee}${fmt(amount)}</div>
-      <div style="font-size:10px;color:#64748b;margin-top:2px">Inclusive of all taxes</div>
+      ${showGST ? `<div style="font-size:10px;color:#64748b;margin-top:2px">Inclusive of all taxes</div>` : ''}
       ${showGST && totalTax > 0 ? `<div style="font-size:10px;color:#64748b;margin-top:2px">GST: ${rupee}${fmt(totalTax)}</div>` : ''}
     </div>
   </div>
