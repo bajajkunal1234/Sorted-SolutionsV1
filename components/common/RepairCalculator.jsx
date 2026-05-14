@@ -38,7 +38,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                 setInventory(inv || []);
                 setProductLinks(links || []);
                 if (printData) {
-                    setShowTax(printData.show_gst ?? true);
+                    setShowTax(printData.quotation_show_gst ?? printData.show_gst ?? true);
                 }
             })
             .finally(() => setLoading(false));
