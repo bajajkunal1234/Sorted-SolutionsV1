@@ -346,6 +346,7 @@ function InventoryTab() {
         { id: 'hsn_description',  label: 'HSN Description' },
         { id: 'gst_rate',         label: 'GST Rate (%)' },
         { id: 'status',           label: 'Status' },
+        { id: 'terms_conditions', label: 'Terms & Conditions' },
     ];
 
     const getTemplateConfig = () => {
@@ -367,7 +368,8 @@ function InventoryTab() {
                hsn_code: '8415',
                hsn_description: 'Air Conditioning Machines',
                gst_rate: 18,              // 0 / 5 / 12 / 18 / 28  (GST always applicable)
-               status: 'active'           // 'active' or 'inactive'
+               status: 'active',          // 'active' or 'inactive'
+               terms_conditions: '90 days warranty | Water damage not covered'
            }
        };
     };
@@ -398,6 +400,9 @@ function InventoryTab() {
             }
 
             try {
+                if (typeof row.terms_conditions === 'string' && row.terms_conditions.trim()) {
+                    row.terms_conditions = row.terms_conditions.split('|').map(s => s.trim()).filter(Boolean);
+                }
                 const result = await inventoryAPI.create(row);
 
                 // Create initial stock log if applicable
@@ -667,7 +672,10 @@ function InventoryTab() {
                 <div style={{ flex: 1 }} />
 
                 <ImportExportButtons 
-                    data={processedProducts} 
+                    data={processedProducts.map(p => ({
+                        ...p,
+                        terms_conditions: Array.isArray(p.terms_conditions) ? p.terms_conditions.join(' | ') : (p.terms_conditions || '')
+                    }))} 
                     columns={inventoryColumns.filter(c => visibleColumns.has(c.id))} 
                     exportFilename="SortedSolutions_Inventory"
                     onImport={handleBulkImport}

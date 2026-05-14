@@ -971,7 +971,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
         const termsMap = { sales: 'invoice_terms', purchases: 'invoice_terms', quotations: 'quotation_terms', rentals: 'rental_terms', amc: 'amc_terms' };
         const baseTerms = Array.isArray(ps[termsMap[tab] || 'invoice_terms']) ? ps[termsMap[tab] || 'invoice_terms'] : [];
-        const terms = [...baseTerms];
+        const terms = [];
         itemsList.forEach(it => {
             const itemTerms = it.terms_conditions || it.terms || [];
             if (Array.isArray(itemTerms)) {
@@ -979,6 +979,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     if (t && !terms.includes(t)) terms.push(t);
                 });
             }
+        });
+        baseTerms.forEach(t => {
+            if (t && !terms.includes(t)) terms.push(t);
         });
         const docTitle = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : (showGST ? 'TAX INVOICE' : 'INVOICE');
 
