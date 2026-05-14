@@ -676,7 +676,7 @@ function InventoryTab() {
                         ...p,
                         terms_conditions: Array.isArray(p.terms_conditions) ? p.terms_conditions.join(' | ') : (p.terms_conditions || '')
                     }))} 
-                    columns={inventoryColumns.filter(c => visibleColumns.has(c.id))} 
+                    columns={inventoryColumns} 
                     exportFilename="SortedSolutions_Inventory"
                     onImport={handleBulkImport}
                     templateConfig={getTemplateConfig()}
@@ -690,7 +690,7 @@ function InventoryTab() {
                     <RefreshCw size={13} /> Refresh
                 </button>
                 <div style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span>{processedProducts.length} / {products.length} entries</span>
+                    <span>Showing {processedProducts.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1} - {Math.min(currentPage * PAGE_SIZE, processedProducts.length)} of {processedProducts.length} entries</span>
                     {totalPages > 1 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '2px 8px', fontSize: '11px', borderRadius: '4px', border: '1px solid var(--border-primary)', backgroundColor: currentPage === 1 ? 'var(--bg-secondary)' : 'var(--bg-elevated)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: 'var(--text-secondary)' }}>Prev</button>

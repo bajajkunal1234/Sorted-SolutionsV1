@@ -65,6 +65,9 @@ function InventoryTableView({ products, onProductClick, categories = [], visible
         whiteSpace: 'nowrap',
         borderBottom: '2px solid var(--border-primary)',
         backgroundColor: 'var(--bg-secondary)',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
     };
     const thRight = { ...thBase, textAlign: 'right' };
     const thCenter = { ...thBase, textAlign: 'center' };

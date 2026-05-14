@@ -25,22 +25,35 @@ export async function POST(request) {
         const { data, error } = await query.select().single()
         if (error) throw error
 
-        // Fetch names for logging
-        const { data: customer } = await supabase.from('customers').select('name, full_name').eq('id', data.customer_id).single()
-        const { data: property } = await supabase.from('properties').select('address, locality').eq('id', data.property_id).single()
-        const cName = customer?.name || customer?.full_name || data.customer_id
-        const pAddr = property ? `${property.address}, ${property.locality || ''}` : data.property_id
+        // Fetch names for logging - wrap in try-catch so it doesn't break unlink
+        try {
+            const lookupId = data.customer_id || data.account_id;
+            let cName = String(lookupId || 'Unknown Customer');
+            if (lookupId) {
+                const { data: customer } = await supabase.from('customers').select('name, full_name').eq('id', lookupId).maybeSingle()
+                if (customer) {
+                    cName = customer.name || customer.full_name || cName;
+                } else {
+                    const { data: account } = await supabase.from('accounts').select('name').eq('id', lookupId).maybeSingle()
+                    if (account) cName = account.name || cName;
+                }
+            }
+            const { data: property } = await supabase.from('properties').select('address, locality').eq('id', data.property_id).maybeSingle()
+            const pAddr = property ? `${property.address}, ${property.locality || ''}` : data.property_id
 
-        logInteractionServer({
-            type: 'property-unlinked',
-            category: 'property',
-            customerId: data.customer_id,
-            customerName: cName,
-            propertyId: data.property_id,
-            description: `"${cName}" unlinked from property: ${pAddr}`,
-            metadata: { property_id: data.property_id, customer_id: data.customer_id },
-            source: 'Admin App',
-        })
+            await logInteractionServer({
+                type: 'property-unlinked',
+                category: 'property',
+                customerId: lookupId,
+                customerName: cName,
+                propertyId: data.property_id,
+                description: `"${cName}" unlinked from property: ${pAddr}`,
+                metadata: { property_id: data.property_id, link_id: data.id },
+                source: 'Admin App',
+            })
+        } catch (logErr) {
+            console.error('[unlink] logging failed:', logErr)
+        }
 
         return NextResponse.json({ success: true, data })
     } catch (error) {
