@@ -129,6 +129,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         fetchFreshData();
     }, [job?.id]);
 
+    useEffect(() => {
+        if (job?._calculatorItems) {
+            setCalculatorItems(job._calculatorItems);
+            setActiveForm('quotation');
+        }
+    }, [job?._calculatorItems]);
+
     if (!job) return null;
 
     const tabs = [
