@@ -1076,14 +1076,37 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     <FilePlus size={18} color="#10b981" /> Documents & Billing
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
+                                    {savedQuotation ? (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                            <div>
+                                                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
+                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
+                                            </div>
+                                            <button
+                                                className="btn"
+                                                style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                onClick={() => setActiveForm('quotation')}
+                                            >
+                                                Edit / Send
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            className="btn"
+                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
+                                            onClick={() => setActiveForm('calculator')}
+                                        >
+                                            🧮 Calculate Repair Estimate
+                                        </button>
+                                    )}
+
                                     <button
                                         className="btn"
-                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
-                                        onClick={() => setActiveForm('calculator')}
+                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#10b98120', color: '#10b981', border: '1px solid #10b98140', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
+                                        onClick={() => setActiveForm('sales-invoice')}
                                     >
-                                        ≡ƒº« Calculate Repair Estimate
+                                        📄 Create Sales Invoice
                                     </button>
-
                                 </div>
                             </div>
                         </div>
