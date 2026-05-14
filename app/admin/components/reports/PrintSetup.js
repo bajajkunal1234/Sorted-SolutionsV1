@@ -407,7 +407,7 @@ function InvoicePreview({ settings, previewType, terms }) {
     const gstBreakdown = settings.gstBreakdown || settings.gst_breakdown || { showCGST: true, showSGST: true, showIGST: false, cgstRate: 9, sgstRate: 9, igstRate: 18 };
 
     const mockItems = [
-        { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, terms_conditions: [] },
+        { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, terms_conditions: ['[Example Item-Specific Term] 90 days warranty on gas refilling'] },
         { id: 2, desc: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, terms_conditions: [] },
         { id: 3, desc: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, terms_conditions: [] }
     ];
