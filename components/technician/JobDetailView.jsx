@@ -1306,15 +1306,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             }
                             
                             setSavedQuotation(savedData);
-                            // Auto-update job status to quotation-sent
+                            // Auto-update job status to quotation_sent
                             try {
                                 await fetch(`/api/admin/jobs`, {
                                     method: 'PUT',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ id: editedJob.id, status: 'quotation-sent' })
+                                    body: JSON.stringify({ id: editedJob.id, status: 'quotation_sent' })
                                 });
-                                setEditedJob(prev => ({ ...prev, status: 'quotation-sent' }));
-                                if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation-sent' });
+                                setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
+                                if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
                             } catch (e) { console.error('Status update failed', e); }
                             fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
