@@ -774,16 +774,6 @@ function TechnicianApp() {
                     )
                 )}
             </div>
-        {calculatorJob && (
-            <RepairCalculator
-                job={calculatorJob}
-                onClose={() => setCalculatorJob(null)}
-                onCreateQuotation={(items) => {
-                    setCalculatorJob(null);
-                    setSelectedJob({ ...calculatorJob, _calculatorItems: items });
-                }}
-            />
-        )}
         </>
     );
 
@@ -1420,6 +1410,18 @@ function TechnicianApp() {
                     currentUserId={technicianId}
                     onSuccess={() => {
                         // Optionally refresh the Dashboard or active jobs
+                    }}
+                />
+            )}
+
+            {/* Estimate/Repair Calculator Overlay */}
+            {calculatorJob && (
+                <RepairCalculator
+                    job={calculatorJob}
+                    onClose={() => setCalculatorJob(null)}
+                    onCreateQuotation={(items) => {
+                        setCalculatorJob(null);
+                        setSelectedJob({ ...calculatorJob, _calculatorItems: items });
                     }}
                 />
             )}
