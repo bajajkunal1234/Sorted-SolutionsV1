@@ -930,13 +930,17 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     // Print a beautifully branded invoice/quotation using the global print engine
     const handlePrintItem = async (item, tab) => {
-        // Fallback: Dynamically load the script if it somehow didn't load from layout.js
-        if (typeof window !== 'undefined' && !window.generatePrintHtml) {
-            console.log("Global print engine not loaded yet. Attempting dynamic injection...");
+        // Fallback or force-reload: Dynamically load the script to ensure latest version and bypass cache
+        if (typeof window !== 'undefined') {
+            console.log("Ensuring global print engine is loaded and up to date...");
             await new Promise((resolve, reject) => {
                 const script = document.createElement('script');
-                script.src = '/scripts/_print_func_inject.js';
-                script.onload = resolve;
+                // Cache-bust to guarantee the latest fixes are loaded immediately
+                script.src = `/scripts/_print_func_inject.js?v=${Date.now()}`;
+                script.onload = () => {
+                    if (window.generatePrintHtml) resolve();
+                    else reject(new Error("Script loaded but generatePrintHtml not found"));
+                };
                 script.onerror = () => reject(new Error("Failed to load print engine script"));
                 document.head.appendChild(script);
             });
