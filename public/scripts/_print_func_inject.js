@@ -9,7 +9,7 @@
             if (a.full_address) return a.full_address;
             return [a.street, a.city, a.state, a.pincode].filter(Boolean).join(', ');
         };
-        const acctAddr  = item.billing_address || buildAddr(item.accounts?.address) || '';
+        const acctAddr  = item.billing_address || buildAddr(item.accounts?.address) || buildAddr(item.accounts?.billing_address) || buildAddr(item.accounts?.mailing_address) || '';
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
@@ -138,18 +138,7 @@
     </table>
   </div>`;
 
-        const hsnBoxHtml = (bg, bd) => hsnEntries.length === 0 ? '' : `
-  <div style="margin-top:12px;padding:10px 14px;background:${bg};border:1px solid ${bd};border-radius:6px">
-    <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:#94a3b8;margin-bottom:6px">HSN/SAC Description</div>
-    <table>
-      <thead><tr style="border-bottom:1px solid ${bd}">
-        <th style="padding:3px 6px;font-size:10px;color:#64748b;font-weight:600;text-align:left">HSN/SAC</th>
-        <th style="padding:3px 6px;font-size:10px;color:#64748b;font-weight:600;text-align:left">Description</th>
-        <th style="padding:3px 6px;font-size:10px;color:#64748b;font-weight:600;text-align:center">GST%</th>
-      </tr></thead>
-      <tbody>${hsnEntries.map(([h, d]) => `<tr><td style="padding:3px 6px;font-family:monospace;font-size:10px">${h}</td><td style="padding:3px 6px;font-size:10px">${d.desc}</td><td style="padding:3px 6px;text-align:center;font-size:10px">${d.taxRate}%</td></tr>`).join('')}</tbody>
-    </table>
-  </div>`;
+        const hsnBoxHtml = (bg, bd) => "";
 
         const termsHtml = (bg, bd, titleColor) => showTerms && terms.length > 0 ? `
   <div style="margin-top:16px;padding:12px 16px;background:${bg};border:1px solid ${bd};border-radius:6px">
@@ -362,4 +351,5 @@ ${body}
         if (w) { w.document.write(html); w.document.close(); }
     };
     window.handlePrintItem = handlePrintItem;
+
 

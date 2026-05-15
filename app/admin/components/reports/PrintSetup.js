@@ -344,16 +344,16 @@ function PrintSetup() {
                                 <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' }}>Live Preview</span>
                                 <button className="btn-icon" onClick={() => { setPreviewType(activeTab); setShowPreview(true); }} title="Fullscreen Preview"><Eye size={16} /></button>
                             </div>
-                            <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+                            <div style={{ flex: 1, overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column' }}>
                                 <div style={{ 
                                     backgroundColor: '#fff', 
                                     boxShadow: '0 10px 25px rgba(0,0,0,0.1)', 
-                                    transform: 'scale(0.85)', 
-                                    transformOrigin: 'top center',
-                                    minHeight: '842px',
+                                    flex: 1,
                                     width: '100%',
-                                    maxWidth: '800px',
-                                    margin: '0 auto'
+                                    maxWidth: '850px',
+                                    margin: '0 auto',
+                                    overflow: 'hidden',
+                                    borderRadius: '8px'
                                 }}>
                                     <InvoicePreview 
                                         settings={{...settings, showGST: settings[activeTermsData.gstKey]}} 
