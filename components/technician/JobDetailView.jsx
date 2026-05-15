@@ -1,7 +1,7 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, DollarSign, QrCode, Loader2 } from 'lucide-react';
+import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, Loader2 } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
@@ -27,26 +27,19 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type: 'quotation' | 'invoice', doc: object }
     const [isAddingNote, setIsAddingNote] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
-    // Parts Ordered gate â€” shows inline note modal before setting parts_ordered
+    // Parts Ordered gate — shows inline note modal before setting parts_ordered
     const [showPartsNoteModal, setShowPartsNoteModal] = useState(false);
     const [partsNoteText, setPartsNoteText] = useState('');
     const [partsNoteLoading, setPartsNoteLoading] = useState(false);
 
     // Payment collection state
-    const [payAmount, setPayAmount] = useState('');
-    const [payLabel, setPayLabel] = useState('full'); // advance | partial | full
-    const [payNotes, setPayNotes] = useState('');
-    const [payLoading, setPayLoading] = useState(false);
-    const [paySuccess, setPaySuccess] = useState(null);
-    const [qrOrderData, setQrOrderData] = useState(null); // { short_url, order } from API
-    const [qrLoading, setQrLoading] = useState(false);
-    const [linkLoading, setLinkLoading] = useState(false);
+
 
     // Use stored lat/lng from property (if available) for navigation
     const storedLat = job?.property?.latitude || job?.latitude;
     const storedLng = job?.property?.longitude || job?.longitude;
 
-    // Live Location Broadcaster â€” broadcasts GPS to customer app when job is in-progress
+    // Live Location Broadcaster — broadcasts GPS to customer app when job is in-progress
     useEffect(() => {
         let watchId;
         let channel;
@@ -82,7 +75,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             if (!job?.id) return;
             try {
                 // Fetch fresh job + both interaction sources simultaneously
-                // Note: skip admin/transactions here â€” requires admin auth, not available to technician
+                // Note: skip admin/transactions here — requires admin auth, not available to technician
                 const t = Date.now();
                 const [jobRes, intRes, jobIntRes] = await Promise.all([
                     fetch(`/api/technician/jobs/${job.id}?t=${t}`),
@@ -126,7 +119,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     const freshJob = { ...jobData.job, interactions: allInt };
                     setEditedJob(freshJob);
 
-                    // Sync Kanban â€” if the DB status differs from the list's stale value, push
+                    // Sync Kanban — if the DB status differs from the list's stale value, push
                     // the update up so the card moves to the correct column immediately
                     if (jobData.job.status !== job.status && onJobUpdate) {
                         onJobUpdate(freshJob);
@@ -167,7 +160,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     status: newStatus,
                     updated_by_name: techName,
                     source: 'Technician App',
-                    _changeLog: [`Status changed: ${editedJob.status} Î“Ã¥Ã† ${newStatus}`]
+                    _changeLog: [`Status changed: ${editedJob.status} → ${newStatus}`]
                 })
             });
 
@@ -202,7 +195,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         setMarkingArrival(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
         try {
-            // Calls mark_arrived action â†’ sets arrived_at + auto-advances status to diagnosing_quoting
+            // Calls mark_arrived action → sets arrived_at + auto-advances status to diagnosing_quoting
             const res = await fetch(`/api/technician/jobs/${job.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -433,7 +426,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             await transactionsAPI.create(data, type);
             
             const docName = activeForm === 'quotation' ? 'Quotation' : 'Sales Voucher';
-            const logDesc = `Generated ${docName} for Î“Ã©â•£${data.total_amount || 0}`;
+            const logDesc = `Generated ${docName} for ₹${data.total_amount || 0}`;
             await handleAddNote({
                 description: logDesc,
                 category: activeForm === 'quotation' ? 'communication' : 'sales',
@@ -481,15 +474,15 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         <h2 style={{ fontSize: 'var(--font-size-base)', fontWeight: 700, marginBottom: '2px', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {editedJob.customerName || 'Customer'}
                         </h2>
-                        {/* Job name â€” most important, shown prominently */}
+                        {/* Job name — most important, shown prominently */}
                         {(editedJob.description || editedJob.product?.type || editedJob.issueCategory) && (
                             <div style={{ fontSize: '13px', fontWeight: 600, color: '#3b82f6', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                ðŸ”§ {editedJob.description || editedJob.product?.type || editedJob.issueCategory}
+                                <Wrench size={12} style={{ display: 'inline', marginRight: 4 }} />{editedJob.description || editedJob.product?.type || editedJob.issueCategory}
                             </div>
                         )}
                         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span>Job #{editedJob.job_number || editedJob.id?.split('-')[0]}</span>
-                            <span>â€¢</span>
+                            <span>•</span>
                             <span style={{
                                 color: editedJob.status === 'completed' ? '#10b981' :
                                        editedJob.status === 'cancelled' ? '#ef4444' : '#f59e0b',
@@ -609,7 +602,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                     color: inWarranty ? '#10b981' : '#ef4444',
                                                     border: `1px solid ${inWarranty ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`
                                                 }}>
-                                                    {inWarranty ? 'Î“Â£Ã´ In Warranty' : (w || 'Out of Warranty')}
+                                                    {inWarranty ? 'In Warranty' : (w || 'Out of Warranty')}
                                                 </div>
                                             );
                                         })()}
@@ -779,211 +772,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 onClick={handleMapClick}
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
                                             >
-                                                {storedLat && storedLng ? 'ðŸ“ Navigate (Precise)' : 'Open in Maps â€º'}
+                                                {storedLat && storedLng ? 'Navigate (Precise)' : 'Open in Maps →'}
                                             </a>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-                                COLLECT PAYMENT â€” standalone, any time
-                            â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-                            <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid rgba(16,185,129,0.4)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981' }}>
-                                    <DollarSign size={18} /> Collect Payment
-                                </h3>
-
-                                {paySuccess && (
-                                    <div style={{ padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 10, marginBottom: 14, fontSize: 13, color: '#10b981', fontWeight: 600 }}>
-                                        âœ… {paySuccess}
-                                    </div>
-                                )}
-
-                                {/* Amount + Label row */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, marginBottom: 12 }}>
-                                    <div style={{ position: 'relative' }}>
-                                        <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)', fontWeight: 700 }}>â‚¹</span>
-                                        <input
-                                            type="number"
-                                            min="1"
-                                            placeholder="Enter amount"
-                                            value={payAmount}
-                                            onChange={e => { setPayAmount(e.target.value); setPaySuccess(null); setQrOrderData(null); }}
-                                            style={{ width: '100%', padding: '10px 10px 10px 26px', border: '1px solid var(--border-primary)', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, boxSizing: 'border-box' }}
-                                        />
-                                    </div>
-                                    <select
-                                        value={payLabel}
-                                        onChange={e => setPayLabel(e.target.value)}
-                                        style={{ padding: '10px 8px', border: '1px solid var(--border-primary)', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 600 }}
-                                    >
-                                        <option value="advance">Advance</option>
-                                        <option value="partial">Partial</option>
-                                        <option value="full">Full</option>
-                                    </select>
-                                </div>
-
-                                {/* Optional notes */}
-                                <input
-                                    type="text"
-                                    placeholder="Note (optional)"
-                                    value={payNotes}
-                                    onChange={e => setPayNotes(e.target.value)}
-                                    style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: 8, backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, marginBottom: 14, boxSizing: 'border-box' }}
-                                />
-
-                                {/* Action buttons */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-
-                                    {/* Cash */}
-                                    <button
-                                        disabled={!payAmount || payLoading}
-                                        onClick={async () => {
-                                            if (!payAmount || parseFloat(payAmount) <= 0) return;
-                                            const storedTech = localStorage.getItem('technicianData');
-                                            let techName = 'Technician', techId = null;
-                                            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e){}
-                                            setPayLoading(true); setPaySuccess(null);
-                                            try {
-                                                const res = await fetch('/api/technician/payment', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        job_id: editedJob.id,
-                                                        account_id: editedJob.customerId || editedJob.account_id,
-                                                        technician_id: techId,
-                                                        technician_name: techName,
-                                                        amount: parseFloat(payAmount),
-                                                        method: 'cash',
-                                                        amount_label: payLabel,
-                                                        notes: payNotes,
-                                                    }),
-                                                });
-                                                const data = await res.json();
-                                                if (!data.success) throw new Error(data.error);
-                                                setPaySuccess(`â‚¹${parseFloat(payAmount).toLocaleString('en-IN')} cash recorded!`);
-                                                setPayAmount(''); setPayNotes('');
-                                            } catch(err) { alert('Error: ' + err.message); }
-                                            finally { setPayLoading(false); }
-                                        }}
-                                        style={{ padding: '10px 6px', borderRadius: 8, border: '1px solid rgba(16,185,129,0.4)', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', fontWeight: 700, fontSize: 12, cursor: payAmount && !payLoading ? 'pointer' : 'not-allowed', opacity: payAmount && !payLoading ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
-                                    >
-                                        {payLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'ðŸ’µ'} Cash
-                                    </button>
-
-                                    {/* Show QR */}
-                                    <button
-                                        disabled={!payAmount || qrLoading}
-                                        onClick={async () => {
-                                            if (!payAmount || parseFloat(payAmount) <= 0) return;
-                                            const storedTech = localStorage.getItem('technicianData');
-                                            let techName = 'Technician', techId = null;
-                                            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e){}
-                                            setQrLoading(true); setQrOrderData(null);
-                                            try {
-                                                // Create Razorpay order â†’ QR will be shown via checkout
-                                                const res = await fetch('/api/customer/payment/create-order', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        amount: parseFloat(payAmount),
-                                                        receipt: editedJob.id,
-                                                        job_id: editedJob.id,
-                                                        account_id: editedJob.customerId || editedJob.account_id,
-                                                        collected_by: 'technician',
-                                                        technician_id: techId,
-                                                        technician_name: techName,
-                                                        amount_label: payLabel,
-                                                    }),
-                                                });
-                                                const data = await res.json();
-                                                if (!data.success) throw new Error(data.error);
-                                                // Open Razorpay checkout â€” customer scans the UPI QR inside
-                                                const { loadRazorpayScript } = await import('@/lib/razorpayClient');
-                                                await loadRazorpayScript();
-                                                const rzp = new window.Razorpay({
-                                                    key: data.keyId,
-                                                    order_id: data.order.id,
-                                                    amount: data.order.amount,
-                                                    currency: 'INR',
-                                                    name: 'Sorted Solutions',
-                                                    description: `${payLabel} payment â€” Job #${editedJob.job_number || editedJob.id?.split('-')[0]}`,
-                                                    prefill: { contact: editedJob.mobile || '' },
-                                                    method: { upi: true, card: false, netbanking: false, wallet: false },
-                                                    config: { display: { blocks: { upi: { name: 'UPI', instruments: [{ method: 'upi', flow: 'qr' }] } }, sequence: ['block.upi'], preferences: { show_default_blocks: false } } },
-                                                    handler: () => { setPaySuccess(`â‚¹${parseFloat(payAmount).toLocaleString('en-IN')} payment received!`); setPayAmount(''); setPayNotes(''); },
-                                                });
-                                                rzp.open();
-                                            } catch(err) { alert('Error: ' + err.message); }
-                                            finally { setQrLoading(false); }
-                                        }}
-                                        style={{ padding: '10px 6px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.4)', backgroundColor: 'rgba(99,102,241,0.1)', color: '#6366f1', fontWeight: 700, fontSize: 12, cursor: payAmount && !qrLoading ? 'pointer' : 'not-allowed', opacity: payAmount && !qrLoading ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
-                                    >
-                                        {qrLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'ðŸ“±'} Show QR
-                                    </button>
-
-                                    {/* WhatsApp Link */}
-                                    <button
-                                        disabled={!payAmount || linkLoading}
-                                        onClick={async () => {
-                                            if (!payAmount || parseFloat(payAmount) <= 0) return;
-                                            const storedTech = localStorage.getItem('technicianData');
-                                            let techName = 'Technician', techId = null;
-                                            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e){}
-                                            setLinkLoading(true);
-                                            try {
-                                                const res = await fetch('/api/payment/create-link', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        amount: parseFloat(payAmount),
-                                                        customer_name: editedJob.customerName || 'Customer',
-                                                        customer_phone: editedJob.mobile || '',
-                                                        description: `${payLabel} payment for ${editedJob.description || 'service'} Â· Job #${editedJob.job_number || editedJob.id?.split('-')[0]}`,
-                                                        job_id: editedJob.id,
-                                                        account_id: editedJob.customerId || editedJob.account_id,
-                                                        collected_by: 'technician',
-                                                        technician_id: techId,
-                                                        technician_name: techName,
-                                                        amount_label: payLabel,
-                                                    }),
-                                                });
-                                                const data = await res.json();
-                                                if (!data.success) throw new Error(data.error);
-                                                // Log interaction
-                                                await fetch('/api/technician/payment', {
-                                                    method: 'POST',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({
-                                                        job_id: editedJob.id,
-                                                        account_id: editedJob.customerId || editedJob.account_id,
-                                                        technician_id: techId, technician_name: techName,
-                                                        amount: parseFloat(payAmount), method: 'link', amount_label: payLabel,
-                                                        notes: `Payment link sent via WhatsApp: ${data.short_url}`,
-                                                    }),
-                                                }).catch(() => {});
-                                                // Open WhatsApp
-                                                const phone = (editedJob.mobile || '').replace(/\D/g, '');
-                                                const msg = encodeURIComponent(`Hi ${editedJob.customerName || 'there'}, please pay â‚¹${parseFloat(payAmount).toLocaleString('en-IN')} for your service (${payLabel}): ${data.short_url}`);
-                                                window.open(`https://wa.me/91${phone}?text=${msg}`, '_blank');
-                                                setPaySuccess(`Payment link sent for â‚¹${parseFloat(payAmount).toLocaleString('en-IN')}!`);
-                                                setPayAmount(''); setPayNotes('');
-                                            } catch(err) { alert('Error: ' + err.message); }
-                                            finally { setLinkLoading(false); }
-                                        }}
-                                        style={{ padding: '10px 6px', borderRadius: 8, border: '1px solid rgba(34,197,94,0.4)', backgroundColor: 'rgba(34,197,94,0.1)', color: '#22c55e', fontWeight: 700, fontSize: 12, cursor: payAmount && !linkLoading ? 'pointer' : 'not-allowed', opacity: payAmount && !linkLoading ? 1 : 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
-                                    >
-                                        {linkLoading ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'ðŸ’¬'} WhatsApp
-                                    </button>
-                                </div>
-                            </div>
-
-                            {/* Start Job â€” shown when scheduled */}
+                            {/* Start Job — shown when scheduled */}
                             {editedJob.status === 'scheduled' && !editedJob.on_way_at && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        ðŸš€ Ready to Head Out?
+                                         Ready to Head Out?
                                     </h3>
                                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
                                         Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
@@ -994,7 +794,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         onClick={async () => {
                                             if (!navigator.geolocation) return alert('GPS not supported on this device');
                                             navigator.geolocation.getCurrentPosition(async () => {
-                                                // 1. Record on_way_at â€” locks cx from cancel/reschedule
+                                                // 1. Record on_way_at — locks cx from cancel/reschedule
                                                 const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                                 await fetch(`/api/technician/jobs/${job.id}`, {
                                                     method: 'PUT',
@@ -1006,32 +806,32 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         }}
                                         disabled={loading}
                                     >
-                                        ðŸš€ Start Job & Share Location
+                                         Start Job & Share Location
                                     </button>
                                 </div>
                             )}
                             {editedJob.status === 'scheduled' && editedJob.on_way_at && (
                                 <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    ðŸ›£ï¸ On the way â€” customer notified. Location sharing active.
+                                     On the way — customer notified. Location sharing active.
                                 </div>
                             )}
 
-                            {/* Mark as Arrived â€” shown when scheduled and on_way_at is set */}
+                            {/* Mark as Arrived — shown when scheduled and on_way_at is set */}
                             {editedJob.status === 'scheduled' && editedJob.on_way_at && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)', border: editedJob.arrived_at ? '1px solid rgba(16,185,129,0.4)' : '2px solid #8b5cf6' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <MapPin size={18} color={editedJob.arrived_at ? '#10b981' : '#8b5cf6'} />
-                                        {editedJob.arrived_at ? 'Arrival Confirmed âœ“' : 'At Customer Location?'}
+                                        {editedJob.arrived_at ? 'Arrival Confirmed ✓' : 'At Customer Location?'}
                                     </h3>
                                     {editedJob.arrived_at ? (
                                         <div style={{ padding: '12px', backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 8, textAlign: 'center', fontSize: 13, color: '#10b981', fontWeight: 600 }}>
-                                            âœ“ Arrived at {new Date(editedJob.arrived_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>Status auto-changed to Diagnosing &amp; Quoting</div>
+                                            ✓ Arrived at {new Date(editedJob.arrived_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>Status auto-changed to Diagnosing & Quoting</div>
                                         </div>
                                     ) : (
                                         <>
                                             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
-                                                Tap when you reach the customer â€” status will auto-advance to <strong>Diagnosing &amp; Quoting</strong> and your arrival is recorded.
+                                                Tap when you reach the customer — status will auto-advance to <strong>Diagnosing & Quoting</strong> and your arrival is recorded.
                                             </p>
                                             <button
                                                 className="btn btn-primary"
@@ -1039,7 +839,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 disabled={markingArrival}
                                                 style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
                                             >
-                                                {markingArrival ? 'â³ Recording...' : 'ðŸ“ Mark as Arrived'}
+                                                {markingArrival ? ' Recording...' : 'Mark as Arrived'}
                                             </button>
                                         </>
                                     )}
@@ -1067,16 +867,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
                                 >
                                     {/* Tech-settable statuses only */}
-                                    <option value="scheduled">ðŸ“… Scheduled</option>
-                                    <option value="diagnosing_quoting">ðŸ” Diagnosing &amp; Quoting</option>
-                                    <option value="quotation_sent">ðŸ“‹ Quotation Sent</option>
-                                    <option value="parts_ordered">ðŸ”© Parts Ordered</option>
-                                    <option value="work_in_progress">ðŸ”§ Work In Progress</option>
-                                    <option value="cx_reschedule">ðŸ“† Cx Reschedule</option>
+                                    <option value="scheduled">Scheduled</option>
+                                    <option value="diagnosing_quoting">Diagnosing &amp; Quoting</option>
+                                    <option value="quotation_sent">Quotation Sent</option>
+                                    <option value="parts_ordered">Parts Ordered</option>
+                                    <option value="work_in_progress">Work In Progress</option>
+                                    <option value="cx_reschedule">Cx Reschedule</option>
                                     {/* Read-only states shown for context but disabled */}
-                                    <option value="new_job_request" disabled>ðŸ”µ New Job Request (admin only)</option>
-                                    <option value="cancelled" disabled>âŒ Cancelled (admin only)</option>
-                                    <option value="closed" disabled>âœ… Closed (auto on payment)</option>
+                                    <option value="new_job_request" disabled>New Job Request (admin only)</option>
+                                    <option value="cancelled" disabled>Cancelled (admin only)</option>
+                                    <option value="closed" disabled>Closed (auto on payment)</option>
                                 </select>
                                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
                             </div>
@@ -1090,7 +890,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
                                             <div>
                                                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
-                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: â‚¹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
                                             </div>
                                             <button
                                                 className="btn"
@@ -1105,7 +905,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                                                 <div>
                                                     <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
-                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: â‚¹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
                                                 </div>
                                                 {/* Edit goes away if approved */}
                                                 {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
@@ -1125,8 +925,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                     <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
                                                         <CheckCircle size={16} /> 
                                                         {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
-                                                            ? 'âœ… Cx Approved from App' 
-                                                            : 'âœ… Cx Said to Proceed'}
+                                                            ? 'Cx Approved from App' 
+                                                            : 'Cx Said to Proceed'}
                                                     </div>
                                                     <button
                                                         className="btn"
@@ -1174,7 +974,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                             finally { setLoading(false); }
                                                         }}
                                                     >
-                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'ðŸš€ Auto-Create Final Invoice'}
+                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
                                                     </button>
                                                 </>
                                             ) : (
@@ -1192,7 +992,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                         setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: techName, timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
                                                     }}
                                                 >
-                                                    âœ“ Mark as Customer Approved
+                                                    ✓ Mark as Customer Approved
                                                 </button>
                                             )}
                                         </>
@@ -1202,7 +1002,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                             style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
                                             onClick={() => setActiveForm('calculator')}
                                         >
-                                            ðŸ§® Calculate Repair Estimate
+                                             Calculate Repair Estimate
                                         </button>
                                     )}
                                 </div>
@@ -1212,13 +1012,13 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 </div>
             </div>
 
-            {/* â”€â”€ Parts Ordered Gate Modal â”€â”€ */}
+            {/* ── Parts Ordered Gate Modal ── */}
             {showPartsNoteModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                     <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 24px calc(28px + env(safe-area-inset-bottom))' }}>
                         <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
                         <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            ðŸ”© Parts Ordered â€” Repair Note Required
+                            Parts Ordered — Repair Note Required
                         </h3>
                         <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 18, lineHeight: 1.5 }}>
                             Describe the part(s) you have ordered. This note is sent to the customer and logged for admin visibility.
@@ -1226,7 +1026,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         <textarea
                             value={partsNoteText}
                             onChange={e => setPartsNoteText(e.target.value)}
-                            placeholder="e.g. Ordered Samsung WM drain pump â€” ETA 3 days. Will call to reschedule once received."
+                            placeholder="e.g. Ordered Samsung WM drain pump — ETA 3 days. Will call to reschedule once received."
                             style={{
                                 width: '100%', minHeight: 100, padding: 14, borderRadius: 12, fontSize: 14, lineHeight: 1.5,
                                 background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
@@ -1272,7 +1072,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     border: 'none', color: '#fff', fontWeight: 700, cursor: partsNoteText.trim() ? 'pointer' : 'not-allowed', fontSize: 14
                                 }}
                             >
-                                {partsNoteLoading ? 'â³ Saving...' : 'ðŸ”© Confirm Parts Ordered'}
+                                {partsNoteLoading ? 'Saving...' : 'Confirm Parts Ordered'}
                             </button>
                         </div>
                     </div>
