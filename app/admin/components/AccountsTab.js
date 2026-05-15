@@ -952,8 +952,21 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     address: liveLedger.address || liveLedger.mailing_address || {}
                 };
             }
+
+            // Fetch latest print settings directly to guarantee they are never null or stale
+            let settingsOverride = printSettingsRef.current;
+            try {
+                const freshSettings = await printSettingsAPI.get();
+                if (freshSettings) {
+                    settingsOverride = freshSettings;
+                    printSettingsRef.current = freshSettings;
+                }
+            } catch (err) {
+                console.warn("Failed to fetch fresh print settings, using cached or defaults.");
+            }
+
             // we use window.generatePrintHtml from _print_func_inject.js, but since it returns HTML we have to open it
-            const html = window.generatePrintHtml(item, tab);
+            const html = window.generatePrintHtml(item, tab, settingsOverride);
             const w = window.open('', '_blank');
             if (w) { w.document.write(html); w.document.close(); }
         } else {
