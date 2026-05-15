@@ -3,7 +3,13 @@
         const acct      = item.account_name || '';
         const acctPhone = item.account_phone || item.accounts?.mobile || '';
         const acctGSTIN = item.account_gstin || item.accounts?.gstin || '';
-        const acctAddr  = item.billing_address || item.accounts?.address?.full_address || item.accounts?.address || '';
+        const buildAddr = (a) => {
+            if (!a) return '';
+            if (typeof a === 'string') return a;
+            if (a.full_address) return a.full_address;
+            return [a.street, a.city, a.state, a.pincode].filter(Boolean).join(', ');
+        };
+        const acctAddr  = item.billing_address || buildAddr(item.accounts?.address) || '';
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
