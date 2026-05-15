@@ -428,9 +428,9 @@ function InvoicePreview({ settings, previewType, terms }) {
             };
 
             const mockItems = [
-                { id: 1, desc: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, terms_conditions: ['[Example Item-Specific Term] 90 days warranty on gas refilling'], cgst: settings.showGST ? 135 : 0, sgst: settings.showGST ? 135 : 0, amount: 1500 },
-                { id: 2, desc: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, terms_conditions: [], cgst: settings.showGST ? 225 : 0, sgst: settings.showGST ? 225 : 0, amount: 2500 },
-                { id: 3, desc: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, terms_conditions: [], cgst: settings.showGST ? 81 : 0, sgst: settings.showGST ? 81 : 0, amount: 900 }
+                { id: 1, description: 'AC Service – Split Unit 1.5 Ton', hsn: '998519', qty: 1, rate: 1500, tax: 18, terms_conditions: ['90 days warranty on gas refilling'], cgst: settings.showGST ? 135 : 0, sgst: settings.showGST ? 135 : 0, amount: 1500 },
+                { id: 2, description: 'Gas Refilling – R32 Refrigerant', hsn: '271600', qty: 1, rate: 2500, tax: 18, terms_conditions: [], cgst: settings.showGST ? 225 : 0, sgst: settings.showGST ? 225 : 0, amount: 2500 },
+                { id: 3, description: 'Spare Parts (Capacitor)', hsn: '8536', qty: 2, rate: 450, tax: 18, terms_conditions: [], cgst: settings.showGST ? 81 : 0, sgst: settings.showGST ? 81 : 0, amount: 900 }
             ];
 
             const subtotal = 1500 + 2500 + 900;

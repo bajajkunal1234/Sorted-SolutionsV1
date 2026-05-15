@@ -163,11 +163,15 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 p.pincode ? `- ${p.pincode}` : ''
             ].filter(Boolean).join(', ');
         }
-        // Fall back to mailing/billing address object
-        const addr = account.mailing_address || account.address || {};
-        if (typeof addr === 'string') return addr;
+        // Try plain-string address fields first
+        if (typeof account.mailing_address === 'string' && account.mailing_address.trim()) return account.mailing_address.trim();
+        if (typeof account.billing_address === 'string' && account.billing_address.trim()) return account.billing_address.trim();
+        // Fall back to address object
+        const addr = account.address || {};
+        if (typeof addr === 'string' && addr.trim()) return addr.trim();
         return [addr.street, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
     };
+
 
     const handleAccountChange = (account) => {
         if (!account) return;

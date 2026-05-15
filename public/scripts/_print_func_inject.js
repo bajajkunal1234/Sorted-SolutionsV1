@@ -9,7 +9,7 @@
             if (a.full_address) return a.full_address;
             return [a.street, a.city, a.state, a.pincode].filter(Boolean).join(', ');
         };
-        const acctAddr  = item.billing_address || buildAddr(item.accounts?.address) || buildAddr(item.accounts?.billing_address) || buildAddr(item.accounts?.mailing_address) || '';
+        const acctAddr  = item.billing_address || item.account_address || buildAddr(item.accounts?.address) || buildAddr(item.accounts?.billing_address) || buildAddr(item.accounts?.mailing_address) || buildAddr(item.account?.address) || buildAddr(item.customer?.address) || buildAddr(item.address) || '';
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
@@ -103,13 +103,10 @@
                 const qty = it.qty || it.quantity || 1;
                 const rate = it.rate || 0;
                 const amount = qty * rate;
-                const prodTerms = Array.isArray(it.terms_conditions) && it.terms_conditions.length > 0
-                    ? `<ul style="margin:5px 0 0;padding-left:14px;font-size:9px;color:#64748b;font-style:italic;line-height:1.4">${it.terms_conditions.map(t => `<li>${t}</li>`).join('')}</ul>`
-                    : '';
                 return `
   <tr style="background:${i % 2 === 0 ? bg1 : bg2}">
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};vertical-align:top">${i + 1}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};vertical-align:top"><div style="font-weight:500">${it.description || it.name || ''}</div>${prodTerms}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};vertical-align:top"><div style="font-weight:500">${it.description || it.name || it.desc || ''}</div></td>
     ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;font-family:monospace;font-size:11px;color:#64748b;vertical-align:top">${it.hsn || it.hsn_code || '—'}</td>` : ''}
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;vertical-align:top">${qty}</td>
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;color:#64748b;vertical-align:top">${it.unit || 'Nos'}</td>
@@ -118,6 +115,8 @@
     <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;font-weight:700;vertical-align:top">${rupee}${fmt(amount)}</td>
   </tr>`;
             }).join('');
+        // Note: item-specific T&C are intentionally NOT shown under item names.
+        // They are prepended at the TOP of the global Terms & Conditions block (see termsHtml).
 
         const totalsHtml = (accentColor, borderTop) => `
   <div style="display:flex;justify-content:flex-end;margin-top:14px">
@@ -140,11 +139,16 @@
 
         const hsnBoxHtml = (bg, bd) => "";
 
-        const termsHtml = (bg, bd, titleColor) => showTerms && terms.length > 0 ? `
+        const termsHtml = (bg, bd, titleColor) => {
+            // Item-specific T&C come FIRST (one per item, in order), then global T&C follow
+            const itemTerms = itemsList.flatMap(it => Array.isArray(it.terms_conditions) ? it.terms_conditions.filter(Boolean) : []);
+            const allTerms = [...itemTerms, ...terms];
+            return showTerms && allTerms.length > 0 ? `
   <div style="margin-top:16px;padding:12px 16px;background:${bg};border:1px solid ${bd};border-radius:6px">
     <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:${titleColor};margin-bottom:7px">Terms &amp; Conditions</div>
-    <ol style="margin:0;padding-left:14px;font-size:10.5px;color:#475569;line-height:1.8">${terms.map(t => `<li>${t}</li>`).join('')}</ol>
+    <ol style="margin:0;padding-left:14px;font-size:10.5px;color:#475569;line-height:1.8">${allTerms.map(t => `<li>${t}</li>`).join('')}</ol>
   </div>` : '';
+        };
 
         const sigHtml = (accentColor, companyColor) => showSig ? `
   <div style="display:flex;justify-content:space-between;margin-top:30px">
