@@ -1198,6 +1198,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 context="technician"
                 currentUserName={techName}
                 currentUserId={techId}
+                prefilledCustomer={{
+                    id: editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                    name: editedJob.customerName || editedJob.customer?.name || 'Customer',
+                    phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    mobile: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                }}
                 prefilledJob={{
                     id: editedJob.id,
                     job_number: editedJob.job_number,
