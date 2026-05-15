@@ -929,7 +929,19 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     };
 
     // Print a beautifully branded invoice/quotation using the global print engine
-    const handlePrintItem = (item, tab) => {
+    const handlePrintItem = async (item, tab) => {
+        // Fallback: Dynamically load the script if it somehow didn't load from layout.js
+        if (typeof window !== 'undefined' && !window.generatePrintHtml) {
+            console.log("Global print engine not loaded yet. Attempting dynamic injection...");
+            await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = '/scripts/_print_func_inject.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error("Failed to load print engine script"));
+                document.head.appendChild(script);
+            });
+        }
+
         if (typeof window !== 'undefined' && window.generatePrintHtml) {
             const liveLedger = (ledgers || []).find(l => l.id === item.account_id);
             if (liveLedger && (!item.accounts || typeof item.accounts !== 'object')) {
