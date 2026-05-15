@@ -10,6 +10,7 @@ import { logInteraction } from '@/lib/interactions';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
 import LiveMap from '@/components/common/LiveMap';
+import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 
@@ -33,7 +34,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [partsNoteLoading, setPartsNoteLoading] = useState(false);
 
     // Payment collection state
-
+    const [showCollectPayment, setShowCollectPayment] = useState(false);
 
     // Use stored lat/lng from property (if available) for navigation
     const storedLat = job?.property?.latitude || job?.latitude;
@@ -892,13 +893,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
                                                 <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
                                             </div>
-                                            <button
-                                                className="btn"
-                                                style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
-                                                onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
-                                            >
-                                                View / Send
-                                            </button>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                    onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
+                                                >
+                                                    View / Send
+                                                </button>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                    onClick={() => setShowCollectPayment(true)}
+                                                >
+                                                    <CheckCircle size={14} /> Collect Payment
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : savedQuotation ? (
                                         <>
@@ -1175,6 +1185,36 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 )}
             </div>
         </div>
+
+        {/* Collect Payment Modal — shown after invoice is created */}
+        {showCollectPayment && (() => {
+            const storedTech = typeof window !== 'undefined' ? localStorage.getItem('technicianData') : null;
+            let techName = 'Technician', techId = null;
+            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e) {}
+            return (
+                <CollectPaymentFlow
+                    onClose={() => setShowCollectPayment(false)}
+                    context="technician"
+                    currentUserName={techName}
+                    currentUserId={techId}
+                    prefilledJob={{
+                        id: editedJob.id,
+                        job_number: editedJob.job_number,
+                        account_id: editedJob.customerId || editedJob.account_id,
+                        account_name: editedJob.customerName,
+                        customer_name: editedJob.customerName,
+                        customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                        category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
+                        technician_id: techId,
+                    }}
+                    prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
+                    onSuccess={() => {
+                        setShowCollectPayment(false);
+                        if (onJobUpdate) onJobUpdate(editedJob);
+                    }}
+                />
+            );
+        })()}
     );
 }
 
