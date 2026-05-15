@@ -1,5 +1,6 @@
 import './globals.css'
 import { Suspense } from 'react'
+import Script from 'next/script'
 import GoogleTagsProvider from '@/components/GoogleTagsProvider'
 import ClickTracker from '@/components/ClickTracker'
 import FloatingCTA from '@/components/common/FloatingCTA'
@@ -56,6 +57,8 @@ export default function RootLayout({ children }) {
                 </Suspense>
             </head>
             <body style={{ overflowX: 'hidden', maxWidth: '100vw' }} suppressHydrationWarning>
+                {/* Global Print Engine injected via next/script to prevent hydration drop */}
+                <Script src="/scripts/_print_func_inject.js" strategy="beforeInteractive" />
                 {children}
                 {/*
                     Both ClickTracker and FloatingCTA are client components that use
