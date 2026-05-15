@@ -58,7 +58,7 @@ export default function RootLayout({ children }) {
             </head>
             <body style={{ overflowX: 'hidden', maxWidth: '100vw' }} suppressHydrationWarning>
                 {/* Global Print Engine injected via next/script to prevent hydration drop */}
-                <Script src="/scripts/_print_func_inject.js" strategy="beforeInteractive" />
+                <Script src="/scripts/_print_func_inject.js?v=20260515_3" strategy="beforeInteractive" />
                 {children}
                 {/*
                     Both ClickTracker and FloatingCTA are client components that use
