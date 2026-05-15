@@ -90,7 +90,7 @@
     ${showGST ? '<th style="padding:8px 10px;text-align:center;font-size:11px">HSN/SAC</th>' : ''}
     <th style="padding:8px 10px;text-align:center;font-size:11px">Qty</th>
     <th style="padding:8px 10px;text-align:center;font-size:11px">Unit</th>
-    <th style="padding:8px 10px;text-align:right;font-size:11px">Rate</th>
+    <th style="padding:8px 10px;text-align:right;font-size:11px">${showGST ? 'Rate (Incl.)' : 'Rate'}</th>
     ${showGST ? '<th style="padding:8px 10px;text-align:right;font-size:11px">Tax%</th>' : ''}
     <th style="padding:8px 10px;text-align:right;font-size:11px">Amount</th>
   </tr></thead>`;
@@ -101,16 +101,19 @@
                 const qty = it.qty || it.quantity || 1;
                 const rate = it.rate || 0;
                 const amount = qty * rate;
+                const prodTerms = Array.isArray(it.terms_conditions) && it.terms_conditions.length > 0
+                    ? `<ul style="margin:5px 0 0;padding-left:14px;font-size:9px;color:#64748b;font-style:italic;line-height:1.4">${it.terms_conditions.map(t => `<li>${t}</li>`).join('')}</ul>`
+                    : '';
                 return `
   <tr style="background:${i % 2 === 0 ? bg1 : bg2}">
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd}">${i + 1}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};font-weight:500">${it.description || it.name || ''}</td>
-    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;font-family:monospace;font-size:11px;color:#64748b">${it.hsn || it.hsn_code || '—'}</td>` : ''}
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center">${qty}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;color:#64748b">${it.unit || 'Nos'}</td>
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right">${rupee}${fmt(rate)}</td>
-    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;color:#64748b">${it.tax || it.taxRate || 0}%</td>` : ''}
-    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;font-weight:700">${rupee}${fmt(amount)}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};vertical-align:top">${i + 1}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};vertical-align:top"><div style="font-weight:500">${it.description || it.name || ''}</div>${prodTerms}</td>
+    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;font-family:monospace;font-size:11px;color:#64748b;vertical-align:top">${it.hsn || it.hsn_code || '—'}</td>` : ''}
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;vertical-align:top">${qty}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:center;color:#64748b;vertical-align:top">${it.unit || 'Nos'}</td>
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;vertical-align:top">${rupee}${fmt(rate)}</td>
+    ${showGST ? `<td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;color:#64748b;vertical-align:top">${it.tax || it.taxRate || 0}%</td>` : ''}
+    <td style="padding:8px 10px;border-bottom:1px solid ${bd};text-align:right;font-weight:700;vertical-align:top">${rupee}${fmt(amount)}</td>
   </tr>`;
             }).join('');
 
