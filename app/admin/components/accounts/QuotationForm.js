@@ -57,7 +57,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         accountGSTIN: existingQuotation?.accountGSTIN || defaultAccount?.gstin || '',
         accountState: existingQuotation?.accountState || defaultAccount?.state || 'Maharashtra',
         property: existingQuotation?.property || null,
-        billing_address: existingQuotation?.billing_address || '',
+        billing_address: existingQuotation?.billing_address || defaultAccount?.address || '',
         shipping_address: existingQuotation?.shipping_address || '',
         quote_number: existingQuotation?.quote_number || `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
         date: existingQuotation?.date || new Date().toISOString().split('T')[0],
