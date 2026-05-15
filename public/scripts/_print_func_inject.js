@@ -39,7 +39,9 @@
         const totalTax = cgstAmt + sgstAmt + igstAmt;
         const taxableBase = Number(amount) - totalTax;
 
-        const showGST      = (ps.show_gst !== false) && (totalTax > 0);
+        // Ensure showGST strictly follows the setting so the table format matches the preview perfectly
+        const isDocGstEnabled = tab === 'quotations' ? ps.quotation_show_gst : (tab === 'rentals' ? ps.rental_show_gst : (tab === 'amc' ? ps.amc_show_gst : ps.invoice_show_gst));
+        const showGST = isDocGstEnabled === true || (isDocGstEnabled === undefined && ps.show_gst !== false);
         const docTitle = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : (showGST ? 'TAX INVOICE' : 'INVOICE');
 
         const effRate = (amt) => {
