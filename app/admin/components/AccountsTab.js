@@ -950,10 +950,13 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             const liveLedger = (ledgers || []).find(l => l.id === item.account_id);
             if (liveLedger && (!item.accounts || typeof item.accounts !== 'object')) {
                 item.accounts = {
+                    name: liveLedger.name,
                     mobile: liveLedger.mobile || liveLedger.phone,
                     email: liveLedger.email,
                     gstin: liveLedger.gstin,
-                    address: liveLedger.address || liveLedger.mailing_address || {}
+                    address: liveLedger.address,
+                    billing_address: liveLedger.billing_address,
+                    mailing_address: liveLedger.mailing_address
                 };
             }
 

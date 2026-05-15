@@ -206,6 +206,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             rate: it.rate || 0,
             discount: it.discount || 0,
             taxRate: it.taxRate || 18,
+            terms_conditions: it.terms_conditions || [],
             total: (it.qty || 1) * (it.rate || 0)
         }));
 
@@ -214,7 +215,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             serviceId: it.productId || '',
             name: it.description,
             amount: (it.qty || 1) * (it.rate || 0),
-            taxRate: it.taxRate || 18
+            taxRate: it.taxRate || 18,
+            terms_conditions: it.terms_conditions || []
         }));
         
         setFormData(prev => ({
@@ -438,7 +440,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                                                 description: productDetails.description,
                                                                 hsn: productDetails.hsn,
                                                                 rate: productDetails.rate,
-                                                                taxRate: productDetails.taxRate
+                                                                taxRate: productDetails.taxRate,
+                                                                terms_conditions: productDetails.terms_conditions || []
                                                             };
                                                             newItems[index].total = calculateItemTotal(newItems[index]);
                                                             setFormData({ ...formData, items: newItems });
