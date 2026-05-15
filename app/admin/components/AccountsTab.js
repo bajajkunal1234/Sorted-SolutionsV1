@@ -930,33 +930,19 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
 
     // Print a beautifully branded invoice/quotation using the global print engine
     const handlePrintItem = async (item, tab) => {
-        // Fallback or force-reload: Dynamically load the script to ensure latest version and bypass cache
-        if (typeof window !== 'undefined') {
-            console.log("Ensuring global print engine is loaded and up to date...");
-            await new Promise((resolve, reject) => {
-                const script = document.createElement('script');
-                // Cache-bust to guarantee the latest fixes are loaded immediately
-                script.src = `/scripts/_print_func_inject.js?v=${Date.now()}`;
-                script.onload = () => {
-                    if (window.generatePrintHtml) resolve();
-                    else reject(new Error("Script loaded but generatePrintHtml not found"));
-                };
-                script.onerror = () => reject(new Error("Failed to load print engine script"));
-                document.head.appendChild(script);
-            });
-        }
-
+        // Script is already loaded globally via layout.js — no need to reload
         if (typeof window !== 'undefined' && window.generatePrintHtml) {
             const liveLedger = (ledgers || []).find(l => l.id === item.account_id);
-            if (liveLedger && (!item.accounts || typeof item.accounts !== 'object')) {
+            if (liveLedger) {
                 item.accounts = {
-                    name: liveLedger.name,
-                    mobile: liveLedger.mobile || liveLedger.phone,
-                    email: liveLedger.email,
-                    gstin: liveLedger.gstin,
-                    address: liveLedger.address,
-                    billing_address: liveLedger.billing_address,
-                    mailing_address: liveLedger.mailing_address
+                    ...((item.accounts && typeof item.accounts === 'object') ? item.accounts : {}),
+                    name: liveLedger.name || item.accounts?.name,
+                    mobile: liveLedger.mobile || liveLedger.phone || item.accounts?.mobile,
+                    email: liveLedger.email || item.accounts?.email,
+                    gstin: liveLedger.gstin || item.accounts?.gstin,
+                    address: liveLedger.address || item.accounts?.address,
+                    billing_address: liveLedger.billing_address || item.accounts?.billing_address,
+                    mailing_address: liveLedger.mailing_address || item.accounts?.mailing_address
                 };
             }
 
