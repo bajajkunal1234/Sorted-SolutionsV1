@@ -137,12 +137,13 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     };
 
     const buildItems = () => basket.map(b => ({
-        productId:   b.isManual ? null : b.id,
-        description: b.name,
-        type:        (b.itemType === 'service' || b.type === 'service' || b.product_type === 'service') ? 'service' : 'product',
-        qty:         b.qty,
-        rate:        getPrice(b),      // ← uses the user-selected price type
-        taxRate:     b.tax_rate || 18,
+        productId:        b.isManual ? null : b.id,
+        description:      b.name,
+        type:             (b.itemType === 'service' || b.type === 'service' || b.product_type === 'service') ? 'service' : 'product',
+        qty:              b.qty,
+        rate:             getPrice(b),      // ← uses the user-selected price type
+        taxRate:          b.tax_rate || 18,
+        terms_conditions: b.terms_conditions || [],  // ← carry item-specific T&C through
     }));
 
     const handleCreateQuotation = () => onCreateQuotation(buildItems());
