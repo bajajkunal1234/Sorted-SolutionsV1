@@ -35,8 +35,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
     // Payment collection state
     const [showCollectPayment, setShowCollectPayment] = useState(false);
+    // Read technician identity from localStorage for CollectPaymentFlow (SSR-safe)
+    const { techName, techId } = (() => {
+        if (typeof window === 'undefined') return { techName: 'Technician', techId: null };
+        try { const t = JSON.parse(localStorage.getItem('technicianData') || '{}'); return { techName: t.name || 'Technician', techId: t.id || null }; } catch(e) { return { techName: 'Technician', techId: null }; }
+    })();
 
-    // Use stored lat/lng from property (if available) for navigation
     const storedLat = job?.property?.latitude || job?.latitude;
     const storedLng = job?.property?.longitude || job?.longitude;
 
@@ -454,6 +458,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     };
 
     return (
+        <>
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.5)', zIndex: 1000,
@@ -1187,34 +1192,30 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         </div>
 
         {/* Collect Payment Modal — shown after invoice is created */}
-        {showCollectPayment && (() => {
-            const storedTech = typeof window !== 'undefined' ? localStorage.getItem('technicianData') : null;
-            let techName = 'Technician', techId = null;
-            try { const t = JSON.parse(storedTech || '{}'); techName = t.name || techName; techId = t.id || null; } catch(e) {}
-            return (
-                <CollectPaymentFlow
-                    onClose={() => setShowCollectPayment(false)}
-                    context="technician"
-                    currentUserName={techName}
-                    currentUserId={techId}
-                    prefilledJob={{
-                        id: editedJob.id,
-                        job_number: editedJob.job_number,
-                        account_id: editedJob.customerId || editedJob.account_id,
-                        account_name: editedJob.customerName,
-                        customer_name: editedJob.customerName,
-                        customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
-                        category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
-                        technician_id: techId,
-                    }}
-                    prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
-                    onSuccess={() => {
-                        setShowCollectPayment(false);
-                        if (onJobUpdate) onJobUpdate(editedJob);
-                    }}
-                />
-            );
-        })()}
+        {showCollectPayment && (
+            <CollectPaymentFlow
+                onClose={() => setShowCollectPayment(false)}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                prefilledJob={{
+                    id: editedJob.id,
+                    job_number: editedJob.job_number,
+                    account_id: editedJob.customerId || editedJob.account_id,
+                    account_name: editedJob.customerName,
+                    customer_name: editedJob.customerName,
+                    customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
+                    technician_id: techId,
+                }}
+                prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
+                onSuccess={() => {
+                    setShowCollectPayment(false);
+                    if (onJobUpdate) onJobUpdate(editedJob);
+                }}
+            />
+        )}
+        </>
     );
 }
 
