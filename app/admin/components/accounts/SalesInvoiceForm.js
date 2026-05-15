@@ -150,31 +150,19 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
 
     const totals = calculateTotals();
 
-    // Build a formatted address string from an account's first property or mailing address
-    const buildAccountAddress = (account) => {
-        const props = account.properties || account.customer_properties || [];
-        const p = props[0];
-        if (p) {
-            return [
-                p.flat_number,
-                p.building_name,
-                p.address,
-                p.locality,
-                p.pincode ? `- ${p.pincode}` : ''
-            ].filter(Boolean).join(', ');
-        }
-        // Try plain-string address fields first
-        if (typeof account.mailing_address === 'string' && account.mailing_address.trim()) return account.mailing_address.trim();
-        if (typeof account.billing_address === 'string' && account.billing_address.trim()) return account.billing_address.trim();
-        // Fall back to address object
-        const addr = account.address || {};
-        if (typeof addr === 'string' && addr.trim()) return addr.trim();
-        return [addr.street, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ');
-    };
+    // Build a formatted address string from a property object
+    const buildPropertyAddress = (p) => [
+        p.flat_number,
+        p.building_name,
+        p.address,
+        p.locality,
+        p.pincode ? `- ${p.pincode}` : ''
+    ].filter(Boolean).join(', ');
 
 
-    const handleAccountChange = (account) => {
+    const handleAccountChange = async (account) => {
         if (!account) return;
+        // Set known fields immediately so the UI responds instantly
         setFormData(prev => ({
             ...prev,
             account_id: account.id,
@@ -183,14 +171,32 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             account_mobile: account.mobile || account.phone || '',
             account_email: account.email || '',
             account_gstin: account.gstin || '',
-            account_state: account.address?.state || account.state || 'Maharashtra',
-            account_address: buildAccountAddress(account),
+            account_state: 'Maharashtra',
+            account_address: '',
             accountGSTIN: account.gstin || '',
-            accountState: account.address?.state || account.state || 'Maharashtra',
+            accountState: 'Maharashtra',
             property: null,
             billing_address: '',
             shipping_address: ''
         }));
+
+        // Fetch linked properties for this account to get the billing address
+        try {
+            const res = await fetch(`/api/admin/properties?customer_id=${account.id}`);
+            const json = await res.json();
+            const props = (json.data || []);
+            const firstProp = props[0]; // API returns property objects directly
+            const addr = firstProp ? buildPropertyAddress(firstProp) : '';
+            if (addr) {
+                setFormData(prev => ({
+                    ...prev,
+                    account_address: addr,
+                    billing_address: addr,
+                }));
+            }
+        } catch (e) {
+            // No properties found — address stays empty
+        }
     };
 
     const handleItemChange = (index, field, value) => {
