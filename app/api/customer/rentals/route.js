@@ -44,15 +44,19 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Customer ID required' }, { status: 400 })
         }
 
-        // Try to fetch customer's active rentals
+        // Resolve the ledger_id for the given customerId
+        const { data: cx } = await supabase.from('customers').select('ledger_id').eq('id', customerId).single()
+        const accountId = cx?.ledger_id || customerId
+
+        // Try to fetch customer's active rentals using either UUID or ledger_id
         const { data: rentals, error: rentalsError } = await supabase
             .from('active_rentals')
             .select('*')
-            .eq('customer_id', customerId)
+            .or(`customer_id.eq.${customerId},customer_id.eq.${accountId}`)
             .order('created_at', { ascending: false })
 
         if (rentalsError) {
-            console.warn('active_rentals table not ready:', rentalsError.message)
+            console.warn('active_rentals fetch error:', rentalsError.message)
             const { data: plans } = await getRentalPlans()
             return NextResponse.json({
                 success: true,

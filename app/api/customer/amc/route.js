@@ -31,6 +31,10 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Customer ID required' }, { status: 400 })
         }
 
+        // Resolve the ledger_id for the given customerId
+        const { data: cx } = await supabase.from('customers').select('ledger_id').eq('id', customerId).single()
+        const accountId = cx?.ledger_id || customerId
+
         // Try to fetch customer's AMC contracts
         const { data: contracts, error: contractsError } = await supabase
             .from('customer_amcs')
@@ -38,12 +42,12 @@ export async function GET(request) {
                 *,
                 amc_plan:amc_plans(id, name, category, price, duration, services)
             `)
-            .eq('customer_id', customerId)
+            .or(`customer_id.eq.${customerId},customer_id.eq.${accountId}`)
             .order('created_at', { ascending: false })
 
         // If table doesn't exist, return empty state gracefully
         if (contractsError) {
-            console.warn('customer_amcs table not ready:', contractsError.message)
+            console.warn('customer_amcs fetch error:', contractsError.message)
             const { data: plans } = await getAMCPlans()
             return NextResponse.json({
                 success: true,

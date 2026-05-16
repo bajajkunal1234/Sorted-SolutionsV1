@@ -627,22 +627,22 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             </div>
 
                             {/* Scheduling Card */}
-                            {(editedJob.dueDate || editedJob.confirmedVisitTime) && (
+                            {(editedJob.dueDate || editedJob.scheduled_date || editedJob.confirmedVisitTime || editedJob.scheduled_time) && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                     <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Clock size={16} color="var(--text-secondary)" /> Scheduling
                                     </h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '14px' }}>
-                                        {editedJob.dueDate && (
+                                        {(editedJob.dueDate || editedJob.scheduled_date) && (
                                             <div>
-                                                <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Preferred Date</div>
-                                                <div style={{ fontWeight: 500 }}>{new Date(editedJob.dueDate).toLocaleDateString()}</div>
+                                                <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Scheduled Date</div>
+                                                <div style={{ fontWeight: 500 }}>{new Date(editedJob.scheduled_date || editedJob.dueDate).toLocaleDateString()}</div>
                                             </div>
                                         )}
-                                        {editedJob.confirmedVisitTime && (
+                                        {(editedJob.confirmedVisitTime || editedJob.scheduled_time) && (
                                             <div>
                                                 <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>Time Slot</div>
-                                                <div style={{ fontWeight: 500 }}>{editedJob.confirmedVisitTime}</div>
+                                                <div style={{ fontWeight: 500 }}>{editedJob.scheduled_time || editedJob.confirmedVisitTime}</div>
                                             </div>
                                         )}
                                     </div>

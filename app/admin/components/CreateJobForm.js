@@ -12,7 +12,10 @@ import {
     bookingBrandsAPI,
     productsAPI,
     brandsAPI,
-    issuesAPI
+    issuesAPI,
+    transactionsAPI,
+    amcAPI,
+    rentalsAPI
 } from '@/lib/adminAPI';
 import NewAccountForm from './accounts/NewAccountForm';
 import PropertyForm from './accounts/PropertyForm';
@@ -48,8 +51,18 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         brands: true,
         websiteSettings: true,
         groups: false,
-        properties: false
+        properties: false,
+        warrantyData: false
     });
+
+    const [warrantyOptions, setWarrantyOptions] = useState({
+        invoices: [],
+        amcs: [],
+        rentals: []
+    });
+
+    const [availableSlots, setAvailableSlots] = useState([]);
+    const [fetchingSlots, setFetchingSlots] = useState(false);
 
     const [formData, setFormData] = useState({
         thumbnail: existingJob?.thumbnail || null,
@@ -64,8 +77,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         warranty: existingJob?.warranty || false,
         warrantyProof: existingJob?.warranty_proof || '',
         notes: existingJob?.notes || '',
-        openingDate: existingJob?.created_at ? new Date(existingJob.created_at).toISOString().slice(0, 16) : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
-        dueDate: existingJob?.scheduled_date ? new Date(existingJob.scheduled_date).toISOString().slice(0, 16) : new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16),
+        dueDate: existingJob?.scheduled_date || new Date().toISOString().split('T')[0],
+        dueTime: existingJob?.scheduled_time || '',
         assignedTo: existingJob?.technician_id || '',
         assignedToName: existingJob?.technician_name || '',
         tags: existingJob?.tags || []
@@ -442,8 +455,80 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             }
         };
 
+        const fetchWarrantyData = async () => {
+            const customer = formData.customer;
+            if (!customer) {
+                setWarrantyOptions({ invoices: [], amcs: [], rentals: [] });
+                return;
+            }
+
+            setLoadingStates(prev => ({ ...prev, warrantyData: true }));
+            try {
+                let resolvedCustomerId = customer.id;
+                try {
+                    const customerRecords = await customersAPI.getAll({ ledger_id: customer.id });
+                    if (customerRecords && customerRecords.length > 0) {
+                        resolvedCustomerId = customerRecords[0].id;
+                    }
+                } catch (err) {}
+
+                // Fetch invoices (last 90 days)
+                const ninetyDaysAgo = new Date();
+                ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+                const startDateStr = ninetyDaysAgo.toISOString().split('T')[0];
+
+                const [invoices, amcs, rentals] = await Promise.allSettled([
+                    transactionsAPI.getAll({ type: 'invoice', customer_id: customer.id, start_date: startDateStr }),
+                    amcAPI.getActive({ customer_id: customer.id, status: 'active' }),
+                    rentalsAPI.getActive({ customer_id: customer.id, status: 'active' })
+                ]);
+
+                // Also try fetching AMCs/Rentals by UUID if it's different
+                let amcsUuid = { status: 'rejected' };
+                let rentalsUuid = { status: 'rejected' };
+                if (String(resolvedCustomerId) !== String(customer.id)) {
+                    [amcsUuid, rentalsUuid] = await Promise.allSettled([
+                        amcAPI.getActive({ customer_id: resolvedCustomerId, status: 'active' }),
+                        rentalsAPI.getActive({ customer_id: resolvedCustomerId, status: 'active' })
+                    ]);
+                }
+
+                setWarrantyOptions({
+                    invoices: invoices.status === 'fulfilled' ? invoices.value : [],
+                    amcs: [...(amcs.status === 'fulfilled' ? amcs.value : []), ...(amcsUuid.status === 'fulfilled' ? amcsUuid.value : [])],
+                    rentals: [...(rentals.status === 'fulfilled' ? rentals.value : []), ...(rentalsUuid.status === 'fulfilled' ? rentalsUuid.value : [])]
+                });
+            } catch (e) {
+                console.error("Failed to load warranty options", e);
+            } finally {
+                setLoadingStates(prev => ({ ...prev, warrantyData: false }));
+            }
+        };
+
         loadProperties();
+        fetchWarrantyData();
     }, [formData.customer?.id, existingJob]);
+
+    useEffect(() => {
+        if (!formData.dueDate) return;
+        const fetchSlots = async () => {
+            setFetchingSlots(true);
+            try {
+                const res = await fetch(`/api/booking/available-slots?days=1&startDate=${formData.dueDate}`);
+                const data = await res.json();
+                if (data.success && data.data[formData.dueDate]) {
+                    setAvailableSlots(data.data[formData.dueDate]);
+                } else {
+                    setAvailableSlots([]);
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setFetchingSlots(false);
+            }
+        };
+        fetchSlots();
+    }, [formData.dueDate]);
 
     // Lazy load account groups when customer creation modal is opened
     useEffect(() => {
@@ -707,6 +792,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         if (!formData.brand) newErrors.brand = 'Brand is required';
         if (!formData.issue) newErrors.issue = 'Issue is required';
         if (!formData.dueDate) newErrors.dueDate = 'Scheduled Date is required';
+        if (!formData.dueTime) newErrors.dueTime = 'Scheduled Time Slot is required';
+        if (formData.warranty && !formData.warrantyProof) newErrors.warrantyProof = 'Warranty Proof is required when Under Warranty is checked';
         if (!formData.assignedTo) newErrors.assignedTo = 'Assigned Technician is required';
 
         setErrors(newErrors);
@@ -747,6 +834,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                 // Dates
                 scheduled_date: formData.dueDate || null,
+                scheduled_time: formData.dueTime || null,
 
                 // Extra fields
                 amount: 0,
@@ -1293,14 +1381,57 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         {/* 9. Warranty Proof */}
                         {formData.warranty && (
                             <div className="form-group">
-                                <label className="form-label">Warranty Proof / Invoice #</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="Enter reference number"
+                                <label className="form-label">Warranty Proof (Invoice / AMC / Rental) *</label>
+                                <select
+                                    className="form-select"
                                     value={formData.warrantyProof}
                                     onChange={(e) => setFormData({ ...formData, warrantyProof: e.target.value })}
-                                />
+                                    style={{ borderColor: errors.warrantyProof ? 'var(--color-danger)' : undefined }}
+                                >
+                                    <option value="">{loadingStates.warrantyData ? 'Loading...' : 'Select Contract / Invoice'}</option>
+                                    
+                                    {warrantyOptions.invoices.length > 0 && (
+                                        <optgroup label="Recent Invoices (90 Days)">
+                                            {warrantyOptions.invoices.map(inv => (
+                                                <option key={`inv-${inv.id}`} value={`Invoice #${inv.transaction_number || inv.id}`}>
+                                                    Invoice #{inv.transaction_number || inv.id} ({new Date(inv.date || inv.created_at).toLocaleDateString()}) - ₹{inv.amount}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+
+                                    {warrantyOptions.amcs.length > 0 && (
+                                        <optgroup label="Active AMC Contracts">
+                                            {warrantyOptions.amcs.map(amc => (
+                                                <option key={`amc-${amc.id}`} value={`AMC: ${amc.plan_name || amc.category}`}>
+                                                    AMC: {amc.plan_name || amc.category} (Ends {new Date(amc.end_date).toLocaleDateString()})
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+
+                                    {warrantyOptions.rentals.length > 0 && (
+                                        <optgroup label="Active Rental Contracts">
+                                            {warrantyOptions.rentals.map(rental => (
+                                                <option key={`rental-${rental.id}`} value={`Rental: ${rental.product_name || rental.product_type}`}>
+                                                    Rental: {rental.product_name || rental.product_type} (Ends {new Date(rental.end_date).toLocaleDateString()})
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+
+                                    {/* Fallback to allow custom text if existing job had a free text value not in the dropdown */}
+                                    {formData.warrantyProof && 
+                                     !warrantyOptions.invoices.find(i => `Invoice #${i.transaction_number || i.id}` === formData.warrantyProof) &&
+                                     !warrantyOptions.amcs.find(a => `AMC: ${a.plan_name || a.category}` === formData.warrantyProof) &&
+                                     !warrantyOptions.rentals.find(r => `Rental: ${r.product_name || r.product_type}` === formData.warrantyProof) &&
+                                    (
+                                        <optgroup label="Custom / Legacy">
+                                            <option value={formData.warrantyProof}>{formData.warrantyProof}</option>
+                                        </optgroup>
+                                    )}
+                                </select>
+                                {errors.warrantyProof && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.warrantyProof}</span>}
                             </div>
                         )}
                     </div>
@@ -1308,18 +1439,41 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     <div style={{ height: '1px', backgroundColor: 'var(--border-primary)', margin: 'var(--spacing-md) 0' }} />
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
-                        {/* 10. Due Date */}
+                        {/* 10. Due Date & Time Slot */}
                         <div className="form-group">
-                            <label className="form-label">Scheduled Date *</label>
-                            <input
-                                type="datetime-local"
-                                className="form-input custom-date-picker"
-                                value={formData.dueDate}
-                                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                                onBlur={() => { if (!formData.dueDate) setErrors(prev => ({ ...prev, dueDate: 'Scheduled Date is required' })); else setErrors(prev => { const e = {...prev}; delete e.dueDate; return e; }); }}
-                                style={{ colorScheme: 'dark', borderColor: errors.dueDate ? 'var(--color-danger)' : undefined }}
-                            />
-                            {errors.dueDate && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.dueDate}</span>}
+                            <label className="form-label">Scheduled Date & Time *</label>
+                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                                <input
+                                    type="date"
+                                    className="form-input custom-date-picker"
+                                    value={formData.dueDate}
+                                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                                    onBlur={() => { if (!formData.dueDate) setErrors(prev => ({ ...prev, dueDate: 'Scheduled Date is required' })); else setErrors(prev => { const e = {...prev}; delete e.dueDate; return e; }); }}
+                                    style={{ flex: 1, colorScheme: 'dark', borderColor: errors.dueDate ? 'var(--color-danger)' : undefined }}
+                                />
+                                
+                                <input
+                                    type="text"
+                                    list="time-slots"
+                                    className="form-input"
+                                    placeholder={fetchingSlots ? "Loading..." : "Time or Slot (e.g. 10:00 AM)"}
+                                    value={formData.dueTime}
+                                    onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
+                                    onBlur={() => { if (!formData.dueTime) setErrors(prev => ({ ...prev, dueTime: 'Time Slot is required' })); else setErrors(prev => { const e = {...prev}; delete e.dueTime; return e; }); }}
+                                    style={{ flex: 1, borderColor: errors.dueTime ? 'var(--color-danger)' : undefined }}
+                                />
+                                <datalist id="time-slots">
+                                    {availableSlots.map(slot => {
+                                        const slotLabel = slot.label || `${slot.startTime}–${slot.endTime}`;
+                                        return <option key={slot.id || slotLabel} value={slotLabel} />;
+                                    })}
+                                </datalist>
+                            </div>
+                            {(errors.dueDate || errors.dueTime) && (
+                                <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>
+                                    {errors.dueDate || errors.dueTime}
+                                </span>
+                            )}
                         </div>
 
                         {/* 11. Assign Technician */}

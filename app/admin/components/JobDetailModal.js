@@ -35,6 +35,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [technicians, setTechnicians] = useState([]);
     const [rentals, setRentals] = useState([]);
     const [amcs, setAmcs] = useState([]);
+    const [invoices, setInvoices] = useState([]);
 
     const [availableSlots, setAvailableSlots] = useState([]);
     const [fetchingSlots, setFetchingSlots] = useState(false);
@@ -87,12 +88,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 if (freshJob) {
                     // Fetch related rentals and AMCs for this customer
                     if (freshJob.customer_id) {
-                        const [rentalsRes, amcsRes] = await Promise.all([
+                        const ninetyDaysAgo = new Date();
+                        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+                        const startDateStr = ninetyDaysAgo.toISOString().split('T')[0];
+
+                        const [rentalsRes, amcsRes, invoicesRes] = await Promise.all([
                             fetch(`/api/admin/rentals?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
-                            fetch(`/api/admin/amc?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] }))
+                            fetch(`/api/admin/amc?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                            fetch(`/api/admin/transactions?type=invoice&customer_id=${freshJob.customer_id}&start_date=${startDateStr}`).then(r => r.json()).catch(() => ({ data: [] }))
                         ]);
                         if (rentalsRes?.success) setRentals(rentalsRes.data || []);
                         if (amcsRes?.success) setAmcs(amcsRes.data || []);
+                        if (invoicesRes?.success) setInvoices(invoicesRes.data || []);
                     }
                     // Merge both interaction sources, deduplicate by id, sort by timestamp
                     const allInt = [
@@ -228,6 +235,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             scheduled_date: editedJob.scheduled_date,
             scheduled_time: editedJob.scheduled_time,
             notes: editedJob.notes,
+            warranty: editedJob.warranty,
+            warranty_proof: editedJob.warranty_proof,
             rental_id: editedJob.rental_id || null,
             amc_id: editedJob.amc_id || null,
             _changeLog: changes
@@ -641,24 +650,24 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                                     <div className="form-group">
                                         <label className="form-label">Scheduled Time</label>
-                                        <select
-                                            className="form-select"
-                                            value={editedJob.scheduled_time || ''}
-                                            onChange={(e) => setEditedJob({ ...editedJob, scheduled_time: e.target.value })}
-                                            disabled={fetchingSlots || !editedJob.scheduled_date}
-                                        >
-                                            <option value="">{fetchingSlots ? 'Loading slots...' : !editedJob.scheduled_date ? 'Select a date first' : 'Select time slot'}</option>
-                                            {availableSlots.map(slot => {
-                                                const slotLabel = slot.label || `${slot.startTime}–${slot.endTime}`;
-                                                return (
-                                                    <option key={slot.id} value={slotLabel}>{slotLabel}</option>
-                                                );
-                                            })}
-                                            {/* Retain the currently selected slot even if it's full or inactive, so it doesn't get wiped */}
-                                            {editedJob.scheduled_time && !availableSlots.find(s => (s.label || `${s.startTime}–${s.endTime}`) === editedJob.scheduled_time) && (
-                                                <option value={editedJob.scheduled_time}>{editedJob.scheduled_time} (Current)</option>
-                                            )}
-                                        </select>
+                                        <div style={{ display: 'flex' }}>
+                                            <input
+                                                type="text"
+                                                list="edit-time-slots"
+                                                className="form-input"
+                                                placeholder={fetchingSlots ? 'Loading slots...' : !editedJob.scheduled_date ? 'Select a date first' : 'Time or Slot (e.g. 10:00 AM)'}
+                                                value={editedJob.scheduled_time || ''}
+                                                onChange={(e) => setEditedJob({ ...editedJob, scheduled_time: e.target.value })}
+                                            />
+                                            <datalist id="edit-time-slots">
+                                                {availableSlots.map(slot => {
+                                                    const slotLabel = slot.label || `${slot.startTime}–${slot.endTime}`;
+                                                    return (
+                                                        <option key={slot.id || slotLabel} value={slotLabel}>{slotLabel}</option>
+                                                    );
+                                                })}
+                                            </datalist>
+                                        </div>
                                     </div>
 
                                     <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -686,6 +695,72 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             </div>
                                         )}
                                     </div>
+                                    
+                                    <div className="form-group">
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', height: '100%', paddingTop: '8px' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={editedJob.warranty || false}
+                                                onChange={(e) => setEditedJob({ ...editedJob, warranty: e.target.checked })}
+                                                style={{ width: '18px', height: '18px' }}
+                                            />
+                                            <span className="form-label" style={{ marginBottom: 0 }}>Under Warranty</span>
+                                        </label>
+                                    </div>
+
+                                    {editedJob.warranty && (
+                                        <div className="form-group">
+                                            <label className="form-label">Warranty Proof (Invoice / AMC / Rental)</label>
+                                            <select
+                                                className="form-select"
+                                                value={editedJob.warranty_proof || ''}
+                                                onChange={(e) => setEditedJob({ ...editedJob, warranty_proof: e.target.value })}
+                                            >
+                                                <option value="">Select Contract / Invoice</option>
+                                                
+                                                {invoices.length > 0 && (
+                                                    <optgroup label="Recent Invoices (90 Days)">
+                                                        {invoices.map(inv => (
+                                                            <option key={`inv-${inv.id}`} value={`Invoice #${inv.transaction_number || inv.id}`}>
+                                                                Invoice #{inv.transaction_number || inv.id} ({new Date(inv.date || inv.created_at).toLocaleDateString()}) - ₹{inv.amount}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+
+                                                {amcs.length > 0 && (
+                                                    <optgroup label="Active AMC Contracts">
+                                                        {amcs.map(amc => (
+                                                            <option key={`amc-${amc.id}`} value={`AMC: ${amc.plan_name || amc.category}`}>
+                                                                AMC: {amc.plan_name || amc.category} (Ends {new Date(amc.end_date).toLocaleDateString()})
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+
+                                                {rentals.length > 0 && (
+                                                    <optgroup label="Active Rental Contracts">
+                                                        {rentals.map(rental => (
+                                                            <option key={`rental-${rental.id}`} value={`Rental: ${rental.product_name || rental.product_type}`}>
+                                                                Rental: {rental.product_name || rental.product_type} (Ends {new Date(rental.end_date).toLocaleDateString()})
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                )}
+
+                                                {/* Fallback to allow custom text if existing job had a free text value not in the dropdown */}
+                                                {editedJob.warranty_proof && 
+                                                 !invoices.find(i => `Invoice #${i.transaction_number || i.id}` === editedJob.warranty_proof) &&
+                                                 !amcs.find(a => `AMC: ${a.plan_name || a.category}` === editedJob.warranty_proof) &&
+                                                 !rentals.find(r => `Rental: ${r.product_name || r.product_type}` === editedJob.warranty_proof) &&
+                                                (
+                                                    <optgroup label="Custom / Legacy">
+                                                        <option value={editedJob.warranty_proof}>{editedJob.warranty_proof}</option>
+                                                    </optgroup>
+                                                )}
+                                            </select>
+                                        </div>
+                                    )}
 
                                 </div>
                             </div>
@@ -856,15 +931,69 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                            {/* Admin Read-Only tracking status */}
-                            {editedJob.status === 'scheduled' && editedJob.on_way_at && !editedJob.arrived_at && (
-                                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    Technician is on the way (Location tracking active).
+                            {/* Start Job — shown when scheduled */}
+                            {editedJob.status === 'scheduled' && !editedJob.on_way_at && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '2px solid #38bdf8', backgroundColor: 'rgba(56,189,248,0.04)' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                         Ready to Head Out?
+                                    </h3>
+                                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                        Tap below to start GPS sharing with the customer. This locks their cancel/reschedule option so you won't face last-minute changes.
+                                    </p>
+                                    <button
+                                        className="btn btn-primary"
+                                        style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)' }}
+                                        onClick={async () => {
+                                            if (!navigator.geolocation) return alert('GPS not supported on this device');
+                                            navigator.geolocation.getCurrentPosition(async () => {
+                                                const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Admin';
+                                                await fetch(`/api/technician/jobs/${job.id}`, {
+                                                    method: 'PUT',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ action: 'mark_on_way', updated_by_name: techName })
+                                                });
+                                                setEditedJob(prev => ({ ...prev, on_way_at: new Date().toISOString() }));
+                                            }, () => alert('Please enable GPS permissions.'));
+                                        }}
+                                        disabled={loading}
+                                    >
+                                         Start Job & Share Location
+                                    </button>
                                 </div>
                             )}
-                            {editedJob.arrived_at && (
-                                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <MapPin size={16} /> Technician has arrived at customer location.
+                            {editedJob.status === 'scheduled' && editedJob.on_way_at && (
+                                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                     On the way — customer notified. Location sharing active.
+                                </div>
+                            )}
+
+                            {/* Mark as Arrived — shown when scheduled and on_way_at is set */}
+                            {editedJob.status === 'scheduled' && editedJob.on_way_at && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: editedJob.arrived_at ? '1px solid rgba(16,185,129,0.4)' : '2px solid #8b5cf6' }}>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <MapPin size={18} color={editedJob.arrived_at ? '#10b981' : '#8b5cf6'} />
+                                        {editedJob.arrived_at ? 'Arrival Confirmed ✓' : 'At Customer Location?'}
+                                    </h3>
+                                    {editedJob.arrived_at ? (
+                                        <div style={{ padding: '12px', backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: 8, textAlign: 'center', fontSize: 13, color: '#10b981', fontWeight: 600 }}>
+                                            ✓ Arrived at {new Date(editedJob.arrived_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontWeight: 400 }}>Status auto-changed to Diagnosing & Quoting</div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                                Tap when you reach the customer — status will auto-advance to <strong>Diagnosing & Quoting</strong> and your arrival is recorded.
+                                            </p>
+                                            <button
+                                                className="btn btn-primary"
+                                                onClick={handleMarkArrived}
+                                                disabled={markingArrival}
+                                                style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
+                                            >
+                                                {markingArrival ? ' Recording...' : 'Mark as Arrived'}
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             )}
 
