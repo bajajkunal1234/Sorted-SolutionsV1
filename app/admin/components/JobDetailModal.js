@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity } from 'lucide-react';
+import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench } from 'lucide-react';
 import { formatDateTime, getLocalityFromAddress } from '@/lib/utils/helpers';
 import { getStatusConfig, SOURCE_LABELS, JOB_STATUSES } from '@/lib/jobStatuses';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
@@ -11,6 +11,8 @@ import QuotationForm from './accounts/QuotationForm';
 import { jobsAPI, interactionsAPI } from '@/lib/adminAPI';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
+import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
+import { supabase } from '@/lib/supabase';
 
 function JobDetailModal({ job, onClose, onUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
@@ -20,9 +22,15 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [deleting, setDeleting] = useState(false);
     const [newNote, setNewNote] = useState({ description: '', files: [] });
     const [activeForm, setActiveForm] = useState(null); // 'quotation' | 'sales-invoice' | 'calculator'
-    const [calculatorItems, setCalculatorItems] = useState(null); // pre-filled items from calculator
-    const [savedQuotation, setSavedQuotation] = useState(null); // last saved quotation for this session
-    const [showWhatsappPopup, setShowWhatsappPopup] = useState(false);
+    const [calculatorItems, setCalculatorItems] = useState(null);
+    const [savedQuotation, setSavedQuotation] = useState(null);
+    const [savedInvoice, setSavedInvoice] = useState(null);
+    const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type, doc }
+    const [showCollectPayment, setShowCollectPayment] = useState(false);
+    const [markingArrival, setMarkingArrival] = useState(false);
+    const [showPartsNoteModal, setShowPartsNoteModal] = useState(false);
+    const [partsNoteText, setPartsNoteText] = useState('');
+    const [partsNoteLoading, setPartsNoteLoading] = useState(false);
 
     const [technicians, setTechnicians] = useState([]);
     const [rentals, setRentals] = useState([]);
@@ -61,16 +69,16 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             if (!job?.id) return;
             try {
                 setLoading(true);
-                const [freshJob, techRes, intRes, jobIntRes, quotaRes] = await Promise.all([
+                const [freshJob, techRes, intRes, jobIntRes, quotaRes, invRes] = await Promise.all([
                     jobsAPI.getById(job.id),
                     fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] })),
-                    // Global interactions table filtered by job_id
                     fetch(`/api/admin/interactions?job_id=${job.id}&_t=${Date.now()}`, { cache: 'no-store' }).then(r => r.json()).catch(() => ({ data: [] })),
-                    // Legacy job_interactions table
                     fetch(`/api/technician/jobs/${job.id}/interactions`).then(r => r.json()).catch(() => ({ data: [] })),
-                    // Existing quotation
-                    fetch(`/api/admin/transactions?type=quotation&job_id=${job.id}`).then(r => r.json()).catch(() => ({ data: [] }))
+                    fetch(`/api/admin/transactions?type=quotation&job_id=${job.id}`).then(r => r.json()).catch(() => ({ data: [] })),
+                    fetch(`/api/technician/jobs/${job.id}/invoice`).then(r => r.json()).catch(() => ({ success: false }))
                 ]);
+                if (invRes?.success && invRes.data?.length > 0) setSavedInvoice(invRes.data[0]);
+                else if (invRes?.success && invRes.invoice) setSavedInvoice(invRes.invoice);
                 
                 if (quotaRes?.success && quotaRes.data?.length > 0) {
                     setSavedQuotation(quotaRes.data[0]);
@@ -397,9 +405,47 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     };
 
     const handleInteractionsUpdate = () => {
-        // Callback for when transactions are edited
-        // In real implementation, this would refresh data from backend
         console.log('Interactions updated');
+    };
+
+    const handleSaveStatus = async (newStatus) => {
+        if (!newStatus || newStatus === editedJob.status) return;
+        setLoading(true);
+        try {
+            const res = await fetch(`/api/technician/jobs/${editedJob.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus, updated_by_name: 'Admin', source: 'Admin App', _changeLog: [`Status changed: ${editedJob.status} → ${newStatus}`] })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to update status');
+            const merged = { ...editedJob, status: newStatus };
+            setEditedJob(merged);
+            if (onUpdate) onUpdate(merged);
+        } catch (err) {
+            alert('Status update failed: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleMarkArrived = async () => {
+        setMarkingArrival(true);
+        try {
+            const res = await fetch(`/api/technician/jobs/${editedJob.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mark_arrived', updated_by_name: 'Admin' })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to mark arrival');
+            setEditedJob(prev => ({ ...prev, arrived_at: data.job?.arrived_at || new Date().toISOString(), status: 'diagnosing_quoting' }));
+            if (onUpdate) onUpdate(data.job);
+        } catch (err) {
+            alert('Could not mark arrival: ' + err.message);
+        } finally {
+            setMarkingArrival(false);
+        }
     };
 
 
@@ -709,12 +755,23 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             </div>
 
                             {/* Service Feedback & Arrival — read-only, auto-shown when data exists */}
-                            {(editedJob.arrived_at || editedJob.customer_rating) && (
+                            {(editedJob.on_way_at || editedJob.arrived_at || editedJob.customer_rating) && (
                                 <div className="card mb-md" style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
                                     <h3 style={{ marginBottom: 'var(--spacing-md)', fontSize: 'var(--font-size-sm)', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>
-                                        Service Feedback &amp; Arrival
+                                        Service Tracking &amp; Feedback
                                     </h3>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+                                        {editedJob.on_way_at && (
+                                            <div>
+                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '6px', fontWeight: 600 }}>STARTED JOB AT</div>
+                                                <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                                                    {new Date(editedJob.on_way_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+                                                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                                    {new Date(editedJob.on_way_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </div>
+                                            </div>
+                                        )}
                                         {editedJob.arrived_at && (() => {
                                             const arrivedDt = new Date(editedJob.arrived_at);
                                             let onTime = null;
@@ -799,6 +856,18 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                            {/* Admin Read-Only tracking status */}
+                            {editedJob.status === 'scheduled' && editedJob.on_way_at && !editedJob.arrived_at && (
+                                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', fontSize: 13, color: '#38bdf8', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    Technician is on the way (Location tracking active).
+                                </div>
+                            )}
+                            {editedJob.arrived_at && (
+                                <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <MapPin size={16} /> Technician has arrived at customer location.
+                                </div>
+                            )}
+
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <Activity size={18} color="#3b82f6" /> Status & Priority
@@ -809,10 +878,17 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                         <select
                                             className="form-select"
                                             value={editedJob.status}
-                                            onChange={(e) => setEditedJob({ ...editedJob, status: e.target.value })}
+                                            onChange={(e) => {
+                                                const newStatus = e.target.value;
+                                                if (newStatus === 'parts_ordered') {
+                                                    setShowPartsNoteModal(true);
+                                                } else {
+                                                    setEditedJob({ ...editedJob, status: newStatus });
+                                                }
+                                            }}
                                             style={{ backgroundColor: 'var(--bg-elevated)' }}
                                         >
-                                        <option value="new_job_request">🔵 New Job Request</option>
+                                            <option value="new_job_request">🔵 New Job Request</option>
                                             <option value="scheduled">📅 Scheduled</option>
                                             <option value="diagnosing_quoting">🔍 Diagnosing &amp; Quoting</option>
                                             <option value="quotation_sent">📋 Quotation Sent</option>
@@ -843,17 +919,133 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Tag size={18} color="#10b981" /> Documents & Billing
+                                    <FilePlus size={18} color="#10b981" /> Quotation Approval & Billing
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
-                                    <button
-                                        className="btn"
-                                        style={{ width: '100%', padding: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px' }}
-                                        onClick={() => setActiveForm('calculator')}
-                                    >
-                                        🧮 Calculate Repair Estimate
-                                    </button>
+                                    {savedInvoice ? (
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                                            <div>
+                                                <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
+                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                    onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
+                                                >
+                                                    View / Send
+                                                </button>
+                                                <button
+                                                    className="btn"
+                                                    style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                    onClick={() => setShowCollectPayment(true)}
+                                                >
+                                                    <CheckCircle size={14} /> Collect Payment
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : savedQuotation ? (
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                </div>
+                                                {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
+                                                    <button
+                                                        className="btn"
+                                                        style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                        onClick={() => setActiveForm('quotation')}
+                                                    >
+                                                        Edit / Send
+                                                    </button>
+                                                )}
+                                            </div>
 
+                                            {['work_in_progress', 'completed', 'closed'].includes(editedJob.status) ? (
+                                                <>
+                                                    <div style={{ padding: '10px 14px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', fontSize: 13, color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+                                                        <CheckCircle size={16} /> 
+                                                        {editedJob.interactions?.some(i => i.type === 'approve_quotation' && i.performed_by_name?.toLowerCase()?.includes('customer')) 
+                                                            ? 'Cx Approved from App' 
+                                                            : 'Cx Said to Proceed'}
+                                                    </div>
+                                                    <button
+                                                        className="btn"
+                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
+                                                        disabled={loading}
+                                                        onClick={async () => {
+                                                            setLoading(true);
+                                                            try {
+                                                                const res = await fetch(`/api/admin/transactions?type=sales`, {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        account_id: savedQuotation.account_id,
+                                                                        account_name: savedQuotation.account_name || editedJob.customer?.name || 'Customer',
+                                                                        accountGSTIN: savedQuotation.accountGSTIN || '',
+                                                                        accountState: savedQuotation.accountState || 'Maharashtra',
+                                                                        billing_address: savedQuotation.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                                                                        job_id: editedJob.id,
+                                                                        date: new Date().toISOString().split('T')[0],
+                                                                        due_date: new Date().toISOString().split('T')[0],
+                                                                        invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                                                                        reference: savedQuotation.quote_number,
+                                                                        status: 'unpaid',
+                                                                        items: savedQuotation.items,
+                                                                        subtotal: savedQuotation.subtotal,
+                                                                        cgst: savedQuotation.cgst,
+                                                                        sgst: savedQuotation.sgst,
+                                                                        igst: savedQuotation.igst,
+                                                                        total_tax: savedQuotation.total_tax,
+                                                                        total_amount: savedQuotation.total_amount,
+                                                                        notes: 'Auto-generated from approved quotation',
+                                                                        terms: savedQuotation.terms
+                                                                    })
+                                                                });
+                                                                const data = await res.json();
+                                                                if (data.success) {
+                                                                    setSavedInvoice(data.data);
+                                                                    fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Admin' })
+                                                                    }).catch(() => {});
+                                                                    setShowWhatsappPopup({ type: 'invoice', doc: data.data });
+                                                                } else throw new Error(data.error);
+                                                            } catch (e) { alert('Failed to auto-create invoice: ' + e.message); }
+                                                            finally { setLoading(false); }
+                                                        }}
+                                                    >
+                                                        {loading ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : 'Auto-Create Final Invoice'}
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button
+                                                    className="btn"
+                                                    style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
+                                                    onClick={async () => {
+                                                        await handleSaveStatus('work_in_progress');
+                                                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: 'Admin' })
+                                                        }).catch(() => {});
+                                                        setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: 'Admin', timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
+                                                    }}
+                                                >
+                                                    ✓ Mark as Customer Approved
+                                                </button>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <button
+                                            className="btn"
+                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
+                                            onClick={() => setActiveForm('calculator')}
+                                        >
+                                             Calculate Repair Estimate
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -879,6 +1071,69 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     </button>
                 </div>
             </div>
+
+            {/* ── Parts Ordered Gate Modal ── */}
+            {showPartsNoteModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '28px 24px' }}>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            Parts Ordered — Repair Note Required
+                        </h3>
+                        <p style={{ fontSize: 13, color: '#94a3b8', marginBottom: 18, lineHeight: 1.5 }}>
+                            Describe the part(s) you have ordered. This note is sent to the customer and logged for admin visibility.
+                        </p>
+                        <textarea
+                            value={partsNoteText}
+                            onChange={e => setPartsNoteText(e.target.value)}
+                            placeholder="e.g. Ordered Samsung WM drain pump — ETA 3 days. Will call to reschedule once received."
+                            style={{
+                                width: '100%', minHeight: 100, padding: 14, borderRadius: 12, fontSize: 14, lineHeight: 1.5,
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                color: '#f8fafc', resize: 'vertical', boxSizing: 'border-box'
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
+                            <button
+                                onClick={() => { setShowPartsNoteModal(false); setPartsNoteText(''); }}
+                                style={{ flex: 1, padding: '14px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={!partsNoteText.trim() || partsNoteLoading}
+                                onClick={async () => {
+                                    if (!partsNoteText.trim()) return;
+                                    setPartsNoteLoading(true);
+                                    try {
+                                        const noteRes = await fetch(`/api/technician/jobs/${job.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'add_repair_note', repair_note: partsNoteText.trim(), updated_by_name: 'Admin' })
+                                        });
+                                        const noteData = await noteRes.json();
+                                        if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
+                                        await handleSaveStatus('parts_ordered');
+                                        setEditedJob(prev => ({ ...prev, repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString() }));
+                                        setShowPartsNoteModal(false);
+                                        setPartsNoteText('');
+                                    } catch (err) {
+                                        alert('Could not save repair note: ' + err.message);
+                                    } finally {
+                                        setPartsNoteLoading(false);
+                                    }
+                                }}
+                                style={{
+                                    flex: 2, padding: '14px', borderRadius: 12,
+                                    background: partsNoteText.trim() ? 'linear-gradient(135deg,#f97316,#ea580c)' : 'rgba(249,115,22,0.3)',
+                                    border: 'none', color: '#fff', fontWeight: 700, cursor: partsNoteText.trim() ? 'pointer' : 'not-allowed', fontSize: 14
+                                }}
+                            >
+                                {partsNoteLoading ? 'Saving...' : 'Confirm Parts Ordered'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Document Generation Forms overlaid over the modal */}
             {activeForm === 'calculator' && (
@@ -967,10 +1222,40 @@ function JobDetailModal({ job, onClose, onUpdate }) {
             )}
             {showWhatsappPopup && (
                 <DocumentWhatsAppPopup
-                    document={savedQuotation}
-                    type="quotation"
+                    document={showWhatsappPopup.doc}
+                    type={showWhatsappPopup.type}
                     job={{ ...editedJob, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone || editedJob.customer_phone }}
-                    onClose={() => setShowWhatsappPopup(false)}
+                    onClose={() => setShowWhatsappPopup(null)}
+                />
+            )}
+            
+            {showCollectPayment && (
+                <CollectPaymentFlow
+                    onClose={() => setShowCollectPayment(false)}
+                    context="admin"
+                    currentUserName={'Admin'}
+                    currentUserId={'admin'}
+                    prefilledCustomer={{
+                        id: editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                        name: editedJob.customerName || editedJob.customer?.name || editedJob.customer_name || 'Customer',
+                        phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || editedJob.customer_phone || '',
+                        mobile: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || editedJob.customer_phone || '',
+                    }}
+                    prefilledJob={{
+                        id: editedJob.id,
+                        job_number: editedJob.job_number,
+                        account_id: editedJob.customerId || editedJob.account_id || editedJob.customer_id,
+                        account_name: editedJob.customerName || editedJob.customer_name,
+                        customer_name: editedJob.customerName || editedJob.customer_name,
+                        customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || editedJob.customer_phone || '',
+                        category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || editedJob.category || 'Repair',
+                        technician_id: editedJob.technician_id,
+                    }}
+                    prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
+                    onSuccess={() => {
+                        setShowCollectPayment(false);
+                        if (onUpdate) onUpdate(editedJob);
+                    }}
                 />
             )}
         </div>
