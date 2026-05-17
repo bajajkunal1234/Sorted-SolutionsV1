@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, Save, Phone, MapPin, Calendar, User, Tag, FileText, Image as ImageIcon, DollarSign, CheckSquare, Clock, Activity, CheckCircle, Loader2, FilePlus, Package, Shield, Wrench } from 'lucide-react';
-import { formatDateTime, getLocalityFromAddress } from '@/lib/utils/helpers';
+import { formatDateTime, getLocalityFromAddress, formatRelativeTime } from '@/lib/utils/helpers';
 import { getStatusConfig, SOURCE_LABELS, JOB_STATUSES } from '@/lib/jobStatuses';
 import JobInteractionsTab from './jobs/JobInteractionsTab';
 import LogNoteItem from './LogNoteItem';
@@ -493,6 +493,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 </span>
                             )}
                         </div>
+                        {editedJob.created_at && (
+                            <div style={{ fontSize: '12px', color: 'var(--color-primary)', marginTop: '4px', fontWeight: 500 }}>
+                                Booked: {formatDateTime(editedJob.created_at)} ({formatRelativeTime(editedJob.created_at)})
+                            </div>
+                        )}
                     </div>
                     <button className="btn-icon" onClick={onClose} style={{ flexShrink: 0, marginLeft: 8 }}>
                         <X size={24} />

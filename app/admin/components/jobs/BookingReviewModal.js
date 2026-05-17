@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Phone, MapPin, User, X, CheckCircle2, Loader2, UserCog } from 'lucide-react';
 import { jobsAPI, accountGroupsAPI, accountsAPI } from '@/lib/adminAPI';
+import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
 import NewAccountForm from '../accounts/NewAccountForm';
 import CreateJobForm from '../CreateJobForm';
 
@@ -297,6 +298,11 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                 {/* Header */}
                 <div className="modal-header">
                     <h2 className="modal-title">{isEnquiry ? 'Review Website Enquiry' : 'Review Booking Request'}</h2>
+                    {booking.created_at && (
+                        <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', marginTop: '4px', fontWeight: 500 }}>
+                            Booked: {formatDateTime(booking.created_at)} ({formatRelativeTime(booking.created_at)})
+                        </p>
+                    )}
                     <button className="btn-icon" onClick={onClose}><X size={20} /></button>
                 </div>
 

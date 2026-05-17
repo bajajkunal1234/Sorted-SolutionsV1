@@ -20,6 +20,7 @@ import {
 import NewAccountForm from './accounts/NewAccountForm';
 import PropertyForm from './accounts/PropertyForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
+import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
 
 
 const normalizeAddress = (p) => {
@@ -866,9 +867,16 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                     <div>
                         <h2 className="modal-title">{existingJob ? 'Edit Job' : 'Create New Job'}</h2>
                         {existingJob && (
-                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                Job #: {existingJob.job_number}
-                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                    Job #: {existingJob.job_number}
+                                </p>
+                                {existingJob.created_at && (
+                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-primary)', fontWeight: 500 }}>
+                                        Booked: {formatDateTime(existingJob.created_at)} ({formatRelativeTime(existingJob.created_at)})
+                                    </p>
+                                )}
+                            </div>
                         )}
                     </div>
                     <button className="btn-icon" onClick={onClose}>
