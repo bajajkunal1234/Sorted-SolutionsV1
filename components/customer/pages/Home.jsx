@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Heart, ArrowRight, Pin, Zap, Tag, Newspaper, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Heart, ArrowRight, Pin, Zap, Tag, Newspaper, Sparkles, ChevronLeft, ChevronRight, Wrench, Shield, Package, FileCheck } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import NotificationBell from '@/components/common/NotificationBell'
+import BookServiceModal from '@/components/customer/modals/BookServiceModal'
 
 const TYPE_CONFIG = {
     tip:       { label: 'Tip',       color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
@@ -315,8 +316,9 @@ function FeedCard({ post, onLike, initialLiked }) {
 }
 
 // ── Home Page ───────────────────────────────────────────────────
-export default function HomePage() {
+export default function HomePage({ setActiveTab }) {
     const router = useRouter()
+    const [requestModal, setRequestModal] = useState({ show: false, coverage: null })
     const [customerName, setCustomerName] = useState('there')
     const [customerId, setCustomerId] = useState(null)
     const [greeting, setGreeting] = useState('Good Morning')
@@ -394,6 +396,81 @@ export default function HomePage() {
                 )}
             </div>
 
+            {/* Quick Actions Grid */}
+            <div style={{ padding: '0 20px 20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <button
+                        onClick={() => setRequestModal({ show: true, coverage: { type: 'standard' } })}
+                        style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
+                            background: 'linear-gradient(135deg, rgba(56,189,248,0.15), rgba(59,130,246,0.1))',
+                            border: '1px solid rgba(56,189,248,0.3)', borderRadius: 20, cursor: 'pointer',
+                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                        }}
+                    >
+                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                            <Wrench size={20} color="#38bdf8" />
+                        </div>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Book Repair</span>
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Expert tech at your door</span>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            sessionStorage.setItem('targetPlanSection', 'amc')
+                            setActiveTab?.('plans')
+                        }}
+                        style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
+                            background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(99,102,241,0.1))',
+                            border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, cursor: 'pointer',
+                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                        }}
+                    >
+                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(139,92,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                            <Shield size={20} color="#a78bfa" />
+                        </div>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>AMC Plans</span>
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Protect your appliances</span>
+                    </button>
+
+                    <button
+                        onClick={() => {
+                            sessionStorage.setItem('targetPlanSection', 'rentals')
+                            setActiveTab?.('plans')
+                        }}
+                        style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
+                            background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))',
+                            border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, cursor: 'pointer',
+                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                        }}
+                    >
+                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                            <Package size={20} color="#34d399" />
+                        </div>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Rentals</span>
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Premium appliances</span>
+                    </button>
+
+                    <button
+                        onClick={() => setRequestModal({ show: true, coverage: { type: 'warranty' } })}
+                        style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
+                            background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.1))',
+                            border: '1px solid rgba(245,158,11,0.3)', borderRadius: 20, cursor: 'pointer',
+                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                        }}
+                    >
+                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                            <FileCheck size={20} color="#fbbf24" />
+                        </div>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Claim Warranty</span>
+                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Zero cost inspection</span>
+                    </button>
+                </div>
+            </div>
+
             {/* Banner Carousel */}
             {banners.length > 0 && (
                 <div style={{ padding: '0 20px 20px' }}>
@@ -451,6 +528,18 @@ export default function HomePage() {
                     posts.map(post => <FeedCard key={post.id} post={post} onLike={handleLike} initialLiked={likedPosts.has(post.id)} />)
                 )}
             </div>
+
+            {/* Book Service Modal */}
+            {requestModal.show && (
+                <BookServiceModal
+                    isOpen={true}
+                    onClose={() => setRequestModal({ show: false, coverage: null })}
+                    preSelectedCoverage={requestModal.coverage}
+                    onBook={(job) => {
+                        setActiveTab?.('services')
+                    }}
+                />
+            )}
         </div>
     )
 }

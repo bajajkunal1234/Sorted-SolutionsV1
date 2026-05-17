@@ -253,8 +253,12 @@ export default function AMCPage() {
                     isOpen={true}
                     onClose={() => setRequestModal({ show: false, contract: null })}
                     preSelectedAppliance={{
-                        type: requestModal.contract?.productCategory || requestModal.contract?.productType,
+                        type: requestModal.contract?.productCategory || requestModal.contract?.productType || requestModal.contract?.category,
                         brand: requestModal.contract?.productBrand
+                    }}
+                    preSelectedCoverage={{
+                        type: 'amc',
+                        contract: requestModal.contract
                     }}
                     onBook={(job) => {
                         // Refresh or show success

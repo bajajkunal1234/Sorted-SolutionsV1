@@ -42,7 +42,7 @@ const S = {
     },
 }
 
-export default function BookServiceModal({ isOpen, onClose, onBook, properties = [], preSelectedAppliance = null }) {
+export default function BookServiceModal({ isOpen, onClose, onBook, properties = [], preSelectedAppliance = null, preSelectedCoverage = null }) {
     const fileInputRef = useRef(null)
 
     // ── Form state ─────────────────────────────────────────────────────────────
@@ -61,6 +61,14 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
+    // ── Coverage state ────────────────────────────────────────────────────────
+    const [coverageType, setCoverageType] = useState(preSelectedCoverage?.type || 'standard') // 'standard', 'amc', 'rental', 'warranty'
+    const [linkedAmcId, setLinkedAmcId] = useState(preSelectedCoverage?.type === 'amc' ? preSelectedCoverage.contract?.id || '' : '')
+    const [linkedRentalId, setLinkedRentalId] = useState(preSelectedCoverage?.type === 'rental' ? preSelectedCoverage.contract?.id || '' : '')
+    const [warrantyNotes, setWarrantyNotes] = useState('')
+    const [customerAmcs, setCustomerAmcs] = useState([])
+    const [customerRentals, setCustomerRentals] = useState([])
+
     // ── Settings data ───────────────────────────────────────────────────────────
     const [appliances, setAppliances] = useState([])   // booking_categories
     const [brands, setBrands] = useState([])            // booking_brands
@@ -75,19 +83,41 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
         loadSettings()
     }, [isOpen])
 
+    useEffect(() => {
+        if (preSelectedCoverage?.type) {
+            setCoverageType(preSelectedCoverage.type)
+            if (preSelectedCoverage.type === 'amc' && preSelectedCoverage.contract) {
+                setLinkedAmcId(preSelectedCoverage.contract.id)
+                if (preSelectedCoverage.contract.productBrand) setForm(f => ({ ...f, brand: preSelectedCoverage.contract.productBrand }))
+                if (preSelectedCoverage.contract.category || preSelectedCoverage.contract.productType) setForm(f => ({ ...f, appliance: preSelectedCoverage.contract.category || preSelectedCoverage.contract.productType }))
+            }
+            if (preSelectedCoverage.type === 'rental' && preSelectedCoverage.contract) {
+                setLinkedRentalId(preSelectedCoverage.contract.id)
+                if (preSelectedCoverage.contract.productName || preSelectedCoverage.contract.productType) setForm(f => ({ ...f, appliance: preSelectedCoverage.contract.productName || preSelectedCoverage.contract.productType }))
+            }
+        }
+    }, [preSelectedCoverage])
+
     const loadSettings = async () => {
         setSettingsLoading(true)
         try {
             const customerId = localStorage.getItem('customerId')
-            const [bookingRes, brandsRes, propsRes] = await Promise.all([
+            const [bookingRes, brandsRes, propsRes, amcRes, rentalsRes] = await Promise.all([
                 fetch('/api/settings/quick-booking'),
                 fetch('/api/settings/booking-brands'),
                 customerId ? fetch(`/api/customer/properties?customer_id=${customerId}`) : Promise.resolve(null),
+                customerId ? fetch(`/api/customer/amc?customerId=${customerId}`).catch(() => null) : Promise.resolve(null),
+                customerId ? fetch(`/api/customer/rentals?customerId=${customerId}`).catch(() => null) : Promise.resolve(null),
             ])
             const [bookingData, brandsData] = await Promise.all([
                 bookingRes.json(), brandsRes.json(),
             ])
             const propsData = propsRes ? await propsRes.json() : null
+            const amcsData = amcRes ? await amcRes.json() : null
+            const rentalsData = rentalsRes ? await rentalsRes.json() : null
+
+            if (amcsData?.success) setCustomerAmcs(amcsData.contracts || [])
+            if (rentalsData?.success) setCustomerRentals(rentalsData.rentals || [])
 
             const cats = bookingData.success ? (bookingData.data?.categories || []) : []
             setAppliances(cats.filter(c => c.showOnBookingForm !== false))
@@ -167,6 +197,9 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
         if (!form.propertyId) return setError('Please select a service location')
         if (!form.preferredDate) return setError('Please select a preferred date')
         if (!form.preferredTime) return setError('Please select a preferred time slot')
+        if (coverageType === 'amc' && !linkedAmcId) return setError('Please select an active AMC contract')
+        if (coverageType === 'rental' && !linkedRentalId) return setError('Please select a rented appliance')
+        if (coverageType === 'warranty' && !warrantyNotes) return setError('Please provide warranty purchase details')
 
         setLoading(true)
         try {
@@ -199,6 +232,10 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                 preferred_date: form.preferredDate,
                 preferred_time_slot: form.preferredTime,
                 image_url: imageUrl,
+                service_coverage: coverageType,
+                amc_id: coverageType === 'amc' ? linkedAmcId : null,
+                rental_id: coverageType === 'rental' ? linkedRentalId : null,
+                warranty_info: coverageType === 'warranty' ? warrantyNotes : null,
             }
 
             const res = await fetch('/api/customer/jobs', {
@@ -251,6 +288,118 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+                        {/* Service Coverage Selector */}
+                        <div>
+                            <label style={S.label}>Service Coverage *</label>
+                            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 4, gap: 4, border: '1px solid rgba(255,255,255,0.08)' }}>
+                                {[
+                                    { id: 'standard', label: 'Standard', color: '#38bdf8' },
+                                    { id: 'amc', label: '🛡️ AMC', color: '#a78bfa' },
+                                    { id: 'rental', label: '📦 Rental', color: '#34d399' },
+                                    { id: 'warranty', label: '📜 Warranty', color: '#fbbf24' },
+                                ].map(cov => (
+                                    <button
+                                        key={cov.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setCoverageType(cov.id)
+                                            if (cov.id !== 'amc') setLinkedAmcId('')
+                                            if (cov.id !== 'rental') setLinkedRentalId('')
+                                        }}
+                                        style={{
+                                            flex: 1, padding: '10px 4px', borderRadius: 10, border: 'none',
+                                            background: coverageType === cov.id ? `${cov.color}25` : 'transparent',
+                                            color: coverageType === cov.id ? cov.color : '#64748b',
+                                            border: coverageType === cov.id ? `1px solid ${cov.color}50` : '1px solid transparent',
+                                            fontSize: 13, fontWeight: coverageType === cov.id ? 700 : 600, cursor: 'pointer',
+                                            transition: 'all 0.2s ease', whiteSpace: 'nowrap'
+                                        }}
+                                    >
+                                        {cov.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* AMC Contract Selection */}
+                        {coverageType === 'amc' && (
+                            <div style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 14, padding: 16 }}>
+                                <label style={{ ...S.label, color: '#a78bfa' }}>Select Active AMC Contract *</label>
+                                <select
+                                    style={{ ...S.select, borderColor: 'rgba(139,92,246,0.4)', background: 'rgba(15,23,42,0.6)' }}
+                                    value={linkedAmcId}
+                                    onChange={e => {
+                                        const cId = e.target.value
+                                        setLinkedAmcId(cId)
+                                        const match = customerAmcs.find(c => String(c.id) === String(cId))
+                                        if (match) {
+                                            if (match.productBrand) setForm(f => ({ ...f, brand: match.productBrand }))
+                                            if (match.category || match.productType) setForm(f => ({ ...f, appliance: match.category || match.productType }))
+                                        }
+                                    }}
+                                >
+                                    <option value="">Select your AMC contract</option>
+                                    {customerAmcs.map(c => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.planName} ({c.productBrand} {c.productType}) — Ends {new Date(c.endDate).toLocaleDateString()}
+                                        </option>
+                                    ))}
+                                </select>
+                                {customerAmcs.length === 0 && (
+                                    <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
+                                        ⚠ No active AMC contracts found on your account. Standard service rates will apply.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Rental Appliance Selection */}
+                        {coverageType === 'rental' && (
+                            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 14, padding: 16 }}>
+                                <label style={{ ...S.label, color: '#34d399' }}>Select Rented Appliance *</label>
+                                <select
+                                    style={{ ...S.select, borderColor: 'rgba(16,185,129,0.4)', background: 'rgba(15,23,42,0.6)' }}
+                                    value={linkedRentalId}
+                                    onChange={e => {
+                                        const rId = e.target.value
+                                        setLinkedRentalId(rId)
+                                        const match = customerRentals.find(r => String(r.id) === String(rId))
+                                        if (match) {
+                                            if (match.productType || match.productName) setForm(f => ({ ...f, appliance: match.productType || match.productName }))
+                                        }
+                                    }}
+                                >
+                                    <option value="">Select rented appliance</option>
+                                    {customerRentals.map(r => (
+                                        <option key={r.id} value={r.id}>
+                                            {r.productName || r.productType} (₹{r.monthlyRent}/mo)
+                                        </option>
+                                    ))}
+                                </select>
+                                {customerRentals.length === 0 && (
+                                    <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
+                                        ⚠ No active rental appliances found on your account.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Warranty Info */}
+                        {coverageType === 'warranty' && (
+                            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: 16 }}>
+                                <label style={{ ...S.label, color: '#fbbf24' }}>Warranty Details & Purchase Date *</label>
+                                <input
+                                    style={{ ...S.input, borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(15,23,42,0.6)' }}
+                                    placeholder="E.g. Purchased June 2025 from Reliance Digital, Invoice #1234"
+                                    value={warrantyNotes}
+                                    onChange={e => setWarrantyNotes(e.target.value)}
+                                />
+                                <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
+                                    💡 Tip: You can also upload a photo of your invoice / warranty card in the photo upload section below.
+                                </p>
+                            </div>
+                        )}
 
                         {/* Appliance / Product */}
                         <div>

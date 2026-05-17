@@ -492,6 +492,21 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     {SOURCE_LABELS[editedJob.source].emoji} {SOURCE_LABELS[editedJob.source].label}
                                 </span>
                             )}
+                            {editedJob.service_coverage === 'amc' && (
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', borderRadius: 5, padding: '1px 6px' }}>
+                                    🛡️ AMC Covered
+                                </span>
+                            )}
+                            {editedJob.service_coverage === 'rental' && (
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 5, padding: '1px 6px' }}>
+                                    📦 Rental
+                                </span>
+                            )}
+                            {editedJob.service_coverage === 'warranty' && (
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: 5, padding: '1px 6px' }}>
+                                    📜 Warranty
+                                </span>
+                            )}
                         </div>
                         {editedJob.created_at && (
                             <div style={{ fontSize: '12px', color: 'var(--color-primary)', marginTop: '4px', fontWeight: 500 }}>

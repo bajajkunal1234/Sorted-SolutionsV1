@@ -1,11 +1,19 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import AMCPage from './AMC'
 import RentalsPage from './Rentals'
 
 export default function PlansPage() {
     const [activeSection, setActiveSection] = useState('amc') // 'amc' | 'rentals'
+
+    useEffect(() => {
+        const target = sessionStorage.getItem('targetPlanSection')
+        if (target === 'amc' || target === 'rentals') {
+            setActiveSection(target)
+            sessionStorage.removeItem('targetPlanSection')
+        }
+    }, [])
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>

@@ -17,13 +17,13 @@ const TABS = [
     { id: 'profile', label: 'Profile', icon: User, color: '#f59e0b' },
 ]
 
-function renderTab(tab) {
+function renderTab(tab, setActiveTab) {
     switch (tab) {
-        case 'home': return <HomePage />
+        case 'home': return <HomePage setActiveTab={setActiveTab} />
         case 'services': return <ServicesPage />
         case 'plans': return <PlansPage />
         case 'profile': return <ProfilePage />
-        default: return <HomePage />
+        default: return <HomePage setActiveTab={setActiveTab} />
     }
 }
 
@@ -109,7 +109,7 @@ export default function CustomerApp() {
                 paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', position: 'relative', zIndex: 10,
                 WebkitOverflowScrolling: 'touch',
             }}>
-                {renderTab(activeTab)}
+                {renderTab(activeTab, setActiveTab)}
             </div>
 
             {/* ── SUCCESS FLASHER ── */}

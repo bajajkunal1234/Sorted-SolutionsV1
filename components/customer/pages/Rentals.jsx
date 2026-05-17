@@ -350,8 +350,12 @@ export default function RentalsPage() {
                     isOpen={true}
                     onClose={() => setRequestModal({ show: false, rental: null })}
                     preSelectedAppliance={{
-                        type: requestModal.rental?.productCategory || requestModal.rental?.productName,
+                        type: requestModal.rental?.productCategory || requestModal.rental?.productName || requestModal.rental?.productType,
                         brand: ''
+                    }}
+                    preSelectedCoverage={{
+                        type: 'rental',
+                        contract: requestModal.rental
                     }}
                     onBook={(job) => {
                         // Refresh or show success

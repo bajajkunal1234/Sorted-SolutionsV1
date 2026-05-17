@@ -99,6 +99,10 @@ export async function GET(request) {
                 rating_note: job.rating_note || null,
                 rated_at: job.rated_at || null,
                 arrived_at: job.arrived_at || null,
+                amcId: job.amc_id || notesData.amcId || null,
+                rentalId: job.rental_id || notesData.rentalId || null,
+                serviceCoverage: notesData.serviceCoverage || (job.amc_id ? 'amc' : job.rental_id ? 'rental' : job.warranty ? 'warranty' : 'standard'),
+                warrantyInfo: job.warranty_proof || notesData.warrantyInfo || null,
             };
         })
 
@@ -135,7 +139,11 @@ export async function POST(request) {
             description,
             preferred_date,
             preferred_time_slot,
-            image_url
+            image_url,
+            service_coverage,
+            amc_id,
+            rental_id,
+            warranty_info
         } = jobData
 
         if (!customer_id) {
@@ -207,6 +215,10 @@ export async function POST(request) {
             imageUrl: image_url || null,
             preferredDate: preferred_date,
             preferredTimeSlot: preferred_time_slot,
+            serviceCoverage: service_coverage || 'standard',
+            warrantyInfo: warranty_info || null,
+            amcId: amc_id || null,
+            rentalId: rental_id || null,
         }
 
         // ── Auto Generate Job Number ────────────────────────────────────────
@@ -267,6 +279,10 @@ export async function POST(request) {
                 scheduled_date: preferred_date,    // reuse website column
                 scheduled_time: preferred_time_slot,
                 notes: JSON.stringify(bookingData), // full context as JSONB
+                amc_id: amc_id || null,
+                rental_id: rental_id || null,
+                warranty: service_coverage === 'warranty' ? true : false,
+                warranty_proof: warranty_info || (amc_id ? `AMC Contract #${amc_id}` : rental_id ? `Rental Contract #${rental_id}` : null),
                 priority: 'normal',
                 status: 'new_job_request',
                 source: 'customer_app',
@@ -294,6 +310,10 @@ export async function POST(request) {
                         scheduled_date: preferred_date,
                         scheduled_time: preferred_time_slot,
                         notes: JSON.stringify(bookingData),
+                        amc_id: amc_id || null,
+                        rental_id: rental_id || null,
+                        warranty: service_coverage === 'warranty' ? true : false,
+                        warranty_proof: warranty_info || (amc_id ? `AMC Contract #${amc_id}` : rental_id ? `Rental Contract #${rental_id}` : null),
                         priority: 'normal',
                         status: 'new_job_request',
                         source: 'customer_app',

@@ -37,7 +37,7 @@ export async function GET(request) {
 
         // Try to fetch customer's AMC contracts
         const { data: contracts, error: contractsError } = await supabase
-            .from('customer_amcs')
+            .from('active_amcs')
             .select(`
                 *,
                 amc_plan:amc_plans(id, name, category, price, duration, services)
@@ -47,7 +47,7 @@ export async function GET(request) {
 
         // If table doesn't exist, return empty state gracefully
         if (contractsError) {
-            console.warn('customer_amcs fetch error:', contractsError.message)
+            console.warn('active_amcs fetch error:', contractsError.message)
             const { data: plans } = await getAMCPlans()
             return NextResponse.json({
                 success: true,
@@ -62,16 +62,16 @@ export async function GET(request) {
         // Transform contracts
         const transformed = (contracts || []).map(c => ({
             id: c.id,
-            planName: c.amc_plan?.name || c.plan_name,
-            category: c.amc_plan?.category || c.category,
-            price: c.amc_plan?.price || c.amc_amount,
+            planName: c.amc_plan?.name || c.plan_name || 'AMC Contract',
+            category: c.amc_plan?.category || c.category || c.product_type || 'Appliance',
+            price: c.amc_plan?.price || c.amc_amount || c.total_amount || 0,
             startDate: c.start_date,
             endDate: c.end_date,
-            status: c.status,
-            productBrand: c.product_brand,
-            productModel: c.product_model,
-            productType: c.product_type,
-            servicesTotal: c.services_total || 0,
+            status: c.status || 'active',
+            productBrand: c.product_brand || '',
+            productModel: c.product_model || '',
+            productType: c.product_type || c.category || 'Appliance',
+            servicesTotal: c.services_total || c.total_services || 4,
             servicesUsed: c.services_used || 0,
             nextServiceDate: c.next_service_date,
             servicesRemaining: c.services_remaining || {},

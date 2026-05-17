@@ -29,10 +29,8 @@ Your *Tax Invoice* has been created.
 🧾 Invoice No: *${vars.ref_number}*
 📅 Date: ${vars.date}
 💰 Amount: *₹${vars.amount}*
-${vars.status ? `📌 Status: ${vars.status}` : ''}
 
-${vars.items_summary ? `Items:\n${vars.items_summary}\n` : ''}${vars.notes ? `Notes: ${vars.notes}\n` : ''}
-Thank you for your business! 🙏
+${vars.notes ? `Notes: ${vars.notes}\n` : ''}Thank you for your business! 🙏
 — ${vars.company_name}`,
 
     purchases: (vars) =>

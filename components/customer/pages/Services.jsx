@@ -186,8 +186,11 @@ function JobCard({ job, onClick }) {
             {/* Top row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || 'Service Request'}
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span>{job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || 'Service Request'}</span>
+                        {job.serviceCoverage === 'amc' && <span style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', padding: '2px 8px', borderRadius: 12 }}>🛡️ AMC Covered</span>}
+                        {job.serviceCoverage === 'rental' && <span style={{ fontSize: 10, fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', padding: '2px 8px', borderRadius: 12 }}>📦 Rental</span>}
+                        {job.serviceCoverage === 'warranty' && <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', padding: '2px 8px', borderRadius: 12 }}>📜 Warranty</span>}
                     </div>
                     <div style={{ fontSize: 11, color: '#475569', fontFamily: 'monospace' }}>
                         {job.jobNumber || `#${job.id?.slice(0, 8)}`}
@@ -446,11 +449,15 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                     zIndex: 10
                 }}>
                     <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc' }}>
-                            {job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || 'Service Request'}
+                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <span>{job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || 'Service Request'}</span>
+                            {job.serviceCoverage === 'amc' && <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', padding: '3px 10px', borderRadius: 14 }}>🛡️ AMC Covered</span>}
+                            {job.serviceCoverage === 'rental' && <span style={{ fontSize: 11, fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', padding: '3px 10px', borderRadius: 14 }}>📦 Rental Service</span>}
+                            {job.serviceCoverage === 'warranty' && <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', padding: '3px 10px', borderRadius: 14 }}>📜 Under Warranty</span>}
                         </h2>
-                        <div style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace', marginTop: 2 }}>
-                            {job.jobNumber || `#${job.id?.slice(0, 8)}`}
+                        <div style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span>{job.jobNumber || `#${job.id?.slice(0, 8)}`}</span>
+                            {job.warrantyInfo && <span style={{ color: '#64748b' }}>• Proof: {job.warrantyInfo}</span>}
                         </div>
                     </div>
                     <button onClick={onClose} style={{
@@ -702,6 +709,21 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                                 {job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || '—'}
                             </div>
                         </div>
+
+                        {/* Coverage */}
+                        {job.serviceCoverage && job.serviceCoverage !== 'standard' && (
+                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '14px 16px' }}>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
+                                    Service Coverage Mode
+                                </div>
+                                <div style={{ fontSize: 14, color: job.serviceCoverage === 'amc' ? '#c4b5fd' : job.serviceCoverage === 'rental' ? '#a7f3d0' : '#fde68a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    {job.serviceCoverage === 'amc' ? '🛡️ Annual Maintenance Contract (Standard visit fee covered)' :
+                                     job.serviceCoverage === 'rental' ? '📦 Active Appliance Rental (Maintenance & standard repair included)' :
+                                     '📜 Under Manufacturer / Dealer Warranty (Zero cost inspection)'}
+                                </div>
+                                {job.warrantyInfo && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Linked: {job.warrantyInfo}</div>}
+                            </div>
+                        )}
 
                         {/* Issue */}
                         {job.issue && (

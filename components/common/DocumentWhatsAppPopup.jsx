@@ -32,11 +32,27 @@ export default function DocumentWhatsAppPopup({ document, type = 'quotation', jo
 
     const isInvoice = type === 'invoice';
 
-    const message = `Hello ${customerName}! 👋
+    const message = isInvoice ? `Hello ${customerName}! 👋
 
-We've prepared your ${isInvoice ? 'final invoice' : 'repair estimate'} for service request (Job #${jobNum}).
+We've prepared your final invoice for service request (Job #${jobNum}).
 
-📋 *${isInvoice ? 'Invoice' : 'Quotation'} ${docNum || ''}*
+📋 *Invoice ${docNum || ''}*
+
+${document.cgst > 0 ? `Subtotal: ₹${(document.subtotal || 0).toLocaleString()}
+CGST: ₹${(document.cgst || 0).toFixed(2)}
+SGST: ₹${(document.sgst || 0).toFixed(2)}
+` : ''}*Total Amount: ₹${grandTotal}*
+
+📱 View & track your service request here:
+${trackingUrl}
+
+Thank you for choosing us! Feel free to call us for any queries.
+
+— Sorted Solutions` : `Hello ${customerName}! 👋
+
+We've prepared your repair estimate for service request (Job #${jobNum}).
+
+📋 *Quotation ${docNum || ''}*
 
 *Items:*
 ${lineItems || '  (See details in the app)'}
@@ -49,7 +65,7 @@ SGST: ₹${(document.sgst || 0).toFixed(2)}
 📱 View & track your service request here:
 ${trackingUrl}
 
-${isInvoice ? 'Thank you for choosing us! You can pay securely via the link above.' : 'Please review and let us know if you\'d like to proceed.'} Feel free to call us for any queries.
+Please review and let us know if you'd like to proceed. Feel free to call us for any queries.
 
 — Sorted Solutions`;
 
