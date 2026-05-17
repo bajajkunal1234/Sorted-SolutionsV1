@@ -45,44 +45,77 @@ const S = {
 // ── Searchable Combobox Helper Component ─────────────────────────────────────
 function SearchableSelect({ options, value, onChange, placeholder, disabled, icon }) {
     const [isOpen, setIsOpen] = useState(false)
-    const [search, setSearch] = useState('')
+    const [query, setQuery] = useState('')
     const containerRef = useRef(null)
 
     const selectedOption = options.find(o => String(o.value) === String(value))
+
+    // Keep internal query string in sync with external value label
+    useEffect(() => {
+        if (selectedOption) {
+            setQuery(selectedOption.label)
+        } else {
+            setQuery('')
+        }
+    }, [value, options])
 
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (containerRef.current && !containerRef.current.contains(e.target)) {
                 setIsOpen(false)
+                if (selectedOption) {
+                    setQuery(selectedOption.label)
+                }
             }
         }
         document.addEventListener('mousedown', handleClickOutside)
         return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [])
+    }, [selectedOption])
 
     const filteredOptions = options.filter(o => 
-        o.label.toLowerCase().includes(search.toLowerCase())
+        o.label.toLowerCase().includes(query.toLowerCase())
     )
 
     return (
         <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-            <div 
-                onClick={() => !disabled && setIsOpen(!isOpen)}
-                style={{
-                    width: '100%', background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)', 
-                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '13px 14px',
-                    color: disabled ? '#64748b' : (selectedOption ? '#f8fafc' : '#94a3b8'), fontSize: 14,
-                    cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    boxSizing: 'border-box'
-                }}
-            >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                    {icon && <span style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>{icon}</span>}
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {selectedOption ? selectedOption.label : placeholder}
-                    </span>
-                </div>
-                <ChevronDown size={16} color="#64748b" style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+                {icon && <span style={{ position: 'absolute', left: 14, color: '#64748b', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>{icon}</span>}
+                <input 
+                    type="text"
+                    disabled={disabled}
+                    placeholder={placeholder}
+                    value={query}
+                    onClick={() => !disabled && setIsOpen(true)}
+                    onChange={e => {
+                        setQuery(e.target.value)
+                        setIsOpen(true)
+                        if (!e.target.value) {
+                            onChange('')
+                        }
+                    }}
+                    style={{
+                        width: '100%', background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)', 
+                        border: isOpen ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)',
+                        borderRadius: 12, padding: '13px 36px 13px ' + (icon ? '40px' : '14px'),
+                        color: disabled ? '#64748b' : '#f8fafc', fontSize: 14, outline: 'none',
+                        cursor: disabled ? 'not-allowed' : 'text', boxSizing: 'border-box',
+                        transition: 'border-color 0.2s', fontFamily: 'inherit'
+                    }}
+                />
+                <button 
+                    type="button" 
+                    disabled={disabled}
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        if (!disabled) setIsOpen(!isOpen)
+                    }}
+                    style={{ 
+                        position: 'absolute', right: 10, background: 'transparent', border: 'none', 
+                        color: '#64748b', cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28 
+                    }}
+                >
+                    <ChevronDown size={16} style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+                </button>
             </div>
 
             {isOpen && !disabled && (
@@ -90,44 +123,34 @@ function SearchableSelect({ options, value, onChange, placeholder, disabled, ico
                     position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '6px',
                     background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px',
                     boxShadow: '0 10px 30px rgba(0,0,0,0.8)', zIndex: 300, maxHeight: '240px',
-                    display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                    display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '6px'
                 }}>
-                    <div style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '6px 10px' }}>
-                            <Search size={14} color="#64748b" />
-                            <input 
-                                autoFocus
-                                type="text"
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                placeholder="Search options..."
-                                style={{ border: 'none', background: 'none', outline: 'none', color: '#f8fafc', fontSize: '13px', width: '100%' }}
-                            />
+                    {filteredOptions.map(opt => (
+                        <div 
+                            key={opt.value}
+                            onClick={() => { 
+                                onChange(opt.value); 
+                                setQuery(opt.label);
+                                setIsOpen(false); 
+                            }}
+                            style={{
+                                padding: '10px 12px', borderRadius: '8px', fontSize: '13px',
+                                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                background: String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'transparent',
+                                color: String(value) === String(opt.value) ? '#38bdf8' : '#e2e8f0',
+                                fontWeight: String(value) === String(opt.value) ? 700 : 500,
+                                transition: 'background 0.1s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.05)'}
+                            onMouseLeave={e => e.currentTarget.style.background = String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'transparent'}
+                        >
+                            <span>{opt.label}</span>
+                            {String(value) === String(opt.value) && <Check size={14} color="#38bdf8" />}
                         </div>
-                    </div>
-                    <div style={{ overflowY: 'auto', padding: '4px' }}>
-                        {filteredOptions.map(opt => (
-                            <div 
-                                key={opt.value}
-                                onClick={() => { onChange(opt.value); setIsOpen(false); setSearch(''); }}
-                                style={{
-                                    padding: '10px 12px', borderRadius: '8px', fontSize: '13px',
-                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    background: String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'transparent',
-                                    color: String(value) === String(opt.value) ? '#38bdf8' : '#e2e8f0',
-                                    fontWeight: String(value) === String(opt.value) ? 700 : 500
-                                }}
-                                onMouseEnter={e => e.currentTarget.style.background = String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.05)'}
-                                onMouseLeave={e => e.currentTarget.style.background = String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'transparent'}
-                            >
-                                <span>{opt.label}</span>
-                                {String(value) === String(opt.value) && <Check size={14} color="#38bdf8" />}
-                            </div>
-                        ))}
-                        {filteredOptions.length === 0 && (
-                            <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>No matches found</div>
-                        )}
-                    </div>
+                    ))}
+                    {filteredOptions.length === 0 && (
+                        <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>No options match "{query}"</div>
+                    )}
                 </div>
             )}
         </div>
