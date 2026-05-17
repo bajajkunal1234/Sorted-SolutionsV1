@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { fireNotification } from '@/lib/fire-notification'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
@@ -67,8 +69,19 @@ export async function GET(request) {
                         })
                     }
 
+                    // Fetch specific delivery properties
+                    const deliveryIds = [...new Set(data.map(r => r.delivery_address_id).filter(Boolean))];
+                    let deliveryProperties = [];
+                    if (deliveryIds.length > 0) {
+                        const { data: dProps } = await supabase.from('properties').select('id, address, locality, city, pincode').in('id', deliveryIds);
+                        deliveryProperties = dProps || [];
+                    }
+
                     data.forEach(r => {
-                        r.accounts = accountMap[r.customer_id] || null
+                        r.accounts = accountMap[r.customer_id] || null;
+                        if (r.delivery_address_id) {
+                            r.delivery_property = deliveryProperties.find(p => String(p.id) === String(r.delivery_address_id)) || null;
+                        }
                     })
                 }
             }

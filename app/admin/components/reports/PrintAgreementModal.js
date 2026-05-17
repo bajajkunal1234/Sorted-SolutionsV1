@@ -52,13 +52,17 @@ export default function PrintAgreementModal({ type, data, onClose }) {
         processed = processed.replace(/\[CUSTOMER_NAME\]/g, customer.name || 'N/A');
         
         let addressStr = 'N/A';
-        if (recordData.delivery_property) {
-           addressStr = recordData.delivery_property.address || '';
-           if (recordData.delivery_property.locality) addressStr += `, ${recordData.delivery_property.locality}`;
+        const specificProperty = recordData.installation_property || recordData.delivery_property;
+        if (specificProperty) {
+           addressStr = specificProperty.address || '';
+           if (specificProperty.locality) addressStr += `, ${specificProperty.locality}`;
+           if (specificProperty.city) addressStr += `, ${specificProperty.city}`;
+           if (specificProperty.pincode) addressStr += ` - ${specificProperty.pincode}`;
         } else if (customer.property) {
             addressStr = customer.property.address || '';
             if (customer.property.locality) addressStr += `, ${customer.property.locality}`;
             if (customer.property.city) addressStr += `, ${customer.property.city}`;
+            if (customer.property.pincode) addressStr += ` - ${customer.property.pincode}`;
         } else if (customer.address || customer.mailing_address) {
             addressStr = customer.address || customer.mailing_address;
             if (customer.city) addressStr += `, ${customer.city}`;
@@ -139,13 +143,17 @@ export default function PrintAgreementModal({ type, data, onClose }) {
 
     const customer = data?.accounts || {};
     let customerAddressStr = '';
-    if (data?.delivery_property) {
-        customerAddressStr = data.delivery_property.address || '';
-        if (data.delivery_property.locality) customerAddressStr += `, ${data.delivery_property.locality}`;
+    const specificProp = data?.installation_property || data?.delivery_property;
+    if (specificProp) {
+        customerAddressStr = specificProp.address || '';
+        if (specificProp.locality) customerAddressStr += `, ${specificProp.locality}`;
+        if (specificProp.city) customerAddressStr += `, ${specificProp.city}`;
+        if (specificProp.pincode) customerAddressStr += ` - ${specificProp.pincode}`;
     } else if (customer.property) {
         customerAddressStr = customer.property.address || '';
         if (customer.property.locality) customerAddressStr += `, ${customer.property.locality}`;
         if (customer.property.city) customerAddressStr += `, ${customer.property.city}`;
+        if (customer.property.pincode) customerAddressStr += ` - ${customer.property.pincode}`;
     } else {
         customerAddressStr = customer.address || customer.mailing_address || '';
         if (customer.city) customerAddressStr += `, ${customer.city}`;
@@ -370,6 +378,8 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                         margin: 0 !important;
                         padding: 0 !important;
                         box-shadow: none !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
                     }
                 }
             `}</style>

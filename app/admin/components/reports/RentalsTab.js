@@ -551,6 +551,7 @@ function RentalsTab() {
                             const payload = {
                                 customer_id: rentalData.customerId,
                                 customer_name: rentalData.customerName || '',
+                                delivery_address_id: rentalData.property?.id ? String(rentalData.property.id) : null,
                                 plan_id: rentalData.planId,
                                 product_name: rentalData.productName || '',
                                 start_date: rentalData.startDate,

@@ -81,8 +81,19 @@ export async function GET(request) {
                         })
                     }
 
+                    // Fetch specific installation properties
+                    const installationIds = [...new Set(data.map(r => r.installation_address_id).filter(Boolean))];
+                    let installationProperties = [];
+                    if (installationIds.length > 0) {
+                        const { data: instProps } = await supabase.from('properties').select('id, address, locality, city, pincode').in('id', installationIds);
+                        installationProperties = instProps || [];
+                    }
+
                     data.forEach(r => {
-                        r.accounts = accountMap[r.customer_id] || null
+                        r.accounts = accountMap[r.customer_id] || null;
+                        if (r.installation_address_id) {
+                            r.installation_property = installationProperties.find(p => String(p.id) === String(r.installation_address_id)) || null;
+                        }
                     })
                 }
             }
