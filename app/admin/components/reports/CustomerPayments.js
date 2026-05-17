@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock, Image as ImageIcon } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Search, RefreshCw, Filter, ShieldCheck, User, Calendar, DollarSign, Briefcase, Paperclip, Edit, Link, Clock, Image as ImageIcon, Banknote, QrCode } from 'lucide-react';
 import ReceiptVoucherForm from '../accounts/ReceiptVoucherForm';
 
 // Helper component to display live Razorpay status
@@ -242,14 +242,21 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                         }}>
                             <div style={{
                                 position: 'absolute', top: 0, left: 0, right: 0, height: '4px',
-                                backgroundColor: '#f59e0b'
+                                backgroundColor: payment.payment_mode === 'Cash' ? '#10b981' : (payment.payment_mode === 'UPI' ? '#3b82f6' : '#8b5cf6')
                             }} />
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-md)' }}>
                                 <div>
                                     <h4 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: '0 0 4px 0' }}>{payment.account_name}</h4>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                        <span style={{ padding: '2px 6px', backgroundColor: 'var(--bg-secondary)', borderRadius: '4px', fontWeight: 500 }}>
+                                        <span style={{ 
+                                            padding: '2px 8px', 
+                                            backgroundColor: payment.payment_mode === 'Cash' ? '#10b98115' : (payment.payment_mode === 'UPI' ? '#3b82f615' : '#8b5cf615'), 
+                                            color: payment.payment_mode === 'Cash' ? '#10b981' : (payment.payment_mode === 'UPI' ? '#3b82f6' : '#8b5cf6'),
+                                            borderRadius: '6px', 
+                                            fontWeight: 700,
+                                            border: `1px solid ${payment.payment_mode === 'Cash' ? '#10b98130' : (payment.payment_mode === 'UPI' ? '#3b82f630' : '#8b5cf630')}`
+                                        }}>
                                             {payment.payment_mode || 'Money'}
                                         </span>
                                         •
@@ -293,24 +300,98 @@ export default function CustomerPayments({ subSection, setSubSection, searchTerm
                                         </div>
                                     </>
                                 )}
-
-                                {/* Extracted Screenshot Proof */}
-                                {payment.narration?.includes('[Screenshot:') && (
-                                    <>
-                                        <ImageIcon size={14} style={{ marginTop: '2px', color: '#6366f1' }} />
-                                        <div>
-                                            <a 
-                                                href={payment.narration.match(/\[Screenshot:(.*?)\]/)[1]} 
-                                                target="_blank" 
-                                                rel="noreferrer"
-                                                style={{ color: '#6366f1', textDecoration: 'underline', fontWeight: 500 }}
-                                            >
-                                                View Uploaded Proof
-                                            </a>
-                                        </div>
-                                    </>
-                                )}
                             </div>
+
+                            {/* Mode-Specific Verification Alert Banners */}
+                            {payment.payment_mode === 'Cash' && (
+                                <div style={{
+                                    marginTop: '12px',
+                                    marginBottom: '16px',
+                                    padding: '12px 16px',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    color: '#10b981'
+                                }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Banknote size={20} color="#10b981" />
+                                    </div>
+                                    <div style={{ flex: 1, fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '2px', color: '#10b981' }}>Action Required: Physical Cash Handover</div>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: 1.4 }}>
+                                            Verify that physical cash (₹{(parseFloat(payment.amount) || 0).toFixed(2)}) has been collected from <strong>{getCollectorName(payment)}</strong> before posting to accounts.
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {payment.payment_mode === 'UPI' && (
+                                <div style={{
+                                    marginTop: '12px',
+                                    marginBottom: '16px',
+                                    padding: '12px 16px',
+                                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    color: '#3b82f6'
+                                }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <QrCode size={20} color="#3b82f6" />
+                                    </div>
+                                    <div style={{ flex: 1, fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '2px', color: '#3b82f6' }}>UPI QR Payment Proof</div>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: 1.4 }}>
+                                            Collected by {getCollectorName(payment)} via company QR. Check attached screenshot proof.
+                                        </div>
+                                    </div>
+                                    {payment.narration?.includes('[Screenshot:') && (
+                                        <a 
+                                            href={payment.narration.match(/\[Screenshot:(.*?)\]/)[1]} 
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            style={{ padding: '8px 12px', backgroundColor: '#3b82f6', color: 'white', borderRadius: '8px', fontWeight: 600, fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0, boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)' }}
+                                        >
+                                            <ImageIcon size={14} /> View Proof
+                                        </a>
+                                    )}
+                                </div>
+                            )}
+
+                            {(payment.payment_mode === 'Payment Link' || payment.narration?.includes('[LinkID:')) && (
+                                <div style={{
+                                    marginTop: '12px',
+                                    marginBottom: '16px',
+                                    padding: '12px 16px',
+                                    backgroundColor: 'rgba(139, 92, 246, 0.08)',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    borderRadius: '10px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '12px',
+                                    color: '#8b5cf6'
+                                }}>
+                                    <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: 'rgba(139, 92, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Link size={20} color="#8b5cf6" />
+                                    </div>
+                                    <div style={{ flex: 1, fontSize: '13px' }}>
+                                        <div style={{ fontWeight: 700, fontSize: '14px', marginBottom: '2px', color: '#8b5cf6' }}>Razorpay Payment Link</div>
+                                        <div style={{ color: 'var(--text-secondary)', fontSize: '12px', lineHeight: 1.4 }}>
+                                            Collected by {getCollectorName(payment)}. Live Razorpay status verification is active.
+                                        </div>
+                                    </div>
+                                    {payment.narration?.includes('[LinkID:') && (
+                                        <div style={{ flexShrink: 0 }}>
+                                            <PaymentLinkStatusBadge linkId={payment.narration.match(/\[LinkID:(.*?)\]/)[1]} />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             <div style={{ display: 'flex', gap: 'var(--spacing-sm)', paddingTop: 'var(--spacing-md)', borderTop: '1px solid var(--border-primary)' }}>
                                 <button 
                                     className="btn btn-secondary" 
