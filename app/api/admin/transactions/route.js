@@ -135,7 +135,8 @@ export async function GET(request) {
         if (type === 'all') {
             const tables = ['sales_invoices', 'purchase_invoices', 'receipt_vouchers', 'payment_vouchers'];
             const results = await Promise.all(tables.map(async (table) => {
-                let query = supabase.from(table).select('*, accounts(mobile, email, address, gstin)')
+                const fkAlias = table === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(mobile, email, address, gstin)' : (table === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(mobile, email, address, gstin)' : 'accounts(mobile, email, address, gstin)');
+                let query = supabase.from(table).select(`*, ${fkAlias}`)
                 if (accountId) query = query.eq('account_id', accountId)
                 if (startDate) query = query.gte('date', startDate)
                 if (endDate) query = query.lte('date', endDate)
@@ -152,10 +153,11 @@ export async function GET(request) {
         }
 
         const tableName = tableMap[type];
+        const fkAlias = tableName === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(mobile, email, address, gstin)' : (tableName === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(mobile, email, address, gstin)' : 'accounts(mobile, email, address, gstin)');
 
         let query = supabase
             .from(tableName)
-            .select('*, accounts(mobile, email, address, gstin)')
+            .select(`*, ${fkAlias}`)
             .order('date', { ascending: false })
             .limit(100)
 
@@ -199,8 +201,8 @@ export async function POST(request) {
             sales:    ['invoice_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','items_subtotal','charges_total','status','notes','terms','job_id'],
             purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','account_phone','account_email','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
             quotation:['quote_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
-            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
-            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
+            receipt:  ['receipt_number','reference','reference_number','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
+            payment:  ['payment_number','reference','reference_number','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
         };
 
         const allowedCols = tableColumns[type];
@@ -319,8 +321,8 @@ export async function PUT(request) {
             sales:    ['invoice_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','items_subtotal','charges_total','paid_amount','status','notes','terms','job_id'],
             purchase: ['invoice_number','vendor_invoice_number','po_reference','reference','account_id','account_name','account_phone','account_email','date','items','billing_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','category','job_id'],
             quotation:['quote_number','reference','account_id','account_name','account_phone','account_mobile','account_email','account_gstin','account_state','account_address','date','items','billing_address','shipping_address','subtotal','discount','cgst','sgst','igst','total_tax','total_amount','status','notes','terms','valid_until','job_id'],
-            receipt:  ['receipt_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
-            payment:  ['payment_number','reference','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
+            receipt:  ['receipt_number','reference','reference_number','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
+            payment:  ['payment_number','reference','reference_number','account_id','account_name','date','amount','payment_mode','payment_account_id','narration','job_id','status','source','created_by'],
         };
 
         const allowedCols = tableColumns[type];
