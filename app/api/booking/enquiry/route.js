@@ -30,7 +30,7 @@ export async function POST(request) {
 
         const { data: enquiry, error } = await supabase.from('jobs').insert({
             job_number: jobNumber,
-            status: 'new_job_request',
+            status: 'enquiry',
             customer_name: 'Website Lead',
             category: categoryName || categoryId || 'Appliance Repair',
             subcategory: subcategoryName || subcategoryId || '',
