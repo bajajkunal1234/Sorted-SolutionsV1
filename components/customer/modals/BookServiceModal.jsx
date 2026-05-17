@@ -332,7 +332,6 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
             if (warrantyRefType === 'amc' && !linkedAmcId) return setError('Please select an active AMC contract')
             if (warrantyRefType === 'rental' && !linkedRentalId) return setError('Please select a rented appliance')
             if (warrantyRefType === 'invoice' && !selectedInvoiceId) return setError('Please select a recent invoice')
-            if (warrantyRefType === 'manual' && !warrantyNotes) return setError('Please provide warranty details')
         }
 
         setLoading(true)
@@ -369,7 +368,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                 service_coverage: coverageType === 'warranty' ? (warrantyRefType === 'amc' ? 'amc' : (warrantyRefType === 'rental' ? 'rental' : 'warranty')) : 'standard',
                 amc_id: coverageType === 'warranty' && warrantyRefType === 'amc' ? linkedAmcId : null,
                 rental_id: coverageType === 'warranty' && warrantyRefType === 'rental' ? linkedRentalId : null,
-                warranty_info: coverageType === 'warranty' ? (warrantyRefType === 'invoice' ? `Invoice ID: ${selectedInvoiceId}` : (warrantyRefType === 'manual' ? warrantyNotes : (warrantyRefType === 'amc' ? `AMC ID: ${linkedAmcId}` : `Rental ID: ${linkedRentalId}`))) : null,
+                warranty_info: coverageType === 'warranty' ? (warrantyRefType === 'invoice' ? `Invoice ID: ${selectedInvoiceId}` : (warrantyRefType === 'amc' ? `AMC ID: ${linkedAmcId}` : `Rental ID: ${linkedRentalId}`)) : null,
             }
 
             const res = await fetch('/api/customer/jobs', {
@@ -458,12 +457,11 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                         {coverageType === 'warranty' && (
                             <div style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
                                 <label style={{ ...S.label, color: '#fbbf24' }}>Select Warranty Reference *</label>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
                                     {[
                                         { id: 'invoice', label: '🧾 Recent Invoice' },
                                         { id: 'amc', label: '🛡️ AMC Contract' },
                                         { id: 'rental', label: '📦 Rental Appliance' },
-                                        { id: 'manual', label: '✍️ Manual Details' },
                                     ].map(sub => (
                                         <button
                                             key={sub.id}
@@ -513,7 +511,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                                         </select>
                                         {customerInvoices.length === 0 && (
                                             <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
-                                                ⚠ No invoices found in the past 90 days. Please use Manual Details if you have an invoice from another vendor.
+                                                ⚠ No invoices found in the past 90 days. Warranty is only applicable on company repairs, active rentals, or AMCs.
                                             </p>
                                         )}
                                     </div>
@@ -582,21 +580,6 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                                                 ⚠ No active rental appliances found on your account.
                                             </p>
                                         )}
-                                    </div>
-                                )}
-
-                                {warrantyRefType === 'manual' && (
-                                    <div>
-                                        <label style={{ ...S.label, color: '#fbbf24' }}>Warranty Details *</label>
-                                        <input
-                                            style={{ ...S.input, borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(15,23,42,0.6)' }}
-                                            placeholder="E.g. Purchased June 2025 from Reliance Digital, Invoice #1234"
-                                            value={warrantyNotes}
-                                            onChange={e => setWarrantyNotes(e.target.value)}
-                                        />
-                                        <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
-                                            💡 Tip: You can also upload a photo of your invoice / warranty card in the photo upload section below.
-                                        </p>
                                     </div>
                                 )}
                             </div>

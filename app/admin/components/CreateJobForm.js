@@ -841,6 +841,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 amount: 0,
                 property: formData.property,
                 notes: formData.warranty ? `Warranty Claim: ${formData.warrantyProof}\n\n${formData.notes || ''}`.trim() : (formData.notes || ''),
+                warranty: formData.warranty,
+                warranty_proof: formData.warrantyProof || null,
             };
 
             // If technician is assigned on a brand-new job, advance to scheduled

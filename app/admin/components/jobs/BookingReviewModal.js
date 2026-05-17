@@ -222,6 +222,8 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
             locality: addr.locality || '',
             pincode: addr.zip || addr.pincode || '',
         },
+        warranty: booking.warranty || (bd.serviceCoverage === 'warranty') || false,
+        warranty_proof: booking.warranty_proof || bd.warrantyInfo || '',
     }), [booking, bd, schedule, createdCustomer, fullAddress, addr]);
 
     // ── Account button rendering ────────────────────────────────────────────────
