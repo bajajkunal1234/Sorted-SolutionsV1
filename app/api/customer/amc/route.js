@@ -71,6 +71,7 @@ export async function GET(request) {
             productBrand: c.product_brand || '',
             productModel: c.product_model || '',
             productType: c.product_type || c.category || 'Appliance',
+            propertyId: c.installation_address_id || '',
             servicesTotal: c.services_total || c.total_services || 4,
             servicesUsed: c.services_used || 0,
             nextServiceDate: c.next_service_date,

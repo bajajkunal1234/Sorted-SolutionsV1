@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Wrench, Camera, Upload, Image as ImageIcon } from 'lucide-react'
+import { X, Wrench, Camera, Upload, Image as ImageIcon, ChevronDown, Search, Check, ShieldCheck, FileText, Package, Calendar, Lock } from 'lucide-react'
 
 const S = {
     overlay: {
@@ -42,6 +42,98 @@ const S = {
     },
 }
 
+// ── Searchable Combobox Helper Component ─────────────────────────────────────
+function SearchableSelect({ options, value, onChange, placeholder, disabled, icon }) {
+    const [isOpen, setIsOpen] = useState(false)
+    const [search, setSearch] = useState('')
+    const containerRef = useRef(null)
+
+    const selectedOption = options.find(o => String(o.value) === String(value))
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false)
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside)
+        return () => document.removeEventListener('mousedown', handleClickOutside)
+    }, [])
+
+    const filteredOptions = options.filter(o => 
+        o.label.toLowerCase().includes(search.toLowerCase())
+    )
+
+    return (
+        <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+            <div 
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                style={{
+                    width: '100%', background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)', 
+                    border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '13px 14px',
+                    color: disabled ? '#64748b' : (selectedOption ? '#f8fafc' : '#94a3b8'), fontSize: 14,
+                    cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    boxSizing: 'border-box'
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
+                    {icon && <span style={{ color: '#64748b', display: 'flex', alignItems: 'center' }}>{icon}</span>}
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selectedOption ? selectedOption.label : placeholder}
+                    </span>
+                </div>
+                <ChevronDown size={16} color="#64748b" style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
+            </div>
+
+            {isOpen && !disabled && (
+                <div style={{
+                    position: 'absolute', top: '100%', left: 0, right: 0, marginTop: '6px',
+                    background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px',
+                    boxShadow: '0 10px 30px rgba(0,0,0,0.8)', zIndex: 300, maxHeight: '240px',
+                    display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                }}>
+                    <div style={{ padding: '8px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '6px 10px' }}>
+                            <Search size={14} color="#64748b" />
+                            <input 
+                                autoFocus
+                                type="text"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                                placeholder="Search options..."
+                                style={{ border: 'none', background: 'none', outline: 'none', color: '#f8fafc', fontSize: '13px', width: '100%' }}
+                            />
+                        </div>
+                    </div>
+                    <div style={{ overflowY: 'auto', padding: '4px' }}>
+                        {filteredOptions.map(opt => (
+                            <div 
+                                key={opt.value}
+                                onClick={() => { onChange(opt.value); setIsOpen(false); setSearch(''); }}
+                                style={{
+                                    padding: '10px 12px', borderRadius: '8px', fontSize: '13px',
+                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    background: String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'transparent',
+                                    color: String(value) === String(opt.value) ? '#38bdf8' : '#e2e8f0',
+                                    fontWeight: String(value) === String(opt.value) ? 700 : 500
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'rgba(255,255,255,0.05)'}
+                                onMouseLeave={e => e.currentTarget.style.background = String(value) === String(opt.value) ? 'rgba(56,189,248,0.15)' : 'transparent'}
+                            >
+                                <span>{opt.label}</span>
+                                {String(value) === String(opt.value) && <Check size={14} color="#38bdf8" />}
+                            </div>
+                        ))}
+                        {filteredOptions.length === 0 && (
+                            <div style={{ padding: '12px', textAlign: 'center', fontSize: '12px', color: '#64748b' }}>No matches found</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
 export default function BookServiceModal({ isOpen, onClose, onBook, properties = [], preSelectedAppliance = null, preSelectedCoverage = null }) {
     const fileInputRef = useRef(null)
 
@@ -62,12 +154,15 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
     const [error, setError] = useState('')
 
     // ── Coverage state ────────────────────────────────────────────────────────
-    const [coverageType, setCoverageType] = useState(preSelectedCoverage?.type || 'standard') // 'standard', 'amc', 'rental', 'warranty'
+    const [coverageType, setCoverageType] = useState(preSelectedCoverage?.type === 'amc' || preSelectedCoverage?.type === 'rental' || preSelectedCoverage?.type === 'warranty' ? 'warranty' : 'standard') // 'standard', 'warranty'
+    const [warrantyRefType, setWarrantyRefType] = useState(preSelectedCoverage?.type === 'amc' ? 'amc' : (preSelectedCoverage?.type === 'rental' ? 'rental' : 'invoice')) // 'invoice', 'amc', 'rental', 'manual'
+    const [selectedInvoiceId, setSelectedInvoiceId] = useState('')
     const [linkedAmcId, setLinkedAmcId] = useState(preSelectedCoverage?.type === 'amc' ? preSelectedCoverage.contract?.id || '' : '')
     const [linkedRentalId, setLinkedRentalId] = useState(preSelectedCoverage?.type === 'rental' ? preSelectedCoverage.contract?.id || '' : '')
     const [warrantyNotes, setWarrantyNotes] = useState('')
     const [customerAmcs, setCustomerAmcs] = useState([])
     const [customerRentals, setCustomerRentals] = useState([])
+    const [customerInvoices, setCustomerInvoices] = useState([])
 
     // ── Settings data ───────────────────────────────────────────────────────────
     const [appliances, setAppliances] = useState([])   // booking_categories
@@ -85,15 +180,23 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
 
     useEffect(() => {
         if (preSelectedCoverage?.type) {
-            setCoverageType(preSelectedCoverage.type)
+            if (preSelectedCoverage.type === 'amc' || preSelectedCoverage.type === 'rental' || preSelectedCoverage.type === 'warranty') {
+                setCoverageType('warranty')
+                if (preSelectedCoverage.type === 'amc') setWarrantyRefType('amc')
+                if (preSelectedCoverage.type === 'rental') setWarrantyRefType('rental')
+            } else {
+                setCoverageType('standard')
+            }
             if (preSelectedCoverage.type === 'amc' && preSelectedCoverage.contract) {
                 setLinkedAmcId(preSelectedCoverage.contract.id)
                 if (preSelectedCoverage.contract.productBrand) setForm(f => ({ ...f, brand: preSelectedCoverage.contract.productBrand }))
                 if (preSelectedCoverage.contract.category || preSelectedCoverage.contract.productType) setForm(f => ({ ...f, appliance: preSelectedCoverage.contract.category || preSelectedCoverage.contract.productType }))
+                if (preSelectedCoverage.contract.propertyId || preSelectedCoverage.contract.installation_address_id) setForm(f => ({ ...f, propertyId: preSelectedCoverage.contract.propertyId || preSelectedCoverage.contract.installation_address_id }))
             }
             if (preSelectedCoverage.type === 'rental' && preSelectedCoverage.contract) {
                 setLinkedRentalId(preSelectedCoverage.contract.id)
                 if (preSelectedCoverage.contract.productName || preSelectedCoverage.contract.productType) setForm(f => ({ ...f, appliance: preSelectedCoverage.contract.productName || preSelectedCoverage.contract.productType }))
+                if (preSelectedCoverage.contract.propertyId || preSelectedCoverage.contract.delivery_address_id) setForm(f => ({ ...f, propertyId: preSelectedCoverage.contract.propertyId || preSelectedCoverage.contract.delivery_address_id }))
             }
         }
     }, [preSelectedCoverage])
@@ -102,12 +205,14 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
         setSettingsLoading(true)
         try {
             const customerId = localStorage.getItem('customerId')
-            const [bookingRes, brandsRes, propsRes, amcRes, rentalsRes] = await Promise.all([
+            const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            const [bookingRes, brandsRes, propsRes, amcRes, rentalsRes, invRes] = await Promise.all([
                 fetch('/api/settings/quick-booking'),
                 fetch('/api/settings/booking-brands'),
                 customerId ? fetch(`/api/customer/properties?customer_id=${customerId}`) : Promise.resolve(null),
                 customerId ? fetch(`/api/customer/amc?customerId=${customerId}`).catch(() => null) : Promise.resolve(null),
                 customerId ? fetch(`/api/customer/rentals?customerId=${customerId}`).catch(() => null) : Promise.resolve(null),
+                customerId ? fetch(`/api/admin/transactions?type=sales&customer_id=${customerId}&start_date=${ninetyDaysAgo}`).catch(() => null) : Promise.resolve(null),
             ])
             const [bookingData, brandsData] = await Promise.all([
                 bookingRes.json(), brandsRes.json(),
@@ -115,9 +220,11 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
             const propsData = propsRes ? await propsRes.json() : null
             const amcsData = amcRes ? await amcRes.json() : null
             const rentalsData = rentalsRes ? await rentalsRes.json() : null
+            const invData = invRes ? await invRes.json() : null
 
             if (amcsData?.success) setCustomerAmcs(amcsData.contracts || [])
             if (rentalsData?.success) setCustomerRentals(rentalsData.rentals || [])
+            if (invData?.success) setCustomerInvoices(invData.data || [])
 
             const cats = bookingData.success ? (bookingData.data?.categories || []) : []
             setAppliances(cats.filter(c => c.showOnBookingForm !== false))
@@ -197,9 +304,13 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
         if (!form.propertyId) return setError('Please select a service location')
         if (!form.preferredDate) return setError('Please select a preferred date')
         if (!form.preferredTime) return setError('Please select a preferred time slot')
-        if (coverageType === 'amc' && !linkedAmcId) return setError('Please select an active AMC contract')
-        if (coverageType === 'rental' && !linkedRentalId) return setError('Please select a rented appliance')
-        if (coverageType === 'warranty' && !warrantyNotes) return setError('Please provide warranty purchase details')
+
+        if (coverageType === 'warranty') {
+            if (warrantyRefType === 'amc' && !linkedAmcId) return setError('Please select an active AMC contract')
+            if (warrantyRefType === 'rental' && !linkedRentalId) return setError('Please select a rented appliance')
+            if (warrantyRefType === 'invoice' && !selectedInvoiceId) return setError('Please select a recent invoice')
+            if (warrantyRefType === 'manual' && !warrantyNotes) return setError('Please provide warranty details')
+        }
 
         setLoading(true)
         try {
@@ -232,10 +343,10 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                 preferred_date: form.preferredDate,
                 preferred_time_slot: form.preferredTime,
                 image_url: imageUrl,
-                service_coverage: coverageType,
-                amc_id: coverageType === 'amc' ? linkedAmcId : null,
-                rental_id: coverageType === 'rental' ? linkedRentalId : null,
-                warranty_info: coverageType === 'warranty' ? warrantyNotes : null,
+                service_coverage: coverageType === 'warranty' ? (warrantyRefType === 'amc' ? 'amc' : (warrantyRefType === 'rental' ? 'rental' : 'warranty')) : 'standard',
+                amc_id: coverageType === 'warranty' && warrantyRefType === 'amc' ? linkedAmcId : null,
+                rental_id: coverageType === 'warranty' && warrantyRefType === 'rental' ? linkedRentalId : null,
+                warranty_info: coverageType === 'warranty' ? (warrantyRefType === 'invoice' ? `Invoice ID: ${selectedInvoiceId}` : (warrantyRefType === 'manual' ? warrantyNotes : (warrantyRefType === 'amc' ? `AMC ID: ${linkedAmcId}` : `Rental ID: ${linkedRentalId}`))) : null,
             }
 
             const res = await fetch('/api/customer/jobs', {
@@ -256,6 +367,8 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
             setLoading(false)
         }
     }
+
+    const isLockedByWarranty = coverageType === 'warranty' && (warrantyRefType === 'amc' || warrantyRefType === 'rental') && (linkedAmcId || linkedRentalId)
 
     if (!isOpen) return null
 
@@ -294,9 +407,7 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                             <label style={S.label}>Service Coverage *</label>
                             <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 4, gap: 4, border: '1px solid rgba(255,255,255,0.08)' }}>
                                 {[
-                                    { id: 'standard', label: 'Standard', color: '#38bdf8' },
-                                    { id: 'amc', label: '🛡️ AMC', color: '#a78bfa' },
-                                    { id: 'rental', label: '📦 Rental', color: '#34d399' },
+                                    { id: 'standard', label: 'New Booking (Standard)', color: '#38bdf8' },
                                     { id: 'warranty', label: '📜 Warranty', color: '#fbbf24' },
                                 ].map(cov => (
                                     <button
@@ -304,15 +415,13 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                                         type="button"
                                         onClick={() => {
                                             setCoverageType(cov.id)
-                                            if (cov.id !== 'amc') setLinkedAmcId('')
-                                            if (cov.id !== 'rental') setLinkedRentalId('')
                                         }}
                                         style={{
-                                            flex: 1, padding: '10px 4px', borderRadius: 10, border: 'none',
+                                            flex: 1, padding: '12px 6px', borderRadius: 10, border: 'none',
                                             background: coverageType === cov.id ? `${cov.color}25` : 'transparent',
                                             color: coverageType === cov.id ? cov.color : '#64748b',
                                             border: coverageType === cov.id ? `1px solid ${cov.color}50` : '1px solid transparent',
-                                            fontSize: 13, fontWeight: coverageType === cov.id ? 700 : 600, cursor: 'pointer',
+                                            fontSize: 14, fontWeight: coverageType === cov.id ? 700 : 600, cursor: 'pointer',
                                             transition: 'all 0.2s ease', whiteSpace: 'nowrap'
                                         }}
                                     >
@@ -322,152 +431,224 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                             </div>
                         </div>
 
-                        {/* AMC Contract Selection */}
-                        {coverageType === 'amc' && (
-                            <div style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 14, padding: 16 }}>
-                                <label style={{ ...S.label, color: '#a78bfa' }}>Select Active AMC Contract *</label>
-                                <select
-                                    style={{ ...S.select, borderColor: 'rgba(139,92,246,0.4)', background: 'rgba(15,23,42,0.6)' }}
-                                    value={linkedAmcId}
-                                    onChange={e => {
-                                        const cId = e.target.value
-                                        setLinkedAmcId(cId)
-                                        const match = customerAmcs.find(c => String(c.id) === String(cId))
-                                        if (match) {
-                                            if (match.productBrand) setForm(f => ({ ...f, brand: match.productBrand }))
-                                            if (match.category || match.productType) setForm(f => ({ ...f, appliance: match.category || match.productType }))
-                                        }
-                                    }}
-                                >
-                                    <option value="">Select your AMC contract</option>
-                                    {customerAmcs.map(c => (
-                                        <option key={c.id} value={c.id}>
-                                            {c.planName} ({c.productBrand} {c.productType}) — Ends {new Date(c.endDate).toLocaleDateString()}
-                                        </option>
-                                    ))}
-                                </select>
-                                {customerAmcs.length === 0 && (
-                                    <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
-                                        ⚠ No active AMC contracts found on your account. Standard service rates will apply.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Rental Appliance Selection */}
-                        {coverageType === 'rental' && (
-                            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 14, padding: 16 }}>
-                                <label style={{ ...S.label, color: '#34d399' }}>Select Rented Appliance *</label>
-                                <select
-                                    style={{ ...S.select, borderColor: 'rgba(16,185,129,0.4)', background: 'rgba(15,23,42,0.6)' }}
-                                    value={linkedRentalId}
-                                    onChange={e => {
-                                        const rId = e.target.value
-                                        setLinkedRentalId(rId)
-                                        const match = customerRentals.find(r => String(r.id) === String(rId))
-                                        if (match) {
-                                            if (match.productType || match.productName) setForm(f => ({ ...f, appliance: match.productType || match.productName }))
-                                        }
-                                    }}
-                                >
-                                    <option value="">Select rented appliance</option>
-                                    {customerRentals.map(r => (
-                                        <option key={r.id} value={r.id}>
-                                            {r.productName || r.productType} (₹{r.monthlyRent}/mo)
-                                        </option>
-                                    ))}
-                                </select>
-                                {customerRentals.length === 0 && (
-                                    <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
-                                        ⚠ No active rental appliances found on your account.
-                                    </p>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Warranty Info */}
+                        {/* Warranty Sub-options Selection */}
                         {coverageType === 'warranty' && (
-                            <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: 16 }}>
-                                <label style={{ ...S.label, color: '#fbbf24' }}>Warranty Details & Purchase Date *</label>
-                                <input
-                                    style={{ ...S.input, borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(15,23,42,0.6)' }}
-                                    placeholder="E.g. Purchased June 2025 from Reliance Digital, Invoice #1234"
-                                    value={warrantyNotes}
-                                    onChange={e => setWarrantyNotes(e.target.value)}
-                                />
-                                <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
-                                    💡 Tip: You can also upload a photo of your invoice / warranty card in the photo upload section below.
-                                </p>
+                            <div style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 16, padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                                <label style={{ ...S.label, color: '#fbbf24' }}>Select Warranty Reference *</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    {[
+                                        { id: 'invoice', label: '🧾 Recent Invoice' },
+                                        { id: 'amc', label: '🛡️ AMC Contract' },
+                                        { id: 'rental', label: '📦 Rental Appliance' },
+                                        { id: 'manual', label: '✍️ Manual Details' },
+                                    ].map(sub => (
+                                        <button
+                                            key={sub.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setWarrantyRefType(sub.id)
+                                                if (sub.id !== 'amc') setLinkedAmcId('')
+                                                if (sub.id !== 'rental') setLinkedRentalId('')
+                                                if (sub.id !== 'invoice') setSelectedInvoiceId('')
+                                            }}
+                                            style={{
+                                                padding: '12px 8px', borderRadius: 12, border: 'none',
+                                                background: warrantyRefType === sub.id ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)',
+                                                color: warrantyRefType === sub.id ? '#fbbf24' : '#94a3b8',
+                                                border: warrantyRefType === sub.id ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.08)',
+                                                fontSize: 13, fontWeight: warrantyRefType === sub.id ? 700 : 500, cursor: 'pointer',
+                                                transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
+                                            }}
+                                        >
+                                            {sub.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {warrantyRefType === 'invoice' && (
+                                    <div>
+                                        <label style={{ ...S.label, color: '#fbbf24', marginTop: 4 }}>Select Invoice (Past 90 Days) *</label>
+                                        <select
+                                            style={{ ...S.select, borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(15,23,42,0.6)' }}
+                                            value={selectedInvoiceId}
+                                            onChange={e => {
+                                                const invId = e.target.value
+                                                setSelectedInvoiceId(invId)
+                                                const match = customerInvoices.find(i => String(i.id) === String(invId))
+                                                if (match) {
+                                                    setWarrantyNotes(`Invoice #${match.invoice_number || match.id.slice(0,8)} (${new Date(match.date).toLocaleDateString()})`)
+                                                    if (match.items?.[0]?.name) setForm(f => ({ ...f, appliance: match.items[0].name }))
+                                                }
+                                            }}
+                                        >
+                                            <option value="">Select an invoice</option>
+                                            {customerInvoices.map(inv => (
+                                                <option key={inv.id} value={inv.id}>
+                                                    Invoice #{inv.invoice_number || inv.id.slice(0,8)} — ₹{inv.total_amount} ({new Date(inv.date).toLocaleDateString()})
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {customerInvoices.length === 0 && (
+                                            <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
+                                                ⚠ No invoices found in the past 90 days. Please use Manual Details if you have an invoice from another vendor.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {warrantyRefType === 'amc' && (
+                                    <div>
+                                        <label style={{ ...S.label, color: '#a78bfa' }}>Select Active AMC Contract *</label>
+                                        <select
+                                            style={{ ...S.select, borderColor: 'rgba(139,92,246,0.4)', background: 'rgba(15,23,42,0.6)' }}
+                                            value={linkedAmcId}
+                                            onChange={e => {
+                                                const cId = e.target.value
+                                                setLinkedAmcId(cId)
+                                                const match = customerAmcs.find(c => String(c.id) === String(cId))
+                                                if (match) {
+                                                    if (match.productBrand) setForm(f => ({ ...f, brand: match.productBrand }))
+                                                    if (match.category || match.productType) setForm(f => ({ ...f, appliance: match.category || match.productType }))
+                                                    if (match.propertyId || match.installation_address_id) setForm(f => ({ ...f, propertyId: match.propertyId || match.installation_address_id }))
+                                                    setWarrantyNotes(`AMC Contract: ${match.planName}`)
+                                                }
+                                            }}
+                                        >
+                                            <option value="">Select your AMC contract</option>
+                                            {customerAmcs.map(c => (
+                                                <option key={c.id} value={c.id}>
+                                                    {c.planName} ({c.productBrand} {c.productType}) — Ends {new Date(c.endDate).toLocaleDateString()}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {customerAmcs.length === 0 && (
+                                            <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
+                                                ⚠ No active AMC contracts found on your account.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {warrantyRefType === 'rental' && (
+                                    <div>
+                                        <label style={{ ...S.label, color: '#34d399' }}>Select Rented Appliance *</label>
+                                        <select
+                                            style={{ ...S.select, borderColor: 'rgba(16,185,129,0.4)', background: 'rgba(15,23,42,0.6)' }}
+                                            value={linkedRentalId}
+                                            onChange={e => {
+                                                const rId = e.target.value
+                                                setLinkedRentalId(rId)
+                                                const match = customerRentals.find(r => String(r.id) === String(rId))
+                                                if (match) {
+                                                    if (match.productType || match.productName) setForm(f => ({ ...f, appliance: match.productType || match.productName }))
+                                                    if (match.propertyId || match.delivery_address_id) setForm(f => ({ ...f, propertyId: match.propertyId || match.delivery_address_id }))
+                                                    setForm(f => ({ ...f, brand: 'Sorted Appliance' }))
+                                                    setWarrantyNotes(`Rental Appliance: ${match.productName || match.productType}`)
+                                                }
+                                            }}
+                                        >
+                                            <option value="">Select rented appliance</option>
+                                            {customerRentals.map(r => (
+                                                <option key={r.id} value={r.id}>
+                                                    {r.productName || r.productType} (₹{r.monthlyRent}/mo)
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {customerRentals.length === 0 && (
+                                            <p style={{ fontSize: 12, color: '#f43f5e', marginTop: 8 }}>
+                                                ⚠ No active rental appliances found on your account.
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {warrantyRefType === 'manual' && (
+                                    <div>
+                                        <label style={{ ...S.label, color: '#fbbf24' }}>Warranty Details *</label>
+                                        <input
+                                            style={{ ...S.input, borderColor: 'rgba(245,158,11,0.4)', background: 'rgba(15,23,42,0.6)' }}
+                                            placeholder="E.g. Purchased June 2025 from Reliance Digital, Invoice #1234"
+                                            value={warrantyNotes}
+                                            onChange={e => setWarrantyNotes(e.target.value)}
+                                        />
+                                        <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 6 }}>
+                                            💡 Tip: You can also upload a photo of your invoice / warranty card in the photo upload section below.
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {isLockedByWarranty && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', borderRadius: 14, padding: '12px 16px', color: '#38bdf8', fontSize: 13 }}>
+                                <Lock size={18} style={{ flexShrink: 0 }} />
+                                <span>Appliance, Brand, and Service Location are locked to your selected contract.</span>
                             </div>
                         )}
 
                         {/* Appliance / Product */}
                         <div>
                             <label style={S.label}>Appliance / Product *</label>
-                            <select style={S.select} value={form.appliance}
-                                onChange={e => setForm(f => ({ ...f, appliance: e.target.value, subcategory: '', issueId: '' }))}>
-                                <option value="">Select appliance type</option>
-                                {appliances.map(a => (
-                                    <option key={a.id} value={a.name}>{a.name}</option>
-                                ))}
-                            </select>
+                            <SearchableSelect 
+                                options={appliances.map(a => ({ value: a.name, label: a.name }))}
+                                value={form.appliance}
+                                placeholder="Select appliance type"
+                                disabled={isLockedByWarranty}
+                                icon={isLockedByWarranty ? <Lock size={14} /> : null}
+                                onChange={val => setForm(f => ({ ...f, appliance: val, subcategory: '', issueId: '' }))}
+                            />
                         </div>
 
                         {/* Subcategory */}
                         {availableSubcategories.length > 0 && (
                             <div>
                                 <label style={S.label}>Subcategory / Type *</label>
-                                <select style={S.select} value={form.subcategory}
-                                    onChange={e => setForm(f => ({ ...f, subcategory: e.target.value, issueId: '' }))}>
-                                    <option value="">Select type</option>
-                                    {availableSubcategories.map(s => (
-                                        <option key={s.id || s.name} value={s.name}>{s.name}</option>
-                                    ))}
-                                </select>
+                                <SearchableSelect 
+                                    options={availableSubcategories.map(s => ({ value: s.name, label: s.name }))}
+                                    value={form.subcategory}
+                                    placeholder="Select type"
+                                    disabled={isLockedByWarranty}
+                                    icon={isLockedByWarranty ? <Lock size={14} /> : null}
+                                    onChange={val => setForm(f => ({ ...f, subcategory: val, issueId: '' }))}
+                                />
                             </div>
                         )}
 
                         {/* Brand */}
                         <div>
                             <label style={S.label}>Brand *</label>
-                            <select style={S.select} value={form.brand}
-                                onChange={e => setForm(f => ({ ...f, brand: e.target.value }))}>
-                                <option value="">Select brand</option>
-                                {brands.map(b => (
-                                    <option key={b.id} value={b.name}>{b.name}</option>
-                                ))}
-                            </select>
+                            <SearchableSelect 
+                                options={brands.map(b => ({ value: b.name, label: b.name })).concat(isLockedByWarranty ? [{ value: 'Sorted Appliance', label: 'Sorted Appliance' }] : [])}
+                                value={form.brand}
+                                placeholder="Select brand"
+                                disabled={isLockedByWarranty}
+                                icon={isLockedByWarranty ? <Lock size={14} /> : null}
+                                onChange={val => setForm(f => ({ ...f, brand: val }))}
+                            />
                         </div>
 
                         {/* Issue Type */}
                         <div>
                             <label style={S.label}>Issue Type *</label>
-                            <select style={S.select} value={form.issueId}
-                                onChange={e => setForm(f => ({ ...f, issueId: e.target.value }))}>
-                                <option value="">
-                                    {form.appliance ? `Select issue for ${form.appliance}` : 'Select issue'}
-                                </option>
-                                {filteredIssues.map(i => (
-                                    <option key={i.id} value={i.id}>{i.name}</option>
-                                ))}
-                                {filteredIssues.length === 0 && form.appliance && (
-                                    <option value="other" disabled>No issues listed — contact support</option>
-                                )}
-                            </select>
+                            <SearchableSelect 
+                                options={filteredIssues.map(i => ({ value: i.id, label: `${i.name}${i.subcategory ? ` (${i.subcategory})` : ''}` }))}
+                                value={form.issueId}
+                                placeholder={form.appliance ? `Select issue for ${form.appliance}` : 'Select issue'}
+                                onChange={val => setForm(f => ({ ...f, issueId: val }))}
+                            />
                         </div>
 
                         {/* Service Location */}
                         <div>
                             <label style={S.label}>Service Location *</label>
-                            <select style={S.select} value={form.propertyId}
-                                onChange={e => setForm(f => ({ ...f, propertyId: e.target.value }))}>
-                                <option value="">Select your property</option>
-                                {customerProperties.map(p => (
-                                    <option key={p.id} value={p.id}>
-                                        {[p.flat_number, p.building_name, p.address].filter(Boolean).join(', ')}{p.locality ? ` — ${p.locality}` : ''}{p.pincode ? ` ${p.pincode}` : ''}
-                                    </option>
-                                ))}
-                            </select>
+                            <SearchableSelect 
+                                options={customerProperties.map(p => ({ value: p.id, label: [p.flat_number, p.building_name, p.address].filter(Boolean).join(', ') + (p.locality ? ` — ${p.locality}` : '') }))}
+                                value={form.propertyId}
+                                placeholder="Select your property"
+                                disabled={isLockedByWarranty}
+                                icon={isLockedByWarranty ? <Lock size={14} /> : null}
+                                onChange={val => setForm(f => ({ ...f, propertyId: val }))}
+                            />
                             {customerProperties.length === 0 && (
                                 <p style={{ fontSize: 12, color: '#f59e0b', marginTop: 6 }}>
                                     ⚠ No properties saved. Go to Profile → My Properties to add one first.
@@ -485,9 +666,12 @@ export default function BookServiceModal({ isOpen, onClose, onBook, properties =
                         {/* Preferred Date */}
                         <div>
                             <label style={S.label}>Preferred Date *</label>
-                            <input style={S.input} type="date" value={form.preferredDate}
-                                min={new Date().toISOString().split('T')[0]}
-                                onChange={e => setForm(f => ({ ...f, preferredDate: e.target.value }))} />
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input style={{ ...S.input, colorScheme: 'dark', cursor: 'pointer' }} type="date" value={form.preferredDate}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={e => setForm(f => ({ ...f, preferredDate: e.target.value }))} />
+                                <Calendar size={18} color="#94a3b8" style={{ position: 'absolute', right: 14, pointerEvents: 'none' }} />
+                            </div>
                         </div>
 
                         {/* Preferred Time Slot (mandatory) */}

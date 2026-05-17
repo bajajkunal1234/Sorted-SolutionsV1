@@ -71,7 +71,7 @@ export async function GET(request) {
         const transformed = (rentals || []).map(r => ({
             id: r.id,
             productName: r.product_name,
-            productType: r.product_type,
+            productType: r.product_type || r.product_name,
             serialNumber: r.serial_number,
             monthlyRent: r.monthly_rent,
             securityDeposit: r.security_deposit,
@@ -82,6 +82,7 @@ export async function GET(request) {
             nextRentDueDate: r.next_rent_due_date,
             status: r.status,
             lastPaymentDate: r.last_payment_date,
+            propertyId: r.delivery_address_id || '',
         }))
 
         return NextResponse.json({
