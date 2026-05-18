@@ -120,7 +120,8 @@ export async function PUT(request) {
             'category','subcategory','appliance','brand','issue','model',
             'amount','property','property_id','thumbnail','rental_id','amc_id','source',
             'on_way_at','arrived_at','quotation_approved_at','repair_note_added_at',
-            'completed_at','started_at','updated_by','customer_id','customer_name'];
+            'completed_at','started_at','updated_by','customer_id','customer_name',
+            'warranty','warranty_proof'];
         const updates = Object.fromEntries(
             Object.entries(rawUpdates).filter(([k]) => ALLOWED.includes(k))
         );
@@ -128,7 +129,7 @@ export async function PUT(request) {
         // Fetch current state for diffing
         const { data: existing } = await supabase
             .from('jobs')
-            .select('technician_id, technician_name, status, customer_id, customer_name, job_number, priority, scheduled_date, scheduled_time, description, notes, category, subcategory, issue, rental_id, amc_id, source')
+            .select('technician_id, technician_name, status, customer_id, customer_name, job_number, priority, scheduled_date, scheduled_time, description, notes, category, subcategory, issue, rental_id, amc_id, source, warranty, warranty_proof')
             .eq('id', id)
             .single()
 
@@ -235,6 +236,8 @@ export async function PUT(request) {
             issue: 'Issue',
             rental_id: 'Linked Rental',
             amc_id: 'Linked AMC',
+            warranty: 'Under warranty',
+            warranty_proof: 'Warranty proof',
         };
         const serverChanges = [];
         for (const [field, label] of Object.entries(fieldLabels)) {
