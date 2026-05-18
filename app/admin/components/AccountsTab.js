@@ -1013,6 +1013,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         try {
             const result = await accountsAPI.update(updatedAccount.id, updatedAccount);
             setLedgers(prev => prev.map(l => l.id === result.id ? result : l));
+            setSelectedAccount(result);
         } catch (err) { console.error(err); }
     };
 

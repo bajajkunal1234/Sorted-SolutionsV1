@@ -105,6 +105,19 @@ export async function GET(request) {
     }
 }
 
+// List of allowed database columns in the accounts table
+const ALLOWED_COLUMNS = [
+    'id', 'name', 'type', 'under', 'gstin', 'address', 'opening_balance', 'closing_balance',
+    'active', 'created_at', 'updated_at', 'sku', 'alias', 'contact_person', 'mobile',
+    'email', 'mailing_name', 'mailing_address', 'billing_address', 'shipping_address',
+    'pan', 'state_name', 'country', 'credit_limit', 'credit_period', 'bank_name',
+    'account_number', 'ifsc_code', 'branch', 'tax_rate', 'acquisition_source',
+    'referred_by', 'properties', 'as_on_date', 'balance_type', 'asset_category',
+    'purchase_date', 'purchase_value', 'depreciation_method', 'depreciation_rate',
+    'useful_life', 'status', 'micr_code', 'account_type', 'enable_cheque_printing',
+    'rounding_method', 'currency'
+];
+
 // POST - Create new account
 export async function POST(request) {
     try {
@@ -135,23 +148,23 @@ export async function POST(request) {
             body.sku = await generateAccountSKU(body.type || '', body.under || '');
         }
 
-        // ── Remove columns that don't exist in the DB schema ──────────────
-        delete body.source;
-        delete body.accountImage;      // UI-only field (mapped to image_url if needed)
-        delete body.gst_ledger_nature; // not a DB column yet; stored in notes/tax_type if needed
-        delete body.tax_type;
+        // ── Clean payload to only include actual DB schema columns ──────────────
+        const cleanBody = {};
+        for (const key of ALLOWED_COLUMNS) {
+            if (body[key] !== undefined) {
+                cleanBody[key] = body[key];
+            }
+        }
 
         const { data, error } = await supabase
             .from('accounts')
-            .insert([body])
+            .insert([cleanBody])
             .select()
             .single()
 
         if (error) throw error
 
-        // Sync with customers/technicians tables
         // Sync with customers/technicians tables (isCustomer already defined above)
-
         const isTechnician = body.type === 'technician' ||
             (body.under_name || '').toLowerCase().includes('technician') ||
             (body.under_name || '').toLowerCase().includes('creditor');
@@ -239,10 +252,6 @@ export async function PUT(request) {
     try {
         const body = await request.json()
         const { id, ...updates } = body
-        // NOTE: we intentionally keep `source` so the acquisition channel is preserved.
-        delete updates.accountImage;
-        delete updates.gst_ledger_nature;
-        delete updates.tax_type;
 
         // Fetch the current state BEFORE updating so we can diff it
         const { data: before } = await supabase
@@ -251,9 +260,17 @@ export async function PUT(request) {
             .eq('id', id)
             .single()
 
+        // ── Clean updates to only include actual DB schema columns ──────────────
+        const cleanUpdates = {};
+        for (const key of ALLOWED_COLUMNS) {
+            if (updates[key] !== undefined) {
+                cleanUpdates[key] = updates[key];
+            }
+        }
+
         const { data, error } = await supabase
             .from('accounts')
-            .update(updates)
+            .update(cleanUpdates)
             .eq('id', id)
             .select()
             .single()

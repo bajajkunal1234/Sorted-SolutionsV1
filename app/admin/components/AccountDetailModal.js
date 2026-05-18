@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, User, FileText, Bell, History, Receipt, Edit2, Save, MapPin, Phone, Mail, Package, Shield, Upload, Trash2, Plus, AlertCircle, Loader2 } from 'lucide-react';
 import { accountsAPI } from '@/lib/adminAPI';
 import { formatCurrency, getGroupPath } from '@/lib/utils/accountingHelpers';
@@ -76,6 +76,48 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
     const [errors, setErrors] = useState({});
     const [imagePreview, setImagePreview] = useState(account.accountImage || null);
+
+    useEffect(() => {
+        setEditedAccount({
+            ...account,
+            contactPerson: account.contactPerson || account.contact_person || '',
+            mobile: account.mobile || '',
+            email: account.email || '',
+            mailingName: account.mailingName || account.mailing_name || '',
+            customerDescription: account.customerDescription || account.mailingAddress || account.mailing_address || '',
+            accountImage: account.accountImage || account.image_url || null,
+            gstRegistration: account.gstRegistration || false,
+            gstin: account.gstin || '',
+            pan: account.pan || '',
+            stateName: account.stateName || account.state_name || '',
+            country: account.country || 'India',
+            creditLimit: account.creditLimit || account.credit_limit || 0,
+            creditPeriod: account.creditPeriod || account.credit_period || 0,
+            priceLevel: account.priceLevel || account.price_level || 'default',
+            accountNumber: account.accountNumber || account.account_number || '',
+            bankName: account.bankName || account.bank_name || '',
+            branch: account.branch || '',
+            ifscCode: account.ifscCode || account.ifsc_code || '',
+            micrCode: account.micrCode || account.micr_code || '',
+            accountType: account.accountType || account.account_type || 'savings',
+            enableChequePrinting: account.enableChequePrinting || account.enable_cheque_printing || false,
+            taxRate: account.taxRate || account.tax_rate || 0,
+            roundingMethod: account.roundingMethod || account.rounding_method || 'normal',
+            assetCategory: account.assetCategory || account.asset_category || '',
+            purchaseDate: account.purchaseDate || account.purchase_date || '',
+            purchaseValue: account.purchaseValue || account.purchase_value || 0,
+            depreciationMethod: account.depreciationMethod || account.depreciation_method || 'slm',
+            depreciationRate: account.depreciationRate || account.depreciation_rate || 0,
+            usefulLife: account.usefulLife || account.useful_life || 0,
+            openingBalance: account.openingBalance || account.opening_balance || 0,
+            balanceType: account.balanceType || account.balance_type || 'dr',
+            asOnDate: account.asOnDate || account.as_on_date || new Date().toISOString().split('T')[0],
+            currency: account.currency || 'INR',
+            acquisitionSource: account.acquisitionSource || account.acquisition_source || '',
+            referredBy: account.referredBy || account.referred_by || '',
+        });
+        setImagePreview(account.accountImage || null);
+    }, [account]);
 
     // Get required fields for current account type (with inheritance)
     const requiredFields = getRequiredFields(editedAccount.under || account.under, groups);
