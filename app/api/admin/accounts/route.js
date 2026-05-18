@@ -99,7 +99,13 @@ export async function GET(request) {
             };
         });
 
-        return NextResponse.json({ success: true, data: enrichedData })
+        return NextResponse.json({ success: true, data: enrichedData }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
+        })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
@@ -241,7 +247,13 @@ export async function POST(request) {
             source: 'Admin App'
         });
 
-        return NextResponse.json({ success: true, data })
+        return NextResponse.json({ success: true, data }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
+        })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
@@ -352,7 +364,13 @@ export async function PUT(request) {
             source: 'Admin App'
         });
 
-        return NextResponse.json({ success: true, data })
+        return NextResponse.json({ success: true, data }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
+        })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
     }
