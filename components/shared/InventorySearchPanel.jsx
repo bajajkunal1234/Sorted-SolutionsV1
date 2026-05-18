@@ -10,9 +10,17 @@ const INVENTORY_FILTER_FIELDS = [
     { key: 'category',      label: 'Category',      type: 'text' },
     { key: 'brand',         label: 'Brand',         type: 'text' },
     { key: 'type',          label: 'Item Type',     type: 'select', options: ['product', 'service'] },
+    { key: 'job_type',      label: 'Job Type',      type: 'select', options: ['repair', 'install_uninstall', 'service_maintenance', 'general'] },
     { key: 'stock_status',  label: 'Stock Status',  type: 'select', options: ['In Stock', 'Low Stock', 'Out of Stock'] },
     { key: 'sale_price',    label: 'Sale Price',    type: 'number' },
+    { key: 'purchase_price',label: 'Purchase Price',type: 'number' },
     { key: 'current_stock', label: 'Stock Qty',     type: 'number' },
+    { key: 'min_stock_level',label:'Min Stock Level',type: 'number' },
+    { key: 'hsn_code',      label: 'HSN / SAC Code',type: 'text' },
+    { key: 'gst_rate',      label: 'GST Rate (%)',  type: 'number' },
+    { key: 'status',        label: 'Status',        type: 'select', options: ['active', 'inactive', 'archived'] },
+    { key: 'created_at',    label: 'Date Created',  type: 'date' },
+    { key: 'updated_at',    label: 'Date Updated',  type: 'date' },
 ];
 
 const OPERATORS_BY_TYPE = {
@@ -35,16 +43,26 @@ const INVENTORY_GROUP_BY = [
     { value: 'category', label: 'Category' },
     { value: 'brand',    label: 'Brand' },
     { value: 'type',     label: 'Item Type' },
+    { value: 'job_type', label: 'Job Type' },
     { value: 'stock',    label: 'Stock Status' },
+    { value: 'gst_rate', label: 'GST Rate' },
 ];
 
 const INVENTORY_SORT_BY = [
     { value: 'name',         label: 'Name A → Z' },
     { value: 'name_desc',    label: 'Name Z → A' },
+    { value: 'sku',          label: 'SKU A → Z' },
+    { value: 'sku_desc',     label: 'SKU Z → A' },
+    { value: 'date_desc',    label: 'Date Created (Newest)' },
+    { value: 'date_asc',     label: 'Date Created (Oldest)' },
+    { value: 'updated_desc', label: 'Last Updated (Newest)' },
+    { value: 'updated_asc',  label: 'Last Updated (Oldest)' },
     { value: 'stock_desc',   label: 'Stock ↓' },
     { value: 'stock_asc',    label: 'Stock ↑' },
     { value: 'price_desc',   label: 'Sale Price ↓' },
     { value: 'price_asc',    label: 'Sale Price ↑' },
+    { value: 'purchase_price_desc', label: 'Purchase Price ↓' },
+    { value: 'purchase_price_asc',  label: 'Purchase Price ↑' },
 ];
 
 // ─── Sub-components ═══════════════════════════════════════════════════════════
@@ -83,6 +101,8 @@ function CustomFilterRow({ row, onChange, onRemove }) {
                 </select>
             ) : field.type === 'number' ? (
                 <input type="number" value={row.value} placeholder="value..." onChange={e => onChange({ ...row, value: e.target.value })} style={{ ...sel, flex: '1 1 100px' }} />
+            ) : field.type === 'date' ? (
+                <input type="date" value={row.value} onChange={e => onChange({ ...row, value: e.target.value })} style={{ ...sel, flex: '1 1 120px' }} />
             ) : (
                 <input type="text" value={row.value} placeholder="value..." onChange={e => onChange({ ...row, value: e.target.value })} style={{ ...sel, flex: '1 1 120px' }} />
             )}
@@ -92,6 +112,7 @@ function CustomFilterRow({ row, onChange, onRemove }) {
         </div>
     );
 }
+
 
 // ─── Main Panel ═══════════════════════════════════════════════════════════════
 export default function InventorySearchPanel({

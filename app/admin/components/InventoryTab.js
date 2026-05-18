@@ -171,10 +171,10 @@ function InventoryTab() {
                 tag.conditions.forEach(c => {
                     res = res.filter(d => {
                         const val = String(d[c.field] || '').toLowerCase();
-                        const filterVal = c.value.toLowerCase();
+                        const filterVal = (c.value || '').toLowerCase();
                         if (c.operator === 'contains') return val.includes(filterVal);
                         if (c.operator === 'not_contains') return !val.includes(filterVal);
-                        if (c.operator === 'is') return val === filterVal;
+                        if (c.operator === 'is' && !['created_at', 'updated_at'].includes(c.field)) return val === filterVal;
                         if (c.operator === 'is_not') return val !== filterVal;
                         
                         const numVal = parseFloat(d[c.field]);
@@ -183,6 +183,18 @@ function InventoryTab() {
                             if (c.operator === 'gte') return numVal >= numFilter;
                             if (c.operator === 'lte') return numVal <= numFilter;
                             if (c.operator === 'eq') return numVal === numFilter;
+                        }
+
+                        if (['created_at', 'updated_at'].includes(c.field) || c.operator === 'before' || c.operator === 'after') {
+                            const itemDate = new Date(d[c.field]);
+                            const filterDate = new Date(c.value);
+                            if (!isNaN(itemDate.getTime()) && !isNaN(filterDate.getTime())) {
+                                const itemDay = new Date(itemDate.getFullYear(), itemDate.getMonth(), itemDate.getDate()).getTime();
+                                const filterDay = new Date(filterDate.getFullYear(), filterDate.getMonth(), filterDate.getDate()).getTime();
+                                if (c.operator === 'is') return itemDay === filterDay;
+                                if (c.operator === 'before') return itemDay < filterDay;
+                                if (c.operator === 'after') return itemDay > filterDay;
+                            }
                         }
                         return true;
                     });
@@ -213,10 +225,18 @@ function InventoryTab() {
         // 3. Sort
         return res.sort((a, b) => {
             if (sortBy === 'name_desc') return (b.name || '').localeCompare(a.name || '');
+            if (sortBy === 'sku') return (a.sku || '').localeCompare(b.sku || '');
+            if (sortBy === 'sku_desc') return (b.sku || '').localeCompare(a.sku || '');
+            if (sortBy === 'date_desc') return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+            if (sortBy === 'date_asc') return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+            if (sortBy === 'updated_desc') return new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
+            if (sortBy === 'updated_asc') return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
             if (sortBy === 'stock_desc') return (b.currentStock || 0) - (a.currentStock || 0);
             if (sortBy === 'stock_asc') return (a.currentStock || 0) - (b.currentStock || 0);
             if (sortBy === 'price_desc') return (b.salePrice || 0) - (a.salePrice || 0);
             if (sortBy === 'price_asc') return (a.salePrice || 0) - (b.salePrice || 0);
+            if (sortBy === 'purchase_price_desc') return (b.purchasePrice || 0) - (a.purchasePrice || 0);
+            if (sortBy === 'purchase_price_asc') return (a.purchasePrice || 0) - (b.purchasePrice || 0);
             return (a.name || '').localeCompare(b.name || '');
         });
     })();
@@ -235,7 +255,9 @@ function InventoryTab() {
             if (groupBy === 'category') key = item.category || 'Uncategorized';
             else if (groupBy === 'brand') key = item.brand || 'No Brand';
             else if (groupBy === 'type') key = item.type || 'Unknown';
+            else if (groupBy === 'job_type') key = item.job_type || 'Unspecified';
             else if (groupBy === 'stock') key = item.stockStatus || 'Unknown';
+            else if (groupBy === 'gst_rate') key = item.gst_rate != null ? `${item.gst_rate}%` : 'Unknown';
             
             if (!map.has(key)) map.set(key, []);
             map.get(key).push(item);
@@ -718,7 +740,7 @@ function InventoryTab() {
                     </div>
                 ) : (
                     <>
-                        {viewType === 'table' && <InventoryTableView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} onDelete={handleDeleteProduct} onDeleteMany={handleDeleteMany} onArchive={handleArchiveProduct} onRestore={handleRestoreProduct} showArchived={statusFilter === 'archived'} />}
+                        {viewType === 'table' && <InventoryTableView products={visibleProducts} groupBy={groupBy} groupedProducts={getGroupedProducts(visibleProducts)} onProductClick={setSelectedProduct} categories={categories} visibleColumns={visibleColumns} onDelete={handleDeleteProduct} onDeleteMany={handleDeleteMany} onArchive={handleArchiveProduct} onRestore={handleRestoreProduct} showArchived={statusFilter === 'archived'} />}
                         {viewType === 'card' && <InventoryCardView products={visibleProducts} onProductClick={setSelectedProduct} categories={categories} />}
                         {viewType === 'kanban' && (
                             <InventoryKanbanView
