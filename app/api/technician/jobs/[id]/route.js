@@ -308,12 +308,15 @@ export async function PUT(request, { params }) {
                 .update({ 
                     status: 'closed', 
                     completed_at: new Date().toISOString(),
-                    internal_notes: updates.internal_notes
+                    notes: updates.notes
                 })
                 .eq('id', id)
                 .select()
                 .single();
-            if (error) return NextResponse.json({ error: 'Failed to close job' }, { status: 500 });
+            if (error) {
+                console.error('[technician/jobs PUT close_job] DB Error:', error.message);
+                return NextResponse.json({ error: 'Failed to close job: ' + error.message }, { status: 500 });
+            }
 
             const statusMsg = `Job closed by ${techName} with call closure notes`;
             supabase.from('job_interactions').insert([{

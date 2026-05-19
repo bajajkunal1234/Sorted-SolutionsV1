@@ -75,7 +75,7 @@ export default function FeedbackAndCloseCallFlow({
         try {
             // 1. Build beautiful formatted notes
             const pocString = pocOption === 'customer' 
-                ? `Customer (${job.customerName || 'Primary Cx'})` 
+                ? `${job.customerName || 'Customer'}` 
                 : `Someone Else - ${pocName.trim()}`;
 
             const noteParts = [
@@ -129,8 +129,8 @@ export default function FeedbackAndCloseCallFlow({
                 updated_by_name: currentUserName,
                 source: context === 'admin' ? 'Admin App' : 'Technician App',
                 _changeLog: [`Status changed to closed. Notes captured.`],
-                internal_notes: job.internalNotes 
-                    ? `${job.internalNotes}\n\n${formattedNotes}` 
+                notes: job.notes 
+                    ? `${job.notes}\n\n${formattedNotes}` 
                     : formattedNotes
             };
 
@@ -304,7 +304,7 @@ export default function FeedbackAndCloseCallFlow({
                                         className={`pill-btn ${pocOption === 'customer' ? 'active' : ''}`}
                                         onClick={() => { setPocOption('customer'); setPocName(''); }}
                                     >
-                                        Customer
+                                        {job.customerName || 'Customer'}
                                     </button>
                                     <button 
                                         className={`pill-btn ${pocOption === 'someone_else' ? 'active' : ''}`}
