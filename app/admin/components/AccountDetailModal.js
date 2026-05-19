@@ -18,6 +18,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
     const [activeTab, setActiveTab] = useState('details');
     const [isEditing, setIsEditing] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [editedAccount, setEditedAccount] = useState({
         ...account,
         // Ensure all fields exist with defaults
@@ -206,7 +207,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         // Validate mobile number
         if (editedAccount.mobile && editedAccount.mobile.trim()) {
             const mobileValidation = validateMobileNumber(editedAccount.mobile);
@@ -277,8 +278,15 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
         delete payloadToSave.accountImage;
         delete payloadToSave.gstRegistration;
 
-        onUpdate(payloadToSave);
-        setIsEditing(false);
+        try {
+            setSaving(true);
+            await onUpdate(payloadToSave);
+            setIsEditing(false);
+        } catch (err) {
+            console.error('Save failed:', err);
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleDelete = async () => {
@@ -412,10 +420,14 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                 <button
                                     className="btn btn-secondary"
                                     onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-                                    disabled={deleting}
+                                    disabled={deleting || saving}
                                     style={{ fontSize: 'var(--font-size-sm)' }}
                                 >
-                                    {isEditing ? <><Save size={16} /> Save</> : <><Edit2 size={16} /> Edit</>}
+                                    {isEditing ? (
+                                        saving ? <><Loader2 size={16} className="spin" /> Saving...</> : <><Save size={16} /> Save</>
+                                    ) : (
+                                        <><Edit2 size={16} /> Edit</>
+                                    )}
                                 </button>
                             </div>
                         )}
@@ -1156,9 +1168,9 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                                 Close
                             </button>
                             {isEditing && (
-                                <button className="btn btn-primary" onClick={handleSave}>
-                                    <Save size={16} />
-                                    Save Changes
+                                <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                                    {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                                    {saving ? 'Saving Changes...' : 'Save Changes'}
                                 </button>
                             )}
                         </div>

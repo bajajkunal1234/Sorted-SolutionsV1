@@ -1014,7 +1014,12 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             const result = await accountsAPI.update(updatedAccount.id, updatedAccount);
             setLedgers(prev => prev.map(l => l.id === result.id ? { ...l, ...result } : l));
             setSelectedAccount(prev => ({ ...prev, ...result }));
-        } catch (err) { console.error(err); }
+            return result;
+        } catch (err) {
+            console.error('Failed to update account:', err);
+            alert(`Failed to save changes: ${err.message || 'Unknown error'}`);
+            throw err;
+        }
     };
 
     const chkStyle = { width: '16px', height: '16px', cursor: 'pointer', accentColor: '#6366f1', flexShrink: 0 };

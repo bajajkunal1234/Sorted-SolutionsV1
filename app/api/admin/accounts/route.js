@@ -176,23 +176,30 @@ export async function POST(request) {
             (body.under_name || '').toLowerCase().includes('creditor');
 
         if (isCustomer) {
-            await supabase.from('customers').upsert({
+            const formattedAddress = body.mailing_address 
+                ? (typeof body.mailing_address === 'string' ? { text: body.mailing_address } : body.mailing_address) 
+                : {};
+            const { error: customerError } = await supabase.from('customers').upsert({
                 name: body.name,
                 phone: body.mobile || '',
                 email: body.email || '',
                 gstin: body.gstin || '',
-                address: body.mailing_address || {},
+                address: formattedAddress,
                 properties: body.properties || [],
                 ledger_id: data.id
             }, { onConflict: 'ledger_id' });
+
+            if (customerError) throw customerError;
         } else if (isTechnician) {
-            await supabase.from('technicians').upsert({
+            const { error: techError } = await supabase.from('technicians').upsert({
                 name: body.name,
                 phone: body.mobile || '',
                 email: body.email || '',
                 ledger_id: data.id,
                 status: 'available'
             }, { onConflict: 'ledger_id' });
+
+            if (techError) throw techError;
         }
 
         // ── Native Property Insertion ─────────────────────────────────────
@@ -299,23 +306,31 @@ export async function PUT(request) {
             ((updates.under_name || data.under_name || '').toLowerCase().includes('creditor'));
 
         if (isCustomer) {
-            await supabase.from('customers').upsert({
+            const rawAddress = updates.mailing_address !== undefined ? updates.mailing_address : data.mailing_address;
+            const formattedAddress = rawAddress 
+                ? (typeof rawAddress === 'string' ? { text: rawAddress } : rawAddress) 
+                : {};
+            const { error: customerError } = await supabase.from('customers').upsert({
                 name: updates.name || data.name,
                 phone: updates.mobile || data.mobile,
                 email: updates.email || data.email,
                 gstin: updates.gstin || data.gstin,
-                address: updates.mailing_address || data.mailing_address,
+                address: formattedAddress,
                 properties: updates.properties || data.properties,
                 ledger_id: id
             }, { onConflict: 'ledger_id' });
+
+            if (customerError) throw customerError;
         } else if (isTechnician) {
-            await supabase.from('technicians').upsert({
+            const { error: techError } = await supabase.from('technicians').upsert({
                 name: updates.name || data.name,
                 phone: updates.mobile || data.mobile,
                 email: updates.email || data.email,
                 ledger_id: id,
                 status: 'available'
             }, { onConflict: 'ledger_id' });
+
+            if (techError) throw techError;
         }
 
         // ── Build a per-field diff log ─────────────────────────────────────
