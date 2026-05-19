@@ -6,19 +6,50 @@ import ClickTracker from '@/components/ClickTracker'
 import FloatingCTA from '@/components/common/FloatingCTA'
 import FirstPartyTracker from '@/components/common/FirstPartyTracker'
 
-export const metadata = {
-    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in'),
-    title: 'Sorted Solutions - Expert Appliance Repair Services',
-    description: 'Professional repair services for AC, Refrigerator, Washing Machine, RO, Oven, and more. On-time service with 90-day warranty.',
-    icons: {
-        icon: '/favicon.png',
-        apple: '/icons/icon-192x192.png',
-    },
-    manifest: '/manifest.json',
-    appleWebApp: {
-        statusBarStyle: 'black-translucent',
-        title: 'Sorted Solutions',
-    },
+import { supabase } from '@/lib/supabase'
+
+export async function generateMetadata() {
+    let companyName = 'Sorted Solutions';
+    let ogImageUrl = '/icon.jpg';
+    
+    try {
+        const { data } = await supabase
+            .from('print_settings')
+            .select('company_name, whatsapp_preview_url')
+            .limit(1);
+            
+        if (data && data[0]) {
+            if (data[0].company_name) companyName = data[0].company_name;
+            if (data[0].whatsapp_preview_url) ogImageUrl = data[0].whatsapp_preview_url;
+        }
+    } catch (e) {
+        console.error('Error fetching dynamic metadata:', e);
+    }
+    
+    return {
+        metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://sortedsolutions.in'),
+        title: `${companyName} - Expert Appliance Repair Services`,
+        description: 'Professional repair services for AC, Refrigerator, Washing Machine, RO, Oven, and more. On-time service with 90-day warranty.',
+        icons: {
+            icon: '/favicon.png',
+            apple: '/icons/icon-192x192.png',
+        },
+        manifest: '/manifest.json',
+        appleWebApp: {
+            statusBarStyle: 'black-translucent',
+            title: companyName,
+        },
+        openGraph: {
+            title: `${companyName} - Expert Appliance Repair Services`,
+            description: 'Professional repair services for AC, Refrigerator, Washing Machine, RO, Oven, and more. On-time service with 90-day warranty.',
+            images: [ogImageUrl],
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title: `${companyName} - Expert Appliance Repair Services`,
+            images: [ogImageUrl],
+        }
+    };
 }
 
 // ── Mobile viewport — prevents zoom/horizontal scroll on all devices ────────
