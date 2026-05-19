@@ -1092,7 +1092,7 @@ export default function NotificationCenter() {
             {activeTab === 'logs' && <LogsTab />}
             {activeTab === 'inbox' && <InboxTab />}
 
-            <style jsx>{`
+            <style jsx global>{`
                 .form-control {
                     width: 100%;
                     padding: 10px 12px;
