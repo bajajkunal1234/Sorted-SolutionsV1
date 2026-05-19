@@ -12,6 +12,7 @@ import { jobsAPI, interactionsAPI } from '@/lib/adminAPI';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
+import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFlow';
 import { supabase } from '@/lib/supabase';
 
 function JobDetailModal({ job, onClose, onUpdate }) {
@@ -27,6 +28,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
     const [savedInvoice, setSavedInvoice] = useState(null);
     const [showWhatsappPopup, setShowWhatsappPopup] = useState(null); // { type, doc }
     const [showCollectPayment, setShowCollectPayment] = useState(false);
+    const [showFeedbackCloseFlow, setShowFeedbackCloseFlow] = useState(false);
     const [markingArrival, setMarkingArrival] = useState(false);
     const [showPartsNoteModal, setShowPartsNoteModal] = useState(false);
     const [partsNoteText, setPartsNoteText] = useState('');
@@ -1403,7 +1405,33 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                     prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
                     onSuccess={() => {
                         setShowCollectPayment(false);
-                        if (onUpdate) onUpdate(editedJob);
+                        setShowFeedbackCloseFlow(true);
+                    }}
+                />
+            )}
+
+            {/* Feedback & Close Call Questionnaire Flow */}
+            {showFeedbackCloseFlow && (
+                <FeedbackAndCloseCallFlow
+                    onClose={() => setShowFeedbackCloseFlow(false)}
+                    context="admin"
+                    currentUserName={'Admin'}
+                    currentUserId={'admin'}
+                    job={editedJob}
+                    onSuccess={async () => {
+                        setShowFeedbackCloseFlow(false);
+                        try {
+                            const res = await fetch(`/api/technician/jobs/${editedJob.id}`);
+                            const data = await res.json();
+                            if (data.success && data.job) {
+                                setEditedJob(data.job);
+                                if (onUpdate) onUpdate(data.job);
+                            } else {
+                                if (onUpdate) onUpdate({ ...editedJob, status: 'closed' });
+                            }
+                        } catch (e) {
+                            if (onUpdate) onUpdate({ ...editedJob, status: 'closed' });
+                        }
                     }}
                 />
             )}

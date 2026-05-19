@@ -11,6 +11,7 @@ import RepairCalculator from '@/components/common/RepairCalculator';
 import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
 import LiveMap from '@/components/common/LiveMap';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
+import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFlow';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
 
@@ -35,6 +36,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
     // Payment collection state
     const [showCollectPayment, setShowCollectPayment] = useState(false);
+    const [showFeedbackCloseFlow, setShowFeedbackCloseFlow] = useState(false);
     // Read technician identity from localStorage for CollectPaymentFlow (SSR-safe)
     const { techName, techId } = (() => {
         if (typeof window === 'undefined') return { techName: 'Technician', techId: null };
@@ -1217,7 +1219,33 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
                 onSuccess={() => {
                     setShowCollectPayment(false);
-                    if (onJobUpdate) onJobUpdate(editedJob);
+                    setShowFeedbackCloseFlow(true);
+                }}
+            />
+        )}
+
+        {/* Feedback & Close Call Questionnaire Flow */}
+        {showFeedbackCloseFlow && (
+            <FeedbackAndCloseCallFlow
+                onClose={() => setShowFeedbackCloseFlow(false)}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                job={editedJob}
+                onSuccess={async () => {
+                    setShowFeedbackCloseFlow(false);
+                    try {
+                        const res = await fetch(`/api/technician/jobs/${editedJob.id}`);
+                        const data = await res.json();
+                        if (data.success && data.job) {
+                            setEditedJob(data.job);
+                            if (onJobUpdate) onJobUpdate(data.job);
+                        } else {
+                            if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
+                        }
+                    } catch (e) {
+                        if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
+                    }
                 }}
             />
         )}
