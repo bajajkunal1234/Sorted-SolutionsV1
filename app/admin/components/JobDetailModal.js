@@ -1353,7 +1353,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         // 5. Close form and show WhatsApp popup
                         setActiveForm(null);
                         setCalculatorItems(null);
-                        setShowWhatsappPopup(true);
+                        setShowWhatsappPopup({ type: 'quotation', doc: savedData });
                     }}
                     defaultAccount={job.customer_id ? { id: job.customer_id } : null}
                     prefillItems={calculatorItems}

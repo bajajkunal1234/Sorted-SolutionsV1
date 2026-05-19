@@ -69,8 +69,23 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
 
 — Sorted Solutions`;
 
-    const phone = job.customer_phone ? job.customer_phone.replace(/\D/g, '') : '';
-    const waUrl = `https://wa.me/${phone ? '91' + phone : ''}?text=${encodeURIComponent(message)}`;
+    // Robust extraction and normalization of customer phone number to prevent duplicate country codes
+    const rawPhone = job.customer_phone || 
+                     job.customerPhone || 
+                     job.mobile || 
+                     job.phone || 
+                     job.customer?.phone || 
+                     job.customer?.mobile || 
+                     '';
+    
+    let phoneDigits = rawPhone.replace(/\D/g, '');
+    if (phoneDigits.length === 12 && phoneDigits.startsWith('91')) {
+        phoneDigits = phoneDigits.slice(2);
+    } else if (phoneDigits.length === 11 && phoneDigits.startsWith('0')) {
+        phoneDigits = phoneDigits.slice(1);
+    }
+    
+    const waUrl = `https://wa.me/${phoneDigits.length === 10 ? '91' + phoneDigits : phoneDigits}?text=${encodeURIComponent(message)}`;
 
     const handleCopy = async () => {
         try {
