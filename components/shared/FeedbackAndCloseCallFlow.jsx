@@ -125,7 +125,7 @@ export default function FeedbackAndCloseCallFlow({
 
             // 3. Update the job's status to 'closed' in the database
             const jobUpdatePayload = {
-                status: 'closed',
+                action: 'close_job',
                 updated_by_name: currentUserName,
                 source: context === 'admin' ? 'Admin App' : 'Technician App',
                 _changeLog: [`Status changed to closed. Notes captured.`],

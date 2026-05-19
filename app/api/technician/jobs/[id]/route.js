@@ -300,6 +300,40 @@ export async function PUT(request, { params }) {
             return NextResponse.json({ success: true, job, message: 'Job closed successfully' });
         }
 
+        // ── Special action: close_job ──────────────────────────────────────
+        // Technicians closing job with notes post-payment
+        if (action === 'close_job') {
+            const { data: job, error } = await supabase
+                .from('jobs')
+                .update({ 
+                    status: 'closed', 
+                    completed_at: new Date().toISOString(),
+                    internal_notes: updates.internal_notes
+                })
+                .eq('id', id)
+                .select()
+                .single();
+            if (error) return NextResponse.json({ error: 'Failed to close job' }, { status: 500 });
+
+            const statusMsg = `Job closed by ${techName} with call closure notes`;
+            supabase.from('job_interactions').insert([{
+                job_id: id, type: 'status-changed', message: statusMsg, user_name: techName
+            }]).then(null, () => {});
+            logInteractionServer({
+                type: 'job-status-closed', category: 'job', jobId: String(id),
+                customerId, customerName, performedByName: techName,
+                description: `Job #${jobRef} — ${statusMsg}`, source: 'Technician App'
+            });
+            fireNotification('job_closed', {
+                job_id: String(id), job_number: existing?.job_number,
+                customer_id: customerId || undefined,
+                technician_id: existing?.technician_id ? String(existing.technician_id) : undefined,
+                customer_name: customerName || undefined, technician_name: techName,
+            }).catch(() => {});
+
+            return NextResponse.json({ success: true, job, message: 'Job closed successfully' });
+        }
+
         // ── Standard field update ──────────────────────────────────────────
 
         // Gate: parts_ordered requires repair_note_added_at to be set
