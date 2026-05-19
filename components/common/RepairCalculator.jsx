@@ -16,6 +16,69 @@ const getPrice = (b) => {
 
 const fmt = (n) => (n || 0).toLocaleString('en-IN');
 
+const PRICE_OPTS = [
+    { key: 'sale',   label: 'Sales',  field: 'sale_price'   },
+    { key: 'dealer', label: 'Dealer', field: 'dealer_price'  },
+    { key: 'mrp',    label: 'MRP',    field: 'retail_price'  },
+    { key: 'custom', label: 'Custom', field: null            },
+];
+
+const PricePills = ({ b, setPriceType, setCustomPrice }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
+        {PRICE_OPTS.map(opt => {
+            const rawVal = opt.field ? b[opt.field] : null;
+            const available = opt.key === 'custom' || (rawVal != null && rawVal > 0);
+            const isActive  = b.priceType === opt.key;
+
+            return (
+                <button
+                    key={opt.key}
+                    disabled={!available}
+                    onClick={() => setPriceType(b.id, opt.key)}
+                    title={!available ? `No ${opt.label} price set` : `Use ${opt.label} price${rawVal != null ? ` (₹${fmt(rawVal)})` : ''}`}
+                    style={{
+                        padding: '2px 8px',
+                        borderRadius: '9999px',
+                        border: `1px solid ${isActive ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        cursor: available ? 'pointer' : 'not-allowed',
+                        opacity: available ? 1 : 0.3,
+                        backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
+                        color: isActive ? '#fff' : 'var(--text-secondary)',
+                        transition: 'all 0.12s',
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    {opt.label}{rawVal != null && rawVal > 0 ? ` ₹${fmt(rawVal)}` : ''}
+                </button>
+            );
+        })}
+
+        {/* Custom price input — shown only when Custom is selected */}
+        {b.priceType === 'custom' && (
+            <input
+                type="number"
+                min="0"
+                value={b.customPrice || ''}
+                onChange={e => setCustomPrice(b.id, parseFloat(e.target.value) || 0)}
+                placeholder="Enter ₹"
+                onClick={e => e.stopPropagation()}
+                style={{
+                    width: '80px',
+                    padding: '2px 6px',
+                    borderRadius: '8px',
+                    border: '1px solid var(--color-primary)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '11px',
+                    outline: 'none',
+                }}
+            />
+        )}
+    </div>
+);
+
 export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose }) {
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
@@ -157,69 +220,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         color: active ? '#fff' : 'var(--text-secondary)', transition: 'all 0.15s',
     });
 
-    // ── Price-type pill row for each basket item ──────────────────────────────
-    const PRICE_OPTS = [
-        { key: 'sale',   label: 'Sales',  field: 'sale_price'   },
-        { key: 'dealer', label: 'Dealer', field: 'dealer_price'  },
-        { key: 'mrp',    label: 'MRP',    field: 'retail_price'  },
-        { key: 'custom', label: 'Custom', field: null            },
-    ];
 
-    const PricePills = ({ b }) => (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '5px' }}>
-            {PRICE_OPTS.map(opt => {
-                const rawVal = opt.field ? b[opt.field] : null;
-                const available = opt.key === 'custom' || (rawVal != null && rawVal > 0);
-                const isActive  = b.priceType === opt.key;
-
-                return (
-                    <button
-                        key={opt.key}
-                        disabled={!available}
-                        onClick={() => setPriceType(b.id, opt.key)}
-                        title={!available ? `No ${opt.label} price set` : `Use ${opt.label} price${rawVal != null ? ` (₹${fmt(rawVal)})` : ''}`}
-                        style={{
-                            padding: '2px 8px',
-                            borderRadius: '9999px',
-                            border: `1px solid ${isActive ? 'var(--color-primary)' : 'var(--border-primary)'}`,
-                            fontSize: '10px',
-                            fontWeight: 700,
-                            cursor: available ? 'pointer' : 'not-allowed',
-                            opacity: available ? 1 : 0.3,
-                            backgroundColor: isActive ? 'var(--color-primary)' : 'transparent',
-                            color: isActive ? '#fff' : 'var(--text-secondary)',
-                            transition: 'all 0.12s',
-                            whiteSpace: 'nowrap',
-                        }}
-                    >
-                        {opt.label}{rawVal != null && rawVal > 0 ? ` ₹${fmt(rawVal)}` : ''}
-                    </button>
-                );
-            })}
-
-            {/* Custom price input — shown only when Custom is selected */}
-            {b.priceType === 'custom' && (
-                <input
-                    type="number"
-                    min="0"
-                    value={b.customPrice || ''}
-                    onChange={e => setCustomPrice(b.id, parseFloat(e.target.value) || 0)}
-                    placeholder="Enter ₹"
-                    onClick={e => e.stopPropagation()}
-                    style={{
-                        width: '80px',
-                        padding: '2px 6px',
-                        borderRadius: '8px',
-                        border: '1px solid var(--color-primary)',
-                        backgroundColor: 'var(--bg-secondary)',
-                        color: 'var(--text-primary)',
-                        fontSize: '11px',
-                        outline: 'none',
-                    }}
-                />
-            )}
-        </div>
-    );
 
     // ─────────────────────────────────────────────────────────────────────────
     const content = (
@@ -388,7 +389,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                                     </div>
 
                                     {/* ── Price-type selector row ── */}
-                                    <PricePills b={b} />
+                                    <PricePills b={b} setPriceType={setPriceType} setCustomPrice={setCustomPrice} />
                                 </div>
                             ))}
 
