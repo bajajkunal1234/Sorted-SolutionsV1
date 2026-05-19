@@ -69,7 +69,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         notes: existingInvoice?.notes || '',
         terms: existingInvoice?.terms || 'Payment due within 30 days.\nLate payments subject to 2% monthly interest.',
         technician: existingInvoice?.technician || '',
-        showTax: existingInvoice?.showTax !== undefined ? existingInvoice.showTax : true
+        showTax: existingInvoice?.showTax !== undefined ? existingInvoice.showTax : false
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);

@@ -44,6 +44,7 @@ if (!window.generatePrintHtml) { // Guard: only execute once even if script is l
         const isDocGstEnabled = tab === 'quotations' ? ps.quotation_show_gst : (tab === 'rentals' ? ps.rental_show_gst : (tab === 'amc' ? ps.amc_show_gst : ps.invoice_show_gst));
         const showGST = isDocGstEnabled === true || (isDocGstEnabled === undefined && ps.show_gst !== false);
         const docTitle = tab === 'quotations' ? 'QUOTATION' : tab === 'purchases' ? 'PURCHASE INVOICE' : (showGST ? 'TAX INVOICE' : 'INVOICE');
+        const displayAmount = showGST ? amount : taxableBase;
 
         const effRate = (amt) => {
             if (amt <= 0 || taxableBase <= 0) return '';
@@ -132,7 +133,7 @@ if (!window.generatePrintHtml) { // Guard: only execute once even if script is l
       ${showGST && totalTax > 0 ? `<tr><td style="padding:5px 0;color:#64748b;font-size:12px">Total GST</td><td style="padding:5px 0;text-align:right;font-size:12px;font-weight:600">${rupee}${fmt(totalTax)}</td></tr>` : ''}
       <tr style="border-top:${borderTop}">
         <td style="padding:9px 0 4px;font-size:15px;font-weight:800;color:${accentColor}">Grand Total</td>
-        <td style="padding:9px 0 4px;text-align:right;font-size:17px;font-weight:900;color:${accentColor}">${rupee}${fmt(amount)}</td>
+        <td style="padding:9px 0 4px;text-align:right;font-size:17px;font-weight:900;color:${accentColor}">${rupee}${fmt(displayAmount)}</td>
       </tr>
       <tr><td colspan="2" style="font-size:9px;color:#94a3b8;text-align:right;padding-top:2px">Amounts in INR ${showGST ? '&middot; Rates excl. GST' : ''}</td></tr>
     </table>
@@ -200,7 +201,7 @@ ${body}
   <div style="padding:14px 20px 14px 32px;border-right:1px solid #e2e8f0">${billToBlock(G, '#475569', '#64748b')}</div>
   <div style="padding:14px 32px 14px 20px">
     <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:5px">Grand Total</div>
-    <div style="font-size:28px;font-weight:900;color:${gold}">${rupee}${fmt(amount)}</div>
+    <div style="font-size:28px;font-weight:900;color:${gold}">${rupee}${fmt(displayAmount)}</div>
     ${showGST ? `<div style="font-size:10px;color:#64748b;margin-top:2px">Incl. all taxes</div>` : ''}
   </div>
 </div>
@@ -241,7 +242,7 @@ ${body}
   <div>${billToBlock(D, '#78350f', '#92400e')}</div>
   <div style="margin-left:auto;text-align:right">
     <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${S};margin-bottom:4px">Amount Due</div>
-    <div style="font-size:26px;font-weight:900;color:${S}">${rupee}${fmt(amount)}</div>
+    <div style="font-size:26px;font-weight:900;color:${S}">${rupee}${fmt(displayAmount)}</div>
   </div>
 </div>
 <div style="padding:14px 32px">
@@ -281,7 +282,7 @@ ${body}
     <div>${billToBlock('#0f172a', '#475569', '#64748b')}</div>
     <div style="margin-left:auto;text-align:right">
       <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:4px">Invoice Total</div>
-      <div style="font-size:24px;font-weight:900;color:${C}">${rupee}${fmt(amount)}</div>
+      <div style="font-size:24px;font-weight:900;color:${C}">${rupee}${fmt(displayAmount)}</div>
     </div>
   </div>
   <table>${thead(CL, C)}<tbody>${trows('#fff', '#fafafa', '#e2e8f0')}</tbody></table>
@@ -322,7 +323,7 @@ ${body}
     <div style="padding:12px 20px 12px 32px;border-right:1px solid ${RB}">${billToBlock(DR, R, '#64748b')}</div>
     <div style="padding:12px 32px 12px 20px">
       <div class="gl">Invoice Total</div>
-      <div style="font-size:28px;font-weight:900;color:${R}">${rupee}${fmt(amount)}</div>
+      <div style="font-size:28px;font-weight:900;color:${R}">${rupee}${fmt(displayAmount)}</div>
       ${showGST ? `<div style="font-size:10px;color:#64748b;margin-top:2px">Inclusive of all taxes</div>` : ''}
       ${showGST && totalTax > 0 ? `<div style="font-size:10px;color:#64748b;margin-top:2px">GST: ${rupee}${fmt(totalTax)}</div>` : ''}
     </div>

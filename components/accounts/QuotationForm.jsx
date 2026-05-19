@@ -24,7 +24,7 @@ function QuotationForm({ onClose, onSave }) {
         ],
         notes: '',
         terms: 'Quotation valid for 30 days.\nPrices subject to change without notice.\nPayment terms: 50% advance, 50% on completion.',
-        showTax: true
+        showTax: false
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);

@@ -65,7 +65,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
         subject: existingQuotation?.subject || '',
         items: buildInitialItems(),
         notes: existingQuotation?.notes || '',
-        showTax: existingQuotation?.showTax !== undefined ? existingQuotation.showTax : true
+        showTax: existingQuotation?.showTax !== undefined ? existingQuotation.showTax : false
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
