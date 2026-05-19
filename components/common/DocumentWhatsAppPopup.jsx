@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, MessageCircle, Copy, Check, ExternalLink, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
@@ -32,42 +32,97 @@ export default function DocumentWhatsAppPopup({ document, type = 'quotation', jo
 
     const isInvoice = type === 'invoice';
 
-    const message = isInvoice ? `Hello ${customerName}! 👋
+    const [customContent, setCustomContent] = useState('');
+    const [loadingTemplate, setLoadingTemplate] = useState(true);
 
-We've prepared your final invoice for service request (Job #${jobNum}).
+    useEffect(() => {
+        let active = true;
+        async function fetchTemplate() {
+            try {
+                const res = await fetch('/api/notifications/templates');
+                const data = await res.json();
+                if (data.success && active) {
+                    const targetType = isInvoice ? 'invoice_whatsapp' : 'quotation_whatsapp';
+                    // Find default template or any template of the target type
+                    const template = data.data.find(t => t.channel === 'whatsapp' && t.type === targetType && t.is_default) ||
+                                     data.data.find(t => t.channel === 'whatsapp' && t.type === targetType);
+                    if (template && template.content) {
+                        setCustomContent(template.content);
+                    }
+                }
+            } catch (e) {
+                console.error('Error fetching whatsapp template:', e);
+            } finally {
+                if (active) setLoadingTemplate(false);
+            }
+        }
+        fetchTemplate();
+        return () => { active = false; };
+    }, [isInvoice]);
 
-📋 *Invoice ${docNum || ''}*
+    const fallbackTemplate = isInvoice ? `Hello {customer_name}! 👋
 
-${document.cgst > 0 ? `Subtotal: ₹${(document.subtotal || 0).toLocaleString()}
-CGST: ₹${(document.cgst || 0).toFixed(2)}
-SGST: ₹${(document.sgst || 0).toFixed(2)}
-` : ''}*Total Amount: ₹${grandTotal}*
+We've prepared your final invoice for service request (Job #{job_number}).
+
+📋 *Invoice {invoice_number}*
+
+Subtotal: {subtotal}
+CGST: {cgst}
+SGST: {sgst}
+*Total Amount: {total_amount}*
 
 📱 View & track your service request here:
-${trackingUrl}
+{tracking_url}
 
 Thank you for choosing us! Feel free to call us for any queries.
 
-— Sorted Solutions` : `Hello ${customerName}! 👋
+— Sorted Solutions` : `Hello {customer_name}! 👋
 
-We've prepared your repair estimate for service request (Job #${jobNum}).
+We've prepared your repair estimate for service request (Job #{job_number}).
 
-📋 *Quotation ${docNum || ''}*
+📋 *Quotation {quote_number}*
 
 *Items:*
-${lineItems || '  (See details in the app)'}
+{line_items}
 
-${document.cgst > 0 ? `Subtotal: ₹${(document.subtotal || 0).toLocaleString()}
-CGST: ₹${(document.cgst || 0).toFixed(2)}
-SGST: ₹${(document.sgst || 0).toFixed(2)}
-` : ''}*Total Amount: ₹${grandTotal}*
+Subtotal: {subtotal}
+CGST: {cgst}
+SGST: {sgst}
+*Total Amount: {total_amount}*
 
 📱 View & track your service request here:
-${trackingUrl}
+{tracking_url}
 
 Please review and let us know if you'd like to proceed. Feel free to call us for any queries.
 
 — Sorted Solutions`;
+
+    const compileTemplate = (content) => {
+        if (!content) return '';
+        let result = content;
+        
+        const replacements = {
+            customer_name: customerName,
+            job_number: jobNum,
+            invoice_number: docNum || '',
+            quote_number: docNum || '',
+            line_items: lineItems || '  (See details in the app)',
+            subtotal: `₹${(document.subtotal || document.total_amount || 0).toLocaleString()}`,
+            cgst: document.cgst > 0 ? `₹${(document.cgst || 0).toFixed(2)}` : '₹0.00',
+            sgst: document.sgst > 0 ? `₹${(document.sgst || 0).toFixed(2)}` : '₹0.00',
+            total_amount: `₹${grandTotal}`,
+            tracking_url: trackingUrl
+        };
+        
+        Object.entries(replacements).forEach(([key, val]) => {
+            const regex = new RegExp(`\\{\\s*${key}\\s*\\}`, 'gi');
+            result = result.replace(regex, val);
+        });
+        
+        return result;
+    };
+
+    const message = compileTemplate(customContent || fallbackTemplate);
 
     // Robust extraction and normalization of customer phone number to prevent duplicate country codes
     const rawPhone = job.customer_phone || 

@@ -50,6 +50,8 @@ const JOB_EVENTS = [
 const TEMPLATE_TYPES = [
     { id: 'job_notification', label: 'Job Notification', channel: 'both' },
     { id: 'booking_confirmation', label: 'Booking Confirmation', channel: 'both' },
+    { id: 'invoice_whatsapp', label: 'Invoice Whatsapp Message', channel: 'whatsapp' },
+    { id: 'quotation_whatsapp', label: 'Quotation Whatsapp Message', channel: 'whatsapp' },
     { id: 'quotation', label: 'Quotation Message', channel: 'whatsapp' },
     { id: 'payment_reminder', label: 'Payment Reminder', channel: 'whatsapp' },
     { id: 'feedback_request', label: 'Feedback Request', channel: 'both' },
