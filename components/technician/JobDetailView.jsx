@@ -908,13 +908,29 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 >
                                                     View / Send
                                                 </button>
-                                                <button
-                                                    className="btn"
-                                                    style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                                                    onClick={() => setShowCollectPayment(true)}
-                                                >
-                                                    <CheckCircle size={14} /> Collect Payment
-                                                </button>
+                                                {editedJob.status === 'closed' ? (
+                                                    <div
+                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+                                                    >
+                                                        <CheckCircle size={14} /> Closed & Paid
+                                                    </div>
+                                                ) : editedJob.interactions?.some(i => i.type === 'payment-received') ? (
+                                                    <button
+                                                        className="btn"
+                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                        onClick={() => setShowFeedbackCloseFlow(true)}
+                                                    >
+                                                        <CheckCircle size={14} /> Close Call
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className="btn"
+                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                        onClick={() => setShowCollectPayment(true)}
+                                                    >
+                                                        <CheckCircle size={14} /> Collect Payment
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     ) : savedQuotation ? (
