@@ -158,7 +158,11 @@ export async function POST(request) {
         const cleanBody = {};
         for (const key of ALLOWED_COLUMNS) {
             if (body[key] !== undefined) {
-                cleanBody[key] = body[key];
+                if ((key === 'purchase_date' || key === 'as_on_date') && body[key] === '') {
+                    cleanBody[key] = null;
+                } else {
+                    cleanBody[key] = body[key];
+                }
             }
         }
 
@@ -283,7 +287,11 @@ export async function PUT(request) {
         const cleanUpdates = {};
         for (const key of ALLOWED_COLUMNS) {
             if (updates[key] !== undefined) {
-                cleanUpdates[key] = updates[key];
+                if ((key === 'purchase_date' || key === 'as_on_date') && updates[key] === '') {
+                    cleanUpdates[key] = null;
+                } else {
+                    cleanUpdates[key] = updates[key];
+                }
             }
         }
 
