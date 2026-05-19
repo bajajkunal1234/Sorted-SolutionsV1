@@ -1202,7 +1202,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     <DocumentWhatsAppPopup
                         document={showWhatsappPopup.doc}
                         type={showWhatsappPopup.type}
-                        job={{ id: editedJob.id, job_number: editedJob.job_number, customer_name: editedJob.customerName, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone }}
+                        job={{ id: editedJob.id, job_number: editedJob.job_number, customer_name: editedJob.customerName, customer_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '' }}
                         onClose={() => setShowWhatsappPopup(null)}
                     />
                 )}

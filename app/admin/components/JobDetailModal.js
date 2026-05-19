@@ -1391,7 +1391,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                 <DocumentWhatsAppPopup
                     document={showWhatsappPopup.doc}
                     type={showWhatsappPopup.type}
-                    job={{ ...editedJob, customer_phone: editedJob.customer?.mobile || editedJob.customer?.phone || editedJob.customer_phone }}
+                    job={{ ...editedJob, customer_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '' }}
                     onClose={() => setShowWhatsappPopup(null)}
                 />
             )}
