@@ -118,11 +118,88 @@ export default function WhatsAppShareModal({ item, tab, onClose, onPrint, printS
     };
 
     const templateFn = DEFAULT_TEMPLATES[tab] || DEFAULT_TEMPLATES.sales;
-    const [message, setMessage] = useState(() => templateFn(vars));
+    const [message, setMessage] = useState('');
+    const [customContent, setCustomContent] = useState('');
+    const [loadingTemplate, setLoadingTemplate] = useState(true);
     const [phone, setPhone] = useState('');
     const [copied, setCopied] = useState(false);
     const [fetchingPhone, setFetchingPhone] = useState(false);
     const textareaRef = useRef(null);
+
+    const compileTemplate = (content) => {
+        if (!content) return '';
+        let result = content;
+        
+        const trackingUrl = typeof window !== 'undefined' ? `${window.location.protocol}//${window.location.host}/customer/dashboard` : '';
+        const itemSubtotal = item.subtotal || item.total_amount || item.amount || 0;
+        const subtotalStr = `₹${Number(itemSubtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+        const cgstStr = item.cgst ? `₹${Number(item.cgst).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹0.00';
+        const sgstStr = item.sgst ? `₹${Number(item.sgst).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹0.00';
+
+        const replacements = {
+            customer_name: vars.customer_name,
+            invoice_number: vars.ref_number,
+            quote_number: vars.ref_number,
+            ref_number: vars.ref_number,
+            date: vars.date,
+            total_amount: `₹${vars.amount}`,
+            amount: `₹${vars.amount}`,
+            subtotal: subtotalStr,
+            cgst: cgstStr,
+            sgst: sgstStr,
+            line_items: vars.items_summary || '  (See details in the app)',
+            items_summary: vars.items_summary || '  (See details in the app)',
+            valid_until: vars.valid_until,
+            tracking_url: trackingUrl,
+            notes: vars.notes,
+            company_name: vars.company_name,
+            company_phone: vars.company_phone
+        };
+
+        Object.entries(replacements).forEach(([key, val]) => {
+            const regex = new RegExp(`\\{${key}\\}`, 'g');
+            result = result.replace(regex, val || '');
+        });
+        return result;
+    };
+
+    useEffect(() => {
+        if (tab !== 'sales' && tab !== 'quotations') {
+            setLoadingTemplate(false);
+            return;
+        }
+        let active = true;
+        async function fetchTemplate() {
+            try {
+                const res = await fetch('/api/notifications/templates');
+                const data = await res.json();
+                if (data.success && active) {
+                    const targetType = tab === 'sales' ? 'invoice_whatsapp' : 'quotation_whatsapp';
+                    const template = data.data.find(t => t.channel === 'whatsapp' && t.type === targetType && t.is_default) ||
+                                     data.data.find(t => t.channel === 'whatsapp' && t.type === targetType);
+                    if (template && template.content) {
+                        setCustomContent(template.content);
+                    }
+                }
+            } catch (e) {
+                console.error('Error fetching whatsapp template:', e);
+            } finally {
+                if (active) setLoadingTemplate(false);
+            }
+        }
+        fetchTemplate();
+        return () => { active = false; };
+    }, [tab]);
+
+    useEffect(() => {
+        if (!loadingTemplate) {
+            if (customContent) {
+                setMessage(compileTemplate(customContent));
+            } else {
+                setMessage(templateFn(vars));
+            }
+        }
+    }, [loadingTemplate, customContent]);
 
     // Try to fetch the account's phone number
     useEffect(() => {
@@ -253,7 +330,7 @@ export default function WhatsAppShareModal({ item, tab, onClose, onPrint, printS
                                 Message (editable)
                             </label>
                             <button
-                                onClick={() => setMessage(templateFn(vars))}
+                                onClick={() => setMessage(customContent ? compileTemplate(customContent) : templateFn(vars))}
                                 style={{ fontSize: '11px', color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 6px', borderRadius: '4px' }}
                             >
                                 ↺ Reset to default
