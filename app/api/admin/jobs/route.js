@@ -64,9 +64,23 @@ export async function POST(request) {
         // New jobs always start as new_job_request
         if (!body.status) body.status = 'new_job_request';
 
+        // Sanitize: only pass known DB columns to Supabase
+        const ALLOWED_POST = [
+            'job_number', 'status', 'priority', 'technician_id', 'technician_name',
+            'description', 'notes', 'scheduled_date', 'scheduled_time',
+            'category', 'subcategory', 'appliance', 'brand', 'issue', 'model',
+            'amount', 'property', 'property_id', 'rental_id', 'amc_id', 'source',
+            'on_way_at', 'arrived_at', 'quotation_approved_at', 'repair_note_added_at',
+            'completed_at', 'started_at', 'customer_id', 'customer_name',
+            'warranty', 'warranty_proof'
+        ];
+        const insertData = Object.fromEntries(
+            Object.entries(body).filter(([k]) => ALLOWED_POST.includes(k))
+        );
+
         const { data, error } = await supabase
             .from('jobs')
-            .insert([body])
+            .insert([insertData])
             .select()
             .single()
 
@@ -116,11 +130,11 @@ export async function PUT(request) {
         // ── Sanitize: only pass known DB columns to Supabase ────────────────
         // Prevents client UI fields (join objects, computed props) from causing errors
         const ALLOWED = ['status','priority','technician_id','technician_name',
-            'description','notes','internal_notes','scheduled_date','scheduled_time',
+            'description','notes','scheduled_date','scheduled_time',
             'category','subcategory','appliance','brand','issue','model',
-            'amount','property','property_id','thumbnail','rental_id','amc_id','source',
+            'amount','property','property_id','rental_id','amc_id','source',
             'on_way_at','arrived_at','quotation_approved_at','repair_note_added_at',
-            'completed_at','started_at','updated_by','customer_id','customer_name',
+            'completed_at','started_at','customer_id','customer_name',
             'warranty','warranty_proof'];
         const updates = Object.fromEntries(
             Object.entries(rawUpdates).filter(([k]) => ALLOWED.includes(k))

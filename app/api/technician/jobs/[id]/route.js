@@ -355,9 +355,23 @@ export async function PUT(request, { params }) {
             );
         }
 
+        // Sanitize: only pass known DB columns to Supabase
+        const ALLOWED = [
+            'status', 'priority', 'technician_id', 'technician_name',
+            'description', 'notes', 'scheduled_date', 'scheduled_time',
+            'category', 'subcategory', 'appliance', 'brand', 'issue', 'model',
+            'amount', 'property', 'property_id', 'rental_id', 'amc_id', 'source',
+            'on_way_at', 'arrived_at', 'quotation_approved_at', 'repair_note_added_at',
+            'completed_at', 'started_at', 'customer_id', 'customer_name',
+            'warranty', 'warranty_proof', 'customer_rating', 'rating_note', 'rated_at'
+        ];
+        const sanitizedUpdates = Object.fromEntries(
+            Object.entries(updates).filter(([k]) => ALLOWED.includes(k))
+        );
+
         const { data: job, error } = await supabase
             .from('jobs')
-            .update(updates)
+            .update(sanitizedUpdates)
             .eq('id', id)
             .select()
             .single();
