@@ -246,7 +246,12 @@ export default function JobsSearchPanel({
                 <input
                     type="text"
                     value={searchTerm}
-                    onChange={e => onSearchChange(e.target.value)}
+                    onChange={e => {
+                        onSearchChange(e.target.value);
+                        if (e.target.value.trim()) {
+                            setOpen(false);
+                        }
+                    }}
                     placeholder={activeTags.length ? 'Add filter...' : 'Search jobs...'}
                     onFocus={() => setOpen(true)}
                     style={{ flex: 1, minWidth: '100px', background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: '13px', padding: '2px 0' }}
