@@ -479,23 +479,25 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 const startDateStr = ninetyDaysAgo.toISOString().split('T')[0];
 
                 const [invoices, amcs, rentals] = await Promise.allSettled([
-                    transactionsAPI.getAll({ type: 'invoice', customer_id: customer.id, start_date: startDateStr }),
+                    transactionsAPI.getAll({ type: 'sales', customer_id: customer.id, start_date: startDateStr }),
                     amcAPI.getActive({ customer_id: customer.id, status: 'active' }),
                     rentalsAPI.getActive({ customer_id: customer.id, status: 'active' })
                 ]);
 
-                // Also try fetching AMCs/Rentals by UUID if it's different
+                // Also try fetching invoices/AMCs/Rentals by UUID if it's different
+                let invoicesUuid = { status: 'rejected' };
                 let amcsUuid = { status: 'rejected' };
                 let rentalsUuid = { status: 'rejected' };
                 if (String(resolvedCustomerId) !== String(customer.id)) {
-                    [amcsUuid, rentalsUuid] = await Promise.allSettled([
+                    [invoicesUuid, amcsUuid, rentalsUuid] = await Promise.allSettled([
+                        transactionsAPI.getAll({ type: 'sales', customer_id: resolvedCustomerId, start_date: startDateStr }),
                         amcAPI.getActive({ customer_id: resolvedCustomerId, status: 'active' }),
                         rentalsAPI.getActive({ customer_id: resolvedCustomerId, status: 'active' })
                     ]);
                 }
 
                 setWarrantyOptions({
-                    invoices: invoices.status === 'fulfilled' ? invoices.value : [],
+                    invoices: [...(invoices.status === 'fulfilled' ? invoices.value : []), ...(invoicesUuid.status === 'fulfilled' ? invoicesUuid.value : [])],
                     amcs: [...(amcs.status === 'fulfilled' ? amcs.value : []), ...(amcsUuid.status === 'fulfilled' ? amcsUuid.value : [])],
                     rentals: [...(rentals.status === 'fulfilled' ? rentals.value : []), ...(rentalsUuid.status === 'fulfilled' ? rentalsUuid.value : [])]
                 });
@@ -1402,11 +1404,15 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     
                                     {warrantyOptions.invoices.length > 0 && (
                                         <optgroup label="Recent Invoices (90 Days)">
-                                            {warrantyOptions.invoices.map(inv => (
-                                                <option key={`inv-${inv.id}`} value={`Invoice #${inv.transaction_number || inv.id}`}>
-                                                    Invoice #{inv.transaction_number || inv.id} ({new Date(inv.date || inv.created_at).toLocaleDateString()}) - ₹{inv.amount}
-                                                </option>
-                                            ))}
+                                            {warrantyOptions.invoices.map(inv => {
+                                                const invNum = inv.invoice_number || inv.transaction_number || inv.id;
+                                                const invAmt = inv.total_amount || inv.amount || 0;
+                                                return (
+                                                    <option key={`inv-${inv.id}`} value={`Invoice #${invNum}`}>
+                                                        Invoice #{invNum} ({new Date(inv.date || inv.created_at).toLocaleDateString()}) - ₹{invAmt}
+                                                    </option>
+                                                );
+                                            })}
                                         </optgroup>
                                     )}
 
@@ -1432,7 +1438,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                                     {/* Fallback to allow custom text if existing job had a free text value not in the dropdown */}
                                     {formData.warrantyProof && 
-                                     !warrantyOptions.invoices.find(i => `Invoice #${i.transaction_number || i.id}` === formData.warrantyProof) &&
+                                     !warrantyOptions.invoices.find(i => `Invoice #${i.invoice_number || i.transaction_number || i.id}` === formData.warrantyProof) &&
                                      !warrantyOptions.amcs.find(a => `AMC: ${a.plan_name || a.category}` === formData.warrantyProof) &&
                                      !warrantyOptions.rentals.find(r => `Rental: ${r.product_name || r.product_type}` === formData.warrantyProof) &&
                                     (
