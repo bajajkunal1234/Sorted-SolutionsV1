@@ -194,18 +194,21 @@ export default function FeedbackAndCloseCallFlow({
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
-            backdropFilter: 'blur(12px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            padding: 'var(--spacing-md)',
-            animation: 'fadeIn 0.2s ease-out'
-        }}>
+        <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+                position: 'fixed',
+                inset: 0,
+                backgroundColor: 'rgba(15, 23, 42, 0.75)',
+                backdropFilter: 'blur(12px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 10000,
+                padding: 'var(--spacing-md)',
+                animation: 'fadeIn 0.2s ease-out'
+            }}
+        >
             <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; }

@@ -288,17 +288,20 @@ export default function CollectPaymentFlow({
     }, [step, paymentMethod, razorpayLinkId, isPaymentConfirmed]);
 
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999,
-            padding: 'var(--spacing-md)'
-        }}>
+        <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+                position: 'fixed',
+                inset: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                backdropFilter: 'blur(4px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+                padding: 'var(--spacing-md)'
+            }}
+        >
             <div style={{
                 width: '100%',
                 maxWidth: '500px',
