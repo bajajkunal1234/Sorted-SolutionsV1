@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { X, RefreshCcw, CheckCircle, Printer, FileText } from 'lucide-react';
-import { accountsAPI, transactionsAPI } from '@/lib/adminAPI';
+import { accountsAPI, transactionsAPI, propertiesAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 import PrintAgreementModal from './PrintAgreementModal';
 import SetupInvoiceModal from './SetupInvoiceModal';
@@ -10,6 +10,8 @@ import SetupInvoiceModal from './SetupInvoiceModal';
 function NewAMCForm({ plans = [], onClose, onSave }) {
     const [customers, setCustomers] = useState([]);
     const [loadingCustomers, setLoadingCustomers] = useState(true);
+    const [customerProperties, setCustomerProperties] = useState([]);
+    const [loadingProperties, setLoadingProperties] = useState(false);
     const [formData, setFormData] = useState({
         customerId: '',
         property: null,
@@ -202,7 +204,22 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
                                 <select
                                     className="form-select"
                                     value={formData.customerId}
-                                    onChange={(e) => setFormData({ ...formData, customerId: e.target.value, property: null })}
+                                    onChange={async (e) => {
+                        const newCustomerId = e.target.value;
+                        setFormData({ ...formData, customerId: newCustomerId, property: null });
+                        setCustomerProperties([]);
+                        if (newCustomerId) {
+                            try {
+                                setLoadingProperties(true);
+                                const props = await propertiesAPI.getAll(newCustomerId);
+                                setCustomerProperties(props || []);
+                            } catch (err) {
+                                console.error('Failed to fetch customer properties:', err);
+                            } finally {
+                                setLoadingProperties(false);
+                            }
+                        }
+                    }}
                                     required
                                     disabled={loadingCustomers}
                                 >
@@ -227,28 +244,36 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
                         </div>
 
                         {/* Property Selection */}
-                        {formData.customerId && (() => {
-                            const selectedCustomer = customers.find(c => c.id === formData.customerId);
-                            const properties = selectedCustomer?.properties || [];
-
-                            if (properties.length > 0) {
-                                return (
-                                    <div className="form-group">
-                                        <label className="form-label">Service Property/Location</label>
+                        {formData.customerId && (
+                            <div className="form-group">
+                                <label className="form-label">Service Property/Location</label>
+                                {loadingProperties ? (
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <RefreshCcw size={12} className="spin" /> Loading properties...
+                                    </div>
+                                ) : customerProperties.length > 0 ? (
+                                    <>
                                         <select
                                             className="form-select"
                                             value={formData.property?.id || ''}
                                             onChange={(e) => {
-                                                const property = properties.find(p => p.id === e.target.value);
-                                                setFormData({ ...formData, property });
+                                                const property = customerProperties.find(p => String(p.id) === String(e.target.value));
+                                                setFormData({ ...formData, property: property || null });
                                             }}
                                         >
                                             <option value="">Select property...</option>
-                                            {properties.map(property => (
-                                                <option key={property.id} value={property.id}>
-                                                    {property.label || property.name || `Property ${property.id}`}
-                                                </option>
-                                            ))}
+                                            {customerProperties.map(property => {
+                                                const parts = [];
+                                                if (property.flat_number) parts.push(property.flat_number);
+                                                if (property.building_name) parts.push(property.building_name);
+                                                const prefix = parts.length > 0 ? parts.join(', ') + ' — ' : '';
+                                                const label = property.address || property.locality || `Property ${property.id}`;
+                                                return (
+                                                    <option key={property.id} value={String(property.id)}>
+                                                        {prefix}{label}{property.pincode ? ` - ${property.pincode}` : ''}
+                                                    </option>
+                                                );
+                                            })}
                                         </select>
                                         {formData.property && (
                                             <div style={{
@@ -260,17 +285,19 @@ function NewAMCForm({ plans = [], onClose, onSave }) {
                                                 color: 'var(--text-secondary)'
                                             }}>
                                                 <strong>Address:</strong> {
-                                                    formData.property.address?.line1
-                                                        ? `${formData.property.address.line1}, ${formData.property.address.locality}, ${formData.property.address.pincode}`
-                                                        : formData.property.address || 'No address specified'
+                                                    [formData.property.flat_number, formData.property.building_name, formData.property.address, formData.property.locality, formData.property.city, formData.property.pincode].filter(Boolean).join(', ')
+                                                    || 'No address specified'
                                                 }
                                             </div>
                                         )}
+                                    </>
+                                ) : (
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', padding: '6px 0' }}>
+                                        No properties linked to this customer. You can add properties in the Accounts tab.
                                     </div>
-                                );
-                            }
-                            return null;
-                        })()}
+                                )}
+                            </div>
+                        )}
 
                         {/* AMC Plan Selection */}
                         <div className="form-group">

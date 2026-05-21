@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { X, Plus, RefreshCcw, Receipt, CheckCircle, AlertCircle, Search, Printer, FileText } from 'lucide-react';
-import { accountsAPI, accountGroupsAPI, rentalsAPI, transactionsAPI } from '@/lib/adminAPI';
+import { accountsAPI, accountGroupsAPI, rentalsAPI, transactionsAPI, propertiesAPI } from '@/lib/adminAPI';
 import NewAccountForm from '@/app/admin/components/accounts/NewAccountForm';
 import PrintAgreementModal from './PrintAgreementModal';
 import SetupInvoiceModal from './SetupInvoiceModal';
@@ -163,6 +163,8 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
     const [groups, setGroups] = useState([]);
     const [customerReceipts, setCustomerReceipts] = useState([]);
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
+    const [customerProperties, setCustomerProperties] = useState([]);
+    const [loadingProperties, setLoadingProperties] = useState(false);
 
     // Receipt picker state
     const [showDepositPicker, setShowDepositPicker] = useState(false);
@@ -210,12 +212,17 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
         setDepositReceipt(null);
         setAdvanceReceipt(null);
         setCustomerReceipts([]);
+        setCustomerProperties([]);
         if (!id) return;
         try {
-            const data = await transactionsAPI.getAll({ type: 'receipt', account_id: id });
-            setCustomerReceipts(data || []);
+            const [receiptsData, propsData] = await Promise.all([
+                transactionsAPI.getAll({ type: 'receipt', account_id: id }),
+                propertiesAPI.getAll(id)
+            ]);
+            setCustomerReceipts(receiptsData || []);
+            setCustomerProperties(propsData || []);
         } catch (err) {
-            console.error('Failed to load customer receipts:', err);
+            console.error('Failed to load customer data:', err);
         }
     };
 
@@ -437,31 +444,37 @@ function NewRentalForm({ plans = [], onClose, onSave }) {
                             </div>
 
                             {/* Property */}
-                            {formData.customerId && (() => {
-                                const sel = customers.find(c => String(c.id) === String(formData.customerId));
-                                const props = sel?.properties || [];
-                                if (!props.length) return null;
-                                return (
-                                    <div className="form-group">
-                                        <label className="form-label">Delivery Property/Location</label>
+                            {formData.customerId && (
+                                <div className="form-group">
+                                    <label className="form-label">Delivery Property/Location</label>
+                                    {loadingProperties ? (
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', padding: '8px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <RefreshCcw size={12} className="spin" /> Loading properties...
+                                        </div>
+                                    ) : customerProperties.length > 0 ? (
                                         <select className="form-select"
                                             value={formData.property ? String(formData.property.id) : ''}
                                             onChange={e => {
-                                                const found = props.find(p => String(p.id) === String(e.target.value));
+                                                const found = customerProperties.find(p => String(p.id) === String(e.target.value));
                                                 setFormData(prev => ({ ...prev, property: found || null }));
                                             }}>
                                             <option value="">Select property...</option>
-                                            {props.map(p => {
+                                            {customerProperties.map(p => {
                                                 const parts = [];
                                                 if (p.flat_number) parts.push(p.flat_number);
                                                 if (p.building_name) parts.push(p.building_name);
-                                                const prefix = parts.length > 0 ? parts.join(', ') + ' - ' : '';
-                                                return <option key={p.id} value={String(p.id)}>{prefix}{p.label || p.address || p.name || `Property ${p.id}`}</option>;
+                                                const prefix = parts.length > 0 ? parts.join(', ') + ' — ' : '';
+                                                const label = p.address || p.locality || `Property ${p.id}`;
+                                                return <option key={p.id} value={String(p.id)}>{prefix}{label}{p.pincode ? ` - ${p.pincode}` : ''}</option>;
                                             })}
                                         </select>
-                                    </div>
-                                );
-                            })()}
+                                    ) : (
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', padding: '6px 0' }}>
+                                            No properties linked to this customer. You can add properties in the Accounts tab.
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Rental Plan */}
                             <div className="form-group">
