@@ -13,6 +13,15 @@ export async function GET(request) {
         const customerId = searchParams.get('customer_id')
         const technicianId = searchParams.get('technician_id')
 
+        const isUUID = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+        if (customerId && !isUUID(customerId)) {
+            return NextResponse.json({ success: true, data: [] });
+        }
+        if (technicianId && !isUUID(technicianId)) {
+            return NextResponse.json({ success: true, data: [] });
+        }
+
         let query = supabase
             .from('jobs')
             .select(`

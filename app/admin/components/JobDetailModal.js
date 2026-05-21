@@ -97,7 +97,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                         const [rentalsRes, amcsRes, invoicesRes] = await Promise.all([
                             fetch(`/api/admin/rentals?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
                             fetch(`/api/admin/amc?type=active&customer_id=${freshJob.customer_id}`).then(r => r.json()).catch(() => ({ data: [] })),
-                            fetch(`/api/admin/transactions?type=invoice&customer_id=${freshJob.customer_id}&start_date=${startDateStr}`).then(r => r.json()).catch(() => ({ data: [] }))
+                            fetch(`/api/admin/transactions?type=sales&customer_id=${freshJob.customer_id}&start_date=${startDateStr}`).then(r => r.json()).catch(() => ({ data: [] }))
                         ]);
                         if (rentalsRes?.success) setRentals(rentalsRes.data || []);
                         if (amcsRes?.success) setAmcs(amcsRes.data || []);

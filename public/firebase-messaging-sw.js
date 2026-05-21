@@ -24,7 +24,15 @@ const APP_SHELL_URLS = [
 // ─── Install — pre-cache app shell ────────────────────────────────────────────
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL_URLS))
+        caches.open(CACHE_NAME).then(async (cache) => {
+            for (const url of APP_SHELL_URLS) {
+                try {
+                    await cache.add(url);
+                } catch (err) {
+                    console.warn('[SW] Failed to pre-cache:', url, err.message);
+                }
+            }
+        })
     );
     // Skip waiting so the new SW takes control immediately
     self.skipWaiting();

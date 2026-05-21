@@ -128,6 +128,12 @@ export async function GET(request) {
         const endDate = searchParams.get('end_date')
         const jobId = searchParams.get('job_id')
 
+        const isUUID = (val) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
+        if (customerId && !isUUID(customerId)) return NextResponse.json({ success: true, data: [] });
+        if (accountId && !isUUID(accountId)) return NextResponse.json({ success: true, data: [] });
+        if (jobId && !isUUID(jobId)) return NextResponse.json({ success: true, data: [] });
+
         if (!type) {
             return NextResponse.json({ success: false, error: 'Missing type' }, { status: 400 });
         }
