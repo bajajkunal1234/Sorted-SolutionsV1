@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react';
-import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen } from 'lucide-react';
+import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
 
@@ -23,6 +23,7 @@ import CustomerAppSettings from './reports/CustomerAppSettings';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import AdminSupportPanel from '@/components/admin/support/AdminSupportPanel';
 import CustomerPayments from './reports/CustomerPayments';
+import SupportInbox from './reports/SupportInbox';
 
 import { settingsByCategory } from '@/lib/data/websiteSettingsData';
 
@@ -56,6 +57,7 @@ function ReportsTab() {
         { id: 'bank-reconciler', label: 'Bank Reconciler', icon: FileText, component: BankStatementReconciler, color: '#3b82f6', description: 'Reconcile bank statements with accounting' },
         { id: 'customer-payments', label: 'Customer Payments (Pending)', icon: DollarSign, component: CustomerPayments, color: '#f59e0b', description: 'Verify tracking of payments collected by technicians' },
         { id: 'support-sops', label: 'Support SOPs', icon: BookOpen, component: AdminSupportPanel, color: '#8b5cf6', description: 'View and manage technician SOP knowledge base and guides' },
+        { id: 'support-inbox', label: 'Support Inbox', icon: Mail, component: SupportInbox, color: '#3b82f6', description: 'Manage customer emails sent to support@sortedsolutions.in and other mailboxes' },
     ];
 
     // Create searchable index of all settings
