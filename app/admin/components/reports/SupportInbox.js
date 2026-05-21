@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2 } from 'lucide-react';
+import { Mail, MailOpen, Inbox, Search, Trash2, Archive, CheckCircle, RefreshCw, User, ExternalLink, ShieldAlert, Clock, ArrowLeft, Check, Loader2, Send, Plus } from 'lucide-react';
 import AccountDetailModal from '../AccountDetailModal';
 
 export default function SupportInbox({ subSection, setSubSection, searchTerm: headerSearch, setSearchTerm: setHeaderSearch }) {
@@ -11,6 +11,14 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
     const [selectedAccount, setSelectedAccount] = useState(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isComposing, setIsComposing] = useState(false);
+    const [sendLoading, setSendLoading] = useState(false);
+    const [composeForm, setComposeForm] = useState({
+        from: 'support@sortedsolutions.in',
+        to: '',
+        subject: '',
+        body_text: ''
+    });
     
     // Filters & Search
     const [statusFilter, setStatusFilter] = useState('unread'); // 'unread', 'read', 'resolved', 'archived', 'all', 'active'
@@ -156,8 +164,73 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
     // Mark as read when selected
     const handleSelectEmail = (email) => {
         setSelectedEmail(email);
+        setIsComposing(false); // Close compose view if clicking another email
         if (email.status === 'unread') {
             updateEmailStatus(email.id, 'read');
+        }
+    };
+
+    // Reply click handler
+    const handleReplyClick = (email) => {
+        setIsComposing(true);
+        const isOutbound = email.metadata?.direction === 'outbound';
+        
+        setComposeForm({
+            from: isOutbound ? email.sender_email : email.recipient_email,
+            to: isOutbound ? email.recipient_email : email.sender_email,
+            subject: email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`,
+            body_text: `\n\n\nOn ${new Date(email.received_at).toLocaleString('en-IN')}, ${email.sender_name || email.sender_email} wrote:\n> ${email.body_text ? email.body_text.split('\n').join('\n> ') : ''}`
+        });
+    };
+
+    // Send email POST request
+    const handleSendEmail = async (e) => {
+        e.preventDefault();
+        if (!composeForm.to || !composeForm.subject || !composeForm.body_text) {
+            alert("Please fill in all fields (To, Subject, and Message Body).");
+            return;
+        }
+        
+        setSendLoading(true);
+        try {
+            const res = await fetch('/api/admin/support-emails', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    from: composeForm.from,
+                    to: composeForm.to,
+                    subject: composeForm.subject,
+                    body_text: composeForm.body_text,
+                    body_html: composeForm.body_text.split('\n').join('<br/>')
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setIsComposing(false);
+                setComposeForm({
+                    from: 'support@sortedsolutions.in',
+                    to: '',
+                    subject: '',
+                    body_text: ''
+                });
+                
+                if (data.simulated) {
+                    alert("Email saved successfully! Note: No outbound email API keys are configured, so the message was logged as a SIMULATED sent record in the database.");
+                } else {
+                    alert("Email sent and recorded successfully!");
+                }
+                
+                await loadInbox();
+                if (data.data) {
+                    setSelectedEmail(data.data);
+                }
+            } else {
+                throw new Error(data.error || "Unknown error occurred");
+            }
+        } catch (err) {
+            alert(`Failed to send email: ${err.message}`);
+        } finally {
+            setSendLoading(false);
         }
     };
 
@@ -203,14 +276,32 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                 <Inbox size={18} color="var(--color-primary)" />
                                 Inbox Dashboard
                             </h3>
-                            <button 
-                                onClick={loadInbox} 
-                                className="btn btn-secondary" 
-                                style={{ padding: '6px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="Refresh Emails"
-                            >
-                                <RefreshCw size={14} className={loading ? "spin" : ""} />
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                                <button 
+                                    onClick={() => {
+                                        setIsComposing(true);
+                                        setComposeForm({
+                                            from: mailboxFilter !== 'all' ? mailboxFilter : 'support@sortedsolutions.in',
+                                            to: '',
+                                            subject: '',
+                                            body_text: ''
+                                        });
+                                    }}
+                                    className="btn btn-primary"
+                                    style={{ padding: '6px 10px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: 'var(--font-size-xs)' }}
+                                    title="Compose Email"
+                                >
+                                    <Plus size={14} /> Compose
+                                </button>
+                                <button 
+                                    onClick={loadInbox} 
+                                    className="btn btn-secondary" 
+                                    style={{ padding: '6px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title="Refresh Emails"
+                                >
+                                    <RefreshCw size={14} className={loading ? "spin" : ""} />
+                                </button>
+                            </div>
                         </div>
 
                         {/* Mailbox Selector */}
@@ -360,9 +451,29 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                                 whiteSpace: 'nowrap',
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
-                                                maxWidth: '200px'
+                                                maxWidth: '200px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
                                             }}>
-                                                {email.sender_name || email.sender_email.split('@')[0]}
+                                                {email.metadata?.direction === 'outbound' ? (
+                                                    <>
+                                                        <span style={{
+                                                            fontSize: '9px',
+                                                            backgroundColor: 'var(--color-primary)',
+                                                            color: '#fff',
+                                                            padding: '1px 5px',
+                                                            borderRadius: '3px',
+                                                            fontWeight: 700,
+                                                            textTransform: 'uppercase'
+                                                        }}>Sent</span>
+                                                        <span style={{ color: 'var(--text-primary)' }}>
+                                                            {email.recipient_email}
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    email.sender_name || email.sender_email.split('@')[0]
+                                                )}
                                             </span>
                                             <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', flexShrink: 0 }}>
                                                 {formatTime(email.received_at)}
@@ -405,7 +516,10 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                                 color: 'var(--text-tertiary)',
                                                 border: '1px solid var(--border-primary)'
                                             }}>
-                                                To: {email.recipient_email.split('@')[0]}
+                                                {email.metadata?.direction === 'outbound' ? 
+                                                    `From: ${email.sender_email.split('@')[0]}` : 
+                                                    `To: ${email.recipient_email.split('@')[0]}`
+                                                }
                                             </span>
                                             
                                             {email.customer_account && (
@@ -431,7 +545,159 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
 
                 {/* RIGHT PANEL: Email Detail view */}
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    {selectedEmail ? (
+                    {isComposing ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--bg-primary)' }}>
+                            {/* Compose Header */}
+                            <div style={{
+                                padding: 'var(--spacing-md)',
+                                borderBottom: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-elevated)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '12px'
+                            }}>
+                                <button 
+                                    onClick={() => setIsComposing(false)}
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ padding: '6px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                    title="Go back"
+                                >
+                                    <ArrowLeft size={16} />
+                                </button>
+                                <h3 style={{ margin: 0, fontSize: 'var(--font-size-md)', fontWeight: 700 }}>
+                                    {composeForm.subject.startsWith('Re:') ? 'Reply Message' : 'Compose Message'}
+                                </h3>
+                            </div>
+
+                            {/* Form Body */}
+                            <form onSubmit={handleSendEmail} style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-lg)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                
+                                {/* From Field */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>From</label>
+                                    <select
+                                        value={composeForm.from}
+                                        onChange={(e) => setComposeForm(prev => ({ ...prev, from: e.target.value }))}
+                                        className="form-input"
+                                        style={{
+                                            padding: '8px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            borderColor: 'var(--border-primary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: 'var(--font-size-sm)'
+                                        }}
+                                    >
+                                        <option value="support@sortedsolutions.in">support@sortedsolutions.in (Sorted Solutions Support)</option>
+                                        <option value="kunalbajaj@sortedsolutions.in">kunalbajaj@sortedsolutions.in (Kunal Bajaj)</option>
+                                        {mailboxes
+                                            .filter(m => m !== 'support@sortedsolutions.in' && m !== 'kunalbajaj@sortedsolutions.in')
+                                            .map(mbox => (
+                                                <option key={mbox} value={mbox}>{mbox}</option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+
+                                {/* To Field */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>To (Recipient Email)</label>
+                                    <input
+                                        type="email"
+                                        required
+                                        placeholder="customer@example.com"
+                                        value={composeForm.to}
+                                        onChange={(e) => setComposeForm(prev => ({ ...prev, to: e.target.value }))}
+                                        className="form-input"
+                                        style={{
+                                            padding: '8px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            borderColor: 'var(--border-primary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: 'var(--font-size-sm)'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Subject Field */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Subject</label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g. Query regarding your Order"
+                                        value={composeForm.subject}
+                                        onChange={(e) => setComposeForm(prev => ({ ...prev, subject: e.target.value }))}
+                                        className="form-input"
+                                        style={{
+                                            padding: '8px 12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            borderColor: 'var(--border-primary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: 'var(--font-size-sm)'
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Body Field */}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                                    <label style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Message Body</label>
+                                    <textarea
+                                        required
+                                        placeholder="Type your email message here..."
+                                        value={composeForm.body_text}
+                                        onChange={(e) => setComposeForm(prev => ({ ...prev, body_text: e.target.value }))}
+                                        className="form-input"
+                                        style={{
+                                            padding: '12px',
+                                            borderRadius: 'var(--radius-md)',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            borderColor: 'var(--border-primary)',
+                                            color: 'var(--text-primary)',
+                                            fontSize: 'var(--font-size-sm)',
+                                            minHeight: '200px',
+                                            flex: 1,
+                                            resize: 'vertical',
+                                            fontFamily: 'inherit',
+                                            lineHeight: 1.6
+                                        }}
+                                    />
+                                </div>
+
+                                {/* Footer Action Buttons */}
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border-primary)', paddingTop: '16px', marginTop: 'auto' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsComposing(false)}
+                                        className="btn btn-secondary"
+                                        style={{ padding: '8px 16px', fontSize: 'var(--font-size-sm)' }}
+                                        disabled={sendLoading}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="btn btn-primary"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 20px', fontSize: 'var(--font-size-sm)' }}
+                                        disabled={sendLoading}
+                                    >
+                                        {sendLoading ? (
+                                            <>
+                                                <Loader2 size={16} className="spin" /> Sending...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send size={16} /> Send Email
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    ) : selectedEmail ? (
                         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                             
                             {/* Action Header bar */}
@@ -444,6 +710,13 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                 alignItems: 'center'
                             }}>
                                 <div style={{ display: 'flex', gap: '8px' }}>
+                                    <button 
+                                        onClick={() => handleReplyClick(selectedEmail)}
+                                        className="btn btn-primary"
+                                        style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-xs)', padding: '6px 10px', backgroundColor: 'var(--color-primary)', borderColor: 'var(--color-primary)' }}
+                                    >
+                                        <Send size={14} /> Reply
+                                    </button>
                                     {selectedEmail.status !== 'unread' && (
                                         <button 
                                             onClick={() => updateEmailStatus(selectedEmail.id, 'unread')}
