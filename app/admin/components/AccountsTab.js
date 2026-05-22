@@ -1858,7 +1858,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     onSave={async (data) => {
                         try {
                             const payload = {
-                                account_id: data.customerId,
+                                customer_id: data.customerId,
+                                customer_name: data.customerName || '',
+                                installation_address_id: data.property?.id ? String(data.property.id) : null,
                                 plan_id: data.planId,
                                 plan_name: data.planName || amcPlans.find(p => p.id === data.planId)?.name || '',
                                 product_brand: data.productBrand,
