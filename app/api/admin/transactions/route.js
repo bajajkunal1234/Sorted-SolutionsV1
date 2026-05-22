@@ -141,7 +141,7 @@ export async function GET(request) {
         if (type === 'all') {
             const tables = ['sales_invoices', 'purchase_invoices', 'receipt_vouchers', 'payment_vouchers'];
             const results = await Promise.all(tables.map(async (table) => {
-                const fkAlias = table === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(mobile, email, address, gstin)' : (table === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(mobile, email, address, gstin)' : 'accounts(mobile, email, address, gstin)');
+                const fkAlias = table === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : (table === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : 'accounts(name, mobile, email, address, gstin)');
                 let query = supabase.from(table).select(`*, ${fkAlias}`)
                 if (accountId) query = query.eq('account_id', accountId)
                 if (startDate) query = query.gte('date', startDate)
@@ -159,7 +159,7 @@ export async function GET(request) {
         }
 
         const tableName = tableMap[type];
-        const fkAlias = tableName === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(mobile, email, address, gstin)' : (tableName === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(mobile, email, address, gstin)' : 'accounts(mobile, email, address, gstin)');
+        const fkAlias = tableName === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : (tableName === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : 'accounts(name, mobile, email, address, gstin)');
 
         let query = supabase
             .from(tableName)

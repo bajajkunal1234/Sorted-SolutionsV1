@@ -1547,7 +1547,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                 case 'date':
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.date || '—'}</td>;
                                                 case 'account_name':
-                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || '—'}</td>;
+                                                    return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{item.account_name || item.accounts?.name || '—'}</td>;
                                                 case 'amount':
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align, fontWeight: 600, fontFamily: 'monospace' }}>{formatCurrency(item.amount || item.total_amount || 0)}</td>;
                                                 case 'status': {
