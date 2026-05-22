@@ -231,9 +231,9 @@ function TechnicianApp() {
         fetchIncentives();
         fetchProfile();
 
-        // 30-second polling — reliable fallback in case Supabase realtime misses an event
-        // Ensures status changes made in admin always propagate to technician within 30s
-        const pollInterval = setInterval(fetchJobs, 30000);
+        // 5-minute polling — fallback in case Supabase realtime misses an event
+        // Realtime handles instant updates; polling is just a safety net
+        const pollInterval = setInterval(fetchJobs, 300000);
 
         // Setup real-time listener (best-effort; polling handles missed events)
         const channel = supabase
