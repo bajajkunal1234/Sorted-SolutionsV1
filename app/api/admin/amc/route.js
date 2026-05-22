@@ -85,7 +85,7 @@ export async function GET(request) {
                     const installationIds = [...new Set(data.map(r => r.installation_address_id).filter(Boolean))];
                     let installationProperties = [];
                     if (installationIds.length > 0) {
-                        const { data: instProps } = await supabase.from('properties').select('id, address, locality, city, pincode').in('id', installationIds);
+                        const { data: instProps } = await supabase.from('properties').select('id, flat_number, building_name, address, locality, city, pincode').in('id', installationIds);
                         installationProperties = instProps || [];
                     }
 

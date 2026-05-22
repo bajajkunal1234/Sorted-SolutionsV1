@@ -54,15 +54,25 @@ export default function PrintAgreementModal({ type, data, onClose }) {
         let addressStr = 'N/A';
         const specificProperty = recordData.installation_property || recordData.delivery_property;
         if (specificProperty) {
-           addressStr = specificProperty.address || '';
-           if (specificProperty.locality) addressStr += `, ${specificProperty.locality}`;
-           if (specificProperty.city) addressStr += `, ${specificProperty.city}`;
-           if (specificProperty.pincode) addressStr += ` - ${specificProperty.pincode}`;
+           const parts = [
+               specificProperty.flat_number,
+               specificProperty.building_name,
+               specificProperty.address,
+               specificProperty.locality,
+               specificProperty.city,
+               specificProperty.pincode ? `- ${specificProperty.pincode}` : ''
+           ].filter(Boolean);
+           addressStr = parts.join(', ');
         } else if (customer.property) {
-            addressStr = customer.property.address || '';
-            if (customer.property.locality) addressStr += `, ${customer.property.locality}`;
-            if (customer.property.city) addressStr += `, ${customer.property.city}`;
-            if (customer.property.pincode) addressStr += ` - ${customer.property.pincode}`;
+            const parts = [
+                customer.property.flat_number,
+                customer.property.building_name,
+                customer.property.address,
+                customer.property.locality,
+                customer.property.city,
+                customer.property.pincode ? `- ${customer.property.pincode}` : ''
+            ].filter(Boolean);
+            addressStr = parts.join(', ');
         } else if (customer.address || customer.mailing_address) {
             addressStr = customer.address || customer.mailing_address;
             if (customer.city) addressStr += `, ${customer.city}`;
@@ -145,15 +155,25 @@ export default function PrintAgreementModal({ type, data, onClose }) {
     let customerAddressStr = '';
     const specificProp = data?.installation_property || data?.delivery_property;
     if (specificProp) {
-        customerAddressStr = specificProp.address || '';
-        if (specificProp.locality) customerAddressStr += `, ${specificProp.locality}`;
-        if (specificProp.city) customerAddressStr += `, ${specificProp.city}`;
-        if (specificProp.pincode) customerAddressStr += ` - ${specificProp.pincode}`;
+        const parts = [
+            specificProp.flat_number,
+            specificProp.building_name,
+            specificProp.address,
+            specificProp.locality,
+            specificProp.city,
+            specificProp.pincode ? `- ${specificProp.pincode}` : ''
+        ].filter(Boolean);
+        customerAddressStr = parts.join(', ');
     } else if (customer.property) {
-        customerAddressStr = customer.property.address || '';
-        if (customer.property.locality) customerAddressStr += `, ${customer.property.locality}`;
-        if (customer.property.city) customerAddressStr += `, ${customer.property.city}`;
-        if (customer.property.pincode) customerAddressStr += ` - ${customer.property.pincode}`;
+        const parts = [
+            customer.property.flat_number,
+            customer.property.building_name,
+            customer.property.address,
+            customer.property.locality,
+            customer.property.city,
+            customer.property.pincode ? `- ${customer.property.pincode}` : ''
+        ].filter(Boolean);
+        customerAddressStr = parts.join(', ');
     } else {
         customerAddressStr = customer.address || customer.mailing_address || '';
         if (customer.city) customerAddressStr += `, ${customer.city}`;

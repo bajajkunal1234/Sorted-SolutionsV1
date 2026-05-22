@@ -53,7 +53,7 @@ export async function GET(request) {
 
                     const { data: props } = await supabase
                         .from('customer_properties')
-                        .select('customer_id, properties(address, locality, city)')
+                        .select('customer_id, properties(flat_number, building_name, address, locality, city, pincode)')
                         .in('customer_id', customerIds)
                         
                     const accountMap = Object.fromEntries((accounts || []).map(a => [a.id, {...a, property: null}]))
@@ -73,7 +73,7 @@ export async function GET(request) {
                     const deliveryIds = [...new Set(data.map(r => r.delivery_address_id).filter(Boolean))];
                     let deliveryProperties = [];
                     if (deliveryIds.length > 0) {
-                        const { data: dProps } = await supabase.from('properties').select('id, address, locality, city, pincode').in('id', deliveryIds);
+                        const { data: dProps } = await supabase.from('properties').select('id, flat_number, building_name, address, locality, city, pincode').in('id', deliveryIds);
                         deliveryProperties = dProps || [];
                     }
 
