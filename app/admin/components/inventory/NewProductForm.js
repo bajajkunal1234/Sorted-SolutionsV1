@@ -129,6 +129,16 @@ function NewProductForm({
     const [localCategories, setLocalCategories] = useState(categories);
     const [localBrands, setLocalBrands] = useState(brands);
 
+    // Sync whenever parent finishes background-fetching categories/brands.
+    // useState only reads the initial prop value once, so without this the
+    // dropdowns stay empty when the form is opened before the fetch completes.
+    useEffect(() => {
+        if (categories.length > 0) setLocalCategories(categories);
+    }, [categories]);
+    useEffect(() => {
+        if (brands.length > 0) setLocalBrands(brands);
+    }, [brands]);
+
     const handleAddListItem = async () => {
         const name = newListItem.trim();
         if (!name) return;

@@ -268,23 +268,23 @@ function InventoryTab() {
     };
 
     const handleSaveNamedView = (name) => {
+        const newView = {
+            id: Date.now().toString(),
+            name,
+            searchTerm,
+            groupBy,
+            sortBy,
+            activeTags,
+            isDefault: false
+        };
+        const updated = [...savedViews, newView];
+        // Write synchronously — do not defer inside setTimeout so switching
+        // tabs quickly never drops the saved view
+        setSavedViews(updated);
+        try { localStorage.setItem('sorted_inventory_views', JSON.stringify(updated)); } catch (e) {}
+        // UI feedback only (non-blocking)
         setSaveStatus('saving');
-        setTimeout(() => {
-            const newView = {
-                id: Date.now().toString(),
-                name,
-                searchTerm,
-                groupBy,
-                sortBy,
-                activeTags,
-                isDefault: false
-            };
-            const updated = [...savedViews, newView];
-            setSavedViews(updated);
-            localStorage.setItem('sorted_inventory_views', JSON.stringify(updated));
-            setSaveStatus('saved');
-            setTimeout(() => setSaveStatus(null), 1500);
-        }, 400); // UI feedback delay imitation
+        setTimeout(() => setSaveStatus(null), 1500);
     };
 
     const handleApplyView = (view) => {
