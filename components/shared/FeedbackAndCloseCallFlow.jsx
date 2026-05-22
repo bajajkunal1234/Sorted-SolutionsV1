@@ -9,7 +9,14 @@ export default function FeedbackAndCloseCallFlow({
     currentUserName = 'Admin',
     currentUserId,
     job,
-    onSuccess
+    onSuccess,
+    // Optional: pre-select the repair outcome (e.g. 'Closed on service charge')
+    initialRepairOutcome = '',
+    // Optional: skip the feedback QR step (step 2) — used for 'cx needs time' path
+    skipFeedbackStep = false,
+    // Optional: instead of auto-closing the job in handleSubmitNotes, call this and let parent chain
+    // the collect-payment flow. Receives { formattedNotes, repairOutcome }.
+    onNotesSubmitted = null,
 }) {
     const [step, setStep] = useState(1); // 1: Questionnaire, 2: Feedback QR & Toggle
     const [isLoading, setIsLoading] = useState(false);
@@ -17,7 +24,7 @@ export default function FeedbackAndCloseCallFlow({
     // Form inputs state
     const [pocOption, setPocOption] = useState(''); // 'customer' or 'someone_else'
     const [pocName, setPocName] = useState(''); // Name/Relation if someone_else
-    const [repairDone, setRepairDone] = useState(''); // 'Repair Done', 'Closed on service charge', 'Quoted and Closed', 'Custom'
+    const [repairDone, setRepairDone] = useState(initialRepairOutcome); // pre-seeded if provided
     const [customReason, setCustomReason] = useState(''); // Required if repairDone === 'Custom'
 
     // Conditional elements (only if Repair Done)
@@ -122,6 +129,12 @@ export default function FeedbackAndCloseCallFlow({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(interactionPayload)
             });
+
+            // If caller wants to handle job closing themselves (e.g. to chain collect-payment first)
+            if (onNotesSubmitted) {
+                onNotesSubmitted({ formattedNotes, repairOutcome: repairDone });
+                return; // Parent takes over — don't close job here
+            }
 
             // 3. Update the job's status to 'closed' in the database
             const jobUpdatePayload = {
@@ -537,23 +550,23 @@ export default function FeedbackAndCloseCallFlow({
                     ) : (
                         <button 
                             className="btn btn-primary"
-                            disabled={gaveFeedback === null || isLoading}
-                            onClick={handleCompleteClosure}
+                            disabled={(!skipFeedbackStep && gaveFeedback === null) || isLoading}
+                            onClick={skipFeedbackStep ? async () => { if (onSuccess) onSuccess(); onClose(); } : handleCompleteClosure}
                             style={{ 
                                 padding: '12px 24px', 
                                 borderRadius: '12px', 
                                 fontWeight: 700, 
-                                background: gaveFeedback !== null ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-disabled)',
+                                background: (skipFeedbackStep || gaveFeedback !== null) ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--bg-disabled)',
                                 border: 'none',
-                                color: gaveFeedback !== null ? 'white' : 'var(--text-disabled)',
+                                color: (skipFeedbackStep || gaveFeedback !== null) ? 'white' : 'var(--text-disabled)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                cursor: gaveFeedback !== null ? 'pointer' : 'not-allowed'
+                                cursor: (skipFeedbackStep || gaveFeedback !== null) ? 'pointer' : 'not-allowed'
                             }}
                         >
                             {isLoading ? <Loader2 size={16} className="spin" /> : <ThumbsUp size={16} />}
-                            Complete & Close Job
+                            {skipFeedbackStep ? 'Done — Close Notes' : 'Complete & Close Job'}
                         </button>
                     )}
                 </div>

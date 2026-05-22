@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, MessageSquare, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine } from 'lucide-react';
+import { Search, Plus, Minus, X, Package, Wrench, ShoppingCart, FileText, ChevronUp, ChevronDown, AlertTriangle, PenLine } from 'lucide-react';
 import { inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
 // ── Price resolution ─────────────────────────────────────────────────────────
@@ -189,15 +189,6 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     });
 
     // ── Actions ───────────────────────────────────────────────────────────────
-    const handleWhatsApp = () => {
-        const phone = job?.customer?.mobile || job?.customer?.phone || '';
-        if (!phone) { alert('No customer phone number found'); return; }
-        const lines = basket
-            .map((b, i) => `${i + 1}. ${b.name} × ${b.qty} = ₹${fmt(b.qty * getPrice(b))}`)
-            .join('\n');
-        const text = `*Repair Estimate*\nJob: ${job?.job_number || ''}\n\n${lines}\n\nSubtotal: ₹${fmt(subtotal)}${showTax ? `\nGST: ₹${fmt(Math.round(gst))}` : ''}\n*Total: ₹${fmt(Math.round(total))}*\n\nPlease confirm to proceed.`;
-        window.open(`https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(text)}`, '_blank');
-    };
 
     const buildItems = () => basket.map(b => ({
         productId:        b.isManual ? null : b.id,
@@ -422,11 +413,6 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                                 <div style={{ fontSize: '17px', fontWeight: 800, color: '#8b5cf6', lineHeight: 1.2 }}>₹{fmt(Math.round(total))}</div>
                             </div>
                             <div style={{ marginLeft: 'auto', color: 'var(--text-tertiary)' }}>{basketOpen ? <ChevronDown size={16} /> : <ChevronUp size={16} />}</div>
-                        </button>
-
-                        {/* WhatsApp */}
-                        <button onClick={handleWhatsApp} style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }} title="Share estimate on WhatsApp">
-                            <MessageSquare size={18} />
                         </button>
 
                         {onCreateQuotation && (

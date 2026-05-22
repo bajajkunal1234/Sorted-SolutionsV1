@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, Loader2 } from 'lucide-react';
+import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity, Send, FilePlus, ChevronDown, CheckCircle, AlertCircle, Package, Shield, Loader2, Navigation } from 'lucide-react';
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
@@ -14,6 +14,15 @@ import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFlow';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
+
+const PinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
+    ssr: false,
+    loading: () => (
+        <div style={{ height: '220px', width: '100%', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 13 }}>
+            🗺️ Loading map...
+        </div>
+    )
+});
 
 
 
@@ -34,9 +43,27 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [partsNoteText, setPartsNoteText] = useState('');
     const [partsNoteLoading, setPartsNoteLoading] = useState(false);
 
+    // Location Verification Modal — shown after Mark as Arrived
+    const [showLocationVerifyModal, setShowLocationVerifyModal] = useState(false);
+    const [locationVerifyStep, setLocationVerifyStep] = useState('ask'); // 'ask' | 'update'
+    const [verifyLat, setVerifyLat] = useState(null);
+    const [verifyLng, setVerifyLng] = useState(null);
+    const [verifyLoading, setVerifyLoading] = useState(false);
+    const [verifyGpsLoading, setVerifyGpsLoading] = useState(false);
+    const [verifyGpsSuccess, setVerifyGpsSuccess] = useState(false);
+    const pendingArrivedDataRef = useRef(null); // stores { arrivedAt, jobData } until modal is resolved
+
     // Payment collection state
     const [showCollectPayment, setShowCollectPayment] = useState(false);
     const [showFeedbackCloseFlow, setShowFeedbackCloseFlow] = useState(false);
+
+    // Quotation Decision Flow
+    // quotationDecisionMode: null | 'denied' | 'thinking'
+    // After FeedbackAndCloseCallFlow "Save Notes" → CollectPaymentFlow → (if denied: FeedbackFlow, if thinking: done + no close)
+    const [quotationDecisionMode, setQuotationDecisionMode] = useState(null);
+    const [showQuotationFeedbackFlow, setShowQuotationFeedbackFlow] = useState(false);
+    const [showQuotationCollectPayment, setShowQuotationCollectPayment] = useState(false);
+    const [showQuotationFinalFeedback, setShowQuotationFinalFeedback] = useState(false);
     // Read technician identity from localStorage for CollectPaymentFlow (SSR-safe)
     const { techName, techId } = (() => {
         if (typeof window === 'undefined') return { techName: 'Technician', techId: null };
@@ -45,6 +72,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
     const storedLat = job?.property?.latitude || job?.latitude;
     const storedLng = job?.property?.longitude || job?.longitude;
+
+    // No-Service Close Call modal state
+    const [showNoServiceModal, setShowNoServiceModal] = useState(false);
+    const [noServicePOC, setNoServicePOC] = useState('');
+    const [noServiceReason, setNoServiceReason] = useState('');
+    const [noServiceLoading, setNoServiceLoading] = useState(false);
 
     // Live Location Broadcaster — broadcasts GPS to customer app when job is in-progress
     useEffect(() => {
@@ -210,16 +243,81 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.error || 'Failed to mark arrival');
-            setEditedJob(prev => ({ 
-                ...prev, 
-                arrived_at: data.job?.arrived_at || new Date().toISOString(),
-                status: 'diagnosing_quoting'
-            }));
-            if (onJobUpdate) onJobUpdate(data.job);
+            // Store the arrived data and show location verify modal before updating UI
+            pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
+            // Pre-seed map with existing pin if available
+            const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
+            const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
+            setVerifyLat(existingLat);
+            setVerifyLng(existingLng);
+            setLocationVerifyStep('ask');
+            setShowLocationVerifyModal(true);
         } catch (err) {
             alert('Could not mark arrival: ' + err.message);
         } finally {
             setMarkingArrival(false);
+        }
+    };
+
+    // Called when tech confirms pin was correct (Yes path)
+    const handleLocationVerifyYes = async () => {
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        setShowLocationVerifyModal(false);
+        const pending = pendingArrivedDataRef.current;
+        setEditedJob(prev => ({ ...prev, arrived_at: pending?.arrivedAt, status: 'diagnosing_quoting' }));
+        if (onJobUpdate && pending?.jobData) onJobUpdate(pending.jobData);
+        // Mark the existing pin as verified by this technician
+        const propertyId = editedJob._raw_property?.id || null;
+        if (propertyId) {
+            fetch(`/api/admin/properties?id=${propertyId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    location_verified_by: techName,
+                    location_verified_at: new Date().toISOString(),
+                })
+            }).catch(() => {});
+        }
+        // Log the confirmation
+        fetch(`/api/technician/jobs/${job.id}/interactions`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'location-verified', category: 'property', description: `Customer pin location confirmed accurate by ${techName}`, user_name: techName })
+        }).catch(() => {});
+    };
+
+    // Called when tech confirms updated pin location (No → update path)
+    const handleLocationVerifySave = async () => {
+        if (!verifyLat || !verifyLng) { alert('Please set the pin location first.'); return; }
+        setVerifyLoading(true);
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        const propertyId = editedJob._raw_property?.id || null;
+        try {
+            // Update property pin + verified fields
+            if (propertyId) {
+                await fetch(`/api/admin/properties?id=${propertyId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude: verifyLat,
+                        longitude: verifyLng,
+                        location_verified_by: techName,
+                        location_verified_at: new Date().toISOString(),
+                    })
+                });
+            }
+            // Log the pin update
+            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'location-updated', category: 'property', description: `Customer pin location updated and verified by ${techName} (${verifyLat.toFixed(5)}, ${verifyLng.toFixed(5)})`, user_name: techName })
+            }).catch(() => {});
+            setShowLocationVerifyModal(false);
+            const pending = pendingArrivedDataRef.current;
+            setEditedJob(prev => ({ ...prev, arrived_at: pending?.arrivedAt, status: 'diagnosing_quoting' }));
+            if (onJobUpdate && pending?.jobData) onJobUpdate(pending.jobData);
+        } catch (err) {
+            alert('Could not save location: ' + err.message);
+        } finally {
+            setVerifyLoading(false);
         }
     };
 
@@ -889,6 +987,25 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
                             </div>
 
+                            {/* Close Call — No Service (shown on diagnosing_quoting) */}
+                            {editedJob.status === 'diagnosing_quoting' && (
+                                <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.03)' }}>
+                                    <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171' }}>
+                                        <X size={16} color="#f87171" /> Close Call — No Service
+                                    </h3>
+                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                        Use this if the customer denied entry, was unavailable, or the visit couldn't proceed. The job will be closed with no service charge.
+                                    </p>
+                                    <button
+                                        className="btn"
+                                        style={{ width: '100%', padding: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                        onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setShowNoServiceModal(true); }}
+                                    >
+                                        <X size={15} /> Close Call Without Service
+                                    </button>
+                                </div>
+                            )}
+
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <FilePlus size={18} color="#10b981" /> Quotation Approval & Billing
@@ -1011,22 +1128,79 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                     </button>
                                                 </>
                                             ) : (
-                                                <button
-                                                    className="btn"
-                                                    style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#38bdf815', color: '#38bdf8', border: '1px solid #38bdf840', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)' }}
-                                                    onClick={async () => {
-                                                        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-                                                        await handleSaveStatus('work_in_progress');
-                                                        fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                            body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} manually approved by customer`, user_name: techName })
-                                                        }).catch(() => {});
-                                                        // Force fetch fresh data to get interaction
-                                                        setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: techName, timestamp: new Date().toISOString() }, ...(prev.interactions||[])] }));
-                                                    }}
-                                                >
-                                                    ✓ Mark as Customer Approved
-                                                </button>
+                                                // ── 3 Quotation Decision Cards ──
+                                                (() => {
+                                                    const cxAppApproved = editedJob.interactions?.some(i =>
+                                                        i.type === 'approve_quotation' &&
+                                                        i.performed_by_name?.toLowerCase()?.includes('customer')
+                                                    );
+                                                    return (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                                                What did the customer decide?
+                                                            </div>
+
+                                                            {/* Option 1: Quotation Approved */}
+                                                            <button
+                                                                className="btn"
+                                                                disabled={cxAppApproved}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: cxAppApproved ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.08)', color: cxAppApproved ? '#fff' : '#10b981', border: cxAppApproved ? 'none' : '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'default' : 'pointer', opacity: cxAppApproved ? 1 : 1 }}
+                                                                onClick={async () => {
+                                                                    if (cxAppApproved) return;
+                                                                    const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                                                    await handleSaveStatus('work_in_progress');
+                                                                    fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} approved by customer (confirmed by ${techName})`, user_name: techName })
+                                                                    }).catch(() => {});
+                                                                    setEditedJob(prev => ({ ...prev, interactions: [{ type: 'approve_quotation', performed_by_name: techName, timestamp: new Date().toISOString() }, ...(prev.interactions || [])] }));
+                                                                }}
+                                                            >
+                                                                <span style={{ fontSize: 20 }}>✅</span>
+                                                                <div style={{ textAlign: 'left' }}>
+                                                                    <div>Quotation Approved by Customer</div>
+                                                                    {cxAppApproved && <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.85 }}>Approved via Customer App</div>}
+                                                                </div>
+                                                            </button>
+
+                                                            {/* Option 2: Quotation Denied — close on visit charge */}
+                                                            <button
+                                                                className="btn"
+                                                                disabled={cxAppApproved}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.06)', color: cxAppApproved ? '#64748b' : '#f87171', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(239,68,68,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1 }}
+                                                                onClick={() => {
+                                                                    if (cxAppApproved) return;
+                                                                    setQuotationDecisionMode('denied');
+                                                                    setShowQuotationFeedbackFlow(true);
+                                                                }}
+                                                            >
+                                                                <span style={{ fontSize: 20 }}>❌</span>
+                                                                <div style={{ textAlign: 'left' }}>
+                                                                    <div>Quotation Denied</div>
+                                                                    <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.75 }}>Close on visit charge → collect payment → feedback</div>
+                                                                </div>
+                                                            </button>
+
+                                                            {/* Option 3: Cx needs time */}
+                                                            <button
+                                                                className="btn"
+                                                                disabled={cxAppApproved}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.06)', color: cxAppApproved ? '#64748b' : '#f59e0b', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1 }}
+                                                                onClick={() => {
+                                                                    if (cxAppApproved) return;
+                                                                    setQuotationDecisionMode('thinking');
+                                                                    setShowQuotationFeedbackFlow(true);
+                                                                }}
+                                                            >
+                                                                <span style={{ fontSize: 20 }}>🕐</span>
+                                                                <div style={{ textAlign: 'left' }}>
+                                                                    <div>Customer Needs Time to Think</div>
+                                                                    <div style={{ fontSize: 11, fontWeight: 400, opacity: 0.75 }}>Visit charge → collect payment → admin follow-up in 2 days</div>
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    );
+                                                })()
                                             )}
                                         </>
                                     ) : (
@@ -1044,6 +1218,234 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     )}
                 </div>
             </div>
+
+            {/* ── No-Service Close Call Modal ── */}
+            {showNoServiceModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1e1a2e,#0f0f1a)', borderTop: '1px solid rgba(239,68,68,0.2)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))' }}>
+                        <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.12)', borderRadius: 2, margin: '0 auto 20px' }} />
+
+                        {/* Header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <X size={20} color="#f87171" />
+                            </div>
+                            <div>
+                                <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Close Call — No Service</h3>
+                                <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>Job will be closed without a service charge</p>
+                            </div>
+                        </div>
+
+                        {/* Point of Contact */}
+                        <div style={{ marginBottom: 14 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                                Point of Contact *
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                                {['Customer', 'Security Guard', 'Family Member', 'Neighbor', 'No One Available'].map(opt => (
+                                    <button
+                                        key={opt}
+                                        onClick={() => setNoServicePOC(opt)}
+                                        style={{ padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: `1px solid ${noServicePOC === opt ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, background: noServicePOC === opt ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.04)', color: noServicePOC === opt ? '#f87171' : '#94a3b8', transition: 'all 0.15s' }}
+                                    >
+                                        {opt}
+                                    </button>
+                                ))}
+                            </div>
+                            <input
+                                value={noServicePOC}
+                                onChange={e => setNoServicePOC(e.target.value)}
+                                placeholder="Or type a custom name..."
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                            />
+                        </div>
+
+                        {/* Reason */}
+                        <div style={{ marginBottom: 20 }}>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
+                                Reason for Closing *
+                            </div>
+                            <textarea
+                                value={noServiceReason}
+                                onChange={e => setNoServiceReason(e.target.value)}
+                                placeholder="e.g. Customer denied entry. Said they will call back to reschedule. No service charge applied."
+                                rows={3}
+                                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#f8fafc', fontSize: 13, outline: 'none', resize: 'vertical', lineHeight: 1.5, boxSizing: 'border-box' }}
+                            />
+                        </div>
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: 10 }}>
+                            <button
+                                onClick={() => setShowNoServiceModal(false)}
+                                style={{ flex: 1, padding: '14px', borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#64748b', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={!noServicePOC.trim() || !noServiceReason.trim() || noServiceLoading}
+                                onClick={async () => {
+                                    if (!noServicePOC.trim() || !noServiceReason.trim()) return;
+                                    setNoServiceLoading(true);
+                                    const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                    try {
+                                        const description = `Close Call — No Service. POC: ${noServicePOC.trim()}. Reason: ${noServiceReason.trim()}`;
+                                        // 1. Log interaction
+                                        await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ type: 'close-call-no-service', category: 'job', description, user_name: techName })
+                                        });
+                                        // 2. Close the job
+                                        const res = await fetch(`/api/technician/jobs/${job.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'close_job', notes: description, updated_by_name: techName })
+                                        });
+                                        const data = await res.json();
+                                        if (!res.ok) throw new Error(data.error || 'Failed to close job');
+                                        setShowNoServiceModal(false);
+                                        setEditedJob(prev => ({ ...prev, status: 'closed' }));
+                                        if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
+                                    } catch (err) {
+                                        alert('Could not close job: ' + err.message);
+                                    } finally {
+                                        setNoServiceLoading(false);
+                                    }
+                                }}
+                                style={{ flex: 2, padding: '14px', borderRadius: 14, background: noServicePOC.trim() && noServiceReason.trim() ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'rgba(239,68,68,0.2)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 14, cursor: noServicePOC.trim() && noServiceReason.trim() && !noServiceLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            >
+                                {noServiceLoading
+                                    ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Closing...</>
+                                    : <><X size={15} /> Confirm Close Call</>}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Location Verify Modal — shown after Mark as Arrived ── */}
+            {showLocationVerifyModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))' }}>
+                        <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
+
+                        {locationVerifyStep === 'ask' && (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                    <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(56,189,248,0.12)', border: '1px solid rgba(56,189,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <MapPin size={20} color="#38bdf8" />
+                                    </div>
+                                    <div>
+                                        <h3 style={{ fontSize: 17, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Pin Location Check</h3>
+                                        <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>You've arrived ✓ — quick check before we proceed</p>
+                                    </div>
+                                </div>
+
+                                <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14, padding: '14px 16px', margin: '16px 0' }}>
+                                    <p style={{ fontSize: 14, color: '#cbd5e1', margin: 0, lineHeight: 1.6 }}>
+                                        Was the customer's <strong style={{ color: '#38bdf8' }}>pin location on the map</strong> accurate for this address?
+                                    </p>
+                                    {editedJob.address && (
+                                        <p style={{ fontSize: 12, color: '#64748b', margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 5 }}>
+                                            <MapPin size={11} />
+                                            {[editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', ')}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 10 }}>
+                                    <button
+                                        onClick={handleLocationVerifyYes}
+                                        style={{ flex: 1, padding: '14px', borderRadius: 14, background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                    >
+                                        <CheckCircle size={17} /> Yes, it's correct
+                                    </button>
+                                    <button
+                                        onClick={() => setLocationVerifyStep('update')}
+                                        style={{ flex: 1, padding: '14px', borderRadius: 14, background: 'rgba(249,115,22,0.12)', border: '1px solid rgba(249,115,22,0.3)', color: '#fb923c', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                    >
+                                        <MapPin size={17} /> No, update pin
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {locationVerifyStep === 'update' && (
+                            <>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                                    <button
+                                        onClick={() => setLocationVerifyStep('ask')}
+                                        style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 10, padding: '6px 10px', color: '#94a3b8', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                                    >← Back</button>
+                                    <div>
+                                        <h3 style={{ fontSize: 16, fontWeight: 800, color: '#f8fafc', margin: 0 }}>Set Correct Pin Location</h3>
+                                        <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>Drag the pin or use your GPS to mark the exact spot</p>
+                                    </div>
+                                </div>
+
+                                {/* GPS Button */}
+                                <button
+                                    disabled={verifyGpsLoading}
+                                    onClick={() => {
+                                        if (!navigator.geolocation) { alert('GPS not available on this device'); return; }
+                                        setVerifyGpsLoading(true);
+                                        setVerifyGpsSuccess(false);
+                                        navigator.geolocation.getCurrentPosition(
+                                            (pos) => {
+                                                setVerifyLat(pos.coords.latitude);
+                                                setVerifyLng(pos.coords.longitude);
+                                                setVerifyGpsLoading(false);
+                                                setVerifyGpsSuccess(true);
+                                                setTimeout(() => setVerifyGpsSuccess(false), 3000);
+                                            },
+                                            () => { setVerifyGpsLoading(false); alert('Could not get GPS. Try dragging the pin manually.'); },
+                                            { enableHighAccuracy: true, timeout: 10000 }
+                                        );
+                                    }}
+                                    style={{ width: '100%', padding: '12px', borderRadius: 12, border: `1px solid ${verifyGpsSuccess ? 'rgba(16,185,129,0.4)' : 'rgba(56,189,248,0.3)'}`, background: verifyGpsSuccess ? 'rgba(16,185,129,0.12)' : 'rgba(56,189,248,0.1)', color: verifyGpsSuccess ? '#10b981' : '#38bdf8', fontWeight: 700, fontSize: 14, cursor: verifyGpsLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 12, opacity: verifyGpsLoading ? 0.7 : 1 }}
+                                >
+                                    {verifyGpsLoading
+                                        ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Getting GPS...</>
+                                        : verifyGpsSuccess
+                                            ? <><CheckCircle size={16} /> Location Set from GPS!</>
+                                            : <><Navigation size={16} /> Use My Current Location as Customer's Pin</>}
+                                </button>
+
+                                {/* Drag pin map */}
+                                <div style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 14, border: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <PinDropMap
+                                        label="📍 Drag to exact customer location"
+                                        building={editedJob._raw_property?.building_name || ''}
+                                        street={editedJob.address || ''}
+                                        localityQuery={editedJob.locality || ''}
+                                        pincodeQuery={editedJob._raw_property?.pincode || ''}
+                                        initialLat={verifyLat}
+                                        initialLng={verifyLng}
+                                        onChange={({ lat, lng }) => { setVerifyLat(lat); setVerifyLng(lng); }}
+                                        height="200px"
+                                    />
+                                </div>
+
+                                {verifyLat && verifyLng && (
+                                    <div style={{ fontSize: 11, color: '#64748b', textAlign: 'center', marginBottom: 12 }}>
+                                        📍 {verifyLat.toFixed(5)}, {verifyLng.toFixed(5)}
+                                    </div>
+                                )}
+
+                                <button
+                                    disabled={verifyLoading || !verifyLat || !verifyLng}
+                                    onClick={handleLocationVerifySave}
+                                    style={{ width: '100%', padding: '14px', borderRadius: 14, background: verifyLat && verifyLng ? 'linear-gradient(135deg,#38bdf8,#3b82f6)' : 'rgba(56,189,248,0.2)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 15, cursor: verifyLat && verifyLng && !verifyLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                >
+                                    {verifyLoading
+                                        ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Saving...</>
+                                        : <><CheckCircle size={16} /> Save & Confirm Location</>}
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ── Parts Ordered Gate Modal ── */}
             {showPartsNoteModal && (
@@ -1144,16 +1546,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             }
                             
                             setSavedQuotation(savedData);
-                            // Auto-update job status to quotation_sent
-                            try {
-                                await fetch(`/api/admin/jobs`, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ id: editedJob.id, status: 'quotation_sent' })
-                                });
-                                setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
-                                if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
-                            } catch (e) { console.error('Status update failed', e); }
+                            // Status stays — tech will explicitly choose Approved / Denied / Needs Time
                             fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
@@ -1263,6 +1656,83 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
                     }
                 }}
+            />
+        )}
+
+        {/* ── Quotation Decision: FeedbackAndCloseCallFlow (Denied or Thinking) ── */}
+        {showQuotationFeedbackFlow && (
+            <FeedbackAndCloseCallFlow
+                onClose={() => { setShowQuotationFeedbackFlow(false); setQuotationDecisionMode(null); }}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                job={editedJob}
+                initialRepairOutcome="Closed on service charge"
+                skipFeedbackStep={false}
+                onNotesSubmitted={({ formattedNotes }) => {
+                    // Notes logged — now launch collect-payment for the visit charge
+                    setShowQuotationFeedbackFlow(false);
+                    setShowQuotationCollectPayment(true);
+                }}
+            />
+        )}
+
+        {/* ── Quotation Decision: CollectPaymentFlow (visit charge) ── */}
+        {showQuotationCollectPayment && (
+            <CollectPaymentFlow
+                job={editedJob}
+                techName={techName}
+                techId={techId}
+                onClose={() => setShowQuotationCollectPayment(false)}
+                onSuccess={async () => {
+                    setShowQuotationCollectPayment(false);
+                    if (quotationDecisionMode === 'denied') {
+                        // Denied path: close job + show feedback QR
+                        try {
+                            await fetch(`/api/technician/jobs/${editedJob.id}`, {
+                                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — quotation denied, visit charge collected.' })
+                            });
+                        } catch (e) { /* non-fatal */ }
+                        setEditedJob(prev => ({ ...prev, status: 'closed' }));
+                        if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'closed' });
+                        setShowQuotationFinalFeedback(true);
+                    } else {
+                        // Thinking path: keep job in quotation_sent, notify admin
+                        try {
+                            await fetch(`/api/admin/jobs`, {
+                                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: editedJob.id, status: 'quotation_sent', quotation_followup_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() })
+                            });
+                            setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
+                            if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
+                            // Fire admin notification
+                            fetch('/api/admin/notifications', {
+                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    type: 'quotation_followup',
+                                    message: `Follow up with customer on Job #${editedJob.job_number || editedJob.id} — they needed time to decide on the quotation. Visit charge collected. Follow up in 2 days.`,
+                                    job_id: editedJob.id,
+                                    priority: 'medium',
+                                })
+                            }).catch(() => {});
+                        } catch (e) { /* non-fatal */ }
+                        setQuotationDecisionMode(null);
+                    }
+                }}
+            />
+        )}
+
+        {/* ── Quotation Decision: Final Feedback QR (denied path only) ── */}
+        {showQuotationFinalFeedback && (
+            <FeedbackAndCloseCallFlow
+                onClose={() => { setShowQuotationFinalFeedback(false); setQuotationDecisionMode(null); }}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                job={{ ...editedJob, status: 'closed' }}
+                initialRepairOutcome="Closed on service charge"
+                onSuccess={() => { setShowQuotationFinalFeedback(false); setQuotationDecisionMode(null); }}
             />
         )}
         </>

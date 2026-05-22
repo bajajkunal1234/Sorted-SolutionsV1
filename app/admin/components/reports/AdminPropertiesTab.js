@@ -276,8 +276,10 @@ export default function AdminPropertiesTab() {
                                         {[prop.flat_number, prop.building_name, prop.address].filter(Boolean).join(', ')}
                                     </div>
                                     <div style={{ fontSize: 12, color: '#64748b' }}>{[prop.locality, prop.city, prop.pincode].filter(Boolean).join(', ')}</div>
-                                    <div style={{ fontSize: 11, marginTop: 4, color: prop.latitude ? '#10b981' : '#f59e0b' }}>
-                                        {prop.latitude ? '📍 Pin saved' : '⚠️ No pin — click to add'}
+                                    <div style={{ fontSize: 11, marginTop: 4, color: prop.location_verified_by ? '#10b981' : prop.latitude ? '#38bdf8' : '#f59e0b' }}>
+                                        {prop.location_verified_by
+                                            ? `✅ Verified by ${prop.location_verified_by}`
+                                            : prop.latitude ? '📍 Pin saved' : '⚠️ No pin — click to add'}
                                     </div>
                                 </div>
                             </div>
@@ -428,7 +430,11 @@ export default function AdminPropertiesTab() {
                                         <div style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><MapPin size={12} color="#38bdf8" /> Location Pin</span>
                                             {selected.latitude && selected.longitude && (
-                                                <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: 20, border: '1px solid rgba(16,185,129,0.2)' }}>📍 Precise</span>
+                                                <span style={{ fontSize: 10, fontWeight: 700, color: selected.location_verified_by ? '#10b981' : '#38bdf8', background: selected.location_verified_by ? 'rgba(16,185,129,0.1)' : 'rgba(56,189,248,0.1)', padding: '2px 8px', borderRadius: 20, border: `1px solid ${selected.location_verified_by ? 'rgba(16,185,129,0.2)' : 'rgba(56,189,248,0.2)'}` }}>
+                                                    {selected.location_verified_by
+                                                        ? `✅ Verified by ${selected.location_verified_by}`
+                                                        : '📍 Precise'}
+                                                </span>
                                             )}
                                         </div>
                                         {selected.latitude && selected.longitude ? (
