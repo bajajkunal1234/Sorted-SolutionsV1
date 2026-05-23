@@ -1241,7 +1241,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
             {/* ── Parts Ordered Gate Modal ── */}
             {showPartsNoteModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', padding: '28px 24px' }}>
                         <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
                             Parts Ordered — Repair Note Required
