@@ -29,6 +29,8 @@ const TYPE_META = {
     receipt:          { label: 'Receipt',           color: '#3b82f6', bg: '#3b82f620', icon: CreditCard },
     payment:          { label: 'Payment',           color: '#f59e0b', bg: '#f59e0b20', icon: CreditCard },
     quotation:        { label: 'Quotation',         color: '#a855f7', bg: '#a855f720', icon: FileText },
+    amc:              { label: 'AMC Contract',      color: '#06b6d4', bg: '#06b6d420', icon: Layers },
+    rental:           { label: 'Rental Contract',   color: '#8b5cf6', bg: '#8b5cf620', icon: Layers },
     journal:          { label: 'Journal',           color: '#64748b', bg: '#64748b20', icon: Layers },
 };
 
@@ -129,6 +131,8 @@ function TransactionsTab({ accountId, accountName, account }) {
                 { data: paymentDirect }, // this account is the payee
                 { data: paymentBankDirect }, // this account is the bank used
                 { data: quotesDirect },
+                { data: amcDirect },
+                { data: rentalDirect },
             ] = await Promise.all([
                 supabase.from('sales_invoices').select('id,invoice_number,reference,date,total_amount,paid_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name').eq('account_id', accountId).neq('status','archived'),
                 supabase.from('purchase_invoices').select('id,invoice_number,reference,date,total_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name').eq('account_id', accountId).neq('status','archived'),
@@ -137,6 +141,8 @@ function TransactionsTab({ accountId, accountName, account }) {
                 supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name').eq('account_id', accountId),
                 supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id').eq('payment_account_id', accountId),
                 supabase.from('quotations').select('id,quote_number,reference,date,total_amount,status,notes,job_id,account_id,account_name').eq('account_id', accountId),
+                supabase.from('active_amcs').select('id,plan_name,amc_amount,start_date,end_date,status,payment_status,customer_id,amc_plans(name)').eq('customer_id', accountId).neq('status','archived'),
+                supabase.from('active_rentals').select('id,product_name,monthly_rent,rent_advance,start_date,end_date,status,customer_id,rental_plans(product_name)').eq('customer_id', accountId).neq('status','archived'),
             ]);
 
             // ── Layer 2: Journal lines (contra ledger entries) ───────────────
@@ -275,6 +281,40 @@ function TransactionsTab({ accountId, accountName, account }) {
                     balance: 0, status: q.status || 'draft',
                     canEdit: true, isNonFinancial: true, rawData: q,
                     amount: parseFloat(q.total_amount) || 0,
+                });
+            });
+
+            // AMC Contracts (non-financial — no debit/credit, shows contract value for context)
+            (amcDirect || []).forEach(a => {
+                const key = `amc:${a.id}`;
+                const planName = a.plan_name || a.amc_plans?.name || 'AMC';
+                const amcAmt = parseFloat(a.amc_amount) || 0;
+                addIfNew(key, {
+                    id: a.id, originalId: a.id,
+                    date: a.start_date, type: 'amc',
+                    reference: `AMC-${String(a.id).slice(0, 8).toUpperCase()}`,
+                    description: `${planName} | ${fmtDate(a.start_date)} → ${fmtDate(a.end_date)}${a.payment_status ? ` | ${a.payment_status}` : ''}`,
+                    debit: 0, credit: 0,
+                    balance: 0, status: a.status || 'active',
+                    canEdit: false, isNonFinancial: true, rawData: a,
+                    amount: amcAmt,
+                });
+            });
+
+            // Rental Contracts (non-financial — shows monthly rent for context)
+            (rentalDirect || []).forEach(r => {
+                const key = `rental:${r.id}`;
+                const productName = r.product_name || r.rental_plans?.product_name || 'Rental';
+                const monthlyRent = parseFloat(r.monthly_rent) || 0;
+                addIfNew(key, {
+                    id: r.id, originalId: r.id,
+                    date: r.start_date, type: 'rental',
+                    reference: `RNT-${String(r.id).slice(0, 8).toUpperCase()}`,
+                    description: `${productName} | ₹${fmt(monthlyRent)}/mo | ${fmtDate(r.start_date)} → ${fmtDate(r.end_date)}`,
+                    debit: 0, credit: 0,
+                    balance: 0, status: r.status || 'active',
+                    canEdit: false, isNonFinancial: true, rawData: r,
+                    amount: monthlyRent,
                 });
             });
 
@@ -539,6 +579,8 @@ function TransactionsTab({ accountId, accountName, account }) {
                             <option value="receipt">Receipt</option>
                             <option value="payment">Payment</option>
                             <option value="quotation">Quotation</option>
+                            <option value="amc">AMC Contract</option>
+                            <option value="rental">Rental Contract</option>
                             <option value="journal">Journal Entry</option>
                         </select>
                     </div>
