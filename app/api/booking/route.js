@@ -80,6 +80,21 @@ export async function POST(request) {
 
         // ── Create or Update the booking_request job ───────────────────────────
         let job = null;
+        // Build standardized job name: "New [Appliance Type] [Issue] [Locality]"
+        // Website bookings are always "New" — warranty is assessed by admin later
+        const bookingLocality =
+            customer?.address?.locality ||
+            customer?.address?.area ||
+            customer?.address?.neighbourhood ||
+            customer?.address?.suburb ||
+            customer?.address?.district ||
+            pincode ||
+            '';
+        const autoDescription = ['New', subcategoryName || categoryName || '', issueName || '', bookingLocality.trim()]
+            .map(s => (s || '').trim())
+            .filter(Boolean)
+            .join(' ');
+
         const jobData = {
             job_number: bookingNumber,
             status: 'new_job_request',
@@ -90,10 +105,11 @@ export async function POST(request) {
             category: categoryName || categoryId,
             subcategory: subcategoryName || subcategoryId,
             issue: issueName || issueId,
-            description: description || '',
+            description: autoDescription || description || '',
             scheduled_date: schedule?.date || null,
             scheduled_time: schedule?.slot || null,
             source: 'website',
+
             // Store full raw booking data for admin reference
             notes: JSON.stringify({
                 categoryId,

@@ -274,7 +274,9 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             return {
                                 ...prev,
                                 ...updates,
-                                jobName: prev.jobName || updates.issue?.name || existingJob.issue || existingJob.description || ''
+                                // Use the existing standardized description if available,
+                                // otherwise fall back to issue name so the field isn't blank
+                                jobName: prev.jobName || existingJob.description || updates.issue?.name || existingJob.issue || ''
                             };
                         }
                         return prev;
@@ -551,9 +553,9 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         }
     }, [showCreateModal]);
 
-    // Auto-build job name: "{Brand} {SubCategory} {Locality}"
-    // e.g. "LG Double Door Bandra West"
-    const buildAutoJobName = (brand, subcategory, property) => {
+    // Auto-build job name: "[New/Repeat] [Appliance Type] [Issue] [Locality]"
+    // e.g. "New Microwave Oven Not Heating Andheri W" or "Repeat Split AC Installation Malad W"
+    const buildAutoJobName = (warranty, subcategory, product, issue, property) => {
         // Try many address fields in priority order
         const addr = property?.address || {};
         const locality =
@@ -567,9 +569,13 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             (addr.line1 ? addr.line1.split(',').pop()?.trim() : null) ||
             property?.property_name ||
             '';
+        const prefix = warranty ? 'Repeat' : 'New';
+        const applianceType = subcategory?.name || product?.name || '';
+        const issueName = issue?.name || '';
         const parts = [
-            brand?.name || '',
-            subcategory?.name || '',
+            prefix,
+            applianceType,
+            issueName,
             locality.trim()
         ].map(s => s.trim()).filter(Boolean);
         return parts.join(' ');
@@ -579,11 +585,17 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
     useEffect(() => {
         if (jobNameManuallyEdited) return; // Don't override if user has typed something
-        const auto = buildAutoJobName(formData.brand, formData.subcategory, formData.property);
+        const auto = buildAutoJobName(
+            formData.warranty,
+            formData.subcategory,
+            formData.product,
+            formData.issue,
+            formData.property
+        );
         if (auto) {
             setFormData(prev => ({ ...prev, jobName: auto }));
         }
-    }, [formData.brand?.id, formData.subcategory?.id, formData.property?.id, jobNameManuallyEdited]);
+    }, [formData.warranty, formData.subcategory?.id, formData.product?.id, formData.issue?.id, formData.property?.id, jobNameManuallyEdited]);
 
     const handleThumbnailChange = (e) => {
         const file = e.target.files[0];
@@ -916,11 +928,17 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 type="button"
                                 onClick={() => {
                                     setJobNameManuallyEdited(false);
-                                    const auto = buildAutoJobName(formData.brand, formData.subcategory, formData.property);
+                                    const auto = buildAutoJobName(
+                                        formData.warranty,
+                                        formData.subcategory,
+                                        formData.product,
+                                        formData.issue,
+                                        formData.property
+                                    );
                                     if (auto) setFormData(prev => ({ ...prev, jobName: auto }));
                                 }}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(99,102,241,0.1)' }}
-                                title="Auto-fill from Brand + Sub-Category + Locality"
+                                title="Auto-fill: [New/Repeat] [Appliance Type] [Issue] [Locality]"
                             >
                                 ✨ Auto-fill
                             </button>
@@ -928,16 +946,16 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="e.g., LG Double Door Bandra West"
+                            placeholder="e.g., New Split AC Not Cooling Andheri W"
                             value={formData.jobName}
                             onChange={(e) => {
                                 setJobNameManuallyEdited(true);
                                 setFormData(prev => ({ ...prev, jobName: e.target.value }));
                             }}
                         />
-                        {!jobNameManuallyEdited && (formData.brand || formData.subcategory || formData.property) && (
+                        {!jobNameManuallyEdited && (formData.subcategory || formData.issue || formData.property) && (
                             <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
-                                🔄 Auto-filled from Brand · Sub-Type · Locality — edit to customise
+                                🔄 Auto-filled: {formData.warranty ? 'Repeat' : 'New'} · Appliance Type · Issue · Locality — edit to customise
                             </div>
                         )}
                         {errors.jobName && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.jobName}</span>}
