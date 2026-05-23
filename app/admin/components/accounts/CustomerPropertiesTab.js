@@ -210,11 +210,16 @@ function CustomerPropertiesTab({ customerId }) {
                                     <Home size={20} color="var(--color-primary)" />
                                 )}
                                 <div>
-                                    <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                         {[property.flat_number, property.building_name, property.address].filter(Boolean).join(', ')}
                                         {property._source === 'job_history' && (
                                             <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontWeight: 600, whiteSpace: 'nowrap' }}>
                                                 via Job History
+                                            </span>
+                                        )}
+                                        {property._source === 'inline' && (
+                                            <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(59,130,246,0.12)', color: '#3b82f6', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                Account Record
                                             </span>
                                         )}
                                         {(property._source === 'customer_link' || property._source === 'account_link') && (

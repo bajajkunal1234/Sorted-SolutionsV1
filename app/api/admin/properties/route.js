@@ -84,51 +84,73 @@ export async function GET(request) {
                 lookupIds = [...lookupIds, ...authCustomers.map(c => c.id)];
             }
 
-            // Source A: customer_properties by customer_id (web app bookings)
-            const { data: byCustomer } = await supabase
-                .from('customer_properties')
-                .select('*, property:properties(*)')
-                .in('customer_id', lookupIds)
-                .eq('is_active', true)
-                .order('linked_at', { ascending: false })
+            // Run all 4 sources in parallel
+            const [
+                { data: byCustomer },
+                { data: byAccount },
+                { data: jobRows },
+                { data: accountRow },
+            ] = await Promise.all([
+                // Source A: customer_properties by customer_id (web app bookings)
+                supabase.from('customer_properties').select('*, property:properties(*)').in('customer_id', lookupIds).eq('is_active', true).order('linked_at', { ascending: false }),
+                // Source B: customer_properties by account_id (admin-linked)
+                supabase.from('customer_properties').select('*, property:properties(*)').in('account_id', lookupIds).eq('is_active', true).order('linked_at', { ascending: false }),
+                // Source C step 1: get property_ids from jobs (safe two-step to avoid FK name issues)
+                supabase.from('jobs').select('property_id').in('customer_id', lookupIds).not('property_id', 'is', null).limit(200),
+                // Source D: account's own inline properties JSONB (for pre-migration accounts)
+                supabase.from('accounts').select('properties, address, locality, city, pincode').eq('id', customerId).single(),
+            ]);
 
-            // Source B: customer_properties by account_id (admin-linked)
-            const { data: byAccount } = await supabase
-                .from('customer_properties')
-                .select('*, property:properties(*)')
-                .in('account_id', lookupIds)
-                .eq('is_active', true)
-                .order('linked_at', { ascending: false })
+            // Source C step 2: fetch the actual property rows by id
+            let jobLinkedProperties = [];
+            const jobPropertyIds = [...new Set((jobRows || []).map(r => r.property_id).filter(Boolean))];
+            if (jobPropertyIds.length > 0) {
+                const { data: propRows } = await supabase.from('properties').select('*').in('id', jobPropertyIds);
+                jobLinkedProperties = propRows || [];
+            }
 
-            // Source C: properties referenced in any job for this customer
-            // This catches customers whose properties were linked via job creation
-            // but the customer_properties row was never explicitly created.
-            const { data: jobProps } = await supabase
-                .from('jobs')
-                .select('property_id, properties!jobs_property_id_fkey(id, flat_number, building_name, address, locality, city, pincode, property_type, latitude, longitude, created_at, notes)')
-                .eq('customer_id', customerId)
-                .not('property_id', 'is', null)
-                .order('created_at', { ascending: false })
-                .limit(200)
-
-            // Merge all three sources, deduplicate by property id
+            // Merge all sources, deduplicate by property id
             const seenIds = new Set();
             const result = [];
 
-            const addProperty = (prop, source) => {
+            const addProperty = (prop, source, linkId = null, linkedAt = null) => {
                 if (!prop || !prop.id || seenIds.has(prop.id)) return;
                 seenIds.add(prop.id);
-                result.push({ ...prop, _source: source });
+                result.push({ ...prop, link_id: linkId, linked_at: linkedAt, _source: source });
             };
 
             for (const r of (byCustomer || [])) {
-                if (r.property) addProperty({ ...r.property, link_id: r.id, linked_at: r.linked_at }, 'customer_link');
+                if (r.property) addProperty(r.property, 'customer_link', r.id, r.linked_at);
             }
             for (const r of (byAccount || [])) {
-                if (r.property) addProperty({ ...r.property, link_id: r.id, linked_at: r.linked_at }, 'account_link');
+                if (r.property) addProperty(r.property, 'account_link', r.id, r.linked_at);
             }
-            for (const r of (jobProps || [])) {
-                if (r.properties) addProperty({ ...r.properties, linked_at: null }, 'job_history');
+            for (const prop of jobLinkedProperties) {
+                addProperty(prop, 'job_history');
+            }
+
+            // Source D: inline JSONB array from accounts.properties (pre-migration or manually-entered)
+            if (accountRow?.properties && Array.isArray(accountRow.properties)) {
+                for (const p of accountRow.properties) {
+                    const inlineAddr = (p.address || '').trim();
+                    if (!inlineAddr) continue;
+                    const syntheticId = `inline:${[p.flat_number, p.building_name, p.address, p.locality, p.pincode].join('|')}`;
+                    if (seenIds.has(syntheticId)) continue;
+                    seenIds.add(syntheticId);
+                    result.push({
+                        id: syntheticId,
+                        flat_number: p.flat_number || '',
+                        building_name: p.building_name || '',
+                        address: inlineAddr,
+                        locality: p.locality || '',
+                        city: p.city || '',
+                        pincode: p.pincode || '',
+                        property_type: p.property_type || 'residential',
+                        link_id: null,
+                        linked_at: null,
+                        _source: 'inline',
+                    });
+                }
             }
 
             return NextResponse.json({ success: true, data: result })
