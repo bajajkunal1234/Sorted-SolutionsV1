@@ -295,7 +295,6 @@ export async function PUT(request) {
             });
         }
 
-
         return NextResponse.json({ success: true, data })
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
@@ -308,12 +307,41 @@ export async function DELETE(request) {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
 
+        if (!id) {
+            return NextResponse.json({ success: false, error: 'Job ID is required' }, { status: 400 });
+        }
+
+        // Fetch job details for logging
         const { data: job } = await supabase
             .from('jobs')
             .select('id, job_number, customer_id, customer_name, category, subcategory, status, technician_name')
             .eq('id', id)
             .single()
 
+        // ── Step 1: Null out job_id on all linked financial documents ────────
+        // Financial records must be preserved — we just detach them from this job.
+        // These are all the tables with a job_id FK referencing jobs.id:
+        const unlinkResults = await Promise.all([
+            supabase.from('sales_invoices').update({ job_id: null }).eq('job_id', id),
+            supabase.from('purchase_invoices').update({ job_id: null }).eq('job_id', id),
+            supabase.from('quotations').update({ job_id: null }).eq('job_id', id),
+            supabase.from('receipt_vouchers').update({ job_id: null }).eq('job_id', id),
+            supabase.from('payment_vouchers').update({ job_id: null }).eq('job_id', id),
+        ]);
+
+        // Check for any unlink errors
+        const unlinkErrors = unlinkResults.map(r => r.error).filter(Boolean);
+        if (unlinkErrors.length > 0) {
+            return NextResponse.json({
+                success: false,
+                error: `Failed to unlink financial documents: ${unlinkErrors.map(e => e.message).join(', ')}`
+            }, { status: 500 });
+        }
+
+        // ── Step 2: Delete job-specific audit trail ──────────────────────────
+        await supabase.from('job_interactions').delete().eq('job_id', id);
+
+        // ── Step 3: Delete the job itself ────────────────────────────────────
         const { error } = await supabase
             .from('jobs')
             .delete()
@@ -329,7 +357,7 @@ export async function DELETE(request) {
                 customerId: job.customer_id ? String(job.customer_id) : null,
                 customerName: job.customer_name || null,
                 performedByName: searchParams.get('deleted_by') || 'Admin',
-                description: `Job #${job.job_number || id} deleted — ${job.category || ''} ${job.subcategory || ''} (was ${job.status})`.trim(),
+                description: `Job #${job.job_number || id} deleted — ${job.category || ''} ${job.subcategory || ''} (was ${job.status}). Financial documents detached but preserved.`.trim(),
                 metadata: { job_number: job.job_number, category: job.category, status: job.status, technician: job.technician_name },
                 source: 'Admin',
             });
