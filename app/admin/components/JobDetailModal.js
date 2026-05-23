@@ -540,18 +540,20 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
+                                    justifyContent: 'center',
                                     gap: '6px',
+                                    flex: '1 1 0',
                                     padding: '8px 16px',
                                     fontSize: '14px',
-                                    fontWeight: 500,
+                                    fontWeight: 600,
                                     border: 'none',
                                     borderRadius: '20px',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s ease',
+                                    transition: 'background-color 0.2s ease, color 0.2s ease',
                                     backgroundColor: isActive ? '#10b981' : 'var(--bg-secondary)',
-                                    color: isActive ? '#ffffff' : 'var(--text-primary)',
+                                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
                                     whiteSpace: 'nowrap',
-                                    flexShrink: 0
+                                    minWidth: 0
                                 }}
                             >
                                 <Icon size={16} />
