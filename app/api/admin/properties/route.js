@@ -77,38 +77,61 @@ export async function GET(request) {
 
         // Properties for a specific customer (admin view: query both customer_id and account_id)
         if (customerId) {
-            // Admin passes ledger_id. We need to find real Auth Customer IDs mapped to it
+            // Admin passes ledger_id / account.id. We need to find real Auth Customer IDs mapped to it.
             let lookupIds = [customerId];
             const { data: authCustomers } = await supabase.from('customers').select('id').eq('ledger_id', customerId);
             if (authCustomers && authCustomers.length > 0) {
                 lookupIds = [...lookupIds, ...authCustomers.map(c => c.id)];
             }
 
-            // Fetch by customer_id OR account_id to cover both customer-app and admin-added links
+            // Source A: customer_properties by customer_id (web app bookings)
             const { data: byCustomer } = await supabase
                 .from('customer_properties')
                 .select('*, property:properties(*)')
                 .in('customer_id', lookupIds)
                 .eq('is_active', true)
                 .order('linked_at', { ascending: false })
+
+            // Source B: customer_properties by account_id (admin-linked)
             const { data: byAccount } = await supabase
                 .from('customer_properties')
                 .select('*, property:properties(*)')
                 .in('account_id', lookupIds)
                 .eq('is_active', true)
                 .order('linked_at', { ascending: false })
-                
-            // Merge, deduplicate by property id
-            const mergedDb = [...(byCustomer || []), ...(byAccount || [])]
-            const seenIds = new Set()
-            
-            const uniqueDb = mergedDb.filter(r => {
-                if (!r.property || seenIds.has(r.property.id)) return false
-                seenIds.add(r.property.id)
-                return true
-            }).map(r => ({ ...r.property, link_id: r.id, linked_at: r.linked_at, _source: 'db' }));
 
-            return NextResponse.json({ success: true, data: uniqueDb })
+            // Source C: properties referenced in any job for this customer
+            // This catches customers whose properties were linked via job creation
+            // but the customer_properties row was never explicitly created.
+            const { data: jobProps } = await supabase
+                .from('jobs')
+                .select('property_id, properties!jobs_property_id_fkey(id, flat_number, building_name, address, locality, city, pincode, property_type, latitude, longitude, created_at, notes)')
+                .eq('customer_id', customerId)
+                .not('property_id', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(200)
+
+            // Merge all three sources, deduplicate by property id
+            const seenIds = new Set();
+            const result = [];
+
+            const addProperty = (prop, source) => {
+                if (!prop || !prop.id || seenIds.has(prop.id)) return;
+                seenIds.add(prop.id);
+                result.push({ ...prop, _source: source });
+            };
+
+            for (const r of (byCustomer || [])) {
+                if (r.property) addProperty({ ...r.property, link_id: r.id, linked_at: r.linked_at }, 'customer_link');
+            }
+            for (const r of (byAccount || [])) {
+                if (r.property) addProperty({ ...r.property, link_id: r.id, linked_at: r.linked_at }, 'account_link');
+            }
+            for (const r of (jobProps || [])) {
+                if (r.properties) addProperty({ ...r.properties, linked_at: null }, 'job_history');
+            }
+
+            return NextResponse.json({ success: true, data: result })
         }
 
         // Smart search by pincode or address (for matching when adding a property)

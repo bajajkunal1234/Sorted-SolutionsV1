@@ -210,22 +210,34 @@ function CustomerPropertiesTab({ customerId }) {
                                     <Home size={20} color="var(--color-primary)" />
                                 )}
                                 <div>
-                                    <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
+                                    <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
                                         {[property.flat_number, property.building_name, property.address].filter(Boolean).join(', ')}
+                                        {property._source === 'job_history' && (
+                                            <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(245,158,11,0.12)', color: '#f59e0b', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                via Job History
+                                            </span>
+                                        )}
+                                        {(property._source === 'customer_link' || property._source === 'account_link') && (
+                                            <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(16,185,129,0.12)', color: '#10b981', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                Linked
+                                            </span>
+                                        )}
                                     </div>
                                     <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', textTransform: 'capitalize' }}>
                                         {[property.locality, property.city, property.pincode].filter(Boolean).join(', ')} ({property.property_type || 'residential'})
                                     </div>
                                 </div>
                             </div>
-                            <button
-                                onClick={() => handleUnlink(property.link_id)}
-                                className="btn-icon"
-                                title="Unlink Property"
-                                style={{ padding: '6px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}
-                            >
-                                <Unlink size={14} />
-                            </button>
+                            {property.link_id && (
+                                <button
+                                    onClick={() => handleUnlink(property.link_id)}
+                                    className="btn-icon"
+                                    title="Unlink Property"
+                                    style={{ padding: '6px', color: '#ef4444', background: 'rgba(239, 68, 68, 0.1)' }}
+                                >
+                                    <Unlink size={14} />
+                                </button>
+                            )}
                         </div>
                     </div>
                 ))}
