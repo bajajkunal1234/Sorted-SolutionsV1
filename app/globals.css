@@ -133,6 +133,25 @@ body {
   flex-direction: column;
 }
 
+/* ── Chrome mobile / Safari dynamic viewport fix ──────────────────────────
+   100vh is fixed at initial page load and ignores the browser address bar.
+   100dvh (dynamic viewport height) shrinks/grows as the browser chrome
+   appears/disappears, preventing content from being clipped behind it.
+   We also pad the top by env(safe-area-inset-top) when viewport-fit=cover
+   is active (set in layout.js) so content doesn't hide under the notch.
+*/
+.dvh-full {
+  min-height: 100dvh;
+  min-height: 100vh; /* fallback for browsers that don't support dvh */
+}
+
+/* Standalone PWA mode: compensate for status bar area at top */
+@media (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
 /* Typography */
 h1,
 h2,

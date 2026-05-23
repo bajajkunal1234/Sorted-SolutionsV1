@@ -3,7 +3,10 @@
 .admin-app {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    /* 100dvh tracks the visible viewport dynamically (Chrome mobile address bar fix).
+       100vh is the fallback for older browsers. */
+    height: 100dvh;
+    height: 100vh; /* fallback */
     background: var(--bg-primary);
     color: var(--text-primary);
     overflow: hidden;
@@ -12,7 +15,8 @@
 .admin-content-area {
     flex: 1;
     overflow-y: auto;
-    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+    /* 70px nav + safe area + extra breathing room */
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 12px);
     /* Space for bottom nav */
 }
 
@@ -61,13 +65,14 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 70px;
+    /* Base height 70px + room for iOS home indicator / Android gesture bar */
+    height: calc(70px + env(safe-area-inset-bottom, 0px));
     background: var(--bg-elevated);
     border-top: 1px solid var(--border-primary);
     display: flex;
     justify-content: space-around;
-    align-items: center;
-    padding: 0 8px;
+    align-items: flex-start; /* align items to top so they don't drop into gesture zone */
+    padding: 0 8px env(safe-area-inset-bottom, 0px);
     z-index: 1000;
 }
 

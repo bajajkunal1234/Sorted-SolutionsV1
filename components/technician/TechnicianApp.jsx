@@ -1193,7 +1193,7 @@ function TechnicianApp() {
             userType="technician"
             userId={technicianId}
         />
-        <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
+        <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
             {/* Tab Content — Support view intercepts here so bottom nav stays visible */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {showSupport ? (

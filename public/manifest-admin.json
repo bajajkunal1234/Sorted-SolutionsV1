@@ -1,0 +1,31 @@
+{
+    "name": "Sorted Solutions – Admin",
+    "short_name": "SS Admin",
+    "description": "Sorted Solutions admin management portal",
+    "start_url": "/admin",
+    "scope": "/admin",
+    "display": "standalone",
+    "background_color": "#0f172a",
+    "theme_color": "#0f172a",
+    "orientation": "portrait-primary",
+    "categories": ["utilities", "productivity"],
+    "lang": "en",
+    "icons": [
+        {
+            "src": "/icons/icon-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "screenshots": [],
+    "shortcuts": [],
+    "related_applications": [],
+    "prefer_related_applications": false
+}

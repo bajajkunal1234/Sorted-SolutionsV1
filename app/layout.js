@@ -58,6 +58,7 @@ export const viewport = {
     initialScale: 1,
     maximumScale: 5,   // still allows pinch-zoom for accessibility
     userScalable: true,
+    viewportFit: 'cover', // enables env(safe-area-inset-*) for iPhone notch / Android gesture bar
 }
 
 export default function RootLayout({ children }) {
