@@ -164,7 +164,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         under: initialData?.under || preselectedType || '',
         openingBalance: initialData?.opening_balance || 0,
         balanceType: initialData?.balance_type || 'dr',
-        asOnDate: initialData?.as_on_date || new Date().toISOString().split('T')[0],
+        asOnDate: initialData?.as_on_date || '2026-04-01',
 
         // Dynamic fields will be added based on 'under' selection
         accountImage: initialData?.image_url || null,
@@ -273,15 +273,12 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
         }
     }, [preselectedType, groups]);
 
-    // Default As on Date to start of financial year for customers
+    // Default As on Date to start of FY 2026-27 for all new accounts
     useEffect(() => {
-        if (!initialData && formData.under === 'sundry-debtors') {
-            const today = new Date();
-            const currentYear = today.getFullYear();
-            const startYear = today.getMonth() >= 3 ? currentYear : currentYear - 1;
-            setFormData(prev => ({ ...prev, asOnDate: `${startYear}-04-01` }));
+        if (!initialData) {
+            setFormData(prev => ({ ...prev, asOnDate: '2026-04-01' }));
         }
-    }, [formData.under, initialData]);
+    }, [initialData]);
 
     // Check for duplicate names against live ledgers (only if name changed and not editing)
     useEffect(() => {

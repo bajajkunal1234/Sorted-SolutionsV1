@@ -1142,7 +1142,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                     )}
 
                     {activeTab === 'transactions' && (
-                        <TransactionsTab accountId={account.id} accountName={account.name} />
+                        <TransactionsTab accountId={account.id} accountName={account.name} account={account} />
                     )}
 
                     {activeTab === 'rentamc' && isCustomer && (

@@ -1,38 +1,146 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { Receipt, Edit2, Undo2, Filter, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import {
+    Receipt, Edit2, Filter, TrendingUp, TrendingDown, Loader2,
+    Download, ChevronDown, ChevronUp, RefreshCw, Calendar,
+    FileText, CreditCard, ShoppingCart, ArrowUpCircle, ArrowDownCircle,
+    Layers, SortAsc, SortDesc, Tag
+} from 'lucide-react';
 import SalesInvoiceForm from './SalesInvoiceForm';
 import PurchaseInvoiceForm from './PurchaseInvoiceForm';
 import ReceiptVoucherForm from './ReceiptVoucherForm';
 import PaymentVoucherForm from './PaymentVoucherForm';
 import QuotationForm from './QuotationForm';
 
-function TransactionsTab({ accountId, accountName }) {
-    const [transactions, setTransactions] = useState([]);
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const fmt = (n) => Math.abs(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = (d) => {
+    if (!d) return '—';
+    const dt = new Date(d);
+    if (isNaN(dt)) return d;
+    return dt.toLocaleDateString('en-GB');
+};
+
+const TYPE_META = {
+    sales_invoice:    { label: 'Sales Invoice',    color: '#10b981', bg: '#10b98120', icon: ArrowUpCircle },
+    purchase_invoice: { label: 'Purchase Invoice', color: '#ef4444', bg: '#ef444420', icon: ArrowDownCircle },
+    receipt:          { label: 'Receipt',           color: '#3b82f6', bg: '#3b82f620', icon: CreditCard },
+    payment:          { label: 'Payment',           color: '#f59e0b', bg: '#f59e0b20', icon: CreditCard },
+    quotation:        { label: 'Quotation',         color: '#a855f7', bg: '#a855f720', icon: FileText },
+    journal:          { label: 'Journal',           color: '#64748b', bg: '#64748b20', icon: Layers },
+};
+
+const getTypeMeta = (type) => TYPE_META[type] || { label: type, color: '#64748b', bg: '#64748b20', icon: Tag };
+
+// Current Indian financial year: Apr 1 → Mar 31
+function currentFYDates() {
+    const today = new Date();
+    const yr = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    return { from: `${yr}-04-01`, to: `${yr + 1}-03-31` };
+}
+
+function exportToCSV(rows, accountName) {
+    const headers = ['Date', 'Type', 'Reference', 'Description', 'Debit', 'Credit', 'Balance'];
+    const lines = [headers.join(',')];
+    rows.forEach(r => {
+        lines.push([
+            fmtDate(r.date),
+            getTypeMeta(r.type).label,
+            r.reference || '',
+            `"${(r.description || '').replace(/"/g, '""')}"`,
+            r.debit > 0 ? r.debit.toFixed(2) : '',
+            r.credit > 0 ? r.credit.toFixed(2) : '',
+            r.balance != null ? r.balance.toFixed(2) : ''
+        ].join(','));
+    });
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ledger_${(accountName || 'account').replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
+function TransactionsTab({ accountId, accountName, account }) {
+    const [rawTransactions, setRawTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [openingBalance, setOpeningBalance] = useState(0);
+    const [openingBalanceType, setOpeningBalanceType] = useState('dr'); // dr | cr
 
+    // ── Filters ──
+    const fy = currentFYDates();
+    const [dateFrom, setDateFrom] = useState(fy.from);
+    const [dateTo, setDateTo] = useState(fy.to);
     const [filterType, setFilterType] = useState('all');
+    const [sortDir, setSortDir] = useState('desc'); // asc | desc
+    const [groupBy, setGroupBy] = useState('none'); // none | month | type
+    const [showFilters, setShowFilters] = useState(false);
+
+    // ── Edit forms ──
     const [activeForm, setActiveForm] = useState(null);
     const [editingTransaction, setEditingTransaction] = useState(null);
 
+    // ─── Fetch ──────────────────────────────────────────────────────────────────
     useEffect(() => {
-        if (accountId) {
-            fetchTransactions();
-        }
+        if (accountId) fetchAll();
     }, [accountId]);
 
-    const fetchTransactions = async () => {
+    // If account prop carries opening balance, seed from it
+    useEffect(() => {
+        if (account) {
+            const ob = parseFloat(account.opening_balance || account.openingBalance) || 0;
+            setOpeningBalance(ob);
+            setOpeningBalanceType(account.balance_type || account.balanceType || 'dr');
+        }
+    }, [account]);
+
+    const fetchAll = async () => {
         try {
             setLoading(true);
+            setError(null);
             const { supabase } = await import('@/lib/supabase');
-            if (!supabase) return;
 
-            let allTransactions = [];
+            // ── Fetch account meta for opening balance ──────────────────────
+            if (!account) {
+                const { data: acctData } = await supabase
+                    .from('accounts')
+                    .select('opening_balance, balance_type')
+                    .eq('id', accountId)
+                    .single();
+                if (acctData) {
+                    setOpeningBalance(parseFloat(acctData.opening_balance) || 0);
+                    setOpeningBalanceType(acctData.balance_type || 'dr');
+                }
+            }
 
-            // 1. Fetch Financial Transactions from Journal Entry Lines
-            const { data: journalLines, error: jeError } = await supabase
+            // ── Layer 1: Direct vouchers ─────────────────────────────────────
+            // Sales Invoices where this is the primary account
+            const [
+                { data: salesDirect },
+                { data: purchDirect },
+                { data: receiptDirect },  // customer is the payer
+                { data: receiptBankDirect }, // this account is the bank used
+                { data: paymentDirect }, // this account is the payee
+                { data: paymentBankDirect }, // this account is the bank used
+                { data: quotesDirect },
+            ] = await Promise.all([
+                supabase.from('sales_invoices').select('id,invoice_number,reference,date,total_amount,paid_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name').eq('account_id', accountId).neq('status','archived'),
+                supabase.from('purchase_invoices').select('id,invoice_number,reference,date,total_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name').eq('account_id', accountId).neq('status','archived'),
+                supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name').eq('account_id', accountId),
+                supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id').eq('payment_account_id', accountId),
+                supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name').eq('account_id', accountId),
+                supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id').eq('payment_account_id', accountId),
+                supabase.from('quotations').select('id,quote_number,reference,date,total_amount,status,notes,job_id,account_id,account_name').eq('account_id', accountId),
+            ]);
+
+            // ── Layer 2: Journal lines (contra ledger entries) ───────────────
+            const { data: journalLines } = await supabase
                 .from('journal_entry_lines')
                 .select(`
                     id, debit, credit,
@@ -40,408 +148,672 @@ function TransactionsTab({ accountId, accountName }) {
                 `)
                 .eq('account_id', accountId);
 
-            if (!jeError && journalLines) {
-                const financialTxns = journalLines.map(line => ({
-                    id: line.id,
-                    originalId: line.journal_entries.reference_id,
-                    date: line.journal_entries.date,
-                    type: line.journal_entries.reference_type === 'sales_invoice' ? 'sales_invoice' 
-                          : line.journal_entries.reference_type === 'purchase_invoice' ? 'purchase_invoice'
-                          : line.journal_entries.reference_type,
-                    reference: line.journal_entries.entry_number || '-',
-                    description: line.journal_entries.notes || '-',
-                    debit: Number(line.debit) || 0,
-                    credit: Number(line.credit) || 0,
-                    balance: 0,
-                    status: 'finalized',
-                    canEdit: !!line.journal_entries.reference_id, // can only edit if it came from a source doc
-                    isNonFinancial: false,
-                    rawData: null // Will be fetched lazily on Edit
-                }));
-                allTransactions = [...allTransactions, ...financialTxns];
-            }
+            // ── Build a set of reference_ids already covered by Layer 1 ─────
+            const coveredRefs = new Set();
 
-            // 2. Fetch Non-Financial Quotations
-            const { data: quotes, error: qError } = await supabase
-                .from('quotations')
-                .select('*')
-                .eq('account_id', accountId);
-                
-            if (!qError && quotes) {
-                const quoteTxns = quotes.map(item => ({
-                    id: item.id,
-                    originalId: item.id,
-                    date: item.date,
-                    type: 'quotation',
-                    reference: item.quote_number || item.reference || '-',
-                    description: item.notes || item.reference || '-',
-                    debit: 0,
-                    credit: 0,
-                    balance: 0,
-                    status: item.status || 'finalized',
-                    canEdit: true,
-                    isNonFinancial: true,
-                    rawData: item
-                }));
-                allTransactions = [...allTransactions, ...quoteTxns];
-            }
+            // ── Map Layer 1 → unified shape ──────────────────────────────────
+            const txns = [];
 
-            // Sort ascending for running balance computation
-            allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+            // Helper to avoid duplicates when account appears as both primary + bank
+            const seen = new Set(); // track by `type:id`
 
-            // Compute running balance (credit = +, debit = -)
-            let runningBalance = 0;
-            allTransactions.forEach(txn => {
-                runningBalance += (txn.credit || 0) - (txn.debit || 0);
-                txn.balance = runningBalance;
+            const addIfNew = (key, txn) => {
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    txns.push(txn);
+                }
+            };
+
+            (salesDirect || []).forEach(s => {
+                const key = `si:${s.id}`;
+                const total = parseFloat(s.total_amount) || 0;
+                coveredRefs.add(s.id);
+                addIfNew(key, {
+                    id: s.id, originalId: s.id,
+                    date: s.date, type: 'sales_invoice',
+                    reference: s.invoice_number || s.reference || '—',
+                    description: s.notes || `Sales to ${s.account_name || ''}`,
+                    debit: total, credit: 0,
+                    balance: 0, status: s.status || 'finalized',
+                    canEdit: true, isNonFinancial: false, rawData: s,
+                    amount: total,
+                });
             });
 
-            // Reverse to show newest first in UI
-            allTransactions.reverse();
+            (purchDirect || []).forEach(p => {
+                const key = `pi:${p.id}`;
+                const total = parseFloat(p.total_amount) || 0;
+                coveredRefs.add(p.id);
+                addIfNew(key, {
+                    id: p.id, originalId: p.id,
+                    date: p.date, type: 'purchase_invoice',
+                    reference: p.invoice_number || p.reference || '—',
+                    description: p.notes || `Purchase from ${p.account_name || ''}`,
+                    debit: 0, credit: total,
+                    balance: 0, status: p.status || 'finalized',
+                    canEdit: true, isNonFinancial: false, rawData: p,
+                    amount: total,
+                });
+            });
 
-            setTransactions(allTransactions);
+            (receiptDirect || []).forEach(r => {
+                const key = `rv:${r.id}`;
+                const amt = parseFloat(r.amount) || 0;
+                coveredRefs.add(r.id);
+                // For the paying account (customer): receipt = credit (they paid us, reducing their balance)
+                addIfNew(key, {
+                    id: r.id, originalId: r.id,
+                    date: r.date, type: 'receipt',
+                    reference: r.receipt_number || r.reference || '—',
+                    description: r.narration || `Receipt - ${r.payment_mode || ''}`,
+                    debit: 0, credit: amt,
+                    balance: 0, status: r.status || 'finalized',
+                    canEdit: true, isNonFinancial: false, rawData: r,
+                    amount: amt,
+                });
+            });
 
+            (receiptBankDirect || []).forEach(r => {
+                const key = `rv:${r.id}`;
+                const amt = parseFloat(r.amount) || 0;
+                coveredRefs.add(r.id);
+                // For the bank account: receipt = debit (money came into bank)
+                addIfNew(key, {
+                    id: r.id, originalId: r.id,
+                    date: r.date, type: 'receipt',
+                    reference: r.receipt_number || r.reference || '—',
+                    description: r.narration || `Receipt via ${r.payment_mode || ''}`,
+                    debit: amt, credit: 0,
+                    balance: 0, status: r.status || 'finalized',
+                    canEdit: true, isNonFinancial: false, rawData: r,
+                    amount: amt,
+                });
+            });
+
+            (paymentDirect || []).forEach(p => {
+                const key = `pv:${p.id}`;
+                const amt = parseFloat(p.amount) || 0;
+                coveredRefs.add(p.id);
+                // For the payee (technician/supplier): payment = debit (we paid them, reducing what we owe)
+                addIfNew(key, {
+                    id: p.id, originalId: p.id,
+                    date: p.date, type: 'payment',
+                    reference: p.payment_number || p.reference || '—',
+                    description: p.narration || `Payment - ${p.payment_mode || ''}`,
+                    debit: amt, credit: 0,
+                    balance: 0, status: p.status || 'finalized',
+                    canEdit: true, isNonFinancial: false, rawData: p,
+                    amount: amt,
+                });
+            });
+
+            (paymentBankDirect || []).forEach(p => {
+                const key = `pv:${p.id}`;
+                const amt = parseFloat(p.amount) || 0;
+                coveredRefs.add(p.id);
+                // For the bank account: payment = credit (money left the bank)
+                addIfNew(key, {
+                    id: p.id, originalId: p.id,
+                    date: p.date, type: 'payment',
+                    reference: p.payment_number || p.reference || '—',
+                    description: p.narration || `Payment via ${p.payment_mode || ''}`,
+                    debit: 0, credit: amt,
+                    balance: 0, status: p.status || 'finalized',
+                    canEdit: true, isNonFinancial: false, rawData: p,
+                    amount: amt,
+                });
+            });
+
+            (quotesDirect || []).forEach(q => {
+                const key = `qt:${q.id}`;
+                addIfNew(key, {
+                    id: q.id, originalId: q.id,
+                    date: q.date, type: 'quotation',
+                    reference: q.quote_number || q.reference || '—',
+                    description: q.notes || `Quotation`,
+                    debit: 0, credit: 0,
+                    balance: 0, status: q.status || 'draft',
+                    canEdit: true, isNonFinancial: true, rawData: q,
+                    amount: parseFloat(q.total_amount) || 0,
+                });
+            });
+
+            // ── Layer 2: add journal lines NOT already covered by Layer 1 ────
+            (journalLines || []).forEach(line => {
+                const je = line.journal_entries;
+                if (!je) return;
+                const refId = je.reference_id;
+                // If this journal line's source document is already in Layer 1, skip
+                if (refId && coveredRefs.has(refId)) return;
+
+                const key = `jl:${line.id}`;
+                // Determine type from reference_type
+                let type = 'journal';
+                if (je.reference_type === 'sales_invoice') type = 'sales_invoice';
+                else if (je.reference_type === 'purchase_invoice') type = 'purchase_invoice';
+                else if (je.reference_type === 'receipt_invoice') type = 'receipt';
+                else if (je.reference_type === 'payment_invoice') type = 'payment';
+
+                addIfNew(key, {
+                    id: line.id, originalId: refId || null,
+                    date: je.date, type,
+                    reference: je.entry_number || '—',
+                    description: je.notes || '—',
+                    debit: parseFloat(line.debit) || 0,
+                    credit: parseFloat(line.credit) || 0,
+                    balance: 0,
+                    status: 'finalized',
+                    canEdit: !!refId,
+                    isNonFinancial: false, rawData: null,
+                    amount: Math.max(parseFloat(line.debit) || 0, parseFloat(line.credit) || 0),
+                });
+            });
+
+            setRawTransactions(txns);
         } catch (err) {
-            console.error('Error fetching transactions:', err);
+            console.error('TransactionsTab fetch error:', err);
             setError(err.message);
         } finally {
             setLoading(false);
         }
     };
 
-    const filteredTransactions = transactions.filter(t => {
-        return filterType === 'all' || t.type === filterType;
-    });
+    // ─── Compute running balance ─────────────────────────────────────────────
+    const processedTransactions = useMemo(() => {
+        // 1. Date filter
+        let filtered = rawTransactions.filter(t => {
+            if (!t.date) return true;
+            const d = t.date.split('T')[0];
+            if (dateFrom && d < dateFrom) return false;
+            if (dateTo && d > dateTo) return false;
+            return true;
+        });
 
-    const getTypeColor = (type) => {
-        switch (type) {
-            case 'sales_invoice': return '#10b981';
-            case 'purchase_invoice': return '#ef4444';
-            case 'receipt': return '#3b82f6';
-            case 'payment': return '#f59e0b';
-            case 'rental': return '#8b5cf6';
-            case 'amc': return '#06b6d4';
-            case 'job': return '#6366f1';
-            case 'quotation': return '#ec4899';
-            case 'journal': return '#64748b';
-            default: return 'var(--text-secondary)';
+        // 2. Type filter
+        if (filterType !== 'all') {
+            filtered = filtered.filter(t => t.type === filterType);
         }
-    };
 
-    const getTypeLabel = (type) => {
-        return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    };
+        // 3. Sort ASC for balance computation
+        const sorted = [...filtered].sort((a, b) => new Date(a.date) - new Date(b.date));
 
-    const handleEdit = async (transaction) => {
-        if (transaction.type === 'quotation' && transaction.rawData) {
-            setEditingTransaction(transaction.rawData);
-            setActiveForm(transaction.type);
+        // 4. Seed opening balance (Dr = positive debit balance, Cr = positive credit balance)
+        // In Tally convention: for a Debtor account, Dr balance means they owe us money
+        // Running balance: credit reduces balance, debit increases balance (for Dr-nature accounts)
+        let runningBal = openingBalanceType === 'cr'
+            ? -openingBalance   // credit opening = negative in Dr-convention
+            : openingBalance;    // debit opening = positive
+
+        // 5. Assign running balance
+        const withBalance = sorted.map(txn => {
+            runningBal += (txn.debit || 0) - (txn.credit || 0);
+            return { ...txn, balance: runningBal };
+        });
+
+        // 6. Reverse for display (newest first by default, or user-selected)
+        return sortDir === 'desc' ? [...withBalance].reverse() : withBalance;
+    }, [rawTransactions, dateFrom, dateTo, filterType, sortDir, openingBalance, openingBalanceType]);
+
+    // ─── Summary stats ───────────────────────────────────────────────────────
+    const stats = useMemo(() => {
+        const financialOnly = processedTransactions.filter(t => !t.isNonFinancial);
+        const totalDebit = financialOnly.reduce((s, t) => s + (t.debit || 0), 0);
+        const totalCredit = financialOnly.reduce((s, t) => s + (t.credit || 0), 0);
+        const closingBal = processedTransactions.length > 0
+            ? processedTransactions[sortDir === 'desc' ? 0 : processedTransactions.length - 1]?.balance ?? 0
+            : (openingBalanceType === 'cr' ? -openingBalance : openingBalance);
+        return { totalDebit, totalCredit, closingBal, count: processedTransactions.length };
+    }, [processedTransactions, sortDir, openingBalance, openingBalanceType]);
+
+    // ─── Grouping ────────────────────────────────────────────────────────────
+    const groupedRows = useMemo(() => {
+        if (groupBy === 'none') return [{ key: 'all', label: null, rows: processedTransactions }];
+
+        const groups = {};
+        processedTransactions.forEach(txn => {
+            let groupKey = '';
+            if (groupBy === 'month') {
+                const d = new Date(txn.date);
+                groupKey = isNaN(d) ? 'Unknown' : d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+            } else if (groupBy === 'type') {
+                groupKey = getTypeMeta(txn.type).label;
+            }
+            if (!groups[groupKey]) groups[groupKey] = [];
+            groups[groupKey].push(txn);
+        });
+
+        return Object.entries(groups).map(([key, rows]) => ({ key, label: key, rows }));
+    }, [processedTransactions, groupBy]);
+
+    // ─── Edit handler ────────────────────────────────────────────────────────
+    const handleEdit = async (txn) => {
+        if (txn.isNonFinancial && txn.rawData) {
+            setEditingTransaction(txn.rawData);
+            setActiveForm(txn.type);
             return;
         }
-
-        if (!transaction.originalId) {
-            alert('This transaction was created manually and cannot be edited via forms yet.');
+        if (txn.rawData) {
+            setEditingTransaction(txn.rawData);
+            setActiveForm(txn.type);
             return;
         }
-
-        // Lazy fetch the original transaction to edit it
+        if (!txn.originalId) {
+            alert('This manual journal entry cannot be edited via forms.');
+            return;
+        }
         try {
             const { supabase } = await import('@/lib/supabase');
             const tableMap = {
-                'sales_invoice': 'sales_invoices',
-                'purchase_invoice': 'purchase_invoices',
-                'receipt': 'receipt_vouchers',
-                'payment': 'payment_vouchers'
+                sales_invoice: 'sales_invoices',
+                purchase_invoice: 'purchase_invoices',
+                receipt: 'receipt_vouchers',
+                payment: 'payment_vouchers',
             };
-            const tableName = tableMap[transaction.type];
+            const tableName = tableMap[txn.type];
             if (!tableName) return;
-
-            const { data, error } = await supabase.from(tableName).select('*').eq('id', transaction.originalId).single();
+            const { data, error } = await supabase.from(tableName).select('*').eq('id', txn.originalId).single();
             if (error) throw error;
-            if (data) {
-                setEditingTransaction(data);
-                setActiveForm(transaction.type);
-            }
+            if (data) { setEditingTransaction(data); setActiveForm(txn.type); }
         } catch (e) {
-            console.error('Error fetching source data for edit', e);
-            alert('Failed to load transaction data.');
+            alert('Failed to load transaction: ' + e.message);
         }
     };
 
-    const handleUndo = (transaction) => {
-        alert('Undo functionality not yet implemented for live database.');
+    const closeForm = () => {
+        setActiveForm(null);
+        setEditingTransaction(null);
+        fetchAll();
     };
 
-    const totalDebits = filteredTransactions.reduce((acc, t) => acc + (t.debit || 0), 0);
-    const totalCredits = filteredTransactions.reduce((acc, t) => acc + (t.credit || 0), 0);
-    const netBalance = totalCredits - totalDebits;
+    // ─── Styles ──────────────────────────────────────────────────────────────
+    const S = {
+        container: { display: 'flex', flexDirection: 'column', gap: '12px' },
+        toolbar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' },
+        filterRow: {
+            display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end',
+            padding: '12px', backgroundColor: 'var(--bg-elevated)',
+            borderRadius: '8px', border: '1px solid var(--border-primary)',
+        },
+        filterGroup: { display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 140px' },
+        filterLabel: { fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500 },
+        filterInput: {
+            padding: '6px 8px', fontSize: '12px',
+            border: '1px solid var(--border-primary)', borderRadius: '6px',
+            backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)',
+            minWidth: 0,
+        },
+        summaryGrid: {
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px',
+        },
+        summaryCard: {
+            padding: '12px 14px', borderRadius: '8px',
+            border: '1px solid var(--border-primary)',
+            backgroundColor: 'var(--bg-elevated)',
+        },
+        summaryLabel: { fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px' },
+        summaryValue: { fontSize: '18px', fontWeight: 700 },
+        tableWrap: { overflowX: 'auto' },
+        table: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' },
+        th: {
+            padding: '8px 10px', textAlign: 'left', fontWeight: 600,
+            backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)',
+            whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--text-secondary)',
+        },
+        thRight: {
+            padding: '8px 10px', textAlign: 'right', fontWeight: 600,
+            backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)',
+            whiteSpace: 'nowrap', fontSize: '12px', color: 'var(--text-secondary)',
+        },
+        td: { padding: '7px 10px', borderBottom: '1px solid var(--border-primary)', verticalAlign: 'middle' },
+        tdRight: { padding: '7px 10px', borderBottom: '1px solid var(--border-primary)', textAlign: 'right', verticalAlign: 'middle', fontFamily: 'monospace' },
+        groupHeader: {
+            padding: '6px 10px', backgroundColor: 'var(--bg-secondary)',
+            fontWeight: 600, fontSize: '12px', color: 'var(--text-tertiary)',
+            letterSpacing: '0.05em', textTransform: 'uppercase',
+            borderBottom: '1px solid var(--border-primary)',
+        },
+        btn: {
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            padding: '6px 10px', borderRadius: '6px', fontSize: '12px',
+            border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)',
+            color: 'var(--text-primary)', cursor: 'pointer', whiteSpace: 'nowrap',
+        },
+        btnPrimary: {
+            display: 'inline-flex', alignItems: 'center', gap: '5px',
+            padding: '6px 10px', borderRadius: '6px', fontSize: '12px',
+            border: 'none', backgroundColor: 'var(--color-primary)',
+            color: 'white', cursor: 'pointer', whiteSpace: 'nowrap',
+        },
+        openingRow: {
+            backgroundColor: 'rgba(99,102,241,0.08)',
+            borderBottom: '2px solid rgba(99,102,241,0.2)',
+        },
+    };
 
+    // ─── Render ──────────────────────────────────────────────────────────────
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-            {/* Header with Filters */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
-                <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>
-                    Transaction Ledger
+        <div style={S.container}>
+
+            {/* ── Toolbar ── */}
+            <div style={S.toolbar}>
+                <h3 style={{ fontSize: '15px', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Receipt size={16} /> Transaction Ledger
                 </h3>
-
-                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        style={{
-                            padding: '6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)'
-                        }}
-                    >
-                        <option value="all">All Types</option>
-                        <option value="sales_invoice">Sales Invoice</option>
-                        <option value="purchase_invoice">Purchase Invoice</option>
-                        <option value="receipt">Receipt</option>
-                        <option value="payment">Payment</option>
-                        <option value="quotation">Quotation</option>
-                        <option value="journal">Journal Entry</option>
-                    </select>
-
-                    <button
-                        onClick={fetchTransactions}
-                        className="btn-icon"
-                        title="Refresh"
-                        style={{ backgroundColor: 'var(--bg-elevated)' }}
-                    >
-                        <Filter size={16} />
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button style={S.btn} onClick={() => setShowFilters(f => !f)}>
+                        <Filter size={13} /> Filters {showFilters ? <ChevronUp size={12}/> : <ChevronDown size={12}/>}
+                    </button>
+                    <button style={S.btn} onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}>
+                        {sortDir === 'desc' ? <SortDesc size={13}/> : <SortAsc size={13}/>}
+                        {sortDir === 'desc' ? 'Newest First' : 'Oldest First'}
+                    </button>
+                    <button style={S.btn} onClick={fetchAll} disabled={loading}>
+                        <RefreshCw size={13} className={loading ? 'animate-spin' : ''}/> Refresh
+                    </button>
+                    <button style={S.btnPrimary} onClick={() => exportToCSV(
+                        sortDir === 'asc' ? processedTransactions : [...processedTransactions].reverse(),
+                        accountName
+                    )}>
+                        <Download size={13}/> Export CSV
                     </button>
                 </div>
             </div>
 
-            {/* Balance Summary */}
-            <div style={{
-                padding: 'var(--spacing-md)',
-                backgroundColor: 'var(--bg-elevated)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-primary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                <div>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Net Balance (Display Period)</div>
-                    <div style={{
-                        fontSize: 'var(--font-size-2xl)',
-                        fontWeight: 700,
-                        color: netBalance >= 0 ? '#10b981' : '#ef4444'
-                    }}>
-                        ₹{Math.abs(netBalance).toLocaleString()}
+            {/* ── Expandable Filter Panel ── */}
+            {showFilters && (
+                <div style={S.filterRow}>
+                    <div style={S.filterGroup}>
+                        <span style={S.filterLabel}>From Date</span>
+                        <input type="date" style={S.filterInput} value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
                     </div>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                        {netBalance >= 0 ? 'Credit (Receivable/Income)' : 'Debit (Payable/Expense)'}
+                    <div style={S.filterGroup}>
+                        <span style={S.filterLabel}>To Date</span>
+                        <input type="date" style={S.filterInput} value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                    </div>
+                    <div style={S.filterGroup}>
+                        <span style={S.filterLabel}>Type</span>
+                        <select style={S.filterInput} value={filterType} onChange={e => setFilterType(e.target.value)}>
+                            <option value="all">All Types</option>
+                            <option value="sales_invoice">Sales Invoice</option>
+                            <option value="purchase_invoice">Purchase Invoice</option>
+                            <option value="receipt">Receipt</option>
+                            <option value="payment">Payment</option>
+                            <option value="quotation">Quotation</option>
+                            <option value="journal">Journal Entry</option>
+                        </select>
+                    </div>
+                    <div style={S.filterGroup}>
+                        <span style={S.filterLabel}>Group By</span>
+                        <select style={S.filterInput} value={groupBy} onChange={e => setGroupBy(e.target.value)}>
+                            <option value="none">No Grouping</option>
+                            <option value="month">Month</option>
+                            <option value="type">Type</option>
+                        </select>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={S.filterLabel}>&nbsp;</span>
+                        <button style={S.btn} onClick={() => {
+                            const fy = currentFYDates();
+                            setDateFrom(fy.from); setDateTo(fy.to);
+                            setFilterType('all'); setGroupBy('none');
+                        }}>
+                            <Calendar size={12}/> This FY
+                        </button>
                     </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Total Transactions</div>
-                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600 }}>
-                        {filteredTransactions.length}
+            )}
+
+            {/* ── Summary Cards ── */}
+            <div style={S.summaryGrid}>
+                <div style={S.summaryCard}>
+                    <div style={S.summaryLabel}>Opening Balance</div>
+                    <div style={{ ...S.summaryValue, fontSize: '16px', color: 'var(--text-secondary)' }}>
+                        ₹{fmt(openingBalance)}
+                        <span style={{ fontSize: '11px', fontWeight: 400, marginLeft: '4px', color: 'var(--text-tertiary)' }}>
+                            {openingBalanceType?.toUpperCase()}
+                        </span>
                     </div>
+                </div>
+                <div style={S.summaryCard}>
+                    <div style={S.summaryLabel}>Total Debit</div>
+                    <div style={{ ...S.summaryValue, color: '#ef4444' }}>₹{fmt(stats.totalDebit)}</div>
+                </div>
+                <div style={S.summaryCard}>
+                    <div style={S.summaryLabel}>Total Credit</div>
+                    <div style={{ ...S.summaryValue, color: '#10b981' }}>₹{fmt(stats.totalCredit)}</div>
+                </div>
+                <div style={S.summaryCard}>
+                    <div style={S.summaryLabel}>Closing Balance</div>
+                    <div style={{ ...S.summaryValue, color: stats.closingBal >= 0 ? '#10b981' : '#ef4444' }}>
+                        ₹{fmt(Math.abs(stats.closingBal))}
+                        <span style={{ fontSize: '11px', fontWeight: 400, marginLeft: '4px' }}>
+                            {stats.closingBal >= 0 ? 'Dr' : 'Cr'}
+                        </span>
+                    </div>
+                </div>
+                <div style={S.summaryCard}>
+                    <div style={S.summaryLabel}>Transactions</div>
+                    <div style={S.summaryValue}>{stats.count}</div>
                 </div>
             </div>
 
-            {/* Transactions Table */}
-            <div style={{ overflowX: 'auto', minHeight: '200px' }}>
-                {loading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: 'var(--spacing-xl)' }}>
-                        <Loader2 className="animate-spin" size={24} />
-                    </div>
-                ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+            {/* ── Table ── */}
+            {loading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '40px', gap: '10px', color: 'var(--text-tertiary)' }}>
+                    <Loader2 size={20} className="animate-spin" /> Loading transactions…
+                </div>
+            ) : error ? (
+                <div style={{ padding: '16px', color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', borderRadius: '8px', fontSize: '13px' }}>
+                    ⚠ {error}
+                </div>
+            ) : processedTransactions.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-tertiary)', border: '2px dashed var(--border-primary)', borderRadius: '8px' }}>
+                    <Receipt size={36} style={{ margin: '0 auto 10px', opacity: 0.4 }} />
+                    <p style={{ fontWeight: 500, marginBottom: '4px' }}>No Transactions Found</p>
+                    <p style={{ fontSize: '12px' }}>
+                        {filterType !== 'all' || dateFrom || dateTo
+                            ? 'Try adjusting your date range or type filter'
+                            : 'All transactions for this account will appear here'}
+                    </p>
+                </div>
+            ) : (
+                <div style={S.tableWrap}>
+                    <table style={S.table}>
                         <thead>
-                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Date</th>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Type</th>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Reference</th>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Description</th>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Debit</th>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Credit</th>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Balance</th>
-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>Actions</th>
+                            <tr>
+                                <th style={S.th}>Date</th>
+                                <th style={S.th}>Type</th>
+                                <th style={S.th}>Reference</th>
+                                <th style={S.th}>Description</th>
+                                <th style={S.thRight}>Debit</th>
+                                <th style={S.thRight}>Credit</th>
+                                <th style={S.thRight}>Balance</th>
+                                <th style={{ ...S.th, textAlign: 'center' }}>Status</th>
+                                <th style={{ ...S.th, textAlign: 'center' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredTransactions.map((txn, index) => (
-                                <tr
-                                    key={txn.id + index}
-                                    style={{
-                                        borderBottom: '1px solid var(--border-primary)',
-                                        backgroundColor: txn.isNonFinancial ? 'rgba(236, 72, 153, 0.05)' : 'transparent'
-                                    }}
-                                >
-                                    <td style={{ padding: 'var(--spacing-sm)' }}>
-                                        {new Date(txn.date).toLocaleDateString('en-GB')}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-sm)' }}>
-                                        <span style={{
-                                            padding: '2px 8px',
-                                            borderRadius: 'var(--radius-sm)',
-                                            fontSize: 'var(--font-size-xs)',
-                                            fontWeight: 600,
-                                            backgroundColor: `${getTypeColor(txn.type)}20`,
-                                            color: getTypeColor(txn.type)
-                                        }}>
-                                            {getTypeLabel(txn.type)}
+                            {/* Opening Balance Row */}
+                            {sortDir === 'asc' && openingBalance > 0 && (
+                                <tr style={S.openingRow}>
+                                    <td style={S.td} colSpan={4}>
+                                        <span style={{ fontWeight: 600, fontSize: '12px', color: 'var(--color-primary)' }}>
+                                            Opening Balance
                                         </span>
                                     </td>
-                                    <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace', fontSize: 'var(--font-size-xs)' }}>
-                                        {txn.reference}
+                                    <td style={S.tdRight}>{openingBalanceType === 'dr' ? <span style={{ color: '#ef4444', fontWeight: 600 }}>₹{fmt(openingBalance)}</span> : '—'}</td>
+                                    <td style={S.tdRight}>{openingBalanceType === 'cr' ? <span style={{ color: '#10b981', fontWeight: 600 }}>₹{fmt(openingBalance)}</span> : '—'}</td>
+                                    <td style={S.tdRight}>
+                                        <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                            ₹{fmt(openingBalance)} {openingBalanceType?.toUpperCase()}
+                                        </span>
                                     </td>
-                                    <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
-                                        {txn.description}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>
-                                        {txn.debit > 0 ? (
-                                            <span style={{ color: '#ef4444', fontWeight: 500 }}>
-                                                <TrendingDown size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                                                ₹{txn.debit.toLocaleString()}
-                                            </span>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-tertiary)' }}>-</span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>
-                                        {txn.credit > 0 ? (
-                                            <span style={{ color: '#10b981', fontWeight: 500 }}>
-                                                <TrendingUp size={14} style={{ display: 'inline', marginRight: '4px' }} />
-                                                ₹{txn.credit.toLocaleString()}
-                                            </span>
-                                        ) : (
-                                            <span style={{ color: 'var(--text-tertiary)' }}>-</span>
-                                        )}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: (txn.balance || 0) >= 0 ? '#10b981' : '#ef4444' }}>
-                                        {txn.balance != null ? `₹${Math.abs(txn.balance).toLocaleString()}${txn.balance >= 0 ? ' Cr' : ' Dr'}` : '—'}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
-                                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'center' }}>
-                                            {txn.canEdit && (
-                                                <button
-                                                    onClick={() => handleEdit(txn)}
-                                                    className="btn-icon"
-                                                    style={{ padding: '4px' }}
-                                                    title="Edit transaction"
-                                                >
-                                                    <Edit2 size={14} />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </td>
+                                    <td style={S.td} colSpan={2}></td>
                                 </tr>
+                            )}
+
+                            {groupedRows.map(group => (
+                                <>
+                                    {group.label && (
+                                        <tr key={`g-${group.key}`}>
+                                            <td colSpan={9} style={S.groupHeader}>
+                                                {group.label}
+                                                <span style={{ fontWeight: 400, marginLeft: '6px', color: 'var(--text-tertiary)' }}>
+                                                    ({group.rows.length} entries)
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {group.rows.map((txn, idx) => {
+                                        const meta = getTypeMeta(txn.type);
+                                        const isQuote = txn.isNonFinancial;
+                                        const rowStyle = {
+                                            opacity: isQuote ? 0.6 : 1,
+                                            backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
+                                        };
+                                        return (
+                                            <tr key={`${txn.id}-${idx}`} style={rowStyle}>
+                                                <td style={{ ...S.td, whiteSpace: 'nowrap', fontSize: '12px' }}>
+                                                    {fmtDate(txn.date)}
+                                                </td>
+                                                <td style={S.td}>
+                                                    <span style={{
+                                                        padding: '2px 7px', borderRadius: '4px',
+                                                        fontSize: '11px', fontWeight: 600,
+                                                        backgroundColor: meta.bg, color: meta.color,
+                                                        whiteSpace: 'nowrap',
+                                                    }}>
+                                                        {meta.label}
+                                                    </span>
+                                                </td>
+                                                <td style={{ ...S.td, fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                                                    {txn.reference}
+                                                </td>
+                                                <td style={{ ...S.td, color: 'var(--text-secondary)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {txn.description}
+                                                    {isQuote && (
+                                                        <span style={{ fontSize: '10px', marginLeft: '6px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                                                            (non-financial)
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td style={S.tdRight}>
+                                                    {txn.debit > 0 ? (
+                                                        <span style={{ color: '#ef4444', fontWeight: 500 }}>
+                                                            ₹{fmt(txn.debit)}
+                                                        </span>
+                                                    ) : isQuote ? (
+                                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>₹{fmt(txn.amount)}</span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                                                    )}
+                                                </td>
+                                                <td style={S.tdRight}>
+                                                    {txn.credit > 0 ? (
+                                                        <span style={{ color: '#10b981', fontWeight: 500 }}>
+                                                            ₹{fmt(txn.credit)}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                                                    )}
+                                                </td>
+                                                <td style={S.tdRight}>
+                                                    {!isQuote && txn.balance != null ? (
+                                                        <span style={{
+                                                            fontWeight: 600,
+                                                            color: txn.balance >= 0 ? '#10b981' : '#ef4444',
+                                                        }}>
+                                                            ₹{fmt(Math.abs(txn.balance))} {txn.balance >= 0 ? 'Dr' : 'Cr'}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-tertiary)' }}>—</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ ...S.td, textAlign: 'center' }}>
+                                                    <StatusBadge status={txn.status} />
+                                                </td>
+                                                <td style={{ ...S.td, textAlign: 'center' }}>
+                                                    {txn.canEdit && (
+                                                        <button
+                                                            onClick={() => handleEdit(txn)}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '2px' }}
+                                                            title="Edit"
+                                                        >
+                                                            <Edit2 size={13} />
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </>
                             ))}
+
+                            {/* Closing Balance Row */}
+                            {sortDir === 'desc' && openingBalance > 0 && (
+                                <tr style={S.openingRow}>
+                                    <td style={S.td} colSpan={4}>
+                                        <span style={{ fontWeight: 600, fontSize: '12px', color: 'var(--color-primary)' }}>
+                                            Opening Balance
+                                        </span>
+                                    </td>
+                                    <td style={S.tdRight}>{openingBalanceType === 'dr' ? <span style={{ color: '#ef4444', fontWeight: 600 }}>₹{fmt(openingBalance)}</span> : '—'}</td>
+                                    <td style={S.tdRight}>{openingBalanceType === 'cr' ? <span style={{ color: '#10b981', fontWeight: 600 }}>₹{fmt(openingBalance)}</span> : '—'}</td>
+                                    <td style={S.tdRight}>
+                                        <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                            ₹{fmt(openingBalance)} {openingBalanceType?.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td style={S.td} colSpan={2}></td>
+                                </tr>
+                            )}
                         </tbody>
                     </table>
-                )}
-            </div>
-
-            {!loading && filteredTransactions.length === 0 && (
-                <div style={{
-                    padding: 'var(--spacing-xl)',
-                    backgroundColor: 'var(--bg-secondary)',
-                    borderRadius: 'var(--radius-md)',
-                    textAlign: 'center',
-                    color: 'var(--text-tertiary)',
-                    border: '2px dashed var(--border-primary)'
-                }}>
-                    <Receipt size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.5 }} />
-                    <p style={{ fontSize: 'var(--font-size-md)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                        No Transactions Found
-                    </p>
-                    <p style={{ fontSize: 'var(--font-size-sm)' }}>
-                        {filterType !== 'all' ? 'Try adjusting your filters' : 'All transactions will appear here'}
-                    </p>
                 </div>
             )}
 
-            {/* Transaction Forms */}
+            {/* ── Edit Forms (inline modals) ── */}
             {activeForm === 'sales_invoice' && editingTransaction && (
-                <SalesInvoiceForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions(); // Refresh after edit
-                    }}
-                    existingInvoice={editingTransaction}
-                    onSave={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                />
+                <SalesInvoiceForm onClose={closeForm} existingInvoice={editingTransaction} onSave={closeForm} />
             )}
-
             {activeForm === 'purchase_invoice' && editingTransaction && (
-                <PurchaseInvoiceForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                    existingInvoice={editingTransaction}
-                    onSave={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                />
+                <PurchaseInvoiceForm onClose={closeForm} existingInvoice={editingTransaction} onSave={closeForm} />
             )}
-
             {activeForm === 'receipt' && editingTransaction && (
-                <ReceiptVoucherForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                    existingReceipt={editingTransaction}
-                    onSave={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                />
+                <ReceiptVoucherForm onClose={closeForm} existingReceipt={editingTransaction} onSave={closeForm} />
             )}
-
             {activeForm === 'payment' && editingTransaction && (
-                <PaymentVoucherForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                    existingPayment={editingTransaction}
-                    onSave={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                />
+                <PaymentVoucherForm onClose={closeForm} existingPayment={editingTransaction} onSave={closeForm} />
             )}
-
             {activeForm === 'quotation' && editingTransaction && (
-                <QuotationForm
-                    onClose={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                    existingQuotation={editingTransaction}
-                    onSave={() => {
-                        setActiveForm(null);
-                        setEditingTransaction(null);
-                        fetchTransactions();
-                    }}
-                />
+                <QuotationForm onClose={closeForm} existingQuotation={editingTransaction} onSave={closeForm} />
             )}
         </div>
+    );
+}
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }) {
+    const map = {
+        draft:     { label: 'Draft',      color: '#94a3b8', bg: '#94a3b815' },
+        finalized: { label: 'Finalized',  color: '#10b981', bg: '#10b98115' },
+        paid:      { label: 'Paid',       color: '#10b981', bg: '#10b98115' },
+        partial:   { label: 'Partial',    color: '#f59e0b', bg: '#f59e0b15' },
+        cancelled: { label: 'Cancelled',  color: '#ef4444', bg: '#ef444415' },
+        overdue:   { label: 'Overdue',    color: '#ef4444', bg: '#ef444415' },
+        sent:      { label: 'Sent',       color: '#3b82f6', bg: '#3b82f615' },
+        accepted:  { label: 'Accepted',   color: '#10b981', bg: '#10b98115' },
+    };
+    const m = map[status] || { label: status || '—', color: '#64748b', bg: '#64748b15' };
+    return (
+        <span style={{
+            padding: '2px 6px', borderRadius: '4px',
+            fontSize: '10px', fontWeight: 600,
+            backgroundColor: m.bg, color: m.color,
+        }}>
+            {m.label}
+        </span>
     );
 }
 
