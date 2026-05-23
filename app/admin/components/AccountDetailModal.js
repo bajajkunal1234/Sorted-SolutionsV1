@@ -377,7 +377,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh' }}>
+            <div className="modal-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90dvh' }}>
                 {/* Header */}
                 <div className="modal-header" style={{ borderBottom: '2px solid var(--border-primary)' }}>
                     <div style={{ flex: 1 }}>

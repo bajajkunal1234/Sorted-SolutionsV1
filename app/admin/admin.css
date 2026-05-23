@@ -3,10 +3,9 @@
 .admin-app {
     display: flex;
     flex-direction: column;
-    /* 100dvh tracks the visible viewport dynamically (Chrome mobile address bar fix).
-       100vh is the fallback for older browsers. */
+    /* fallback first, then dvh overrides in supporting browsers (Safari 16+, Chrome 108+) */
+    height: 100vh;
     height: 100dvh;
-    height: 100vh; /* fallback */
     background: var(--bg-primary);
     color: var(--text-primary);
     overflow: hidden;
@@ -15,9 +14,8 @@
 .admin-content-area {
     flex: 1;
     overflow-y: auto;
-    /* 70px nav + safe area + extra breathing room */
-    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 12px);
-    /* Space for bottom nav */
+    /* 60px nav icons + safe area inset + breathing room */
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px);
 }
 
 /* Dashboard Placeholder */
@@ -65,14 +63,15 @@
     bottom: 0;
     left: 0;
     right: 0;
-    /* Base height 70px + room for iOS home indicator / Android gesture bar */
-    height: calc(70px + env(safe-area-inset-bottom, 0px));
     background: var(--bg-elevated);
     border-top: 1px solid var(--border-primary);
     display: flex;
     justify-content: space-around;
-    align-items: flex-start; /* align items to top so they don't drop into gesture zone */
-    padding: 0 8px env(safe-area-inset-bottom, 0px);
+    align-items: center;          /* keep icons vertically centered in the nav area */
+    /* padding-bottom pushes nav background down into the home-indicator zone
+       without affecting icon placement */
+    padding: 0 8px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     z-index: 1000;
 }
 

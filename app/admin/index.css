@@ -321,6 +321,8 @@ p {
 
 .modal-footer {
   padding: var(--spacing-lg);
+  /* push buttons above the iOS home indicator / Android gesture bar */
+  padding-bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--border-primary);
   display: flex;
   gap: var(--spacing-md);
@@ -742,7 +744,12 @@ p {
 
   .modal {
     max-width: 100%;
-    max-height: 100vh;
+    /* Use dvh (dynamic viewport height) so the modal fits within the visible
+       area in Safari even when the address bar is visible.
+       Subtract safe-area-inset-top so it doesn't go under the status bar.
+       Fallback for browsers without dvh support: calc with env(). */
+    max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     border-radius: 0;
   }
 
