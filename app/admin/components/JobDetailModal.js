@@ -524,11 +524,11 @@ function JobDetailModal({ job, onClose, onUpdate }) {
 
                 {/* Tabs */}
                 <div style={{
-                    display: 'flex',
-                    gap: 'var(--spacing-sm)',
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
+                    columnGap: 'var(--spacing-sm)',
                     padding: 'var(--spacing-md)',
                     borderBottom: '1px solid var(--border-primary)',
-                    overflowX: 'auto'
                 }}>
                     {tabs.map(tab => {
                         const Icon = tab.icon;
@@ -542,8 +542,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '6px',
-                                    flex: '1 1 0',
-                                    padding: '8px 16px',
+                                    width: '100%',
+                                    padding: '8px 12px',
                                     fontSize: '14px',
                                     fontWeight: 600,
                                     border: 'none',
@@ -553,10 +553,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                     backgroundColor: isActive ? '#10b981' : 'var(--bg-secondary)',
                                     color: isActive ? '#ffffff' : 'var(--text-secondary)',
                                     whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
                                     minWidth: 0
                                 }}
                             >
-                                <Icon size={16} />
+                                <Icon size={16} style={{ flexShrink: 0 }} />
                                 {tab.label}
                             </button>
                         );

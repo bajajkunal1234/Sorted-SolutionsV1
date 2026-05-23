@@ -316,6 +316,7 @@ p {
 .modal-body {
   padding: var(--spacing-lg);
   overflow-y: auto;
+  overflow-x: hidden;  /* prevent body content from widening the modal */
   flex: 1;
 }
 
@@ -383,6 +384,7 @@ p {
 .modal-content {
   padding: var(--spacing-lg);
   overflow-y: auto;
+  overflow-x: hidden;  /* prevent body content from widening the modal */
   flex: 1;
   background-color: var(--bg-primary);
 }
