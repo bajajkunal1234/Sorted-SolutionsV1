@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, RefreshCcw, FileText, Info } from 'lucide-react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, RefreshCcw, FileText, Info, ChevronDown, Check } from 'lucide-react';
 import { transactionsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
@@ -88,10 +88,36 @@ function DaybookView() {
     const [error, setError] = useState(null);
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-    const [filterType, setFilterType] = useState('all');
+    // Excel-style multi-checkbox filter — all types selected by default
+    const ALL_TYPES = ['sales', 'purchase', 'receipt', 'payment'];
+    const [selectedTypes, setSelectedTypes] = useState(new Set(ALL_TYPES));
+    const [filterOpen, setFilterOpen] = useState(false);
+    const filterRef = useRef(null);
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [editMode, setEditMode] = useState(false);
     const [showBalanceInfo, setShowBalanceInfo] = useState(false);
+
+    // Close filter dropdown on outside click
+    useEffect(() => {
+        const handleClick = (e) => {
+            if (filterRef.current && !filterRef.current.contains(e.target)) {
+                setFilterOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    const toggleType = (type) => {
+        setSelectedTypes(prev => {
+            const next = new Set(prev);
+            if (next.has(type)) { next.delete(type); } else { next.add(type); }
+            return next;
+        });
+    };
+
+    const isAllSelected = selectedTypes.size === ALL_TYPES.length;
+    const isNoneSelected = selectedTypes.size === 0;
 
     const fetchTransactions = useCallback(async () => {
         try {
@@ -120,7 +146,8 @@ function DaybookView() {
         let filtered = transactions.filter(txn => {
             const txnDate = new Date(txn.date).toISOString().split('T')[0];
             const matchesDate = txnDate >= startDate && txnDate <= endDate;
-            const matchesType = filterType === 'all' || txn.type === filterType;
+            // Show row if its type is in the checked set (or set is empty = show all)
+            const matchesType = selectedTypes.size === 0 || selectedTypes.has(txn.type);
             return matchesDate && matchesType;
         });
 
@@ -136,7 +163,7 @@ function DaybookView() {
             balance += (txn.debit - txn.credit);
             return { ...txn, balance };
         });
-    }, [transactions, startDate, endDate, filterType, openingBalance]);
+    }, [transactions, startDate, endDate, selectedTypes, openingBalance]);
 
     const totals = useMemo(() => processedTransactions.reduce(
         (acc, txn) => ({ debit: acc.debit + txn.debit, credit: acc.credit + txn.credit }),
@@ -192,21 +219,121 @@ function DaybookView() {
                     />
                 </div>
 
-                {/* Type Filter */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                    <Filter size={16} style={{ color: 'var(--text-tertiary)' }} />
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
+                {/* Excel-style Checkbox Filter */}
+                <div ref={filterRef} style={{ position: 'relative' }}>
+                    <button
+                        onClick={() => setFilterOpen(v => !v)}
                         className="form-input"
-                        style={{ fontSize: 'var(--font-size-sm)', padding: '6px 10px' }}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            fontSize: 'var(--font-size-sm)', padding: '6px 12px',
+                            cursor: 'pointer', userSelect: 'none',
+                            border: !isAllSelected ? '1px solid var(--color-primary)' : undefined,
+                            backgroundColor: !isAllSelected ? 'rgba(99,102,241,0.08)' : undefined,
+                        }}
                     >
-                        <option value="all">All Types</option>
-                        <option value="sales">Sales</option>
-                        <option value="purchase">Purchase</option>
-                        <option value="receipt">Receipt</option>
-                        <option value="payment">Payment</option>
-                    </select>
+                        <Filter size={14} style={{ color: !isAllSelected ? 'var(--color-primary)' : 'var(--text-tertiary)' }} />
+                        <span style={{ color: !isAllSelected ? 'var(--color-primary)' : undefined }}>
+                            {isAllSelected ? 'All Types' : isNoneSelected ? 'None' : `${selectedTypes.size} Types`}
+                        </span>
+                        {!isAllSelected && (
+                            <span style={{
+                                backgroundColor: 'var(--color-primary)', color: 'white',
+                                borderRadius: 999, fontSize: 10, fontWeight: 700,
+                                padding: '1px 6px', marginLeft: 2,
+                            }}>{selectedTypes.size}</span>
+                        )}
+                        <ChevronDown size={13} style={{ marginLeft: 2, opacity: 0.6, transform: filterOpen ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+                    </button>
+
+                    {/* Dropdown */}
+                    {filterOpen && (
+                        <div style={{
+                            position: 'absolute', top: 'calc(100% + 6px)', left: 0,
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+                            zIndex: 999, minWidth: 200, overflow: 'hidden',
+                        }}>
+                            {/* Header: Select All / Clear */}
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                padding: '8px 12px', borderBottom: '1px solid var(--border-primary)',
+                                backgroundColor: 'var(--bg-secondary)',
+                            }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Filter by Type</span>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button
+                                        onClick={() => setSelectedTypes(new Set(ALL_TYPES))}
+                                        style={{ fontSize: 11, color: 'var(--color-primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                                    >All</button>
+                                    <span style={{ color: 'var(--border-primary)' }}>|</span>
+                                    <button
+                                        onClick={() => setSelectedTypes(new Set())}
+                                        style={{ fontSize: 11, color: 'var(--color-danger)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0 }}
+                                    >None</button>
+                                </div>
+                            </div>
+
+                            {/* Checkboxes */}
+                            {ALL_TYPES.map(type => {
+                                const checked = selectedTypes.has(type);
+                                const color = getTypeColor(type);
+                                const count = transactions.filter(t => t.type === type).length;
+                                return (
+                                    <label
+                                        key={type}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 10,
+                                            padding: '9px 14px', cursor: 'pointer',
+                                            transition: 'background 0.12s',
+                                            backgroundColor: checked ? `${color}0d` : 'transparent',
+                                            borderLeft: checked ? `3px solid ${color}` : '3px solid transparent',
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = `${color}18`}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = checked ? `${color}0d` : 'transparent'}
+                                    >
+                                        {/* Custom checkbox */}
+                                        <div
+                                            onClick={() => toggleType(type)}
+                                            style={{
+                                                width: 16, height: 16, borderRadius: 4, flexShrink: 0,
+                                                border: `2px solid ${checked ? color : 'var(--border-primary)'}`,
+                                                backgroundColor: checked ? color : 'transparent',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                transition: 'all 0.15s',
+                                            }}
+                                        >
+                                            {checked && <Check size={10} color="white" strokeWidth={3} />}
+                                        </div>
+                                        <div onClick={() => toggleType(type)} style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                                <span style={{
+                                                    width: 8, height: 8, borderRadius: '50%',
+                                                    backgroundColor: color, flexShrink: 0,
+                                                }} />
+                                                <span style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                                                    {getTypeLabel(type)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <span style={{ fontSize: 11, color: 'var(--text-tertiary)', backgroundColor: 'var(--bg-secondary)', borderRadius: 999, padding: '1px 7px', fontWeight: 600 }}>
+                                            {count}
+                                        </span>
+                                    </label>
+                                );
+                            })}
+
+                            {/* Footer close */}
+                            <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border-primary)', textAlign: 'right' }}>
+                                <button
+                                    onClick={() => setFilterOpen(false)}
+                                    className="btn btn-primary"
+                                    style={{ padding: '4px 14px', fontSize: 12 }}
+                                >Done</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ flex: 1 }} />
