@@ -28,7 +28,7 @@ const MUMBAI_LOCALITIES = [
     { name: 'Worli', pincode: '400018' },
 ];
 
-function CustomerPropertiesTab({ customerId }) {
+function CustomerPropertiesTab({ customerId, account }) {
     const [properties, setProperties] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
@@ -47,6 +47,45 @@ function CustomerPropertiesTab({ customerId }) {
         property_type: 'residential'
     });
 
+    // Merge account.properties JSONB entries that didn't come back from the API
+    const mergeInlineProperties = (apiResults) => {
+        const seenKeys = new Set();
+        const merged = [...(apiResults || [])];
+        for (const p of merged) {
+            // track real ids AND synthetic inline keys
+            seenKeys.add(String(p.id));
+            const addrKey = [p.flat_number, p.building_name, p.address, p.locality, p.pincode].join('|').toLowerCase();
+            seenKeys.add(addrKey);
+        }
+
+        const inlineProps = Array.isArray(account?.properties) ? account.properties : [];
+        for (const p of inlineProps) {
+            const addr = (p.address || '').trim();
+            if (!addr) continue;
+            const addrKey = [p.flat_number, p.building_name, p.address, p.locality, p.pincode].join('|').toLowerCase();
+            if (seenKeys.has(addrKey)) continue;
+            seenKeys.add(addrKey);
+            // Use the booking-id if present (e.g. 'booking-uuid'), else synthetic
+            const id = p.id || `inline:${addrKey}`;
+            merged.push({
+                id,
+                flat_number: p.flat_number || '',
+                building_name: p.building_name || p.name || '',
+                address: addr,
+                locality: p.locality || '',
+                city: p.city || '',
+                pincode: p.pincode || '',
+                property_type: p.property_type || 'residential',
+                latitude: p.lat || p.latitude || null,
+                longitude: p.lng || p.longitude || null,
+                link_id: null,
+                linked_at: null,
+                _source: 'inline',
+            });
+        }
+        return merged;
+    };
+
     useEffect(() => {
         if (customerId) fetchProperties();
     }, [customerId]);
@@ -57,10 +96,14 @@ function CustomerPropertiesTab({ customerId }) {
             const res = await fetch(`/api/admin/properties?customer_id=${customerId}`);
             const data = await res.json();
             if (data.success) {
-                setProperties(data.data || []);
+                setProperties(mergeInlineProperties(data.data || []));
+            } else {
+                // API failed — fall back to inline data only
+                setProperties(mergeInlineProperties([]));
             }
         } catch (error) {
             console.error('Failed to fetch properties:', error);
+            setProperties(mergeInlineProperties([]));
         } finally {
             setLoading(false);
         }
