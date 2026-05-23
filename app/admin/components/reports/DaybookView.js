@@ -15,6 +15,56 @@ function DaybookView() {
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [editMode, setEditMode] = useState(false);
 
+    // Normalize raw API fields → display fields
+    const normalizeTransaction = (raw) => {
+        const type = raw.type || '';
+
+        // Voucher number
+        const voucherNo =
+            raw.invoice_number ||
+            raw.receipt_number ||
+            raw.payment_number ||
+            raw.quote_number ||
+            raw.reference ||
+            '';
+
+        // Account name
+        const account = raw.account_name || raw.accounts?.name || '';
+
+        // Narration / description
+        const narration =
+            raw.narration ||
+            raw.notes ||
+            raw.reference_number ||
+            '';
+
+        // Debit / Credit amounts
+        // Sales invoice  → customer is debited (debit = total_amount)
+        // Purchase invoice → vendor is credited (credit = total_amount)
+        // Receipt         → bank/cash debited, customer credited (credit = amount)
+        // Payment         → vendor debited, bank/cash credited (debit = amount)
+        let debit = 0;
+        let credit = 0;
+        if (type === 'sales') {
+            debit = parseFloat(raw.total_amount) || 0;
+        } else if (type === 'purchase') {
+            credit = parseFloat(raw.total_amount) || 0;
+        } else if (type === 'receipt') {
+            credit = parseFloat(raw.amount) || 0;
+        } else if (type === 'payment') {
+            debit = parseFloat(raw.amount) || 0;
+        }
+
+        return {
+            ...raw,
+            voucherNo,
+            account,
+            narration,
+            debit,
+            credit,
+        };
+    };
+
     // Fetch transactions
     const fetchTransactions = async () => {
         try {
@@ -24,7 +74,7 @@ function DaybookView() {
                 start_date: startDate,
                 end_date: endDate
             });
-            setTransactions(data || []);
+            setTransactions((data || []).map(normalizeTransaction));
             setError(null);
         } catch (err) {
             console.error('Failed to fetch transactions:', err);
@@ -47,10 +97,14 @@ function DaybookView() {
             return matchesDate && matchesType;
         });
 
-        // Sort by date
-        filtered.sort((a, b) => new Date(a.date) - new Date(b.date));
+        // Sort by date then by created_at for same-day ordering
+        filtered.sort((a, b) => {
+            const dateDiff = new Date(a.date) - new Date(b.date);
+            if (dateDiff !== 0) return dateDiff;
+            return new Date(a.created_at) - new Date(b.created_at);
+        });
 
-        // Calculate running balance
+        // Calculate running balance (debit increases, credit decreases)
         let balance = 0;
         return filtered.map(txn => {
             balance += (txn.debit - txn.credit);
@@ -148,7 +202,25 @@ function DaybookView() {
                 <button
                     className="btn btn-secondary"
                     style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                    onClick={() => console.log('Export')}
+                    onClick={() => {
+                        const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
+                        const rows = processedTransactions.map(txn => [
+                            new Date(txn.date).toLocaleDateString('en-GB'),
+                            txn.type,
+                            txn.voucherNo,
+                            txn.account,
+                            (txn.narration || '').replace(/,/g, ' '),
+                            txn.debit.toFixed(2),
+                            txn.credit.toFixed(2),
+                            txn.balance.toFixed(2),
+                        ]);
+                        const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = `Daybook_${startDate}_to_${endDate}.csv`;
+                        a.click();
+                    }}
                 >
                     <Download size={16} />
                     Export
