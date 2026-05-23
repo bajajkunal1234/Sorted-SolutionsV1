@@ -920,47 +920,6 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         />
                     </div>
 
-                    {/* 1. Job Name — auto-filled, always at the top */}
-                    <div className="form-group">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                            <label className="form-label" style={{ marginBottom: 0 }}>Job Name *</label>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setJobNameManuallyEdited(false);
-                                    const auto = buildAutoJobName(
-                                        formData.warranty,
-                                        formData.subcategory,
-                                        formData.product,
-                                        formData.issue,
-                                        formData.property
-                                    );
-                                    if (auto) setFormData(prev => ({ ...prev, jobName: auto }));
-                                }}
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(99,102,241,0.1)' }}
-                                title="Auto-fill: [New/Repeat] [Appliance Type] [Issue] [Locality]"
-                            >
-                                ✨ Auto-fill
-                            </button>
-                        </div>
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder="e.g., New Split AC Not Cooling Andheri W"
-                            value={formData.jobName}
-                            onChange={(e) => {
-                                setJobNameManuallyEdited(true);
-                                setFormData(prev => ({ ...prev, jobName: e.target.value }));
-                            }}
-                        />
-                        {!jobNameManuallyEdited && (formData.subcategory || formData.issue || formData.property) && (
-                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
-                                🔄 Auto-filled: {formData.warranty ? 'Repeat' : 'New'} · Appliance Type · Issue · Locality — edit to customise
-                            </div>
-                        )}
-                        {errors.jobName && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.jobName}</span>}
-                    </div>
-
                     {/* 2. Thumbnail Upload */}
                     <div className="form-group">
                         <label className="form-label">Job Thumbnail (Optional)</label>
@@ -1534,6 +1493,57 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                             </select>
                             {errors.assignedTo && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.assignedTo}</span>}
                         </div>
+                    </div>
+
+                    {/* Job Name — auto-filled last after all inputs are set */}
+                    <div style={{ height: '1px', backgroundColor: 'var(--border-primary)', margin: 'var(--spacing-md) 0' }} />
+                    <div className="form-group" style={{ marginBottom: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <div>
+                                <label className="form-label" style={{ marginBottom: 0 }}>Job Name *</label>
+                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '2px' }}>Auto-generated from your selections above</div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setJobNameManuallyEdited(false);
+                                    const auto = buildAutoJobName(
+                                        formData.warranty,
+                                        formData.subcategory,
+                                        formData.product,
+                                        formData.issue,
+                                        formData.property
+                                    );
+                                    if (auto) setFormData(prev => ({ ...prev, jobName: auto }));
+                                }}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(99,102,241,0.1)', whiteSpace: 'nowrap' }}
+                                title="Auto-fill: [New/Repeat] [Appliance Type] [Issue] [Locality]"
+                            >
+                                ✨ Re-generate
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="e.g., New Split AC Not Cooling Andheri W"
+                            value={formData.jobName}
+                            onChange={(e) => {
+                                setJobNameManuallyEdited(true);
+                                setFormData(prev => ({ ...prev, jobName: e.target.value }));
+                            }}
+                            style={{ fontWeight: 600 }}
+                        />
+                        {!jobNameManuallyEdited && (formData.subcategory || formData.issue || formData.property) && (
+                            <div style={{ fontSize: '11px', color: 'var(--color-success)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                ✓ Auto-filled: <strong>{formData.warranty ? 'Repeat' : 'New'}</strong> · Appliance Type · Issue · Locality
+                            </div>
+                        )}
+                        {jobNameManuallyEdited && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginTop: '3px' }}>
+                                Manually edited — click ✨ Re-generate to reset to auto format
+                            </div>
+                        )}
+                        {errors.jobName && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.jobName}</span>}
                     </div>
                 </div >
 
