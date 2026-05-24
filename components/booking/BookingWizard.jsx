@@ -328,18 +328,53 @@ export default function BookingWizard() {
             const result = await response.json();
             if (!result.success) throw new Error(result.error || 'Failed to complete booking');
 
-            // 3. Log user into customer app natively so they bypass login screen next time
-            // The /api/booking endpoint returns the newly created or found customerAuthId
-            if (result.customerAuthId || result.customerId) {
+            // 3. Log user into customer app so they bypass login screen
+            const authId = result.customerAuthId || result.customerId;
+
+            if (authId) {
+                // Best case: DB returned a real customer ID
                 saveSession({
-                    id: result.customerAuthId || result.customerId,
+                    id: authId,
                     role: 'customer',
                     phone: rawPhone,
                     name: formData.name,
-                    // profile_complete: false tells the OnboardingWizard to prompt
-                    // the customer to set a password on their first dashboard visit.
                     profile_complete: false,
                 });
+            } else {
+                // Fallback: DB customer creation failed server-side (RLS / constraint).
+                // Try a quick lookup by phone from the client before giving up.
+                try {
+                    const lookupRes = await fetch(`/api/auth/customer/lookup?phone=${encodeURIComponent(rawPhone)}`);
+                    const lookupData = await lookupRes.json();
+                    if (lookupData.success && lookupData.customerId) {
+                        saveSession({
+                            id: lookupData.customerId,
+                            role: 'customer',
+                            phone: rawPhone,
+                            name: formData.name,
+                            profile_complete: lookupData.profile_complete ?? false,
+                        });
+                    } else {
+                        // Last resort: save a temp session with booking number as ID.
+                        // User will be prompted to complete their profile on first visit.
+                        saveSession({
+                            id: `booking-${result.bookingId || result.bookingNumber}`,
+                            role: 'customer',
+                            phone: rawPhone,
+                            name: formData.name,
+                            profile_complete: false,
+                        });
+                    }
+                } catch {
+                    // Even if lookup fails, save temp session so they reach the dashboard
+                    saveSession({
+                        id: `booking-${result.bookingId || result.bookingNumber}`,
+                        role: 'customer',
+                        phone: rawPhone,
+                        name: formData.name,
+                        profile_complete: false,
+                    });
+                }
             }
 
             // 4. GTM tracking
