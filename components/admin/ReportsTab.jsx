@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState } from 'react';
 import { FileText, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clipboard, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, User } from 'lucide-react';
@@ -34,7 +34,7 @@ function ReportsTab({ onOpenSettings }) {
         { id: 'previsit', label: 'Pre-visit Checklist', icon: Clipboard, component: PrevisitRequirements, color: '#14b8a6', description: 'Manage pre-visit requirements' },
         { id: 'slots', label: 'Website Settings', icon: Clock, component: WebsiteSettings, color: '#f97316', description: 'Manage website content & forms' },
         { id: 'print', label: 'Print Setup', icon: Printer, component: PrintSetup, color: '#84cc16', description: 'Configure print templates' },
-        { id: 'permissions', label: 'Permissions', icon: Shield, component: TechnicianPermissions, color: '#64748b', description: 'Manage user permissions' },
+        { id: 'permissions', label: 'Technician Profiles', icon: User, component: TechnicianPermissions, color: '#64748b', description: 'Manage technician profiles & what customers see' },
         { id: 'incentives', label: 'Incentives', icon: Award, component: IncentivesManagement, color: '#0ea5e9', description: 'Configure incentive programs' },
         { id: 'financial', label: 'Financial Reports', icon: TrendingUp, component: FinancialReports, color: '#a855f7', description: 'View financial analytics' },
         { id: 'templates', label: 'WhatsApp Templates', icon: MessageSquare, component: WhatsAppTemplateManager, color: '#22c55e', description: 'Manage WhatsApp message templates' },

@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
     Clock, Wrench, CheckCircle, XCircle, MapPin, Calendar,
     Plus, ChevronRight, X, FileText, Phone, AlertCircle,
     Send, RefreshCw, Hammer, Package, Shield, Star, ChevronDown,
     Eye, TrendingUp, Zap, Wind, Thermometer, Tv, Droplets,
     Coffee, Loader2, MessageCircle, CreditCard, ArrowRight,
-    CheckCircle2, Info, Navigation, PhoneCall
+    CheckCircle2, Info, Navigation, PhoneCall, Share2, Printer,
+    RotateCcw
 } from 'lucide-react'
 import BookServiceModal from '../modals/BookServiceModal'
 import RescheduleModal from '../modals/RescheduleModal'
@@ -1035,20 +1036,78 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
         })()
         : null
 
+    // ── Swipe-to-dismiss ─────────────────────────────────────────────────────
+    const sheetRef = useRef(null)
+    const swipeStartY = useRef(0)
+    const [swipeY, setSwipeY] = useState(0)
+    const handleSheetTouchStart = (e) => { swipeStartY.current = e.touches[0].clientY }
+    const handleSheetTouchMove = (e) => {
+        const delta = e.touches[0].clientY - swipeStartY.current
+        if (delta > 0) setSwipeY(Math.min(delta, 220))
+    }
+    const handleSheetTouchEnd = () => {
+        if (swipeY > 80) onClose()
+        else setSwipeY(0)
+    }
+
+    // ── Celebration confetti for completed jobs ──────────────────────────────
+    const [showCelebration, setShowCelebration] = useState(false)
+    const celebrationKey = `confetti_seen_${job.id}`
+    useEffect(() => {
+        const isClosed = job.status === 'closed' || job.status === 'completed'
+        const alreadySeen = sessionStorage.getItem(celebrationKey)
+        if (isClosed && !alreadySeen) {
+            setShowCelebration(true)
+            sessionStorage.setItem(celebrationKey, '1')
+            import('canvas-confetti').then(m => {
+                const confetti = m.default
+                confetti({ particleCount: 140, spread: 90, origin: { y: 0.55 }, colors: ['#38bdf8','#3b82f6','#a78bfa','#ffffff','#6ee7b7'] })
+                setTimeout(() => confetti({ particleCount: 60, spread: 120, origin: { y: 0.4 }, colors: ['#f59e0b','#fbbf24'] }), 350)
+            }).catch(() => {})
+            setTimeout(() => setShowCelebration(false), 2800)
+        }
+    }, [job.id, job.status])
+
+    // ── Technician profile from DB ───────────────────────────────────────────
+    const techProfile = useTechProfile(job.technician_id || job.assignedTechnicianId)
+
     return (
         <>
             <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 200 }} />
-            <div style={{
-                position: 'fixed', bottom: 0, left: 0, right: 0,
-                background: 'linear-gradient(180deg, #0d1526 0%, #0a0f1e 100%)',
-                borderTop: `1px solid ${cfg.border}`,
-                borderRadius: '28px 28px 0 0',
-                padding: '0 0 calc(80px + env(safe-area-inset-bottom))',
-                zIndex: 201, maxHeight: '88dvh', overflowY: 'auto',
-                boxShadow: `0 -24px 80px rgba(0,0,0,0.8), 0 -1px 0 ${cfg.color}33`
-            }}>
+            <div
+                ref={sheetRef}
+                onTouchStart={handleSheetTouchStart}
+                onTouchMove={handleSheetTouchMove}
+                onTouchEnd={handleSheetTouchEnd}
+                style={{
+                    position: 'fixed', bottom: 0, left: 0, right: 0,
+                    background: 'linear-gradient(180deg, #0d1526 0%, #0a0f1e 100%)',
+                    borderTop: `1px solid ${cfg.border}`,
+                    borderRadius: '28px 28px 0 0',
+                    padding: '0 0 calc(80px + env(safe-area-inset-bottom))',
+                    zIndex: 201, maxHeight: '88dvh', overflowY: 'auto',
+                    boxShadow: `0 -24px 80px rgba(0,0,0,0.8), 0 -1px 0 ${cfg.color}33`,
+                    transform: `translateY(${swipeY}px)`,
+                    transition: swipeY === 0 ? 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)' : 'none',
+                }}
+            >
                 {/* Drag handle */}
-                <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '14px auto 0' }} />
+                <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '14px auto 0', cursor: 'grab' }} />
+
+                {/* Celebration overlay */}
+                {showCelebration && (
+                    <div style={{
+                        position: 'absolute', inset: 0, zIndex: 50, borderRadius: '28px 28px 0 0',
+                        background: 'linear-gradient(160deg, rgba(16,185,129,0.18), rgba(56,189,248,0.1), rgba(10,15,30,0.95))',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        gap: 10, animation: 'fadeUp 0.4s ease',
+                        backdropFilter: 'blur(4px)',
+                    }}>
+                        <div style={{ fontSize: 62 }}>🎉</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: '#f8fafc', textAlign: 'center' }}>Service Complete!</div>
+                        <div style={{ fontSize: 13, color: '#6ee7b7', fontWeight: 600, textAlign: 'center' }}>Thank you for choosing Sorted Solutions</div>
+                    </div>
+                )}
 
                 {/* Sticky header */}
                 <div style={{
@@ -1176,32 +1235,47 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                         {(job.locality || job.city) && <InfoTile label="Location" value={[job.locality, job.city].filter(Boolean).join(', ')} icon={MapPin} />}
                     </div>
 
-                    {/* ── Technician card ── */}
-                    {(job.assignedTechnician || job.technicianMobile) && (
-                        <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{
-                                width: 44, height: 44, borderRadius: 14,
-                                background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(59,130,246,0.15))',
-                                border: '1px solid rgba(56,189,248,0.25)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                fontSize: 18, fontWeight: 700, color: '#38bdf8'
-                            }}>
-                                {job.assignedTechnician?.[0]?.toUpperCase() || '?'}
+                    {/* ── Technician profile card from DB ── */}
+                    {(job.technician_id || job.assignedTechnicianId || job.assignedTechnician) && (
+                        <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px', marginBottom: 14 }}>
+                            <div style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Your Technician</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                {/* Photo or initials */}
+                                {techProfile?.photo_url
+                                    ? <img src={techProfile.photo_url} alt={techProfile.name} style={{ width: 50, height: 50, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(56,189,248,0.4)', flexShrink: 0 }} />
+                                    : <div style={{ width: 50, height: 50, borderRadius: '50%', background: 'linear-gradient(135deg, rgba(56,189,248,0.25), rgba(59,130,246,0.2))', border: '1px solid rgba(56,189,248,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18, fontWeight: 700, color: '#38bdf8' }}>
+                                        {(techProfile?.name || job.assignedTechnician || '?')[0]?.toUpperCase()}
+                                      </div>
+                                }
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', marginBottom: 3 }}>
+                                        {techProfile?.name || job.assignedTechnician || 'Being assigned...'}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                        {techProfile?.rating > 0 && (
+                                            <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 700 }}>★ {techProfile.rating}</span>
+                                        )}
+                                        {techProfile?.years_experience > 0 && (
+                                            <span style={{ fontSize: 11, color: '#475569' }}>{techProfile.years_experience} yrs experience</span>
+                                        )}
+                                    </div>
+                                    {techProfile?.bio && (
+                                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>{techProfile.bio}</div>
+                                    )}
+                                    {(techProfile?.specializations || []).length > 0 && (
+                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
+                                            {techProfile.specializations.slice(0, 3).map(s => (
+                                                <span key={s} style={{ fontSize: 10, background: 'rgba(56,189,248,0.1)', color: '#7dd3fc', padding: '2px 7px', borderRadius: 8, fontWeight: 600 }}>{s}</span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                {job.technicianMobile && (
+                                    <a href={`tel:${job.technicianMobile}`} style={{ padding: '9px 14px', borderRadius: 12, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)', color: '#38bdf8', fontSize: 12, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                                        <Phone size={13} /> Call
+                                    </a>
+                                )}
                             </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Your Technician</div>
-                                <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>{job.assignedTechnician || 'Being assigned...'}</div>
-                            </div>
-                            {job.technicianMobile && (
-                                <a href={`tel:${job.technicianMobile}`} style={{
-                                    padding: '9px 14px', borderRadius: 12,
-                                    background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)',
-                                    color: '#38bdf8', fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                                    display: 'flex', alignItems: 'center', gap: 5
-                                }}>
-                                    <Phone size={13} /> Call
-                                </a>
-                            )}
                         </div>
                     )}
 
@@ -1212,7 +1286,46 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                         </div>
                     )}
 
-                    {/* ── Action Buttons ── */}
+                    {/* ── Quick Re-Book (on closed/cancelled) ── */}
+                    {(job.status === 'closed' || job.status === 'completed' || job.status === 'cancelled') && (
+                        <button
+                            onClick={() => onReBook?.(job)}
+                            style={{
+                                width: '100%', padding: '12px', borderRadius: 14, marginBottom: 14,
+                                background: 'linear-gradient(135deg, rgba(56,189,248,0.1), rgba(59,130,246,0.07))',
+                                border: '1px solid rgba(56,189,248,0.2)', color: '#38bdf8',
+                                fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                                transition: 'all 0.15s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = 'rgba(56,189,248,0.15)'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'linear-gradient(135deg, rgba(56,189,248,0.1), rgba(59,130,246,0.07))'}
+                        >
+                            <RotateCcw size={14} /> Book Same Service Again
+                        </button>
+                    )}
+
+                    {/* ── Invoice share actions ── */}
+                    {showInvoice && (
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                            <button
+                                onClick={() => {
+                                    const msg = `Hi, I'd like to share my invoice for Job ${job.jobNumber || job.id?.slice(0,8)} — ${job.appliance_type || 'Appliance'} repair by Sorted Solutions. Please WhatsApp me the invoice.`
+                                    window.open(`https://wa.me/919082225163?text=${encodeURIComponent(msg)}`, '_blank')
+                                }}
+                                style={{ flex: 1, padding: '10px', borderRadius: 12, background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: '#4ade80', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                            >
+                                <Share2 size={13} /> Share Invoice
+                            </button>
+                            <button
+                                onClick={() => window.print()}
+                                style={{ flex: 1, padding: '10px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#64748b', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                            >
+                                <Printer size={13} /> Print / Save PDF
+                            </button>
+                        </div>
+                    )}
+
                     {!isClosedOrCancelled && (
                         <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
                             <button
@@ -1276,10 +1389,74 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
             </div>
 
             <style>{`
+                @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.88); } }
+                @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
             `}</style>
         </>
+    )
+}
+
+// ── Service History Timeline (for 'all' tab) ─────────────────────────────────
+function ServiceTimeline({ jobs, onSelect }) {
+    const grouped = {}
+    for (const job of jobs) {
+        const month = new Date(job.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+        if (!grouped[month]) grouped[month] = []
+        grouped[month].push(job)
+    }
+    const appEmoji = (type = '') => {
+        const t = type.toLowerCase()
+        if (t.includes('ac') || t.includes('air')) return '❄️'
+        if (t.includes('fridge')) return '🧊'
+        if (t.includes('wash')) return '🫧'
+        if (t.includes('tv')) return '📺'
+        if (t.includes('micro') || t.includes('oven')) return '⚡'
+        if (t.includes('water') || t.includes('ro')) return '💧'
+        if (t.includes('geyser') || t.includes('heater')) return '🔥'
+        return '🔧'
+    }
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {Object.entries(grouped).map(([month, mjobs]) => (
+                <div key={month}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#334155', letterSpacing: 1, textTransform: 'uppercase', padding: '14px 0 8px' }}>{month}</div>
+                    <div style={{ position: 'relative', paddingLeft: 24 }}>
+                        {/* Vertical rail */}
+                        <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 1.5, background: 'rgba(255,255,255,0.07)' }} />
+                        {mjobs.map((job, i) => {
+                            const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.new_job_request
+                            const type = job.appliance_type || job.issue_category || 'Service'
+                            return (
+                                <button
+                                    key={job.id}
+                                    onClick={() => onSelect(job)}
+                                    style={{
+                                        width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                                        padding: '10px 12px', marginBottom: 8, borderRadius: 14,
+                                        background: 'rgba(255,255,255,0.025)', border: `1px solid ${cfg.border}`,
+                                        cursor: 'pointer', textAlign: 'left',
+                                        transition: 'background 0.15s',
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.025)'}
+                                >
+                                    {/* Dot on rail */}
+                                    <div style={{ position: 'absolute', left: 5, width: 8, height: 8, borderRadius: '50%', background: cfg.color, boxShadow: `0 0 6px ${cfg.color}60` }} />
+                                    <div style={{ fontSize: 22 }}>{appEmoji(type)}</div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0', marginBottom: 1 }}>{type}</div>
+                                        <div style={{ fontSize: 11, color: '#475569' }}>{new Date(job.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
+                                    </div>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, padding: '3px 8px', borderRadius: 20, flexShrink: 0 }}>{cfg.label}</span>
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
     )
 }
 
@@ -1294,6 +1471,8 @@ export default function ServicesPage() {
     const [showServiceModal, setShowServiceModal] = useState(false)
     const [showRescheduleModal, setShowRescheduleModal] = useState(false)
     const [refreshing, setRefreshing] = useState(false)
+    const [timelineView, setTimelineView] = useState(false)
+    const [reBookData, setReBookData] = useState(null)
 
     useEffect(() => { fetchJobs() }, [filterStatus])
 
@@ -1361,6 +1540,10 @@ export default function ServicesPage() {
 
     return (
         <div style={{ padding: '24px 18px 16px', display: 'flex', flexDirection: 'column', gap: 18, minHeight: '100%' }}>
+            <style>{`
+                @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+                @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+            `}</style>
 
             {/* Header */}
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -1398,43 +1581,72 @@ export default function ServicesPage() {
                 </div>
             </header>
 
-            {/* Filter tabs */}
-            <div style={{
-                display: 'flex', gap: 4, background: 'rgba(255,255,255,0.03)',
-                borderRadius: 14, padding: '4px',
-                border: '1px solid rgba(255,255,255,0.05)',
-            }}>
-                {tabs.map(tab => (
+            {/* Filter tabs + timeline toggle */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{
+                    flex: 1, display: 'flex', gap: 4, background: 'rgba(255,255,255,0.03)',
+                    borderRadius: 14, padding: '4px',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                }}>
+                    {tabs.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => { setFilterStatus(tab.id); if (tab.id !== 'all') setTimelineView(false) }}
+                            style={{
+                                flex: 1, padding: '8px 10px', borderRadius: 10,
+                                background: filterStatus === tab.id ? 'rgba(56,189,248,0.12)' : 'transparent',
+                                color: filterStatus === tab.id ? '#38bdf8' : '#475569',
+                                border: filterStatus === tab.id ? '1px solid rgba(56,189,248,0.2)' : '1px solid transparent',
+                                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                                whiteSpace: 'nowrap', transition: 'all 0.18s',
+                                position: 'relative',
+                            }}
+                        >
+                            {tab.label}
+                            {tab.badge > 0 && (
+                                <span style={{
+                                    marginLeft: 5, background: '#a78bfa', color: '#fff',
+                                    borderRadius: 999, fontSize: 9, fontWeight: 800,
+                                    padding: '1px 5px', verticalAlign: 'middle'
+                                }}>{tab.badge}</span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+                {/* Timeline toggle — only visible on All tab */}
+                {filterStatus === 'all' && (
                     <button
-                        key={tab.id}
-                        onClick={() => setFilterStatus(tab.id)}
+                        onClick={() => setTimelineView(v => !v)}
+                        title={timelineView ? 'Card view' : 'Timeline view'}
                         style={{
-                            flex: 1, padding: '8px 10px', borderRadius: 10,
-                            background: filterStatus === tab.id ? 'rgba(56,189,248,0.12)' : 'transparent',
-                            color: filterStatus === tab.id ? '#38bdf8' : '#475569',
-                            border: filterStatus === tab.id ? '1px solid rgba(56,189,248,0.2)' : '1px solid transparent',
-                            fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                            whiteSpace: 'nowrap', transition: 'all 0.18s',
-                            position: 'relative',
+                            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                            background: timelineView ? 'rgba(56,189,248,0.12)' : 'rgba(255,255,255,0.04)',
+                            border: `1px solid ${timelineView ? 'rgba(56,189,248,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                            color: timelineView ? '#38bdf8' : '#475569',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                         }}
                     >
-                        {tab.label}
-                        {tab.badge > 0 && (
-                            <span style={{
-                                marginLeft: 5, background: '#a78bfa', color: '#fff',
-                                borderRadius: 999, fontSize: 9, fontWeight: 800,
-                                padding: '1px 5px', verticalAlign: 'middle'
-                            }}>{tab.badge}</span>
-                        )}
+                        <TrendingUp size={14} />
                     </button>
-                ))}
+                )}
             </div>
 
             {/* Content */}
             {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 14 }}>
-                    <div style={{ width: 30, height: 30, border: '2px solid rgba(255,255,255,0.07)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                    <span style={{ fontSize: 13, color: '#475569' }}>Loading your services...</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    {[1,2,3].map(i => (
+                        <div key={i} style={{ borderRadius: 20, overflow: 'hidden', padding: 16, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
+                                <Shimmer w={40} h={40} r={12} />
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    <Shimmer w="60%" h={16} r={6} />
+                                    <Shimmer w="40%" h={12} r={4} />
+                                </div>
+                                <Shimmer w={60} h={22} r={20} />
+                            </div>
+                            <Shimmer w="90%" h={12} r={4} />
+                        </div>
+                    ))}
                 </div>
             ) : error ? (
                 <div style={{ padding: 20, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 16, color: '#f87171', textAlign: 'center', fontSize: 13 }}>
@@ -1468,11 +1680,13 @@ export default function ServicesPage() {
                     )}
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {jobs.map(job => (
-                        <JobCard key={job.id} job={job} onClick={() => setSelectedJob(job)} />
-                    ))}
-                </div>
+                filterStatus === 'all' && timelineView
+                    ? <ServiceTimeline jobs={jobs} onSelect={setSelectedJob} />
+                    : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {jobs.map(job => (
+                            <JobCard key={job.id} job={job} onClick={() => setSelectedJob(job)} />
+                        ))}
+                      </div>
             )}
 
             {/* Detail sheet */}
@@ -1482,6 +1696,11 @@ export default function ServicesPage() {
                     onClose={() => setSelectedJob(null)}
                     onCancel={handleCancel}
                     onRescheduleClick={() => setShowRescheduleModal(true)}
+                    onReBook={(job) => {
+                        setReBookData({ applianceType: job.appliance_type, brand: job.brand || job.appliance_brand, issue: job.issue })
+                        setSelectedJob(null)
+                        setShowServiceModal(true)
+                    }}
                 />
             )}
 
@@ -1492,8 +1711,9 @@ export default function ServicesPage() {
 
             <BookServiceModal
                 isOpen={showServiceModal}
-                onClose={() => setShowServiceModal(false)}
-                onBook={() => { fetchJobs(); setShowServiceModal(false) }}
+                onClose={() => { setShowServiceModal(false); setReBookData(null) }}
+                onBook={() => { fetchJobs(); setShowServiceModal(false); setReBookData(null) }}
+                prefill={reBookData}
             />
 
             <RescheduleModal

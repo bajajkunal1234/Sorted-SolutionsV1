@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
-import { Heart, ArrowRight, Pin, Zap, Tag, Newspaper, Sparkles, ChevronLeft, ChevronRight, Wrench, Shield, Package, FileCheck } from 'lucide-react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { Heart, ArrowRight, Pin, Zap, Tag, Newspaper, Sparkles, ChevronLeft, ChevronRight, Wrench, Shield, Package, FileCheck, Activity, RefreshCw, MapPin, Calendar } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import NotificationBell from '@/components/common/NotificationBell'
 import BookServiceModal from '@/components/customer/modals/BookServiceModal'
@@ -315,6 +315,90 @@ function FeedCard({ post, onLike, initialLiked }) {
     )
 }
 
+// ── Appliance emoji map ─────────────────────────────────────────────────────
+function applianceEmoji(type = '') {
+    const t = type.toLowerCase()
+    if (t.includes('ac') || t.includes('air')) return '❄️'
+    if (t.includes('fridge') || t.includes('refrigerator')) return '🧊'
+    if (t.includes('wash')) return '🫧'
+    if (t.includes('tv') || t.includes('television')) return '📺'
+    if (t.includes('micro') || t.includes('oven')) return '⚡'
+    if (t.includes('water') || t.includes('ro')) return '💧'
+    if (t.includes('geyser') || t.includes('heater')) return '🔥'
+    if (t.includes('coffee')) return '☕'
+    return '🔧'
+}
+
+function healthColor(months) {
+    if (months === null || months === undefined) return '#64748b'
+    if (months <= 4) return '#10b981'
+    if (months <= 8) return '#f59e0b'
+    return '#ef4444'
+}
+
+function ApplianceHealthSection({ jobs, onBook }) {
+    // Group jobs by appliance type, take most recent per appliance
+    const applianceMap = {}
+    for (const job of (jobs || [])) {
+        const type = job.appliance_type || job.product_type || job.issue_category || 'General'
+        if (!applianceMap[type] || new Date(job.created_at) > new Date(applianceMap[type].created_at)) {
+            applianceMap[type] = job
+        }
+    }
+    const appliances = Object.entries(applianceMap).slice(0, 6)
+    if (appliances.length === 0) return null
+
+    return (
+        <div style={{ padding: '0 20px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', letterSpacing: 1.2, textTransform: 'uppercase' }}>Your Appliances</span>
+                <span style={{ fontSize: 11, color: '#334155' }}>Health Status</span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+                {appliances.map(([type, job]) => {
+                    const lastDate = new Date(job.created_at)
+                    const monthsAgo = Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
+                    const color = healthColor(monthsAgo)
+                    const pct = Math.max(10, 100 - (monthsAgo * 10))
+                    const label = monthsAgo === 0 ? 'This month' : monthsAgo === 1 ? '1 month ago' : `${monthsAgo}m ago`
+                    return (
+                        <button
+                            key={type}
+                            onClick={() => onBook(type)}
+                            style={{
+                                minWidth: 100, flexShrink: 0,
+                                background: 'linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
+                                border: `1px solid ${color}30`,
+                                borderRadius: 18, padding: '14px 12px',
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                                cursor: 'pointer', textAlign: 'center',
+                                boxShadow: `0 0 16px ${color}10`,
+                                transition: 'transform 0.15s',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.03)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                        >
+                            <div style={{ fontSize: 28, filter: `drop-shadow(0 2px 4px ${color}60)` }}>{applianceEmoji(type)}</div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: '#cbd5e1', lineHeight: 1.2, maxWidth: 80 }}>{type}</div>
+                            {/* Health bar */}
+                            <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
+                            </div>
+                            <div style={{ fontSize: 9, color: color, fontWeight: 700 }}>{label}</div>
+                        </button>
+                    )
+                })}
+            </div>
+            <style>{`div::-webkit-scrollbar{display:none}`}</style>
+        </div>
+    )
+}
+
+// ── Shimmer skeleton ─────────────────────────────────────────────────────────
+function Shimmer({ w = '100%', h = 20, r = 8, mb = 0 }) {
+    return <div style={{ width: w, height: h, borderRadius: r, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s ease infinite', marginBottom: mb }} />
+}
+
 // ── Home Page ───────────────────────────────────────────────────
 export default function HomePage({ setActiveTab }) {
     const router = useRouter()
@@ -322,6 +406,8 @@ export default function HomePage({ setActiveTab }) {
     const [customerName, setCustomerName] = useState('there')
     const [customerId, setCustomerId] = useState(null)
     const [greeting, setGreeting] = useState('Good Morning')
+    const [greetingEmoji, setGreetingEmoji] = useState('☀️')
+    const [mounted, setMounted] = useState(false)
     const [banners, setBanners] = useState([])
     const [bannerIndex, setBannerIndex] = useState(0)
     const bannerTimer = useRef(null)
@@ -329,10 +415,32 @@ export default function HomePage({ setActiveTab }) {
     const [feedLoading, setFeedLoading] = useState(true)
     const [likedPosts, setLikedPosts] = useState(new Set())
     const [isBannerHovered, setIsBannerHovered] = useState(false)
+    const [jobs, setJobs] = useState([])
+    const [jobsLoading, setJobsLoading] = useState(true)
+    // Pull-to-refresh
+    const [pullY, setPullY] = useState(0)
+    const [refreshing, setRefreshing] = useState(false)
+    const touchStartY = useRef(0)
+    const containerRef = useRef(null)
+
+    const fetchJobs = useCallback(async (cId) => {
+        try {
+            const res = await fetch(`/api/customer/jobs?customerId=${cId}`)
+            const data = await res.json()
+            setJobs(data.jobs || [])
+        } catch { setJobs([]) }
+        finally { setJobsLoading(false) }
+    }, [])
 
     useEffect(() => {
         const hour = new Date().getHours()
-        setGreeting(hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening')
+        if (hour < 5)  { setGreeting('Good Night');    setGreetingEmoji('🌑') }
+        else if (hour < 12) { setGreeting('Good Morning'); setGreetingEmoji('🌅') }
+        else if (hour < 17) { setGreeting('Good Afternoon'); setGreetingEmoji('☀️') }
+        else if (hour < 21) { setGreeting('Good Evening'); setGreetingEmoji('🌆') }
+        else              { setGreeting('Good Night');   setGreetingEmoji('🌙') }
+
+        setTimeout(() => setMounted(true), 60)
 
         try {
             const cachedLikes = JSON.parse(localStorage.getItem('customer_liked_posts') || '[]')
@@ -343,8 +451,9 @@ export default function HomePage({ setActiveTab }) {
         } catch {}
 
         const cId = localStorage.getItem('customerId')
-        if (!cId) return // CustomerApp shell handles the auth redirect
+        if (!cId) return
         setCustomerId(cId)
+        fetchJobs(cId)
 
         fetch('/api/settings/section-configs?id=customer-app-banners')
             .then(r => r.json())
@@ -356,7 +465,7 @@ export default function HomePage({ setActiveTab }) {
             .then(d => setPosts(d.posts || []))
             .catch(() => {})
             .finally(() => setFeedLoading(false))
-    }, [])
+    }, [fetchJobs])
 
     useEffect(() => {
         if (banners.length <= 1) return
@@ -365,6 +474,28 @@ export default function HomePage({ setActiveTab }) {
         bannerTimer.current = setInterval(() => setBannerIndex(i => (i + 1) % banners.length), 5000)
         return () => clearInterval(bannerTimer.current)
     }, [banners.length, isBannerHovered])
+
+    // Pull-to-refresh handlers
+    const handleTouchStart = (e) => {
+        if (containerRef.current?.scrollTop === 0) {
+            touchStartY.current = e.touches[0].clientY
+        }
+    }
+    const handleTouchMove = (e) => {
+        if (containerRef.current?.scrollTop > 0 || refreshing) return
+        const delta = e.touches[0].clientY - touchStartY.current
+        if (delta > 0) setPullY(Math.min(delta * 0.4, 72))
+    }
+    const handleTouchEnd = async () => {
+        if (pullY > 50 && customerId) {
+            setRefreshing(true)
+            setPullY(0)
+            await fetchJobs(customerId)
+            setTimeout(() => setRefreshing(false), 600)
+        } else {
+            setPullY(0)
+        }
+    }
 
     const handleLike = async (postId) => {
         try {
@@ -381,16 +512,73 @@ export default function HomePage({ setActiveTab }) {
         } catch {}
     }
 
+    // Active job for live banner
+    const activeJob = jobs.find(j => ['work_in_progress', 'scheduled', 'assigned', 'diagnosing_quoting'].includes(j.status))
+    const inProgressJob = jobs.find(j => j.status === 'work_in_progress')
+
     return (
-        <div style={{ minHeight: '100%', background: '#0a0f1e' }}>
+        <div
+            ref={containerRef}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{ minHeight: '100%', background: '#0a0f1e', overflowY: 'auto' }}
+        >
+            <style>{`
+                @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+                @keyframes slideDown { from{opacity:0;transform:translateY(-16px)} to{opacity:1;transform:translateY(0)} }
+                @keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+                @keyframes pulseLive { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.75)} }
+                @keyframes spin360 { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+                @keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }
+            `}</style>
+
+            {/* Pull-to-refresh indicator */}
+            {(pullY > 0 || refreshing) && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: Math.max(pullY, refreshing ? 44 : 0), overflow: 'hidden', transition: 'height 0.2s' }}>
+                    <RefreshCw size={18} color="#38bdf8" style={{ animation: refreshing ? 'spin360 0.8s linear infinite' : 'none', opacity: pullY > 20 || refreshing ? 1 : 0.3 }} />
+                </div>
+            )}
+            {/* Live Job Status Banner */}
+            {activeJob && (
+                <div
+                    onClick={() => setActiveTab?.('services')}
+                    style={{
+                        margin: '0 16px 8px', padding: '10px 14px',
+                        background: inProgressJob
+                            ? 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06))'
+                            : 'linear-gradient(135deg, rgba(56,189,248,0.1), rgba(59,130,246,0.05))',
+                        border: `1px solid ${inProgressJob ? 'rgba(16,185,129,0.25)' : 'rgba(56,189,248,0.2)'}`,
+                        borderRadius: 14, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        animation: 'slideDown 0.4s ease',
+                    }}
+                >
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: inProgressJob ? '#10b981' : '#38bdf8', boxShadow: `0 0 8px ${inProgressJob ? '#10b981' : '#38bdf8'}`, animation: 'pulseLive 1.5s ease-in-out infinite', flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: inProgressJob ? '#6ee7b7' : '#7dd3fc' }}>
+                            {inProgressJob ? '🛠️ Technician is on the way' : '📅 Service scheduled'}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#475569' }}>
+                            {activeJob.appliance_type || activeJob.issue_category || 'Repair'} • Tap to track
+                        </div>
+                    </div>
+                    <ArrowRight size={14} color="#475569" />
+                </div>
+            )}
+
             {/* Greeting */}
-            <div style={{ padding: '28px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', zIndex: 9999 }}>
+            <div style={{ padding: '20px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', position: 'relative', zIndex: 9999 }}>
                 <div>
-                    <div style={{ fontSize: 13, color: '#64748b', fontWeight: 500, marginBottom: 2 }}>{greeting}</div>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px' }}>{customerName} 👋</div>
+                    <div style={{ fontSize: 12, color: '#475569', fontWeight: 500, marginBottom: 2, opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(8px)', transition: 'all 0.4s ease 0.05s' }}>
+                        {greetingEmoji} {greeting}
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.5px', opacity: mounted ? 1 : 0, transform: mounted ? 'none' : 'translateY(10px)', transition: 'all 0.4s ease 0.12s' }}>
+                        {customerName} 👋
+                    </div>
                 </div>
                 {customerId && (
-                    <div style={{ transform: 'scale(1.1)', marginBottom: '4px' }}>
+                    <div style={{ transform: 'scale(1.1)', marginBottom: '4px', opacity: mounted ? 1 : 0, transition: 'opacity 0.4s ease 0.2s' }}>
                         <NotificationBell recipientId={customerId} recipientType="customer" theme="dark" />
                     </div>
                 )}
@@ -526,6 +714,19 @@ export default function HomePage({ setActiveTab }) {
             </div>
 
 
+            {/* Appliance Health Cards */}
+            {!jobsLoading && jobs.length > 0 && (
+                <ApplianceHealthSection
+                    jobs={jobs}
+                    onBook={(type) => setRequestModal({ show: true, coverage: { type: 'standard' }, prefill: { applianceType: type } })}
+                />
+            )}
+            {jobsLoading && (
+                <div style={{ padding: '0 20px 20px', display: 'flex', gap: 10 }}>
+                    {[1,2,3].map(i => <Shimmer key={i} w="100px" h={120} r={18} />)}
+                </div>
+            )}
+
             {/* Banner Carousel */}
             {banners.length > 0 && (
                 <div style={{ padding: '0 20px 20px' }}>
@@ -568,10 +769,17 @@ export default function HomePage({ setActiveTab }) {
 
                 {feedLoading ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {[1, 2, 3].map(i => (
-                            <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 22, height: 280, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        {[1, 2].map(i => (
+                            <div key={i} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 22, overflow: 'hidden', padding: '0 0 16px' }}>
+                                <Shimmer w="100%" h={180} r={0} mb={12} />
+                                <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <Shimmer w="60px" h={18} r={20} />
+                                    <Shimmer w="80%" h={22} r={6} />
+                                    <Shimmer w="100%" h={14} r={4} />
+                                    <Shimmer w="70%" h={14} r={4} />
+                                </div>
+                            </div>
                         ))}
-                        <style>{`@keyframes pulse { 0%,100%{opacity:.4} 50%{opacity:.8} }`}</style>
                     </div>
                 ) : posts.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '48px 20px' }}>
