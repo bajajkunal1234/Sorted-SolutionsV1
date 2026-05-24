@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle, CheckCircle } from 'lucide-react';
+import { Loader2, ChevronLeft, Phone, MapPin, Building, User, AlertCircle, CheckCircle, Navigation } from 'lucide-react';
 import BookingSteps from './BookingSteps';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { getPincodeForLocality, getLocalityForPincode } from '@/lib/data/mumbaiLocalities';
@@ -49,10 +49,12 @@ export default function BookingWizard() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
-    const [currentStep, setCurrentStep] = useState('location'); // location -> logistics -> otp
+    const [currentStep, setCurrentStep] = useState('location'); // location -> logistics -> otp -> success
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [bookingSuccess, setBookingSuccess] = useState(null); // { bookingId, name }
+    const [locating, setLocating] = useState(false);
     const wizardRef = useRef(null);
 
     const [metadata, setMetadata] = useState({ categories: [], subcategories: [], issues: [] });
@@ -249,6 +251,7 @@ export default function BookingWizard() {
     const handleLogisticsNext = async () => {
         if (!formData.slotDate || !formData.slotTime) { setError('Please select an available time slot.'); return; }
         if (!formData.name?.trim()) { setError('Please enter your full name.'); return; }
+        if (!formData.flat_number?.trim()) { setError('Please enter your flat / wing number.'); return; }
         if (!formData.building_name?.trim()) { setError('Please enter your building name.'); return; }
         if (!formData.address?.trim()) { setError('Please enter your street/landmark address.'); return; }
         
@@ -301,7 +304,7 @@ export default function BookingWizard() {
                         role: 'customer',
                         phone: rawPhone,
                         name: lookupData.name || customerName,
-                        profile_complete: lookupData.profile_complete ?? false,
+                        profile_complete: true, // skip OnboardingWizard after booking
                     });
                 }
             } catch { /* customer may be new — booking API will create them */ }
@@ -359,7 +362,7 @@ export default function BookingWizard() {
                     role: 'customer',
                     phone: rawPhone,
                     name: customerName,
-                    profile_complete: false,
+                    profile_complete: true, // skip OnboardingWizard — booking already captured all details
                 });
             }
 
@@ -375,7 +378,7 @@ export default function BookingWizard() {
                             role: 'customer',
                             phone: rawPhone,
                             name: finalData.name || customerName,
-                            profile_complete: finalData.profile_complete ?? false,
+                            profile_complete: true,
                         });
                     }
                 } catch { /* ignore */ }
@@ -388,7 +391,7 @@ export default function BookingWizard() {
                     role: 'customer',
                     phone: rawPhone,
                     name: customerName,
-                    profile_complete: false,
+                    profile_complete: true,
                 });
             }
 
@@ -398,8 +401,13 @@ export default function BookingWizard() {
                 window.dataLayer.push({ event: 'form_submit_success' });
             }
 
-            // Hard navigate — localStorage is fully written before the new page reads it
-            window.location.href = `/customer/dashboard?newBooking=${result.bookingId || result.bookingNumber || 'success'}`;
+            // Show success popup for 3 seconds, then navigate
+            const bookingRef = result.bookingId || result.bookingNumber || 'confirmed';
+            setBookingSuccess({ bookingId: bookingRef, name: customerName });
+            setCurrentStep('success');
+            setTimeout(() => {
+                window.location.href = `/customer/dashboard?newBooking=${bookingRef}`;
+            }, 3000);
 
         } catch (err) {
             console.error('Booking failed:', err);
@@ -607,7 +615,7 @@ export default function BookingWizard() {
 
                                     <div className="form-grid" style={{ marginBottom: 'var(--spacing-md)' }}>
                                         <div className="form-group">
-                                            <label className="form-label">Flat / Wing <span style={{ fontWeight: 400, color: 'var(--text-tertiary)', fontSize: '0.85em' }}>(optional)</span></label>
+                                            <label className="form-label">Flat / Wing *</label>
                                             <input type="text" className="form-input" placeholder="e.g. A-42"
                                                 value={formData.flat_number} onChange={e => setFormData({ ...formData, flat_number: e.target.value })} />
                                         </div>
@@ -621,10 +629,66 @@ export default function BookingWizard() {
                                     <div className="form-group" style={{ marginBottom: 'var(--spacing-md)' }}>
                                         <label className="form-label">Street, Landmark etc. *</label>
                                         <div style={{ position: 'relative' }}>
-                                            <Building size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                                            <MapPin size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                                             <input type="text" className="form-input" placeholder="e.g. Near Reliance Fresh" style={{ paddingLeft: '44px' }}
                                                 value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} />
                                         </div>
+                                        {/* GPS location button */}
+                                        <button
+                                            type="button"
+                                            disabled={locating}
+                                            onClick={async () => {
+                                                if (!navigator.geolocation) {
+                                                    setError('Location not supported by your browser.');
+                                                    return;
+                                                }
+                                                setLocating(true);
+                                                setError('');
+                                                navigator.geolocation.getCurrentPosition(
+                                                    async (pos) => {
+                                                        try {
+                                                            const { latitude, longitude } = pos.coords;
+                                                            const res = await fetch(
+                                                                `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+                                                                { headers: { 'Accept-Language': 'en' } }
+                                                            );
+                                                            const geo = await res.json();
+                                                            const addr = geo.address || {};
+                                                            const parts = [
+                                                                addr.road || addr.pedestrian || addr.footway,
+                                                                addr.suburb || addr.neighbourhood || addr.village,
+                                                                addr.city_district || addr.county,
+                                                            ].filter(Boolean);
+                                                            const landmark = parts.join(', ') || geo.display_name?.split(',').slice(0,3).join(',') || '';
+                                                            setFormData(prev => ({ ...prev, address: landmark }));
+                                                        } catch {
+                                                            setError('Could not fetch address. Please type manually.');
+                                                        } finally {
+                                                            setLocating(false);
+                                                        }
+                                                    },
+                                                    () => {
+                                                        setError('Location access denied. Please type the landmark manually.');
+                                                        setLocating(false);
+                                                    },
+                                                    { timeout: 8000 }
+                                                );
+                                            }}
+                                            style={{
+                                                marginTop: '8px',
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                                background: 'none', border: '1px solid var(--color-primary)',
+                                                color: 'var(--color-primary)', borderRadius: '8px',
+                                                padding: '7px 14px', fontSize: '13px', fontWeight: 600,
+                                                cursor: locating ? 'wait' : 'pointer', width: '100%',
+                                                justifyContent: 'center', opacity: locating ? 0.7 : 1,
+                                            }}
+                                        >
+                                            {locating
+                                                ? <><Loader2 size={14} className="animate-spin" /> Detecting location…</>
+                                                : <><Navigation size={14} /> Use my current location as landmark</>
+                                            }
+                                        </button>
                                     </div>
 
                                     {formData.address.trim().length > 0 && (
@@ -671,9 +735,43 @@ export default function BookingWizard() {
                             </button>
                         </div>
                     )}
+
+                    {/* ── STAGE 4: BOOKING SUCCESS ── */}
+                    {currentStep === 'success' && bookingSuccess && (
+                        <div className="step-content" style={{ textAlign: 'center', padding: '40px 20px' }}>
+                            <div style={{
+                                width: 80, height: 80, borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #10b981, #059669)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                margin: '0 auto 24px',
+                                boxShadow: '0 0 0 12px rgba(16,185,129,0.15), 0 0 0 24px rgba(16,185,129,0.07)',
+                                animation: 'successPulse 1.5s ease-in-out infinite',
+                            }}>
+                                <CheckCircle size={40} color="white" />
+                            </div>
+                            <h2 style={{ marginBottom: '8px', color: '#10b981', fontSize: '22px' }}>Booking Confirmed! 🎉</h2>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '15px', marginBottom: '8px' }}>
+                                Hi {bookingSuccess.name?.split(' ')[0] || 'there'}, your booking is confirmed.
+                            </p>
+                            <p style={{ color: 'var(--text-tertiary)', fontSize: '13px', marginBottom: '24px' }}>
+                                Job #{bookingSuccess.bookingId} · Our team will call you within 15 minutes.
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: 'var(--text-tertiary)', fontSize: '13px' }}>
+                                <Loader2 size={14} className="animate-spin" />
+                                Taking you to your dashboard…
+                            </div>
+                            <style>{`
+                                @keyframes successPulse {
+                                    0%, 100% { box-shadow: 0 0 0 12px rgba(16,185,129,0.15), 0 0 0 24px rgba(16,185,129,0.07); }
+                                    50% { box-shadow: 0 0 0 16px rgba(16,185,129,0.1), 0 0 0 32px rgba(16,185,129,0.04); }
+                                }
+                            `}</style>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Footer / Buttons ── */}
+                {currentStep !== 'success' && (
                 <div className="booking-footer">
                     {currentStep === 'location' ? <div /> : (
                         <button onClick={() => {
@@ -704,6 +802,7 @@ export default function BookingWizard() {
                         </button>
                     )}
                 </div>
+                )}
             </div>
         </div>
     );
