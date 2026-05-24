@@ -137,12 +137,15 @@ export async function POST(request) {
                 if (accountEntry?.id) ledgerId = accountEntry.id;
 
                 // Create the customers row (no password_hash — OTP-verified booking)
+                // username is required (NOT NULL) — derive it from phone so the insert succeeds
+                const autoUsername = `customer_${rawPhone10}`;
                 const { data: newCustomer, error: customerCreateErr } = await supabase
                     .from('customers')
                     .insert({
                         phone: rawPhone10,
                         name: customerName,
                         full_name: customerName,
+                        username: autoUsername,
                         customer_type: 'one_time',
                         profile_complete: false,
                         ledger_id: ledgerId,
