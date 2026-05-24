@@ -348,8 +348,12 @@ export default function BookingWizard() {
                 window.dataLayer.push({ event: 'form_submit_success' });
             }
 
-            // Redirect to customer dashboard with the booking success flash!
-            router.push(`/customer/dashboard?newBooking=${result.bookingId || result.bookingNumber || 'success'}`);
+            // Hard navigate (not router.push) so localStorage is guaranteed
+            // to be flushed before the customer dashboard page loads.
+            // router.push() is a client-side SPA transition where the new
+            // page's useEffect can run before localStorage.setItem() has
+            // fully committed — causing CustomerApp to see no session.
+            window.location.href = `/customer/dashboard?newBooking=${result.bookingId || result.bookingNumber || 'success'}`;
 
         } catch (err) {
             console.error('Booking failed:', err);
