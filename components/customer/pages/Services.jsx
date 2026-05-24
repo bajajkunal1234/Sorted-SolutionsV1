@@ -747,13 +747,19 @@ function AddDetailsPanel({ job }) {
     const uploadImage = async (imgObj) => {
         if (imgObj.url) return imgObj.url
         const formData = new FormData()
-        formData.append('file', imgObj.file)
-        formData.append('upload_preset', 'sorted_customer_uploads')
-        const res = await fetch('https://api.cloudinary.com/v1_1/sorted/image/upload', { method: 'POST', body: formData })
+        const safeFileName = imgObj.file.name
+            ? imgObj.file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')
+            : 'photo.jpg'
+        formData.append('file', imgObj.file, safeFileName || 'photo.jpg')
+        formData.append('bucket', 'media')
+        formData.append('folder', 'customer-job-photos')
+        const res = await fetch('/api/upload', { method: 'POST', body: formData })
         if (!res.ok) throw new Error('Image upload failed')
         const data = await res.json()
-        return data.secure_url
+        if (!data.success || !data.url) throw new Error(data.error || 'Upload failed')
+        return data.url
     }
+
 
     const handleSubmit = async () => {
         if (!note.trim() && images.length === 0) return

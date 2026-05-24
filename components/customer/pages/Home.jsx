@@ -398,78 +398,133 @@ export default function HomePage({ setActiveTab }) {
 
             {/* Quick Actions Grid */}
             <div style={{ padding: '0 20px 20px' }}>
+                <style>{`
+                    .qa-card {
+                        display: flex; flex-direction: column; align-items: flex-start;
+                        padding: 16px; border-radius: 22px; cursor: pointer;
+                        transition: transform 0.18s ease, box-shadow 0.18s ease;
+                        position: relative; overflow: hidden; text-align: left;
+                        border: none; width: 100%;
+                        -webkit-tap-highlight-color: transparent;
+                    }
+                    .qa-card:active { transform: scale(0.96) !important; }
+                    .qa-card:hover { transform: translateY(-3px); }
+                    .qa-icon-3d {
+                        width: 54px; height: 54px; border-radius: 16px;
+                        display: flex; align-items: center; justify-content: center;
+                        margin-bottom: 14px; font-size: 26px;
+                        position: relative; flex-shrink: 0;
+                    }
+                    .qa-icon-3d::after {
+                        content: ''; position: absolute;
+                        bottom: -3px; left: 8px; right: 8px; height: 8px;
+                        border-radius: 50%; filter: blur(5px); opacity: 0.55;
+                    }
+                    .qa-shimmer {
+                        position: absolute; top: -40%; left: -40%;
+                        width: 60%; height: 140%;
+                        background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.07) 50%, transparent 70%);
+                        transform: skewX(-15deg); pointer-events: none;
+                        transition: left 0.5s ease;
+                    }
+                    .qa-card:hover .qa-shimmer { left: 100%; }
+                `}</style>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
+                    {/* Book Repair */}
                     <button
+                        className="qa-card"
                         onClick={() => setRequestModal({ show: true, coverage: { type: 'standard' } })}
                         style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
-                            background: 'linear-gradient(135deg, rgba(56,189,248,0.15), rgba(59,130,246,0.1))',
-                            border: '1px solid rgba(56,189,248,0.3)', borderRadius: 20, cursor: 'pointer',
-                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                            background: 'linear-gradient(145deg, #0d2137 0%, #0a1828 100%)',
+                            border: '1px solid rgba(56,189,248,0.25)',
+                            boxShadow: '0 4px 20px rgba(56,189,248,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
                         }}
                     >
-                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                            <Wrench size={20} color="#38bdf8" />
+                        <div className="qa-shimmer" />
+                        <div className="qa-icon-3d" style={{
+                            background: 'linear-gradient(145deg, #1e4d6b, #0e2d42)',
+                            boxShadow: '0 6px 18px rgba(56,189,248,0.25), inset 0 1px 1px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.3)',
+                        }}>
+                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(56,189,248,0.5))' }}>🔧</span>
+                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(56,189,248,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
                         </div>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Book Repair</span>
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Expert tech at your door</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#f0f9ff', marginBottom: 3, letterSpacing: '-0.2px' }}>Book Repair</span>
+                        <span style={{ fontSize: 11, color: '#4e7a96', fontWeight: 500 }}>Expert tech at your door</span>
+                        <div style={{ position: 'absolute', top: 10, right: 12, width: 6, height: 6, borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 8px #38bdf8', animation: 'pulseDot 2s ease-in-out infinite' }} />
                     </button>
 
+                    {/* AMC Plans */}
                     <button
-                        onClick={() => {
-                            sessionStorage.setItem('targetPlanSection', 'amc')
-                            setActiveTab?.('plans')
-                        }}
+                        className="qa-card"
+                        onClick={() => { sessionStorage.setItem('targetPlanSection', 'amc'); setActiveTab?.('plans') }}
                         style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
-                            background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(99,102,241,0.1))',
-                            border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, cursor: 'pointer',
-                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                            background: 'linear-gradient(145deg, #170d2e, #0f0920)',
+                            border: '1px solid rgba(139,92,246,0.25)',
+                            boxShadow: '0 4px 20px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
                         }}
                     >
-                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(139,92,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                            <Shield size={20} color="#a78bfa" />
+                        <div className="qa-shimmer" />
+                        <div className="qa-icon-3d" style={{
+                            background: 'linear-gradient(145deg, #3b1f6b, #210f40)',
+                            boxShadow: '0 6px 18px rgba(139,92,246,0.3), inset 0 1px 1px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.3)',
+                        }}>
+                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(139,92,246,0.6))' }}>🛡️</span>
+                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(139,92,246,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
                         </div>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>AMC Plans</span>
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Protect your appliances</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#f5f3ff', marginBottom: 3, letterSpacing: '-0.2px' }}>AMC Plans</span>
+                        <span style={{ fontSize: 11, color: '#6b4fa0', fontWeight: 500 }}>Protect your appliances</span>
+                        <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 9, fontWeight: 800, color: '#a78bfa', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', padding: '2px 6px', borderRadius: 8 }}>POPULAR</div>
                     </button>
 
+                    {/* Rentals */}
                     <button
-                        onClick={() => {
-                            sessionStorage.setItem('targetPlanSection', 'rentals')
-                            setActiveTab?.('plans')
-                        }}
+                        className="qa-card"
+                        onClick={() => { sessionStorage.setItem('targetPlanSection', 'rentals'); setActiveTab?.('plans') }}
                         style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
-                            background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.1))',
-                            border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, cursor: 'pointer',
-                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                            background: 'linear-gradient(145deg, #0b201a, #071510)',
+                            border: '1px solid rgba(16,185,129,0.22)',
+                            boxShadow: '0 4px 20px rgba(16,185,129,0.07), inset 0 1px 0 rgba(255,255,255,0.04)',
                         }}
                     >
-                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(16,185,129,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                            <Package size={20} color="#34d399" />
+                        <div className="qa-shimmer" />
+                        <div className="qa-icon-3d" style={{
+                            background: 'linear-gradient(145deg, #0f4232, #072a20)',
+                            boxShadow: '0 6px 18px rgba(16,185,129,0.25), inset 0 1px 1px rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.3)',
+                        }}>
+                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(16,185,129,0.5))' }}>📦</span>
+                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(16,185,129,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
                         </div>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Rentals</span>
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Premium appliances</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#f0fdf4', marginBottom: 3, letterSpacing: '-0.2px' }}>Rentals</span>
+                        <span style={{ fontSize: 11, color: '#1c6048', fontWeight: 500 }}>Premium appliances</span>
                     </button>
 
+                    {/* Claim Warranty */}
                     <button
+                        className="qa-card"
                         onClick={() => setRequestModal({ show: true, coverage: { type: 'warranty' } })}
                         style={{
-                            display: 'flex', flexDirection: 'column', alignItems: 'flex-start', padding: '16px',
-                            background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.1))',
-                            border: '1px solid rgba(245,158,11,0.3)', borderRadius: 20, cursor: 'pointer',
-                            transition: 'all 0.2s ease', position: 'relative', overflow: 'hidden', textAlign: 'left',
+                            background: 'linear-gradient(145deg, #201600, #150e00)',
+                            border: '1px solid rgba(245,158,11,0.22)',
+                            boxShadow: '0 4px 20px rgba(245,158,11,0.07), inset 0 1px 0 rgba(255,255,255,0.04)',
                         }}
                     >
-                        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'rgba(245,158,11,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-                            <FileCheck size={20} color="#fbbf24" />
+                        <div className="qa-shimmer" />
+                        <div className="qa-icon-3d" style={{
+                            background: 'linear-gradient(145deg, #5a3800, #3a2400)',
+                            boxShadow: '0 6px 18px rgba(245,158,11,0.28), inset 0 1px 1px rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.3)',
+                        }}>
+                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(245,158,11,0.5))' }}>📋</span>
+                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(245,158,11,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
                         </div>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc', marginBottom: 2 }}>Claim Warranty</span>
-                        <span style={{ fontSize: 12, color: '#94a3b8' }}>Zero cost inspection</span>
+                        <span style={{ fontSize: 15, fontWeight: 800, color: '#fffbeb', marginBottom: 3, letterSpacing: '-0.2px' }}>Claim Warranty</span>
+                        <span style={{ fontSize: 11, color: '#775a00', fontWeight: 500 }}>Zero cost inspection</span>
+                        <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 9, fontWeight: 800, color: '#fbbf24', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '2px 6px', borderRadius: 8 }}>FREE</div>
                     </button>
                 </div>
+                <style>{`@keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }`}</style>
             </div>
+
 
             {/* Banner Carousel */}
             {banners.length > 0 && (
