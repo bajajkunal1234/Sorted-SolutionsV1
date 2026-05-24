@@ -104,13 +104,14 @@ export default function CustomerApp() {
     return (
         <div style={{
             height: '100dvh', display: 'flex', flexDirection: 'column',
-            background: 'linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
+            background: '#0a0f1e',
             color: '#f8fafc', fontFamily: "'Inter', system-ui, sans-serif",
             overflow: 'hidden', position: 'relative',
         }}>
             {/* Ambient blobs */}
-            <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(56,189,248,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: '10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(139,92,246,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', top: '-10%', left: '-10%', width: '50vw', height: '50vw', background: 'radial-gradient(circle, rgba(56,189,248,0.06) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: '10%', right: '-10%', width: '60vw', height: '60vw', background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none' }} />
+
 
             {/* Scrollable content area */}
             <div style={{
@@ -181,13 +182,12 @@ export default function CustomerApp() {
                 }
             `}</style>
 
-            {/* ── BOTTOM NAV ── */}
             <nav style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0,
                 height: NAV_HEIGHT,
                 paddingBottom: 'env(safe-area-inset-bottom)',
-                background: '#0f172a',
-                borderTop: '1px solid rgba(255,255,255,0.08)',
+                background: '#070c1a',
+                borderTop: '1px solid rgba(255,255,255,0.07)',
                 display: 'flex', alignItems: 'stretch', zIndex: 100,
             }}>
                 {TABS.map(tab => {

@@ -263,7 +263,57 @@ export async function PATCH(request, { params }) {
             return NextResponse.json({ success: true, job: updatedJob })
         }
 
+        // ── action: add_details ─────────────────────────────────────────────
+        if (action === 'add_details') {
+            const { note, image_urls } = body;
+            if (!note && (!image_urls || image_urls.length === 0)) {
+                return NextResponse.json({ error: 'Please provide a note or at least one image' }, { status: 400 });
+            }
+
+            const imageCount = Array.isArray(image_urls) ? image_urls.length : 0;
+            const messageLines = [];
+            if (note) messageLines.push(note);
+            if (imageCount > 0) messageLines.push(`[${imageCount} image${imageCount > 1 ? 's' : ''} attached]`);
+            const interactionMessage = messageLines.join('\n');
+
+            // 1. Log to job_interactions
+            await supabase.from('job_interactions').insert({
+                job_id: id,
+                type: 'customer-note',
+                message: interactionMessage,
+                image_urls: image_urls || [],
+                user_name: 'Customer',
+            });
+
+            // 2. Append to job notes (prepend timestamp)
+            const timestamp = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const existingNotes = job.notes || '';
+            const newNotes = `[Customer ${timestamp}]: ${interactionMessage}\n\n${existingNotes}`.trim();
+            await supabase.from('jobs').update({ notes: newNotes, updated_at: new Date().toISOString() }).eq('id', id);
+
+            // 3. Notify admin + technician
+            logInteractionServer({
+                type: 'customer-note', category: 'job', jobId: String(id),
+                customerId: job.customer_id ? String(job.customer_id) : null,
+                customerName: job.customer_name || null,
+                performedByName: 'Customer',
+                description: `Job #${job.job_number} — customer added details: ${note || ''}${imageCount > 0 ? ` + ${imageCount} image(s)` : ''}`,
+                source: 'Customer App'
+            });
+
+            fireNotification('customer_note_added', {
+                job_id: String(id), job_number: job.job_number,
+                customer_id: job.customer_id ? String(job.customer_id) : undefined,
+                technician_id: job.technician_id ? String(job.technician_id) : undefined,
+                customer_name: job.customer_name || undefined,
+                note: interactionMessage,
+            }).catch(() => {});
+
+            return NextResponse.json({ success: true, message: 'Details added successfully. Our team has been notified.' });
+        }
+
         return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+
 
     } catch (error) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

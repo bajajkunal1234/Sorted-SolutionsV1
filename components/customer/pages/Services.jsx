@@ -714,7 +714,251 @@ function InvoiceSection({ jobId, jobStatus }) {
     )
 }
 
+// ── Add Details Panel ────────────────────────────────────────────────────────
+function AddDetailsPanel({ job }) {
+    const [open, setOpen] = useState(false)
+    const [note, setNote] = useState('')
+    const [images, setImages] = useState([]) // { file, preview, url }
+    const [uploading, setUploading] = useState(false)
+    const [submitting, setSubmitting] = useState(false)
+    const [success, setSuccess] = useState(false)
+    const fileInputRef = React.useRef(null)
+
+    const handleFiles = (files) => {
+        const newImages = []
+        for (const file of files) {
+            if (!file.type.startsWith('image/')) continue
+            if (images.length + newImages.length >= 5) break
+            const preview = URL.createObjectURL(file)
+            newImages.push({ file, preview, url: null })
+        }
+        setImages(prev => [...prev, ...newImages])
+    }
+
+    const removeImage = (idx) => {
+        setImages(prev => {
+            const copy = [...prev]
+            URL.revokeObjectURL(copy[idx].preview)
+            copy.splice(idx, 1)
+            return copy
+        })
+    }
+
+    const uploadImage = async (imgObj) => {
+        if (imgObj.url) return imgObj.url
+        const formData = new FormData()
+        formData.append('file', imgObj.file)
+        formData.append('upload_preset', 'sorted_customer_uploads')
+        const res = await fetch('https://api.cloudinary.com/v1_1/sorted/image/upload', { method: 'POST', body: formData })
+        if (!res.ok) throw new Error('Image upload failed')
+        const data = await res.json()
+        return data.secure_url
+    }
+
+    const handleSubmit = async () => {
+        if (!note.trim() && images.length === 0) return
+        setSubmitting(true)
+        setUploading(images.length > 0)
+        try {
+            // Upload images first
+            const uploadedUrls = []
+            for (const img of images) {
+                try {
+                    const url = await uploadImage(img)
+                    uploadedUrls.push(url)
+                } catch {
+                    // Skip failed uploads, still submit the note
+                }
+            }
+            setUploading(false)
+
+            const customerId = localStorage.getItem('customerId')
+            const res = await fetch(`/api/customer/jobs/${job.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'add_details',
+                    customerId,
+                    note: note.trim(),
+                    image_urls: uploadedUrls,
+                })
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to submit')
+            setSuccess(true)
+            setNote('')
+            setImages([])
+            setTimeout(() => { setSuccess(false); setOpen(false) }, 3000)
+        } catch (err) {
+            alert('Could not send details: ' + err.message)
+        } finally {
+            setSubmitting(false)
+            setUploading(false)
+        }
+    }
+
+    return (
+        <div style={{ marginBottom: 12 }}>
+            {/* Toggle button */}
+            <button
+                onClick={() => setOpen(o => !o)}
+                style={{
+                    width: '100%', padding: '12px 14px', borderRadius: 14,
+                    background: open ? 'rgba(56,189,248,0.08)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${open ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.07)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    cursor: 'pointer', transition: 'all 0.18s',
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(56,189,248,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Send size={13} color="#38bdf8" />
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: open ? '#38bdf8' : '#94a3b8' }}>Add Details for Technician</div>
+                        <div style={{ fontSize: 10, color: '#475569', fontWeight: 500 }}>Photos, notes, extra info — our team gets notified</div>
+                    </div>
+                </div>
+                <ChevronDown size={16} color="#475569" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+            </button>
+
+            {/* Expandable content */}
+            {open && (
+                <div style={{
+                    marginTop: 8, padding: '14px', borderRadius: 14,
+                    background: 'rgba(56,189,248,0.04)', border: '1px solid rgba(56,189,248,0.12)',
+                }}>
+                    {success ? (
+                        <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                            <CheckCircle2 size={28} color="#10b981" style={{ marginBottom: 8 }} />
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#a7f3d0' }}>Sent! Our team has been notified.</div>
+                            <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>The technician will review your details.</div>
+                        </div>
+                    ) : (
+                        <>
+                            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, lineHeight: 1.5 }}>
+                                Describe the issue in more detail or upload photos to help the technician prepare better.
+                            </div>
+
+                            {/* Text input */}
+                            <textarea
+                                value={note}
+                                onChange={e => setNote(e.target.value)}
+                                placeholder="e.g. The AC makes a loud rattling noise when set to cooling mode. It started 3 days ago..."
+                                rows={3}
+                                style={{
+                                    width: '100%', background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.09)',
+                                    borderRadius: 10, color: '#f1f5f9', fontSize: 13, padding: '10px 12px',
+                                    resize: 'none', outline: 'none', boxSizing: 'border-box',
+                                    fontFamily: "'Inter', system-ui, sans-serif", lineHeight: 1.5,
+                                    marginBottom: 10
+                                }}
+                            />
+
+                            {/* Image picker */}
+                            <div style={{ marginBottom: 10 }}>
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    capture="environment"
+                                    style={{ display: 'none' }}
+                                    onChange={e => handleFiles(e.target.files)}
+                                />
+
+                                {/* Image previews */}
+                                {images.length > 0 && (
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                                        {images.map((img, idx) => (
+                                            <div key={idx} style={{ position: 'relative', width: 64, height: 64, borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                <img src={img.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <button
+                                                    onClick={() => removeImage(idx)}
+                                                    style={{
+                                                        position: 'absolute', top: 2, right: 2,
+                                                        width: 18, height: 18, borderRadius: '50%',
+                                                        background: 'rgba(0,0,0,0.7)', border: 'none',
+                                                        color: '#fff', cursor: 'pointer', fontSize: 10,
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}
+                                                >×</button>
+                                            </div>
+                                        ))}
+
+                                        {/* Add more button */}
+                                        {images.length < 5 && (
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                style={{
+                                                    width: 64, height: 64, borderRadius: 10,
+                                                    border: '1px dashed rgba(56,189,248,0.3)',
+                                                    background: 'rgba(56,189,248,0.05)',
+                                                    cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                                                    alignItems: 'center', justifyContent: 'center', gap: 2,
+                                                    color: '#38bdf8', fontSize: 9, fontWeight: 600
+                                                }}
+                                            >
+                                                <Plus size={16} />ADD
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Add photo button (if no images yet) */}
+                                {images.length === 0 && (
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        style={{
+                                            width: '100%', padding: '10px', borderRadius: 10,
+                                            border: '1px dashed rgba(56,189,248,0.25)',
+                                            background: 'rgba(56,189,248,0.04)',
+                                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                                            color: '#64748b', fontSize: 12, fontWeight: 600,
+                                            marginBottom: 0
+                                        }}
+                                    >
+                                        <Eye size={14} color="#475569" /> Attach Photos (up to 5)
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Submit */}
+                            <button
+                                onClick={handleSubmit}
+                                disabled={submitting || (!note.trim() && images.length === 0)}
+                                style={{
+                                    width: '100%', padding: '11px', borderRadius: 10, border: 'none',
+                                    background: (note.trim() || images.length > 0) && !submitting
+                                        ? 'linear-gradient(135deg, #38bdf8, #3b82f6)'
+                                        : 'rgba(255,255,255,0.05)',
+                                    color: (note.trim() || images.length > 0) ? '#fff' : '#475569',
+                                    fontSize: 13, fontWeight: 700,
+                                    cursor: submitting || (!note.trim() && images.length === 0) ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s',
+                                    boxShadow: (note.trim() || images.length > 0) ? '0 4px 14px rgba(56,189,248,0.25)' : 'none',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7
+                                }}
+                            >
+                                {uploading ? (
+                                    <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Uploading photos...</>
+                                ) : submitting ? (
+                                    <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Sending...</>
+                                ) : (
+                                    <><Send size={13} /> Send to Technician</>
+                                )}
+                            </button>
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ── Job Detail Sheet ─────────────────────────────────────────────────────────
+
 function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
     const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.new_job_request
     const Icon = cfg.icon
@@ -790,12 +1034,12 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
             <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 200 }} />
             <div style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0,
-                background: 'linear-gradient(180deg, #18253a 0%, #0f172a 100%)',
+                background: 'linear-gradient(180deg, #0d1526 0%, #0a0f1e 100%)',
                 borderTop: `1px solid ${cfg.border}`,
                 borderRadius: '28px 28px 0 0',
                 padding: '0 0 calc(80px + env(safe-area-inset-bottom))',
                 zIndex: 201, maxHeight: '88dvh', overflowY: 'auto',
-                boxShadow: `0 -24px 80px rgba(0,0,0,0.7), 0 -1px 0 ${cfg.color}33`
+                boxShadow: `0 -24px 80px rgba(0,0,0,0.8), 0 -1px 0 ${cfg.color}33`
             }}>
                 {/* Drag handle */}
                 <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '14px auto 0' }} />
@@ -803,7 +1047,7 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                 {/* Sticky header */}
                 <div style={{
                     position: 'sticky', top: 0,
-                    background: 'linear-gradient(180deg, #18253a 70%, transparent)',
+                    background: 'linear-gradient(180deg, #0d1526 70%, transparent)',
                     padding: '14px 20px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                     zIndex: 10
                 }}>
@@ -994,6 +1238,11 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                         </div>
                     )}
 
+                    {/* ── Add Details panel ── */}
+                    {!['cancelled'].includes(job.status) && (
+                        <AddDetailsPanel job={job} />
+                    )}
+
                     {/* ── Support footer ── */}
                     <div style={{
                         display: 'flex', gap: 8, padding: '12px 14px',
@@ -1057,8 +1306,7 @@ export default function ServicesPage() {
 
             if (filterStatus === 'all') setJobs(all)
             else if (filterStatus === 'active') setJobs(all.filter(j => activeStatuses.includes(j.status)))
-            else if (filterStatus === 'quotation') setJobs(all.filter(j => j.status === 'quotation_sent'))
-            else if (filterStatus === 'past') setJobs(all.filter(j => pastStatuses.includes(j.status)))
+            // (estimates and past tabs removed)
             setError(null)
         } catch (err) {
             setError('Failed to load service requests')
@@ -1097,15 +1345,11 @@ export default function ServicesPage() {
 
     const tabs = [
         { id: 'active', label: 'Active' },
-        { id: 'quotation', label: 'Estimates', badge: quotationCount },
-        { id: 'past', label: 'Past' },
         { id: 'all', label: 'All' },
     ]
 
     const emptyLabel = {
         active: 'No Active Services',
-        quotation: 'No Pending Estimates',
-        past: 'No Past Services',
         all: 'No Services Yet',
     }
 
