@@ -1,317 +1,399 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
     Clock, Wrench, CheckCircle, XCircle, MapPin, Calendar,
     Plus, ChevronRight, X, FileText, Phone, AlertCircle,
     Send, RefreshCw, Hammer, Package, Shield, Star, ChevronDown,
-    Eye, TrendingUp
+    Eye, TrendingUp, Zap, Wind, Thermometer, Tv, Droplets,
+    Coffee, Loader2, MessageCircle, CreditCard, ArrowRight,
+    CheckCircle2, Info, Navigation, PhoneCall
 } from 'lucide-react'
 import BookServiceModal from '../modals/BookServiceModal'
 import RescheduleModal from '../modals/RescheduleModal'
 import LiveMap from '@/components/common/LiveMap'
 import { supabase } from '@/lib/supabase'
 
+// ── Appliance icon map ──────────────────────────────────────────────────────
+function ApplianceIcon({ type = '', size = 20 }) {
+    const t = (type || '').toLowerCase()
+    if (t.includes('air') || t.includes('ac') || t.includes('conditioner')) return <Wind size={size} />
+    if (t.includes('fridge') || t.includes('refrigerator')) return <Thermometer size={size} />
+    if (t.includes('wash') || t.includes('washing')) return <Droplets size={size} />
+    if (t.includes('tv') || t.includes('television')) return <Tv size={size} />
+    if (t.includes('micro') || t.includes('oven')) return <Zap size={size} />
+    if (t.includes('water') || t.includes('ro') || t.includes('purif')) return <Droplets size={size} />
+    if (t.includes('geyser') || t.includes('heater') || t.includes('water heater')) return <Thermometer size={size} />
+    if (t.includes('coffee') || t.includes('espresso')) return <Coffee size={size} />
+    return <Wrench size={size} />
+}
+
 // ── Status configuration ────────────────────────────────────────────────────
 
 const STATUS_CONFIG = {
-    // ── New 9-status canonical values ──────────────────────────────────────
     new_job_request: {
-        color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)',
-        icon: Clock, label: 'New Job Request', step: 0,
-        desc: 'Your request has been received and is being reviewed by our team.'
+        color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)',
+        glow: 'rgba(245,158,11,0.15)',
+        icon: Clock, label: 'Received', step: 0,
+        desc: 'Your request has been received and is being reviewed by our team.',
+        next: 'Our team will review and confirm your appointment slot shortly.'
+    },
+    booking_request: {
+        color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)',
+        glow: 'rgba(245,158,11,0.15)',
+        icon: Clock, label: 'Received', step: 0,
+        desc: 'Your request has been received and is being reviewed.',
+        next: 'Our team will review and confirm your appointment slot shortly.'
     },
     scheduled: {
-        color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.25)',
-        icon: Wrench, label: 'Scheduled', step: 1,
-        desc: 'Your appointment is confirmed. A technician will visit you soon.'
-    },
-    diagnosing_quoting: {
-        color: '#8b5cf6', bg: 'rgba(139,92,246,0.12)', border: 'rgba(139,92,246,0.25)',
-        icon: Hammer, label: 'Diagnosing & Quoting', step: 2,
-        desc: 'Our technician has arrived and is diagnosing the issue.'
-    },
-    quotation_sent: {
-        color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)',
-        icon: FileText, label: 'Quotation Sent', step: 3,
-        desc: "We've sent you a cost estimate. Please review and approve below."
-    },
-    parts_ordered: {
-        color: '#f97316', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.25)',
-        icon: Package, label: 'Parts Ordered', step: 3,
-        desc: 'A part has been ordered for your repair. We\'ll update you when it arrives.'
-    },
-    work_in_progress: {
-        color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)',
-        icon: Hammer, label: 'Work In Progress', step: 4,
-        desc: 'Repair work is actively in progress at your location.'
-    },
-    cx_reschedule: {
-        color: '#06b6d4', bg: 'rgba(6,182,212,0.12)', border: 'rgba(6,182,212,0.25)',
-        icon: Calendar, label: 'Rescheduled', step: 1,
-        desc: 'You have rescheduled this appointment. We will confirm your new slot shortly.'
-    },
-    cancelled: {
-        color: '#ef4444', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)',
-        icon: XCircle, label: 'Cancelled', step: -1,
-        desc: 'This service request has been cancelled.'
-    },
-    closed: {
-        color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)',
-        icon: CheckCircle, label: 'Completed', step: 5,
-        desc: 'Your service is complete. Thank you for choosing Sorted!'
-    },
-    // ── Legacy fallbacks (normalised by API but kept for safety) ──────────
-    booking_request: {
-        color: '#f59e0b', bg: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.25)',
-        icon: Clock, label: 'New Job Request', step: 0,
-        desc: 'Your request has been received and is being reviewed.'
+        color: '#38bdf8', bg: 'rgba(56,189,248,0.1)', border: 'rgba(56,189,248,0.2)',
+        glow: 'rgba(56,189,248,0.12)',
+        icon: Calendar, label: 'Scheduled', step: 1,
+        desc: 'Your appointment is confirmed. A technician will visit you soon.',
+        next: 'Our technician will arrive at your scheduled slot. Keep your appliance accessible.'
     },
     assigned: {
-        color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.25)',
-        icon: Wrench, label: 'Scheduled', step: 1,
-        desc: 'A technician has been assigned and will contact you soon.'
+        color: '#38bdf8', bg: 'rgba(56,189,248,0.1)', border: 'rgba(56,189,248,0.2)',
+        glow: 'rgba(56,189,248,0.12)',
+        icon: Calendar, label: 'Scheduled', step: 1,
+        desc: 'A technician has been assigned and will contact you soon.',
+        next: 'Our technician will arrive at your scheduled slot.'
+    },
+    cx_reschedule: {
+        color: '#06b6d4', bg: 'rgba(6,182,212,0.1)', border: 'rgba(6,182,212,0.2)',
+        glow: 'rgba(6,182,212,0.12)',
+        icon: Calendar, label: 'Rescheduled', step: 1,
+        desc: 'You have rescheduled this appointment.',
+        next: 'We will confirm your new slot shortly.'
+    },
+    diagnosing_quoting: {
+        color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', border: 'rgba(139,92,246,0.2)',
+        glow: 'rgba(139,92,246,0.15)',
+        icon: Hammer, label: 'Diagnosing', step: 2,
+        desc: 'Our technician has arrived and is diagnosing the issue.',
+        next: 'You will receive a repair estimate shortly after diagnosis.'
+    },
+    quotation_sent: {
+        color: '#a78bfa', bg: 'rgba(167,139,250,0.1)', border: 'rgba(167,139,250,0.25)',
+        glow: 'rgba(167,139,250,0.2)',
+        icon: FileText, label: 'Estimate Ready', step: 3,
+        desc: "We've sent you a cost estimate. Please review and approve to begin repairs.",
+        next: 'Approve the estimate to proceed. Call us to discuss if you have questions.'
+    },
+    parts_ordered: {
+        color: '#f97316', bg: 'rgba(249,115,22,0.1)', border: 'rgba(249,115,22,0.2)',
+        glow: 'rgba(249,115,22,0.12)',
+        icon: Package, label: 'Parts Ordered', step: 3,
+        desc: 'A part has been ordered for your repair.',
+        next: "We'll schedule a follow-up visit once the part arrives — usually within 2–5 days."
+    },
+    work_in_progress: {
+        color: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)',
+        glow: 'rgba(16,185,129,0.15)',
+        icon: Hammer, label: 'In Progress', step: 4,
+        desc: 'Repair work is actively in progress at your location.',
+        next: 'Your technician is working on the repair. Payment will be collected after completion.'
+    },
+    closed: {
+        color: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)',
+        glow: 'rgba(16,185,129,0.1)',
+        icon: CheckCircle, label: 'Completed', step: 5,
+        desc: 'Your service is complete. Thank you for choosing Sorted!',
+        next: 'Rate your experience and pay your invoice online if you haven\'t already.'
     },
     completed: {
-        color: '#10b981', bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)',
+        color: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)',
+        glow: 'rgba(16,185,129,0.1)',
         icon: CheckCircle, label: 'Completed', step: 5,
-        desc: 'Your service is complete. Thank you for choosing Sorted!'
+        desc: 'Your service is complete. Thank you for choosing Sorted!',
+        next: 'Rate your experience and pay your invoice online if you haven\'t already.'
+    },
+    cancelled: {
+        color: '#ef4444', bg: 'rgba(239,68,68,0.1)', border: 'rgba(239,68,68,0.2)',
+        glow: 'rgba(239,68,68,0.1)',
+        icon: XCircle, label: 'Cancelled', step: -1,
+        desc: 'This service request has been cancelled.',
+        next: 'You can book a new service request anytime.'
     },
 }
 
 const JOURNEY_STEPS = [
-    { label: 'Received',   icon: Clock       },
-    { label: 'Scheduled',  icon: Calendar    },
-    { label: 'Diagnosing', icon: Hammer      },
-    { label: 'Estimate',   icon: FileText    },
-    { label: 'Repairing',  icon: Wrench      },
-    { label: 'Done',       icon: CheckCircle },
+    { label: 'Received', icon: Clock },
+    { label: 'Scheduled', icon: Calendar },
+    { label: 'Diagnosing', icon: Hammer },
+    { label: 'Estimate', icon: FileText },
+    { label: 'Repairing', icon: Wrench },
+    { label: 'Done', icon: CheckCircle },
 ]
 
-// ── Sub-components ──────────────────────────────────────────────────────────
-
-function StatusBadge({ status }) {
-    const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.new_job_request
-    const Icon = cfg.icon
-    return (
-        <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 5,
-            padding: '4px 10px', borderRadius: 20,
-            background: cfg.bg, border: `1px solid ${cfg.border}`,
-            color: cfg.color, fontSize: 11, fontWeight: 700,
-        }}>
-            <Icon size={11} strokeWidth={3} /> {cfg.label}
-        </div>
-    )
-}
-
-function JourneyBar({ status }) {
+// ── Compact Journey Pills ────────────────────────────────────────────────────
+function JourneyPills({ status }) {
     const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.new_job_request
     const currentStep = cfg.step ?? 0
     if (status === 'cancelled') return null
-
     return (
-        <div style={{ padding: '4px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
-                {/* connector line */}
-                <div style={{
-                    position: 'absolute', top: 16, left: '10%', right: '10%', height: 2,
-                    background: 'rgba(255,255,255,0.06)', borderRadius: 1
-                }} />
-                <div style={{
-                    position: 'absolute', top: 16, left: '10%',
-                    width: `${Math.min((currentStep / (JOURNEY_STEPS.length - 1)) * 80, 80)}%`, height: 2,
-                    background: `linear-gradient(90deg, ${cfg.color}, ${cfg.color}88)`,
-                    borderRadius: 1, transition: 'width 0.6s ease'
-                }} />
-
-                {JOURNEY_STEPS.map((step, idx) => {
-                    const StepIcon = step.icon
-                    const done = idx <= currentStep
-                    const active = idx === currentStep
-                    return (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, zIndex: 1, flex: '0 0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, overflowX: 'auto', paddingBottom: 2 }}>
+            {JOURNEY_STEPS.map((step, idx) => {
+                const done = idx <= currentStep
+                const active = idx === currentStep
+                const StepIcon = step.icon
+                return (
+                    <React.Fragment key={idx}>
+                        <div style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+                            opacity: done ? 1 : 0.3, transition: 'opacity 0.3s',
+                            flexShrink: 0
+                        }}>
                             <div style={{
-                                width: 32, height: 32, borderRadius: '50%',
+                                width: active ? 30 : 22, height: active ? 30 : 22,
+                                borderRadius: '50%',
                                 background: done ? cfg.color : 'rgba(255,255,255,0.06)',
                                 border: `2px solid ${done ? cfg.color : 'rgba(255,255,255,0.1)'}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: active ? `0 0 12px ${cfg.color}60` : 'none',
-                                transition: 'all 0.3s ease'
+                                boxShadow: active ? `0 0 10px ${cfg.color}70` : 'none',
+                                transition: 'all 0.3s ease',
                             }}>
-                                <StepIcon size={14} color={done ? '#0f172a' : '#475569'} strokeWidth={2.5} />
+                                <StepIcon size={active ? 13 : 10} color={done ? '#0f172a' : '#475569'} strokeWidth={2.5} />
                             </div>
                             <span style={{
-                                fontSize: 9, fontWeight: active ? 800 : 500,
-                                color: done ? cfg.color : '#475569',
+                                fontSize: 8, fontWeight: active ? 800 : 500,
+                                color: done ? cfg.color : '#334155',
                                 whiteSpace: 'nowrap', letterSpacing: '0.2px'
                             }}>
                                 {step.label}
                             </span>
                         </div>
-                    )
-                })}
-            </div>
+                        {idx < JOURNEY_STEPS.length - 1 && (
+                            <div style={{
+                                flex: 1, height: 2, minWidth: 8,
+                                background: idx < currentStep ? cfg.color : 'rgba(255,255,255,0.06)',
+                                borderRadius: 1, transition: 'background 0.4s',
+                                marginBottom: 13
+                            }} />
+                        )}
+                    </React.Fragment>
+                )
+            })}
         </div>
     )
 }
 
+// ── Premium Job Card ─────────────────────────────────────────────────────────
 function JobCard({ job, onClick }) {
     const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.new_job_request
-    const Icon = cfg.icon
     const hasQuotation = job.status === 'quotation_sent'
+    const isActive = ['work_in_progress', 'diagnosing_quoting'].includes(job.status)
+    const isLive = job.status === 'work_in_progress'
+    const applianceType = job.product?.type || job.category || job.appliance || 'Service'
+    const applianceBrand = job.product?.brand || job.brand || ''
+
+    const dateLabel = (() => {
+        const d = job.dueDate || job.confirmedVisitTime || job.scheduled_date
+        if (!d) return null
+        return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    })()
 
     return (
         <div
             onClick={onClick}
             style={{
-                background: 'linear-gradient(145deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02))',
-                border: `1px solid ${hasQuotation ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.07)'}`,
-                borderRadius: 20, padding: '16px 18px',
-                cursor: 'pointer', transition: 'all 0.2s ease',
+                background: 'linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
+                border: `1px solid ${hasQuotation ? 'rgba(167,139,250,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                borderRadius: 20, padding: '0',
+                cursor: 'pointer', transition: 'transform 0.18s ease, box-shadow 0.18s ease',
                 position: 'relative', overflow: 'hidden',
-                boxShadow: hasQuotation ? '0 4px 20px rgba(139,92,246,0.1)' : 'none'
+                boxShadow: hasQuotation
+                    ? `0 4px 24px ${cfg.glow}, 0 0 0 1px rgba(167,139,250,0.1)`
+                    : isLive ? `0 4px 20px ${cfg.glow}` : 'none',
+            }}
+            onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-2px)'
+                e.currentTarget.style.boxShadow = `0 8px 32px ${cfg.glow}`
+            }}
+            onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = hasQuotation
+                    ? `0 4px 24px ${cfg.glow}` : isLive ? `0 4px 20px ${cfg.glow}` : 'none'
             }}
         >
-            {/* Quotation attention glow */}
+            {/* Left accent strip */}
+            <div style={{
+                position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
+                background: `linear-gradient(180deg, ${cfg.color}, ${cfg.color}88)`,
+                borderRadius: '20px 0 0 20px'
+            }} />
+
+            {/* Live pulse glow background */}
+            {isLive && (
+                <div style={{
+                    position: 'absolute', inset: 0,
+                    background: `radial-gradient(ellipse at top left, ${cfg.glow} 0%, transparent 60%)`,
+                    pointerEvents: 'none'
+                }} />
+            )}
+            {/* Quotation glow */}
             {hasQuotation && (
                 <div style={{
-                    position: 'absolute', top: 0, right: 0,
-                    width: 80, height: 80,
-                    background: 'radial-gradient(circle at top right, rgba(139,92,246,0.15), transparent 70%)',
+                    position: 'absolute', top: 0, right: 0, width: 100, height: 100,
+                    background: `radial-gradient(circle at top right, rgba(167,139,250,0.15), transparent 70%)`,
                     pointerEvents: 'none'
                 }} />
             )}
 
-            {/* Top row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#f8fafc', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span>{job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || 'Service Request'}</span>
-                        {job.serviceCoverage === 'amc' && <span style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', padding: '2px 8px', borderRadius: 12 }}>🛡️ AMC Covered</span>}
-                        {job.serviceCoverage === 'rental' && <span style={{ fontSize: 10, fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', padding: '2px 8px', borderRadius: 12 }}>📦 Rental</span>}
-                        {job.serviceCoverage === 'warranty' && <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', padding: '2px 8px', borderRadius: 12 }}>📜 Warranty</span>}
+            <div style={{ padding: '16px 16px 16px 20px' }}>
+                {/* Top row */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                        {/* Appliance Icon bubble */}
+                        <div style={{
+                            width: 40, height: 40, borderRadius: 12,
+                            background: `linear-gradient(135deg, ${cfg.color}22, ${cfg.color}11)`,
+                            border: `1px solid ${cfg.color}33`,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexShrink: 0
+                        }}>
+                            <ApplianceIcon type={applianceType} size={18} style={{ color: cfg.color }} />
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
+                                    {applianceBrand ? `${applianceBrand} ` : ''}{applianceType}
+                                </span>
+                                {job.serviceCoverage === 'amc' && <span style={{ fontSize: 9, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.25)', padding: '2px 7px', borderRadius: 10 }}>AMC</span>}
+                                {job.serviceCoverage === 'warranty' && <span style={{ fontSize: 9, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', padding: '2px 7px', borderRadius: 10 }}>WARRANTY</span>}
+                            </div>
+                            <div style={{ fontSize: 11, color: '#475569', fontFamily: 'monospace', marginTop: 1 }}>
+                                {job.jobNumber || `#${job.id?.slice(0, 8)}`}
+                            </div>
+                        </div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#475569', fontFamily: 'monospace' }}>
-                        {job.jobNumber || `#${job.id?.slice(0, 8)}`}
+
+                    {/* Status badge + chevron */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            padding: '4px 9px', borderRadius: 20,
+                            background: cfg.bg, border: `1px solid ${cfg.border}`,
+                            color: cfg.color, fontSize: 10, fontWeight: 700,
+                        }}>
+                            {isLive && <span style={{ width: 6, height: 6, borderRadius: '50%', background: cfg.color, display: 'inline-block', animation: 'pulse 1.8s ease-in-out infinite' }} />}
+                            {cfg.label}
+                        </div>
+                        <ChevronRight size={14} color="#334155" />
                     </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 10 }}>
-                    <StatusBadge status={job.status} />
-                    <ChevronRight size={14} color="#475569" />
+
+                {/* Issue */}
+                {job.issue && (
+                    <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 10px 0', lineHeight: 1.4, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                        {job.issue}
+                    </p>
+                )}
+
+                {/* Journey pills */}
+                <JourneyPills status={job.status} />
+
+                {/* Footer */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                        {dateLabel && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#475569' }}>
+                                <Calendar size={11} />
+                                <span>{dateLabel}</span>
+                            </div>
+                        )}
+                        {job.assignedTechnician && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#475569' }}>
+                                <Wrench size={11} />
+                                <span style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.assignedTechnician}</span>
+                            </div>
+                        )}
+                    </div>
+                    {hasQuotation && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#a78bfa', fontWeight: 700 }}>
+                            <FileText size={11} />
+                            View estimate →
+                        </div>
+                    )}
                 </div>
-            </div>
 
-            {/* Issue */}
-            {job.issue && (
-                <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 12px 0', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                    {job.issue}
-                </p>
-            )}
-
-            {/* Journey bar */}
-            <JourneyBar status={job.status} />
-
-            {/* Footer row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748b' }}>
-                    <Calendar size={12} />
-                    <span>{job.dueDate ? new Date(job.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : job.confirmedVisitTime ? new Date(job.confirmedVisitTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Scheduling...'}</span>
-                </div>
-                {job.assignedTechnician && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748b' }}>
-                        <Wrench size={12} />
-                        <span style={{ maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.assignedTechnician}</span>
+                {/* Quotation urgent CTA */}
+                {hasQuotation && (
+                    <div style={{
+                        marginTop: 10, padding: '9px 12px', borderRadius: 10,
+                        background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(109,40,217,0.08))',
+                        border: '1px solid rgba(139,92,246,0.3)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                        <span style={{ fontSize: 12, color: '#c4b5fd', fontWeight: 600 }}>📋 Repair estimate awaiting approval</span>
+                        <ArrowRight size={14} color="#a78bfa" />
                     </div>
                 )}
             </div>
-
-            {/* Quotation CTA banner */}
-            {hasQuotation && (
-                <div style={{
-                    marginTop: 12, padding: '8px 12px', borderRadius: 10,
-                    background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: 12, color: '#a78bfa', fontWeight: 600
-                }}>
-                    <FileText size={13} />
-                    View repair estimate →
-                </div>
-            )}
         </div>
     )
 }
 
-// ── Star Rating Component ───────────────────────────────────────────────────
+// ── Star Rating Component ────────────────────────────────────────────────────
 
 function StarRating({ job, onRated }) {
-    const [hovered, setHovered] = useState(0);
-    const [selected, setSelected] = useState(job.customer_rating || 0);
-    const [note, setNote] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [submitted, setSubmitted] = useState(!!job.customer_rating);
+    const [hovered, setHovered] = useState(0)
+    const [selected, setSelected] = useState(job.customer_rating || 0)
+    const [note, setNote] = useState('')
+    const [submitting, setSubmitting] = useState(false)
+    const [submitted, setSubmitted] = useState(!!job.customer_rating)
 
-    const labels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'];
-    const colors = ['', '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981'];
+    const labels = ['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent']
+    const colors = ['', '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#10b981']
 
     const handleSubmit = async () => {
-        if (!selected) return;
-        setSubmitting(true);
+        if (!selected) return
+        setSubmitting(true)
         try {
-            const customerId = localStorage.getItem('customerId');
+            const customerId = localStorage.getItem('customerId')
             const res = await fetch(`/api/customer/jobs/${job.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action: 'rate', customerId, rating: selected, rating_note: note.trim() || undefined })
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to submit rating');
-            setSubmitted(true);
-            if (onRated) onRated(selected);
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to submit rating')
+            setSubmitted(true)
+            if (onRated) onRated(selected)
         } catch (err) {
-            alert('Could not submit rating: ' + err.message);
+            alert('Could not submit rating: ' + err.message)
         } finally {
-            setSubmitting(false);
+            setSubmitting(false)
         }
-    };
+    }
 
-    const displayRating = hovered || selected;
+    const displayRating = hovered || selected
 
     if (submitted) {
         return (
             <div style={{
-                background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)',
-                borderRadius: 14, padding: '16px', marginBottom: 16, textAlign: 'center'
+                background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)',
+                borderRadius: 16, padding: '16px', marginBottom: 12, textAlign: 'center'
             }}>
                 <div style={{ fontSize: 13, color: '#a7f3d0', fontWeight: 700, marginBottom: 8 }}>⭐ Thank you for your feedback!</div>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
                     {[1, 2, 3, 4, 5].map(s => (
-                        <Star key={s} size={22}
-                            fill={s <= (job.customer_rating || selected) ? '#f59e0b' : 'none'}
-                            color={s <= (job.customer_rating || selected) ? '#f59e0b' : '#334155'}
-                        />
+                        <Star key={s} size={22} fill={s <= (job.customer_rating || selected) ? '#f59e0b' : 'none'} color={s <= (job.customer_rating || selected) ? '#f59e0b' : '#334155'} />
                     ))}
                 </div>
-                {(job.rating_note || note) && (
-                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 6, fontStyle: 'italic' }}>"{job.rating_note || note}"</div>
-                )}
             </div>
-        );
+        )
     }
 
     return (
         <div style={{
-            background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)',
-            borderRadius: 14, padding: '16px', marginBottom: 16
+            background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.18)',
+            borderRadius: 16, padding: '16px', marginBottom: 12
         }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Star size={13} fill="#f59e0b" color="#f59e0b" /> Rate this Service
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#d97706', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Star size={12} fill="#f59e0b" color="#f59e0b" /> Rate this Service
             </div>
-            <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 14, lineHeight: 1.5 }}>
-                How was your experience? Your rating helps us improve and reward our technicians.
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 10 }}>
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 8 }}>
                 {[1, 2, 3, 4, 5].map(star => (
                     <button
                         key={star}
@@ -324,22 +406,15 @@ function StarRating({ job, onRated }) {
                             transition: 'transform 0.15s ease'
                         }}
                     >
-                        <Star
-                            size={32}
-                            fill={star <= displayRating ? colors[displayRating] : 'none'}
-                            color={star <= displayRating ? colors[displayRating] : '#334155'}
-                            strokeWidth={1.5}
-                        />
+                        <Star size={30} fill={star <= displayRating ? colors[displayRating] : 'none'} color={star <= displayRating ? colors[displayRating] : '#334155'} strokeWidth={1.5} />
                     </button>
                 ))}
             </div>
-
             {displayRating > 0 && (
-                <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, color: colors[displayRating], marginBottom: 12, transition: 'color 0.2s' }}>
+                <div style={{ textAlign: 'center', fontSize: 13, fontWeight: 700, color: colors[displayRating], marginBottom: 10 }}>
                     {labels[displayRating]}
                 </div>
             )}
-
             {selected > 0 && (
                 <textarea
                     value={note}
@@ -347,492 +422,613 @@ function StarRating({ job, onRated }) {
                     placeholder="Add a comment (optional)..."
                     rows={2}
                     style={{
-                        width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                        width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                         borderRadius: 10, color: '#f8fafc', fontSize: 13, padding: '10px 12px',
-                        resize: 'none', outline: 'none', marginBottom: 12, boxSizing: 'border-box'
+                        resize: 'none', outline: 'none', marginBottom: 10, boxSizing: 'border-box'
                     }}
                 />
             )}
-
             <button
                 onClick={handleSubmit}
                 disabled={!selected || submitting}
                 style={{
                     width: '100%', padding: '11px', borderRadius: 10, border: 'none',
-                    background: selected ? `linear-gradient(135deg, ${colors[selected]}, ${colors[selected]}cc)` : 'rgba(255,255,255,0.06)',
-                    color: selected ? '#fff' : '#475569', fontSize: 13, fontWeight: 700, cursor: selected ? 'pointer' : 'not-allowed',
-                    transition: 'all 0.2s', boxShadow: selected ? `0 4px 12px ${colors[selected]}40` : 'none'
+                    background: selected ? `linear-gradient(135deg, ${colors[selected]}, ${colors[selected]}cc)` : 'rgba(255,255,255,0.05)',
+                    color: selected ? '#fff' : '#475569', fontSize: 13, fontWeight: 700,
+                    cursor: selected ? 'pointer' : 'not-allowed', transition: 'all 0.2s',
+                    boxShadow: selected ? `0 4px 12px ${colors[selected]}40` : 'none'
                 }}
             >
                 {submitting ? 'Submitting...' : selected ? `Submit ${selected}-Star Rating` : 'Tap a star to rate'}
             </button>
         </div>
-    );
+    )
 }
 
+// ── Section header helper ───────────────────────────────────────────────────
+function SectionLabel({ children }) {
+    return (
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+            {children}
+        </div>
+    )
+}
+
+// ── Info tile helper ────────────────────────────────────────────────────────
+function InfoTile({ label, value, icon: Icon, accent }) {
+    if (!value) return null
+    return (
+        <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '12px 14px' }}>
+            {Icon && <div style={{ fontSize: 9, fontWeight: 700, color: accent || '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Icon size={10} />{label}
+            </div>}
+            {!Icon && <div style={{ fontSize: 9, fontWeight: 700, color: accent || '#475569', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>{label}</div>}
+            <div style={{ fontSize: 13, color: '#cbd5e1', fontWeight: 500, lineHeight: 1.4 }}>{value}</div>
+        </div>
+    )
+}
+
+// ── Quotation Detail Section ─────────────────────────────────────────────────
+function QuotationSection({ jobId, status, onClose }) {
+    const [quotation, setQuotation] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [approving, setApproving] = useState(false)
+
+    useEffect(() => {
+        fetch(`/api/customer/jobs/${jobId}/quotation`)
+            .then(r => r.json())
+            .then(d => { if (d.success) setQuotation(d.quotation) })
+            .catch(() => {})
+            .finally(() => setLoading(false))
+    }, [jobId])
+
+    if (loading) return (
+        <div style={{ textAlign: 'center', padding: '14px 0', color: '#475569', fontSize: 13 }}>
+            <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', marginRight: 6, verticalAlign: 'middle' }} />
+            Loading estimate...
+        </div>
+    )
+    if (!quotation) return null
+
+    const items = (() => {
+        if (!quotation.items) return []
+        if (typeof quotation.items === 'string') { try { return JSON.parse(quotation.items) } catch { return [] } }
+        return Array.isArray(quotation.items) ? quotation.items : []
+    })()
+
+    const handleApprove = async () => {
+        setApproving(true)
+        try {
+            const customerId = localStorage.getItem('customerId')
+            const res = await fetch(`/api/customer/jobs/${jobId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'approve_quotation', customerId })
+            })
+            const data = await res.json()
+            if (data.success) onClose?.()
+            else alert(data.error || 'Could not approve estimate')
+        } catch (e) { alert('Error: ' + e.message) }
+        finally { setApproving(false) }
+    }
+
+    return (
+        <div style={{
+            background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.22)',
+            borderRadius: 16, overflow: 'hidden', marginBottom: 12
+        }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(139,92,246,0.15)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <FileText size={14} color="#a78bfa" />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#c4b5fd' }}>Repair Estimate</span>
+                    </div>
+                    {quotation.quote_number && (
+                        <span style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace' }}>{quotation.quote_number}</span>
+                    )}
+                </div>
+            </div>
+
+            <div style={{ padding: '12px 16px' }}>
+                {/* Line items */}
+                {items.length > 0 ? (
+                    <div style={{ marginBottom: 12 }}>
+                        {items.map((item, i) => (
+                            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '7px 0', borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                                <div>
+                                    <div style={{ fontSize: 12, color: '#cbd5e1', fontWeight: 500 }}>{item.name || item.description || `Item ${i + 1}`}</div>
+                                    {item.qty && item.qty > 1 && <div style={{ fontSize: 10, color: '#475569' }}>Qty: {item.qty}</div>}
+                                </div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>
+                                    ₹{(parseFloat(item.amount || item.price || item.total || 0)).toLocaleString('en-IN')}
+                                </div>
+                            </div>
+                        ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0 0', borderTop: '1px solid rgba(139,92,246,0.2)', marginTop: 4 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: '#c4b5fd' }}>Total</span>
+                            <span style={{ fontSize: 16, fontWeight: 800, color: '#a78bfa' }}>₹{parseFloat(quotation.total_amount || 0).toLocaleString('en-IN')}</span>
+                        </div>
+                    </div>
+                ) : quotation.total_amount ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, padding: '10px 0', borderBottom: '1px solid rgba(139,92,246,0.15)' }}>
+                        <span style={{ fontSize: 13, color: '#c4b5fd', fontWeight: 600 }}>Estimated Total</span>
+                        <span style={{ fontSize: 20, fontWeight: 800, color: '#a78bfa' }}>₹{parseFloat(quotation.total_amount).toLocaleString('en-IN')}</span>
+                    </div>
+                ) : null}
+
+                {quotation.notes && (
+                    <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic', marginBottom: 12, lineHeight: 1.5 }}>
+                        Note: {quotation.notes}
+                    </div>
+                )}
+
+                {status === 'quotation_sent' && (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <a href="tel:+919082225163" style={{
+                            flex: 1, padding: '10px', borderRadius: 10,
+                            background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)',
+                            textAlign: 'center', fontSize: 12, color: '#c4b5fd', fontWeight: 600,
+                            cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
+                        }}>
+                            <PhoneCall size={12} /> Discuss
+                        </a>
+                        <button
+                            onClick={handleApprove}
+                            disabled={approving}
+                            style={{
+                                flex: 2, padding: '10px', borderRadius: 10,
+                                background: approving ? 'rgba(139,92,246,0.3)' : 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                                border: 'none', textAlign: 'center', fontSize: 12, color: '#fff',
+                                fontWeight: 700, cursor: approving ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 4px 12px rgba(139,92,246,0.3)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5
+                            }}
+                        >
+                            <CheckCircle2 size={13} /> {approving ? 'Approving...' : 'Approve & Proceed'}
+                        </button>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ── Invoice Section ──────────────────────────────────────────────────────────
+function InvoiceSection({ jobId, jobStatus }) {
+    const [invoice, setInvoice] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [payLoading, setPayLoading] = useState(false)
+    const [paid, setPaid] = useState(false)
+
+    useEffect(() => {
+        fetch(`/api/customer/jobs/${jobId}/invoice`)
+            .then(r => r.json())
+            .then(d => { if (d.success) setInvoice(d.invoice) })
+            .catch(() => {})
+            .finally(() => setLoading(false))
+    }, [jobId])
+
+    if (loading || !invoice) return null
+
+    const total = parseFloat(invoice.total_amount || 0)
+    const paidAmt = parseFloat(invoice.paid_amount || 0)
+    const due = total - paidAmt
+    const isFullyPaid = invoice.status === 'paid' || due <= 0
+    const statusColor = isFullyPaid ? '#10b981' : due > 0 ? '#f59e0b' : '#38bdf8'
+
+    const handlePayOnline = async () => {
+        setPayLoading(true)
+        try {
+            const customerId = localStorage.getItem('customerId')
+            const orderRes = await fetch('/api/customer/payment/create-order', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: due > 0 ? due : total,
+                    receipt: jobId, job_id: jobId,
+                    account_id: invoice.account_id || customerId,
+                    invoice_id: invoice.id, collected_by: 'customer', amount_label: 'full',
+                }),
+            })
+            const orderData = await orderRes.json()
+            if (!orderData.success) throw new Error(orderData.error || 'Failed to create order')
+            const { initiateRazorpayPayment } = await import('@/lib/razorpayClient')
+            await initiateRazorpayPayment({
+                amount: due > 0 ? due : total,
+                receiptId: jobId, orderId: orderData.order.id, keyId: orderData.keyId,
+                onSuccess: () => { setPaid(true) }
+            })
+        } catch (err) {
+            alert('Payment failed: ' + err.message)
+        } finally {
+            setPayLoading(false)
+        }
+    }
+
+    return (
+        <div style={{
+            background: isFullyPaid ? 'rgba(16,185,129,0.06)' : 'rgba(56,189,248,0.05)',
+            border: `1px solid ${isFullyPaid ? 'rgba(16,185,129,0.2)' : 'rgba(56,189,248,0.18)'}`,
+            borderRadius: 16, overflow: 'hidden', marginBottom: 12
+        }}>
+            <div style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${isFullyPaid ? 'rgba(16,185,129,0.12)' : 'rgba(56,189,248,0.1)'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <CreditCard size={14} color={statusColor} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isFullyPaid ? '#a7f3d0' : '#bae6fd' }}>Invoice</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {invoice.invoice_number && <span style={{ fontSize: 10, color: '#64748b', fontFamily: 'monospace' }}>{invoice.invoice_number}</span>}
+                    <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                        background: isFullyPaid ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.12)',
+                        color: isFullyPaid ? '#10b981' : '#f59e0b',
+                        border: `1px solid ${isFullyPaid ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}`
+                    }}>
+                        {isFullyPaid || paid ? 'PAID' : 'DUE'}
+                    </span>
+                </div>
+            </div>
+            <div style={{ padding: '12px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: due > 0 && paidAmt > 0 ? 6 : 0 }}>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>Total Amount</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9' }}>₹{total.toLocaleString('en-IN')}</span>
+                </div>
+                {due > 0 && paidAmt > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>Paid</span>
+                        <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>₹{paidAmt.toLocaleString('en-IN')}</span>
+                    </div>
+                )}
+                {due > 0 && !paid && !isFullyPaid && (
+                    <>
+                        {paidAmt > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                                <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>Balance Due</span>
+                                <span style={{ fontSize: 14, color: '#f59e0b', fontWeight: 700 }}>₹{due.toLocaleString('en-IN')}</span>
+                            </div>
+                        )}
+                        <button
+                            onClick={handlePayOnline}
+                            disabled={payLoading}
+                            style={{
+                                width: '100%', marginTop: 8, padding: '11px', borderRadius: 10, border: 'none',
+                                background: payLoading ? 'rgba(16,185,129,0.3)' : 'linear-gradient(135deg, #10b981, #059669)',
+                                color: '#fff', fontSize: 13, fontWeight: 700, cursor: payLoading ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 4px 14px rgba(16,185,129,0.25)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7
+                            }}
+                        >
+                            <CreditCard size={14} />
+                            {payLoading ? 'Processing...' : `Pay ₹${(due > 0 ? due : total).toLocaleString('en-IN')} Online`}
+                        </button>
+                    </>
+                )}
+                {(isFullyPaid || paid) && (
+                    <div style={{ marginTop: 8, textAlign: 'center', fontSize: 13, color: '#a7f3d0', fontWeight: 600 }}>
+                        <CheckCircle2 size={16} style={{ verticalAlign: 'middle', marginRight: 5 }} />
+                        Payment complete — Thank you!
+                    </div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+// ── Job Detail Sheet ─────────────────────────────────────────────────────────
 function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
     const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.new_job_request
     const Icon = cfg.icon
 
-    // Use stored lat/lng from property first — no geocoding needed
-    const storedLat = job?.property?.latitude || job?.latitude;
-    const storedLng = job?.property?.longitude || job?.longitude;
-    const hasStoredCoords = !!(storedLat && storedLng);
+    const applianceType = job.product?.type || job.category || job.appliance || 'Service'
+    const applianceBrand = job.product?.brand || job.brand || ''
 
-    // Tracking State
-    const [techLocation, setTechLocation] = useState(null);
+    // Only show map during live tracking (work_in_progress + technician is on the way)
+    const showMap = job.status === 'work_in_progress'
+
+    const storedLat = job?.property?.latitude || job?.latitude
+    const storedLng = job?.property?.longitude || job?.longitude
+    const hasStoredCoords = !!(storedLat && storedLng)
+
+    const [techLocation, setTechLocation] = useState(null)
     const [custLocation, setCustLocation] = useState(
         storedLat && storedLng ? [storedLat, storedLng]
-        : job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng]
-        : null
-    );
+            : job?.location?.lat && job?.location?.lng ? [job.location.lat, job.location.lng]
+                : null
+    )
 
-    // Geocoding Fallback — only if we don't have stored coordinates
+    // Geocode fallback only for map (only needed when map is shown = work_in_progress)
     useEffect(() => {
-        if (hasStoredCoords) return;
-        const addressString = job?.address || job?.locality || (job?.customer?.address && typeof job.customer.address === 'string' ? job.customer.address : '');
-        if (!custLocation && addressString) {
-            const query = encodeURIComponent(addressString + ', Mumbai, India');
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`)
-                .then(res => res.json())
+        if (!showMap) return
+        if (hasStoredCoords || custLocation) return
+        const addressString = job?.address || job?.locality || ''
+        if (addressString) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressString + ', Mumbai, India')}&limit=1`)
+                .then(r => r.json())
                 .then(data => {
-                    if (data && data.length > 0) {
-                        setCustLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
-                    } else {
-                        setCustLocation([19.0760, 72.8777]);
-                    }
+                    if (data?.[0]) setCustLocation([parseFloat(data[0].lat), parseFloat(data[0].lon)])
+                    else setCustLocation([19.0760, 72.8777])
                 })
-                .catch(() => setCustLocation([19.0760, 72.8777]));
-        } else if (!custLocation) {
-            setCustLocation([19.0760, 72.8777]);
+                .catch(() => setCustLocation([19.0760, 72.8777]))
+        } else {
+            setCustLocation([19.0760, 72.8777])
         }
-    }, [job?.address, job?.locality, custLocation, hasStoredCoords]);
+    }, [showMap, job?.address, job?.locality, hasStoredCoords, custLocation])
 
-    // Live tracking — subscribe to technician location broadcasts when work_in_progress
+    // Live tracking subscription
     useEffect(() => {
-        let channel;
-        if (job?.status === 'work_in_progress') {
-            channel = supabase.channel(`tracking:job_${job.id}`);
-            channel.on('broadcast', { event: 'location_update' }, (payload) => {
-                if (payload.payload) {
-                    setTechLocation([payload.payload.latitude, payload.payload.longitude]);
-                }
-            }).subscribe();
-        }
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-        };
-    }, [job?.status, job?.id]);
+        if (!showMap) return
+        const channel = supabase.channel(`tracking:job_${job.id}`)
+        channel.on('broadcast', { event: 'location_update' }, (payload) => {
+            if (payload.payload) setTechLocation([payload.payload.latitude, payload.payload.longitude])
+        }).subscribe()
+        return () => supabase.removeChannel(channel)
+    }, [showMap, job?.id])
+
+    // Which financial sections to show
+    const showQuotation = ['quotation_sent', 'diagnosing_quoting', 'parts_ordered', 'work_in_progress', 'closed', 'completed'].includes(job.status)
+    const showInvoice = ['work_in_progress', 'closed', 'completed'].includes(job.status)
+
+    const locked = !!job.on_way_at
+    const isClosedOrCancelled = ['closed', 'cancelled', 'completed'].includes(job.status)
+
+    const dateLabel = (() => {
+        const d = job.dueDate || job.confirmedVisitTime || job.scheduled_date
+        if (!d) return null
+        return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+    })()
+
+    const timeLabel = job.scheduled_time || job.confirmedVisitTime
+        ? (() => {
+            if (job.scheduled_time) return job.scheduled_time
+            const d = new Date(job.confirmedVisitTime)
+            return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        })()
+        : null
 
     return (
         <>
-            <div
-                onClick={onClose}
-                style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)', zIndex: 200 }}
-            />
+            <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 200 }} />
             <div style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0,
-                background: 'linear-gradient(180deg, #1a2332 0%, #0f172a 100%)',
-                borderTop: '1px solid rgba(255,255,255,0.08)',
+                background: 'linear-gradient(180deg, #18253a 0%, #0f172a 100%)',
+                borderTop: `1px solid ${cfg.border}`,
                 borderRadius: '28px 28px 0 0',
                 padding: '0 0 calc(80px + env(safe-area-inset-bottom))',
-                zIndex: 201, maxHeight: '85dvh', overflowY: 'auto',
-                boxShadow: '0 -20px 60px rgba(0,0,0,0.6)'
+                zIndex: 201, maxHeight: '88dvh', overflowY: 'auto',
+                boxShadow: `0 -24px 80px rgba(0,0,0,0.7), 0 -1px 0 ${cfg.color}33`
             }}>
                 {/* Drag handle */}
-                <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '16px auto 0' }} />
+                <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '14px auto 0' }} />
 
+                {/* Sticky header */}
                 <div style={{
                     position: 'sticky', top: 0,
-                    background: 'linear-gradient(180deg, #1a2332 80%, transparent)',
-                    padding: 'max(16px, env(safe-area-inset-top)) 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    background: 'linear-gradient(180deg, #18253a 70%, transparent)',
+                    padding: '14px 20px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                     zIndex: 10
                 }}>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <span>{job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || 'Service Request'}</span>
-                            {job.serviceCoverage === 'amc' && <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.3)', padding: '3px 10px', borderRadius: 14 }}>🛡️ AMC Covered</span>}
-                            {job.serviceCoverage === 'rental' && <span style={{ fontSize: 11, fontWeight: 700, color: '#34d399', background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.3)', padding: '3px 10px', borderRadius: 14 }}>📦 Rental Service</span>}
-                            {job.serviceCoverage === 'warranty' && <span style={{ fontSize: 11, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', padding: '3px 10px', borderRadius: 14 }}>📜 Under Warranty</span>}
-                        </h2>
-                        <div style={{ fontSize: 12, color: '#475569', fontFamily: 'monospace', marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span>{job.jobNumber || `#${job.id?.slice(0, 8)}`}</span>
-                            {job.warrantyInfo && <span style={{ color: '#64748b' }}>• Proof: {job.warrantyInfo}</span>}
+                    <div style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 2 }}>
+                            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: '#f8fafc' }}>
+                                {applianceBrand ? `${applianceBrand} ` : ''}{applianceType}
+                            </h2>
+                            {job.serviceCoverage === 'amc' && <span style={{ fontSize: 10, fontWeight: 700, color: '#a78bfa', background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', padding: '2px 8px', borderRadius: 12 }}>🛡️ AMC</span>}
+                            {job.serviceCoverage === 'warranty' && <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)', padding: '2px 8px', borderRadius: 12 }}>WARRANTY</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: '#334155', fontFamily: 'monospace' }}>
+                            {job.jobNumber || `#${job.id?.slice(0, 8)}`}
                         </div>
                     </div>
                     <button onClick={onClose} style={{
-                        background: 'rgba(255,255,255,0.08)', border: 'none', color: '#94a3b8',
-                        borderRadius: '50%', width: 34, height: 34,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                        flexShrink: 0
+                        background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#64748b', borderRadius: '50%', width: 34, height: 34,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0
                     }}>
                         <X size={16} />
                     </button>
                 </div>
 
-                <div style={{ padding: '0 20px 28px' }}>
-                    {/* Status card */}
+                <div style={{ padding: '0 18px 28px' }}>
+
+                    {/* ── Status card ── */}
                     <div style={{
-                        padding: '14px 16px', borderRadius: 14,
+                        padding: '14px 16px', borderRadius: 16,
                         background: cfg.bg, border: `1px solid ${cfg.border}`,
-                        display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 20
+                        display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16
                     }}>
                         <div style={{
-                            width: 36, height: 36, borderRadius: '50%',
+                            width: 38, height: 38, borderRadius: 12,
                             background: cfg.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            flexShrink: 0, boxShadow: `0 4px 12px ${cfg.color}40`
+                            flexShrink: 0, boxShadow: `0 4px 14px ${cfg.color}40`
                         }}>
                             <Icon size={18} color="#0f172a" />
                         </div>
                         <div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: cfg.color }}>{cfg.label}</div>
-                            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, lineHeight: 1.4 }}>{cfg.desc}</div>
+                            <div style={{ fontSize: 14, fontWeight: 800, color: cfg.color }}>{cfg.label}</div>
+                            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, lineHeight: 1.5 }}>{cfg.desc}</div>
                         </div>
                     </div>
 
-                    {/* Journey */}
-                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 14 }}>
-                            Service Journey
-                        </div>
-                        <JourneyBar status={job.status} />
+                    {/* ── Journey ── */}
+                    <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px 14px', marginBottom: 14 }}>
+                        <SectionLabel>Service Journey</SectionLabel>
+                        <JourneyPills status={job.status} />
                     </div>
 
-                    {/* Quotation section — shown for quotation_sent */}
-                    {job.status === 'quotation_sent' && (
-                        <div style={{
-                            background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.25)',
-                            borderRadius: 14, padding: '16px', marginBottom: 16
-                        }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <FileText size={13} /> Repair Estimate Ready
+                    {/* ── LIVE MAP — only when technician is on the way ── */}
+                    {showMap && custLocation && (
+                        <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 14, border: '1px solid rgba(16,185,129,0.25)', boxShadow: '0 4px 20px rgba(16,185,129,0.1)' }}>
+                            <div style={{ padding: '12px 14px', background: 'rgba(16,185,129,0.07)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Navigation size={14} color="#10b981" />
+                                <span style={{ fontSize: 13, fontWeight: 700, color: '#a7f3d0', flex: 1 }}>Live Technician Tracking</span>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block', animation: 'pulse 1.8s ease-in-out infinite' }} />
+                                <span style={{ fontSize: 10, color: '#a7f3d0', fontWeight: 600 }}>LIVE</span>
                             </div>
-                            <div style={{ fontSize: 13, color: '#c4b5fd', lineHeight: 1.6, marginBottom: 12 }}>
-                                Our technician has prepared a cost estimate. Review and approve to begin repairs, or call us to discuss.
+                            <div style={{ height: 240, position: 'relative', zIndex: 0, background: '#1e293b' }}>
+                                <LiveMap technicianLocation={techLocation} customerLocation={custLocation} fitBounds={!!(techLocation && custLocation)} />
                             </div>
-                            <div style={{ display: 'flex', gap: 10 }}>
-                                <a href="tel:+919082225163" style={{
-                                    flex: 1, padding: '10px 14px', borderRadius: 10,
-                                    background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.2)',
-                                    textAlign: 'center', fontSize: 12, color: '#c4b5fd', fontWeight: 600, cursor: 'pointer', textDecoration: 'none'
-                                }}>
-                                    📞 Call to Discuss
-                                </a>
-                                <button
-                                    onClick={async () => {
-                                        const customerId = localStorage.getItem('customerId');
-                                        if (!customerId) return;
-                                        try {
-                                            const res = await fetch(`/api/customer/jobs/${job.id}`, {
-                                                method: 'PATCH',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ action: 'approve_quotation', customerId })
-                                            });
-                                            const data = await res.json();
-                                            if (data.success) onClose?.();
-                                            else alert(data.error || 'Could not approve quotation');
-                                        } catch(e) { alert('Error: ' + e.message); }
-                                    }}
-                                    style={{
-                                        flex: 1, padding: '10px 14px', borderRadius: 10,
-                                        background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
-                                        border: 'none', textAlign: 'center', fontSize: 12, color: '#fff', fontWeight: 700, cursor: 'pointer',
-                                        boxShadow: '0 4px 12px rgba(139,92,246,0.3)'
-                                    }}>
-                                    ✓ Approve Estimate
-                                </button>
+                            <div style={{ padding: '10px 14px', background: 'rgba(16,185,129,0.04)', fontSize: 11, color: '#6ee7b7', textAlign: 'center' }}>
+                                Technician is en route — location updates in real-time
                             </div>
                         </div>
                     )}
 
-                    {/* Parts Ordered info card */}
-                    {job.status === 'parts_ordered' && (
-                        <div style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.25)', borderRadius: 14, padding: '14px 16px', marginBottom: 16 }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Package size={13} /> Parts On Order
-                            </div>
-                            <div style={{ fontSize: 13, color: '#fed7aa', lineHeight: 1.5 }}>
-                                The technician has ordered parts needed for your repair. We'll schedule a follow-up visit once they arrive.
-                            </div>
-                        </div>
+                    {/* ── Quotation section ── */}
+                    {showQuotation && (
+                        <>
+                            <SectionLabel>Estimate</SectionLabel>
+                            <QuotationSection jobId={job.id} status={job.status} onClose={onClose} />
+                        </>
                     )}
 
-                    {/* Star Rating for closed jobs */}
+                    {/* ── Invoice section ── */}
+                    {showInvoice && (
+                        <>
+                            <SectionLabel>Invoice & Payment</SectionLabel>
+                            <InvoiceSection jobId={job.id} jobStatus={job.status} />
+                        </>
+                    )}
+
+                    {/* ── Star rating for completed ── */}
                     {(job.status === 'closed' || job.status === 'completed') && (
                         <StarRating job={job} onRated={() => {}} />
                     )}
 
-                    {/* Payment CTA for Closed Jobs */}
-                    {(job.status === 'closed' || job.status === 'completed') && (() => {
-                        const [invoiceData, setInvoiceData] = React.useState(null);
-                        const [invoiceLoading, setInvoiceLoading] = React.useState(false);
-                        const [payInitiated, setPayInitiated] = React.useState(false);
-
-                        const handlePayOnline = async () => {
-                            setPayInitiated(true);
-                            setInvoiceLoading(true);
-                            try {
-                                // 1. Fetch unpaid invoice for this job
-                                const customerId = localStorage.getItem('customerId');
-                                const res = await fetch(`/api/customer/jobs/${job.id}/invoice`);
-                                const data = await res.json();
-
-                                let amount = 0;
-                                let invoiceId = null;
-                                let accountId = customerId;
-
-                                if (data.success && data.invoice) {
-                                    const due = (parseFloat(data.invoice.total_amount) || 0) - (parseFloat(data.invoice.paid_amount) || 0);
-                                    amount = due > 0 ? due : parseFloat(data.invoice.total_amount) || 0;
-                                    invoiceId = data.invoice.id;
-                                    accountId = data.invoice.account_id || customerId;
-                                }
-
-                                if (!amount || amount <= 0) {
-                                    alert('No outstanding amount found for this job.');
-                                    setPayInitiated(false);
-                                    return;
-                                }
-
-                                setInvoiceData({ amount, invoiceId, accountId });
-
-                                // 2. Create Razorpay order with full context
-                                const orderRes = await fetch('/api/customer/payment/create-order', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        amount,
-                                        receipt: job.id,
-                                        job_id: job.id,
-                                        account_id: accountId,
-                                        invoice_id: invoiceId || '',
-                                        collected_by: 'customer',
-                                        amount_label: 'full',
-                                    }),
-                                });
-                                const orderData = await orderRes.json();
-                                if (!orderData.success) throw new Error(orderData.error || 'Failed to create order');
-
-                                // 3. Open Razorpay checkout
-                                const { initiateRazorpayPayment } = await import('@/lib/razorpayClient');
-                                await initiateRazorpayPayment({
-                                    amount,
-                                    receiptId: job.id,
-                                    orderId: orderData.order.id,
-                                    keyId: orderData.keyId,
-                                    onSuccess: () => {
-                                        setInvoiceData(prev => ({ ...prev, paid: true }));
-                                        alert('Payment successful! Thank you.');
-                                    },
-                                });
-                            } catch (err) {
-                                console.error('[Pay Online]', err);
-                                alert('Payment failed: ' + err.message);
-                                setPayInitiated(false);
-                            } finally {
-                                setInvoiceLoading(false);
-                            }
-                        };
-
-                        if (invoiceData?.paid) return (
-                            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, fontSize: 13, color: '#a7f3d0', fontWeight: 600, textAlign: 'center' }}>
-                                ✅ Payment received. Thank you!
-                            </div>
-                        );
-
-                        return (
-                            <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 14, padding: '16px', marginBottom: 16 }}>
-                                <div style={{ fontSize: 13, color: '#a7f3d0', lineHeight: 1.6, marginBottom: 12 }}>
-                                    Your service is complete. Pay securely online via UPI, card, or netbanking.
+                    {/* ── Parts ordered info ── */}
+                    {job.status === 'parts_ordered' && (
+                        <div style={{ background: 'rgba(249,115,22,0.07)', border: '1px solid rgba(249,115,22,0.2)', borderRadius: 14, padding: '13px 14px', marginBottom: 12, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                            <Package size={16} color="#fb923c" style={{ flexShrink: 0, marginTop: 1 }} />
+                            <div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#fb923c', marginBottom: 4 }}>Part On Order</div>
+                                <div style={{ fontSize: 12, color: '#fed7aa', lineHeight: 1.5 }}>
+                                    Your technician has ordered the required part. We'll schedule a follow-up visit once it arrives — typically 2–5 business days.
                                 </div>
-                                <button
-                                    onClick={handlePayOnline}
-                                    disabled={invoiceLoading}
-                                    style={{
-                                        width: '100%', padding: '10px 14px', borderRadius: 10,
-                                        background: invoiceLoading ? 'rgba(16,185,129,0.4)' : 'linear-gradient(135deg, #10b981, #059669)',
-                                        border: 'none', textAlign: 'center', fontSize: 13, color: '#fff',
-                                        fontWeight: 700, cursor: invoiceLoading ? 'not-allowed' : 'pointer',
-                                        boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                                    }}
-                                >
-                                    {invoiceLoading ? '⏳ Loading...' : invoiceData ? `Pay ₹${invoiceData.amount.toLocaleString('en-IN')}` : '💳 Pay Online'}
-                                </button>
-                            </div>
-                        );
-                    })()}
-
-
-                    {/* Map — shown for scheduled & work_in_progress. Live tracking only for work_in_progress */}
-                    {['scheduled', 'work_in_progress', 'cx_reschedule'].includes(job.status) && custLocation && (
-                        <div style={{
-                            background: 'rgba(255,255,255,0.03)', border: `1px solid ${job.status === 'work_in_progress' ? 'rgba(56,189,248,0.2)' : 'rgba(255,255,255,0.06)'}`,
-                            borderRadius: 14, overflow: 'hidden', marginBottom: 16
-                        }}>
-                            <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <MapPin size={16} color={job.status === 'work_in_progress' ? '#38bdf8' : '#10b981'} />
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>
-                                        {job.status === 'work_in_progress' ? 'Live Technician Tracking' : 'Your Service Location'}
-                                    </div>
-                                </div>
-                                {hasStoredCoords && (
-                                    <span style={{ fontSize: 10, fontWeight: 700, color: '#10b981', background: 'rgba(16,185,129,0.1)', padding: '2px 8px', borderRadius: 20, border: '1px solid rgba(16,185,129,0.2)' }}>
-                                        📍 Precise
-                                    </span>
-                                )}
-                            </div>
-                            <div style={{ height: '260px', width: '100%', position: 'relative', zIndex: 0, background: '#1e293b' }}>
-                                <LiveMap
-                                    technicianLocation={techLocation}
-                                    customerLocation={custLocation}
-                                    fitBounds={!!(techLocation && custLocation)}
-                                />
-                            </div>
-                            <div style={{ padding: '12px 16px', background: job.status === 'work_in_progress' ? 'rgba(56,189,248,0.05)' : 'rgba(16,185,129,0.05)', fontSize: 12, color: job.status === 'work_in_progress' ? '#bae6fd' : '#a7f3d0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                                {job.status === 'work_in_progress'
-                                    ? (<><span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8', display: 'inline-block', animation: 'pulse 2s infinite' }} /> Technician is on their way — location updates live</>)
-                                    : '📌 Your home pin — technician will navigate here'}
                             </div>
                         </div>
                     )}
 
-                    {/* Info cards grid */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                        {/* Appliance */}
-                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '14px 16px' }}>
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                                Appliance
-                            </div>
-                            <div style={{ fontSize: 15, color: '#f8fafc', fontWeight: 600 }}>
-                                {job.product?.brand ? `${job.product.brand} ` : ''}{job.product?.type || '—'}
+                    {/* ── What happens next ── */}
+                    {cfg.next && !isClosedOrCancelled && (
+                        <div style={{ background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.12)', borderRadius: 14, padding: '12px 14px', marginBottom: 14, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                            <Info size={14} color="#38bdf8" style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div style={{ fontSize: 12, color: '#bae6fd', lineHeight: 1.5 }}>
+                                <strong style={{ color: '#7dd3fc' }}>What happens next: </strong>{cfg.next}
                             </div>
                         </div>
+                    )}
 
-                        {/* Coverage */}
-                        {job.serviceCoverage && job.serviceCoverage !== 'standard' && (
-                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '14px 16px' }}>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                                    Service Coverage Mode
-                                </div>
-                                <div style={{ fontSize: 14, color: job.serviceCoverage === 'amc' ? '#c4b5fd' : job.serviceCoverage === 'rental' ? '#a7f3d0' : '#fde68a', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    {job.serviceCoverage === 'amc' ? '🛡️ Annual Maintenance Contract (Standard visit fee covered)' :
-                                     job.serviceCoverage === 'rental' ? '📦 Active Appliance Rental (Maintenance & standard repair included)' :
-                                     '📜 Under Manufacturer / Dealer Warranty (Zero cost inspection)'}
-                                </div>
-                                {job.warrantyInfo && <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Linked: {job.warrantyInfo}</div>}
-                            </div>
-                        )}
-
-                        {/* Issue */}
-                        {job.issue && (
-                            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '14px 16px' }}>
-                                <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 }}>
-                                    Reported Issue
-                                </div>
-                                <div style={{ fontSize: 14, color: '#cbd5e1', lineHeight: 1.5 }}>{job.issue}</div>
-                            </div>
-                        )}
-
-                        {/* Technician + Address */}
-                        <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 14, padding: '14px 16px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <Wrench size={10} /> Technician
-                                    </div>
-                                    <div style={{ fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>
-                                        {job.assignedTechnician || 'Being assigned...'}
-                                    </div>
-                                </div>
-                                {job.technicianMobile && (
-                                    <a
-                                        href={`tel:${job.technicianMobile}`}
-                                        style={{
-                                            padding: '8px 14px', borderRadius: 10,
-                                            background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)',
-                                            color: '#38bdf8', fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                                            display: 'flex', alignItems: 'center', gap: 5
-                                        }}
-                                    >
-                                        <Phone size={13} /> Call
-                                    </a>
-                                )}
-                            </div>
-                            {(job.locality || job.city) && (
-                                <>
-                                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '12px 0' }} />
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <MapPin size={10} /> Location
-                                    </div>
-                                    <div style={{ fontSize: 13, color: '#94a3b8' }}>
-                                        {[job.locality, job.city].filter(Boolean).join(', ')}
-                                    </div>
-                                </>
-                            )}
-                            {(job.dueDate || job.confirmedVisitTime) && (
-                                <>
-                                    <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '12px 0' }} />
-                                    <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                        <Calendar size={10} /> Scheduled
-                                    </div>
-                                    <div style={{ fontSize: 13, color: '#94a3b8' }}>
-                                        {new Date(job.dueDate || job.confirmedVisitTime).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-                                    </div>
-                                </>
-                            )}
-                        </div>
+                    {/* ── Job info grid ── */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+                        <InfoTile label="Appliance" value={`${applianceBrand ? applianceBrand + ' ' : ''}${applianceType}`} />
+                        {dateLabel && <InfoTile label="Scheduled Date" value={dateLabel} icon={Calendar} />}
+                        {timeLabel && <InfoTile label="Time Slot" value={timeLabel} icon={Clock} />}
+                        {job.issue && <InfoTile label="Reported Issue" value={job.issue} style={{ gridColumn: '1 / -1' }} />}
+                        {(job.locality || job.city) && <InfoTile label="Location" value={[job.locality, job.city].filter(Boolean).join(', ')} icon={MapPin} />}
                     </div>
 
-                    {/* Action Buttons — locked once technician is on the way */}
-                    {!['closed', 'cancelled'].includes(job.status) && (() => {
-                        const locked = !!job.on_way_at;
-                        return (
-                            <>
-                                {locked && (
-                                    <div style={{ padding: '10px 14px', borderRadius: 10, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 12, color: '#fbbf24', fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>
-                                        🛣️ Technician is on the way — cancel &amp; reschedule are disabled. Please call us if needed.
-                                    </div>
-                                )}
-                                <div style={{ display: 'flex', gap: 12 }}>
-                                    <button
-                                        onClick={() => !locked && onRescheduleClick()}
-                                        disabled={locked}
-                                        style={{
-                                            flex: 1, padding: '14px',
-                                            background: locked ? 'rgba(255,255,255,0.04)' : 'rgba(56,189,248,0.1)',
-                                            border: `1px solid ${locked ? 'rgba(255,255,255,0.08)' : 'rgba(56,189,248,0.25)'}`,
-                                            borderRadius: 14, color: locked ? '#334155' : '#38bdf8',
-                                            fontSize: 13, fontWeight: 700, cursor: locked ? 'not-allowed' : 'pointer'
-                                        }}
-                                    >
-                                        Reschedule
-                                    </button>
-                                    <button
-                                        onClick={() => !locked && onCancel(job.id)}
-                                        disabled={locked}
-                                        style={{
-                                            flex: 1, padding: '14px',
-                                            background: locked ? 'rgba(255,255,255,0.04)' : 'rgba(239,68,68,0.07)',
-                                            border: `1px solid ${locked ? 'rgba(255,255,255,0.08)' : 'rgba(239,68,68,0.2)'}`,
-                                            borderRadius: 14, color: locked ? '#334155' : '#ef4444',
-                                            fontSize: 13, fontWeight: 700, cursor: locked ? 'not-allowed' : 'pointer'
-                                        }}
-                                    >
-                                        Cancel Request
-                                    </button>
-                                </div>
-                            </>
-                        );
-                    })()}
+                    {/* ── Technician card ── */}
+                    {(job.assignedTechnician || job.technicianMobile) && (
+                        <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16, padding: '14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{
+                                width: 44, height: 44, borderRadius: 14,
+                                background: 'linear-gradient(135deg, rgba(56,189,248,0.2), rgba(59,130,246,0.15))',
+                                border: '1px solid rgba(56,189,248,0.25)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                fontSize: 18, fontWeight: 700, color: '#38bdf8'
+                            }}>
+                                {job.assignedTechnician?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 10, color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>Your Technician</div>
+                                <div style={{ fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>{job.assignedTechnician || 'Being assigned...'}</div>
+                            </div>
+                            {job.technicianMobile && (
+                                <a href={`tel:${job.technicianMobile}`} style={{
+                                    padding: '9px 14px', borderRadius: 12,
+                                    background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)',
+                                    color: '#38bdf8', fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                                    display: 'flex', alignItems: 'center', gap: 5
+                                }}>
+                                    <Phone size={13} /> Call
+                                </a>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ── Technician locked notice ── */}
+                    {locked && !isClosedOrCancelled && (
+                        <div style={{ padding: '10px 14px', borderRadius: 12, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', fontSize: 12, color: '#fbbf24', fontWeight: 600, marginBottom: 12, textAlign: 'center' }}>
+                            🛣️ Technician is on the way — cancel & reschedule are disabled.
+                        </div>
+                    )}
+
+                    {/* ── Action Buttons ── */}
+                    {!isClosedOrCancelled && (
+                        <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+                            <button
+                                onClick={() => !locked && onRescheduleClick()}
+                                disabled={locked}
+                                style={{
+                                    flex: 1, padding: '13px',
+                                    background: locked ? 'rgba(255,255,255,0.03)' : 'rgba(56,189,248,0.08)',
+                                    border: `1px solid ${locked ? 'rgba(255,255,255,0.06)' : 'rgba(56,189,248,0.2)'}`,
+                                    borderRadius: 14, color: locked ? '#334155' : '#38bdf8',
+                                    fontSize: 13, fontWeight: 700, cursor: locked ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                Reschedule
+                            </button>
+                            <button
+                                onClick={() => !locked && onCancel(job.id)}
+                                disabled={locked}
+                                style={{
+                                    flex: 1, padding: '13px',
+                                    background: locked ? 'rgba(255,255,255,0.03)' : 'rgba(239,68,68,0.06)',
+                                    border: `1px solid ${locked ? 'rgba(255,255,255,0.06)' : 'rgba(239,68,68,0.18)'}`,
+                                    borderRadius: 14, color: locked ? '#334155' : '#ef4444',
+                                    fontSize: 13, fontWeight: 700, cursor: locked ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+
+                    {/* ── Support footer ── */}
+                    <div style={{
+                        display: 'flex', gap: 8, padding: '12px 14px',
+                        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: 14
+                    }}>
+                        <a href="tel:+919082225163" style={{
+                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            padding: '9px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                            color: '#64748b', textDecoration: 'none',
+                            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)'
+                        }}>
+                            <PhoneCall size={13} /> Call Support
+                        </a>
+                        <a href="https://wa.me/919082225163" target="_blank" rel="noopener noreferrer" style={{
+                            flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            padding: '9px', borderRadius: 10, fontSize: 12, fontWeight: 600,
+                            color: '#4ade80', textDecoration: 'none',
+                            background: 'rgba(74,222,128,0.06)', border: '1px solid rgba(74,222,128,0.15)'
+                        }}>
+                            <MessageCircle size={13} /> WhatsApp
+                        </a>
+                    </div>
                 </div>
             </div>
+
+            <style>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.88); } }
+            `}</style>
         </>
     )
 }
 
-// ── Main page ───────────────────────────────────────────────────────────────
+// ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ServicesPage() {
     const [jobs, setJobs] = useState([])
@@ -850,21 +1046,19 @@ export default function ServicesPage() {
         try {
             if (isRefresh) setRefreshing(true)
             else setLoading(true)
-
             const customerId = localStorage.getItem('customerId') || ''
             const res = await fetch(`/api/customer/jobs?customerId=${customerId}&status=all&t=${Date.now()}`, { cache: 'no-store' })
             if (!res.ok) throw new Error('Failed to fetch jobs')
             const data = await res.json()
             const all = data.jobs || []
 
-            const activeStatuses = ['new_job_request','scheduled','diagnosing_quoting','quotation_sent','parts_ordered','work_in_progress','cx_reschedule']
-            const pastStatuses = ['closed','cancelled']
+            const activeStatuses = ['new_job_request', 'booking_request', 'scheduled', 'assigned', 'diagnosing_quoting', 'quotation_sent', 'parts_ordered', 'work_in_progress', 'cx_reschedule']
+            const pastStatuses = ['closed', 'completed', 'cancelled']
 
             if (filterStatus === 'all') setJobs(all)
             else if (filterStatus === 'active') setJobs(all.filter(j => activeStatuses.includes(j.status)))
             else if (filterStatus === 'quotation') setJobs(all.filter(j => j.status === 'quotation_sent'))
             else if (filterStatus === 'past') setJobs(all.filter(j => pastStatuses.includes(j.status)))
-
             setError(null)
         } catch (err) {
             setError('Failed to load service requests')
@@ -890,22 +1084,38 @@ export default function ServicesPage() {
         }
     }
 
+    // Count quotation jobs from all jobs for badge
+    const [allJobs, setAllJobs] = useState([])
+    useEffect(() => {
+        const customerId = localStorage.getItem('customerId') || ''
+        fetch(`/api/customer/jobs?customerId=${customerId}&status=all`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(d => setAllJobs(d.jobs || []))
+            .catch(() => {})
+    }, [])
+    const quotationCount = allJobs.filter(j => j.status === 'quotation_sent').length
+
     const tabs = [
         { id: 'active', label: 'Active' },
-        { id: 'quotation', label: '📋 Estimates' },
+        { id: 'quotation', label: 'Estimates', badge: quotationCount },
         { id: 'past', label: 'Past' },
         { id: 'all', label: 'All' },
     ]
 
-    // Count quotation jobs for badge
-    const quotationCount = jobs.filter ? /* already filtered */ 0 : 0
+    const emptyLabel = {
+        active: 'No Active Services',
+        quotation: 'No Pending Estimates',
+        past: 'No Past Services',
+        all: 'No Services Yet',
+    }
 
     return (
-        <div style={{ padding: '24px 18px 16px', display: 'flex', flexDirection: 'column', gap: 20, minHeight: '100%' }}>
+        <div style={{ padding: '24px 18px 16px', display: 'flex', flexDirection: 'column', gap: 18, minHeight: '100%' }}>
+
             {/* Header */}
             <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
-                    <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: '#f8fafc', letterSpacing: '-0.5px' }}>
+                    <h1 style={{ fontSize: 27, fontWeight: 800, margin: 0, color: '#f8fafc', letterSpacing: '-0.5px' }}>
                         My Services
                     </h1>
                     <p style={{ color: '#475569', fontSize: 13, marginTop: 4, fontWeight: 500 }}>
@@ -916,83 +1126,91 @@ export default function ServicesPage() {
                     <button
                         onClick={() => fetchJobs(true)}
                         style={{
-                            width: 40, height: 40, borderRadius: 12,
-                            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)',
+                            width: 38, height: 38, borderRadius: 12,
+                            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
                             color: '#475569', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                         }}
                     >
-                        <RefreshCw size={16} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                        <RefreshCw size={15} style={{ animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }} />
                     </button>
                     <button
                         onClick={() => setShowServiceModal(true)}
                         style={{
-                            height: 40, padding: '0 14px', borderRadius: 12,
+                            height: 38, padding: '0 14px', borderRadius: 12,
                             background: 'linear-gradient(135deg, #38bdf8, #3b82f6)',
                             border: 'none', color: '#fff', display: 'flex', alignItems: 'center', gap: 5,
-                            boxShadow: '0 6px 18px rgba(56,189,248,0.25)', cursor: 'pointer',
+                            boxShadow: '0 4px 16px rgba(56,189,248,0.25)', cursor: 'pointer',
                             fontSize: 13, fontWeight: 700,
                         }}
                     >
-                        <Plus size={16} strokeWidth={2.5} /> New
+                        <Plus size={15} strokeWidth={2.5} /> New
                     </button>
                 </div>
             </header>
 
             {/* Filter tabs */}
             <div style={{
-                display: 'flex', gap: 6, background: 'rgba(255,255,255,0.04)',
+                display: 'flex', gap: 4, background: 'rgba(255,255,255,0.03)',
                 borderRadius: 14, padding: '4px',
-                border: '1px solid rgba(255,255,255,0.06)',
-                overflowX: 'auto', WebkitOverflowScrolling: 'touch'
+                border: '1px solid rgba(255,255,255,0.05)',
             }}>
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setFilterStatus(tab.id)}
                         style={{
-                            flex: '0 0 auto', padding: '7px 14px', borderRadius: 10,
+                            flex: 1, padding: '8px 10px', borderRadius: 10,
                             background: filterStatus === tab.id ? 'rgba(56,189,248,0.12)' : 'transparent',
                             color: filterStatus === tab.id ? '#38bdf8' : '#475569',
                             border: filterStatus === tab.id ? '1px solid rgba(56,189,248,0.2)' : '1px solid transparent',
                             fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                            whiteSpace: 'nowrap', transition: 'all 0.2s'
+                            whiteSpace: 'nowrap', transition: 'all 0.18s',
+                            position: 'relative',
                         }}
                     >
                         {tab.label}
+                        {tab.badge > 0 && (
+                            <span style={{
+                                marginLeft: 5, background: '#a78bfa', color: '#fff',
+                                borderRadius: 999, fontSize: 9, fontWeight: 800,
+                                padding: '1px 5px', verticalAlign: 'middle'
+                            }}>{tab.badge}</span>
+                        )}
                     </button>
                 ))}
             </div>
 
             {/* Content */}
             {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 16 }}>
-                    <div style={{ width: 32, height: 32, border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 14 }}>
+                    <div style={{ width: 30, height: 30, border: '2px solid rgba(255,255,255,0.07)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                     <span style={{ fontSize: 13, color: '#475569' }}>Loading your services...</span>
                 </div>
             ) : error ? (
-                <div style={{ padding: 20, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 16, color: '#f87171', textAlign: 'center', fontSize: 13 }}>
+                <div style={{ padding: 20, background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', borderRadius: 16, color: '#f87171', textAlign: 'center', fontSize: 13 }}>
                     <AlertCircle size={20} style={{ marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
                     {error}
                 </div>
             ) : jobs.length === 0 ? (
                 <div style={{
-                    background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.07)',
                     borderRadius: 24, padding: '48px 24px', textAlign: 'center'
                 }}>
-                    <Wrench size={40} color="#1e3a5f" style={{ marginBottom: 16 }} />
-                    <h3 style={{ fontSize: 17, color: '#f8fafc', fontWeight: 700, margin: '0 0 8px' }}>
-                        {filterStatus === 'quotation' ? 'No Pending Estimates' : `No ${filterStatus === 'past' ? 'Completed' : filterStatus === 'active' ? 'Active' : ''} Services`}
+                    <Wrench size={40} color="#1e3a5f" style={{ marginBottom: 14 }} />
+                    <h3 style={{ fontSize: 17, color: '#f8fafc', fontWeight: 700, margin: '0 0 6px' }}>
+                        {emptyLabel[filterStatus] || 'No Services'}
                     </h3>
-                    <p style={{ color: '#475569', fontSize: 13, margin: '0 0 24px' }}>
+                    <p style={{ color: '#475569', fontSize: 13, margin: '0 0 22px' }}>
                         {filterStatus === 'active' || filterStatus === 'all' ? 'Book a service request to get started.' : 'Nothing here yet.'}
                     </p>
                     {(filterStatus === 'active' || filterStatus === 'all') && (
                         <button
                             onClick={() => setShowServiceModal(true)}
                             style={{
-                                padding: '12px 24px', borderRadius: 14,
+                                padding: '11px 22px', borderRadius: 14,
                                 background: 'linear-gradient(135deg, #38bdf8, #3b82f6)',
-                                border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer'
+                                border: 'none', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                                boxShadow: '0 4px 14px rgba(56,189,248,0.25)'
                             }}
                         >
                             Book a Service
@@ -1000,7 +1218,7 @@ export default function ServicesPage() {
                     )}
                 </div>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {jobs.map(job => (
                         <JobCard key={job.id} job={job} onClick={() => setSelectedJob(job)} />
                     ))}
@@ -1017,8 +1235,10 @@ export default function ServicesPage() {
                 />
             )}
 
-            {/* Spin animation */}
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+            <style>{`
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+            `}</style>
 
             <BookServiceModal
                 isOpen={showServiceModal}
@@ -1030,10 +1250,7 @@ export default function ServicesPage() {
                 isOpen={showRescheduleModal}
                 onClose={() => setShowRescheduleModal(false)}
                 job={selectedJob}
-                onReschedule={() => {
-                    fetchJobs();
-                    setSelectedJob(null); // Close the detail sheet to show the updated list or user can reopen
-                }}
+                onReschedule={() => { fetchJobs(); setSelectedJob(null) }}
             />
         </div>
     )
