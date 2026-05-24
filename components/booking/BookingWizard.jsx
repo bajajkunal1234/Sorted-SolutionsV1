@@ -331,7 +331,15 @@ export default function BookingWizard() {
             // 3. Log user into customer app natively so they bypass login screen next time
             // The /api/booking endpoint returns the newly created or found customerAuthId
             if (result.customerAuthId || result.customerId) {
-                saveSession({ id: result.customerAuthId || result.customerId, role: 'customer', phone: rawPhone, name: formData.name });
+                saveSession({
+                    id: result.customerAuthId || result.customerId,
+                    role: 'customer',
+                    phone: rawPhone,
+                    name: formData.name,
+                    // profile_complete: false tells the OnboardingWizard to prompt
+                    // the customer to set a password on their first dashboard visit.
+                    profile_complete: false,
+                });
             }
 
             // 4. GTM tracking

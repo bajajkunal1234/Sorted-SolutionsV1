@@ -32,12 +32,10 @@ export async function POST(request) {
             )
         }
 
-        // Format phone number to standard +91-XXXXX XXXXX format
-        if (customer.phone) {
-            const rawPhone = customer.phone.replace(/\D/g, '').slice(-10);
-            if (rawPhone.length === 10) {
-                customer.phone = `+91-${rawPhone.slice(0, 5)} ${rawPhone.slice(5)}`;
-            }
+        // Normalise phone number
+        const rawPhone10 = customer.phone.replace(/\D/g, '').slice(-10);
+        if (rawPhone10.length === 10) {
+            customer.phone = `+91-${rawPhone10.slice(0, 5)} ${rawPhone10.slice(5)}`;
         }
 
         // ── Fix 3: Slot capacity check ─────────────────────────────────────────
@@ -75,6 +73,85 @@ export async function POST(request) {
         let customerAuthId = null;
         let propertyId = null;
 
+        // ── Look up or create customer for auto-login ─────────────────────────
+        // Uses the same fuzzy phone-matching as the auth API to handle all
+        // stored formats (+91-XXXXX XXXXX, 10-digit, etc.).
+        // Non-fatal: booking still succeeds even if this step errors.
+        try {
+            const loosePattern = '%' + rawPhone10.split('').join('%') + '%';
+            const { data: candidates } = await supabase
+                .from('customers')
+                .select('id, phone, name, profile_complete, ledger_id')
+                .ilike('phone', loosePattern)
+                .limit(20);
+
+            let existingCustomer = null;
+            if (candidates && candidates.length > 0) {
+                existingCustomer = candidates.find(
+                    c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === rawPhone10
+                ) || null;
+            }
+
+            if (existingCustomer) {
+                // Customer already has an account — reuse their ID for auto-login
+                customerAuthId = existingCustomer.id;
+                customerId = existingCustomer.id;
+            } else {
+                // No record yet — create a passwordless customer so auto-login works.
+                // The OnboardingWizard will prompt them to set a password on first visit.
+                const customerName = customer.name ||
+                    `${customer.firstName || ''} ${customer.lastName || ''}`.trim() ||
+                    `Customer ${rawPhone10.slice(-4)}`;
+
+                // Create accounts ledger entry
+                let ledgerId = null;
+                let newSKU = null;
+                try { newSKU = await generateAccountSKU('customer', 'sundry-debtors'); } catch { }
+
+                const accountInsert = {
+                    name: customerName,
+                    mobile: rawPhone10,
+                    type: 'customer',
+                    under: 'sundry-debtors',
+                    source: 'Website Booking',
+                    opening_balance: 0,
+                    balance_type: 'debit',
+                    status: 'active',
+                    created_at: new Date().toISOString(),
+                };
+                if (newSKU) accountInsert.sku = newSKU;
+
+                const { data: accountEntry } = await supabase
+                    .from('accounts')
+                    .insert(accountInsert)
+                    .select('id')
+                    .single();
+                if (accountEntry?.id) ledgerId = accountEntry.id;
+
+                // Create the customers row (no password_hash — OTP-verified booking)
+                const { data: newCustomer } = await supabase
+                    .from('customers')
+                    .insert({
+                        phone: rawPhone10,
+                        name: customerName,
+                        full_name: customerName,
+                        customer_type: 'one_time',
+                        profile_complete: false,
+                        ledger_id: ledgerId,
+                        created_at: new Date().toISOString(),
+                    })
+                    .select('id')
+                    .single();
+
+                if (newCustomer?.id) {
+                    customerAuthId = newCustomer.id;
+                    customerId = newCustomer.id;
+                }
+            }
+        } catch (customerErr) {
+            console.error('[booking] customer lookup/create failed (non-fatal):', customerErr.message);
+        }
+
         // ── Generate booking reference number ──────────────────────────────────
         let bookingNumber = await generateJobNumber()
 
@@ -99,8 +176,8 @@ export async function POST(request) {
             job_number: bookingNumber,
             status: 'new_job_request',
             priority: 'normal',
-            customer_id: customerId,               // ← now linked (Fix 2)
-            property_id: propertyId,               // ← now linked (Fix 4)
+            customer_id: customerId,
+            property_id: propertyId,
             customer_name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
             category: categoryName || categoryId,
             subcategory: subcategoryName || subcategoryId,
