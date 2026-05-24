@@ -1,9 +1,10 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { generateJobNumber } from '@/lib/generateJobNumber'
 
 export async function POST(request) {
+    const supabase = createServerSupabase()
     try {
         const body = await request.json()
         const { categoryId, categoryName, subcategoryId, subcategoryName, issueId, issueName, brand, brandName, pincode, locality, phone } = body

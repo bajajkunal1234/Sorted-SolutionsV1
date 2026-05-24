@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { fireNotification } from '@/lib/fire-notification'
@@ -6,6 +6,7 @@ import { generateJobNumber } from '@/lib/generateJobNumber'
 import { generateAccountSKU } from '@/lib/generateAccountSKU'
 
 export async function POST(request) {
+    const supabase = createServerSupabase()
     try {
         const body = await request.json()
         const {
@@ -287,6 +288,7 @@ export async function POST(request) {
 
 // GET: fetch all booking requests (for admin use)
 export async function GET() {
+    const supabase = createServerSupabase()
     try {
         const { data, error } = await supabase
             .from('jobs')

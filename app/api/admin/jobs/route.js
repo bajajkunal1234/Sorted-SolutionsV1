@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { fireNotification } from '@/lib/fire-notification'
@@ -7,6 +7,7 @@ import { STATUS_TO_EVENT } from '@/lib/jobStatuses'
 
 // GET - Fetch all jobs or filter by query params
 export async function GET(request) {
+    const supabase = createServerSupabase()
     try {
         const { searchParams } = new URL(request.url)
         const status = searchParams.get('status')
@@ -62,6 +63,7 @@ export const dynamic = 'force-dynamic'
 
 // POST - Create new job
 export async function POST(request) {
+    const supabase = createServerSupabase()
     try {
         const body = await request.json();
 
@@ -132,6 +134,7 @@ export async function POST(request) {
 
 // PUT - Update job
 export async function PUT(request) {
+    const supabase = createServerSupabase()
     try {
         const body = await request.json()
         const { id, _changeLog, ...rawUpdates } = body
@@ -303,6 +306,7 @@ export async function PUT(request) {
 
 // DELETE - Delete job
 export async function DELETE(request) {
+    const supabase = createServerSupabase()
     try {
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
