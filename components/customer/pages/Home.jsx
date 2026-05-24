@@ -402,7 +402,7 @@ function Shimmer({ w = '100%', h = 20, r = 8, mb = 0 }) {
 }
 
 // ── Home Page ───────────────────────────────────────────────────
-export default function HomePage({ setActiveTab }) {
+export default function HomePage({ setActiveTab, onJobCount }) {
     const router = useRouter()
     const [requestModal, setRequestModal] = useState({ show: false, coverage: null })
     const [customerName, setCustomerName] = useState('there')
@@ -429,10 +429,15 @@ export default function HomePage({ setActiveTab }) {
         try {
             const res = await fetch(`/api/customer/jobs?customerId=${cId}`)
             const data = await res.json()
-            setJobs(data.jobs || [])
+            const jobList = data.jobs || []
+            setJobs(jobList)
+            // Notify parent with active job count for bottom nav badge
+            const activeStatuses = ['work_in_progress', 'scheduled', 'assigned', 'diagnosing_quoting', 'new_job_request', 'booking_request']
+            const count = jobList.filter(j => activeStatuses.includes(j.status)).length
+            onJobCount?.(count)
         } catch { setJobs([]) }
         finally { setJobsLoading(false) }
-    }, [])
+    }, [onJobCount])
 
     useEffect(() => {
         const hour = new Date().getHours()
@@ -514,9 +519,10 @@ export default function HomePage({ setActiveTab }) {
         } catch {}
     }
 
-    // Active job for live banner
-    const activeJob = jobs.find(j => ['work_in_progress', 'scheduled', 'assigned', 'diagnosing_quoting'].includes(j.status))
-    const inProgressJob = jobs.find(j => j.status === 'work_in_progress')
+    // Count active jobs for badge (passed up via prop if needed)
+    const activeJobCount = jobs.filter(j =>
+        ['work_in_progress', 'scheduled', 'assigned', 'diagnosing_quoting', 'new_job_request', 'booking_request'].includes(j.status)
+    ).length
 
     return (
         <div
@@ -539,33 +545,6 @@ export default function HomePage({ setActiveTab }) {
             {(pullY > 0 || refreshing) && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: Math.max(pullY, refreshing ? 44 : 0), overflow: 'hidden', transition: 'height 0.2s' }}>
                     <RefreshCw size={18} color="#38bdf8" style={{ animation: refreshing ? 'spin360 0.8s linear infinite' : 'none', opacity: pullY > 20 || refreshing ? 1 : 0.3 }} />
-                </div>
-            )}
-            {/* Live Job Status Banner */}
-            {activeJob && (
-                <div
-                    onClick={() => setActiveTab?.('services')}
-                    style={{
-                        margin: '0 16px 8px', padding: '10px 14px',
-                        background: inProgressJob
-                            ? 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(5,150,105,0.06))'
-                            : 'linear-gradient(135deg, rgba(56,189,248,0.1), rgba(59,130,246,0.05))',
-                        border: `1px solid ${inProgressJob ? 'rgba(16,185,129,0.25)' : 'rgba(56,189,248,0.2)'}`,
-                        borderRadius: 14, cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        animation: 'slideDown 0.4s ease',
-                    }}
-                >
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: inProgressJob ? '#10b981' : '#38bdf8', boxShadow: `0 0 8px ${inProgressJob ? '#10b981' : '#38bdf8'}`, animation: 'pulseLive 1.5s ease-in-out infinite', flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: inProgressJob ? '#6ee7b7' : '#7dd3fc' }}>
-                            {inProgressJob ? '🛠️ Technician is on the way' : '📅 Service scheduled'}
-                        </div>
-                        <div style={{ fontSize: 11, color: '#475569' }}>
-                            {activeJob.appliance_type || activeJob.issue_category || 'Repair'} • Tap to track
-                        </div>
-                    </div>
-                    <ArrowRight size={14} color="#475569" />
                 </div>
             )}
 

@@ -17,13 +17,13 @@ const TABS = [
     { id: 'profile', label: 'Profile', icon: User, color: '#f59e0b' },
 ]
 
-function renderTab(tab, setActiveTab) {
+function renderTab(tab, setActiveTab, onJobCountCallback) {
     switch (tab) {
-        case 'home': return <HomePage setActiveTab={setActiveTab} />
+        case 'home': return <HomePage setActiveTab={setActiveTab} onJobCount={onJobCountCallback} />
         case 'services': return <ServicesPage />
         case 'plans': return <PlansPage />
         case 'profile': return <ProfilePage />
-        default: return <HomePage setActiveTab={setActiveTab} />
+        default: return <HomePage setActiveTab={setActiveTab} onJobCount={onJobCountCallback} />
     }
 }
 
@@ -34,6 +34,7 @@ export default function CustomerApp() {
     const [mounted, setMounted] = useState(false)
     const [showOnboarding, setShowOnboarding] = useState(false)
     const [onboardingData, setOnboardingData] = useState({ name: '', customerId: '' })
+    const [servicesBadge, setServicesBadge] = useState(0)
 
     const searchParams = useSearchParams()
     const router = useRouter()
@@ -119,7 +120,7 @@ export default function CustomerApp() {
                 paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', position: 'relative', zIndex: 10,
                 WebkitOverflowScrolling: 'touch',
             }}>
-                {renderTab(activeTab, setActiveTab)}
+                {renderTab(activeTab, setActiveTab, setServicesBadge)}
             </div>
 
             {/* ── SUCCESS FLASHER ── */}
@@ -213,11 +214,27 @@ export default function CustomerApp() {
                                     boxShadow: `0 0 8px ${tab.color}80`,
                                 }} />
                             )}
+                        <div style={{ position: 'relative' }}>
                             <Icon
                                 size={20} strokeWidth={isActive ? 2.5 : 1.8}
                                 color={isActive ? tab.color : '#475569'}
                                 style={{ flexShrink: 0 }}
                             />
+                            {/* Badge for Services tab */}
+                            {tab.id === 'services' && servicesBadge > 0 && (
+                                <div style={{
+                                    position: 'absolute', top: -5, right: -7,
+                                    minWidth: 16, height: 16,
+                                    background: '#ef4444',
+                                    borderRadius: 8, border: '1.5px solid #070c1a',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 9, fontWeight: 800, color: '#fff',
+                                    lineHeight: 1, padding: '0 3px',
+                                }}>
+                                    {servicesBadge > 9 ? '9+' : servicesBadge}
+                                </div>
+                            )}
+                        </div>
                             <span style={{
                                 fontSize: 10, fontWeight: isActive ? 700 : 500,
                                 color: isActive ? tab.color : '#475569',
