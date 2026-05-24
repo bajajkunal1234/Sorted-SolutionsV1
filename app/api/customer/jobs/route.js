@@ -26,8 +26,8 @@ export async function GET(request) {
             return NextResponse.json({ success: true, jobs: [], count: 0 })
         }
 
-        // Fetch customer's ledger_id to query jobs mapped to their account
-        const { data: cx } = await supabase.from('customers').select('ledger_id').eq('id', customerId).single()
+        // Fetch customer's phone + ledger_id — used for both UUID and phone-based lookups
+        const { data: cx } = await supabase.from('customers').select('ledger_id, phone').eq('id', customerId).single()
         const accountId = cx?.ledger_id || customerId
 
         // Build query — jobs stores appliance/brand/issue as plain text + JSONB notes,
@@ -43,7 +43,7 @@ export async function GET(request) {
             query = query.eq('status', status)
         }
 
-        const { data: jobs, error } = await query
+        let { data: jobs, error } = await query
 
         if (error) {
             console.error('Error fetching customer jobs:', error)
@@ -51,6 +51,39 @@ export async function GET(request) {
                 { error: 'Failed to fetch jobs', detail: error.message, code: error.code, hint: error.hint },
                 { status: 500 }
             )
+        }
+
+        // ── Phone-based fallback ──────────────────────────────────────────────────
+        // If UUID lookup returned nothing, the job might have been created with
+        // customers.id or an old format. Try matching by phone in customer_name
+        // or the notes JSONB customer phone field.
+        if ((!jobs || jobs.length === 0) && cx?.phone) {
+            const phone10 = cx.phone.replace(/\D/g, '').slice(-10);
+            // Jobs created by website booking store phone in notes JSON
+            const { data: phoneJobs, error: phoneError } = await supabase
+                .from('jobs')
+                .select('*')
+                .ilike('notes', `%${phone10}%`)
+                .order('created_at', { ascending: false });
+
+            if (!phoneError && phoneJobs && phoneJobs.length > 0) {
+                // Filter strictly by phone to avoid false positives
+                jobs = phoneJobs.filter(j => {
+                    try {
+                        const n = typeof j.notes === 'string' ? JSON.parse(j.notes) : (j.notes || {});
+                        const storedPhone = (n?.customer?.phone || '').replace(/\D/g, '').slice(-10);
+                        return storedPhone === phone10;
+                    } catch { return false; }
+                });
+
+                // Also back-fill the customer_id on these jobs so future queries work
+                if (jobs.length > 0 && accountId !== customerId) {
+                    const jobIds = jobs.map(j => j.id);
+                    supabase.from('jobs').update({ customer_id: accountId }).in('id', jobIds)
+                        .then(() => console.log(`[customer/jobs] back-filled customer_id for ${jobIds.length} jobs`))
+                        .catch(e => console.warn('[customer/jobs] back-fill failed:', e.message));
+                }
+            }
         }
 
         // job.property is a JSONB blob stored on the job row

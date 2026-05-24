@@ -101,6 +101,11 @@ export async function POST(request) {
                 // Customer already has an account — reuse their ID for auto-login
                 customerAuthId = existingCustomer.id;
                 customerId = existingCustomer.id;
+                // Use ledger_id (accounts UUID) for the job's customer_id field
+                // because jobs.customer_id is meant to hold the accounts table UUID
+                if (existingCustomer.ledger_id) {
+                    customerId = existingCustomer.ledger_id;
+                }
             } else {
                 // No record yet — create a passwordless customer so auto-login works.
                 // The OnboardingWizard will prompt them to set a password on first visit.
@@ -159,7 +164,11 @@ export async function POST(request) {
 
                 if (newCustomer?.id) {
                     customerAuthId = newCustomer.id;
-                    customerId = newCustomer.id;
+                    // For jobs.customer_id use ledger_id (accounts UUID) — fall back to customers.id
+                    customerId = ledgerId || newCustomer.id;
+                } else if (ledgerId) {
+                    // Customer row creation failed but ledger exists — still linkable
+                    customerId = ledgerId;
                 }
             }
         } catch (customerErr) {
