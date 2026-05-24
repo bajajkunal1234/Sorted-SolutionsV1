@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { Users, Plus, Edit2, Power, Save, X, Eye, EyeOff, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin } from 'lucide-react';
-import { techniciansAPI, websiteSettingsAPI, accountsAPI, accountGroupsAPI } from '@/lib/adminAPI';
+import { useState, useEffect, useRef } from 'react';
+import { Users, Plus, Edit2, Power, Save, X, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin, Camera, Star, Award, User, Eye, EyeOff } from 'lucide-react';
+import { websiteSettingsAPI, accountsAPI, accountGroupsAPI } from '@/lib/adminAPI';
 import dynamic from 'next/dynamic';
 
 const TechnicianLiveMap = dynamic(() => import('./TechnicianLiveMap'), {
@@ -12,32 +12,35 @@ const TechnicianLiveMap = dynamic(() => import('./TechnicianLiveMap'), {
 
 const CATEGORY_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#6b7280','#f97316','#06b6d4'];
 
-function TechnicianManagement() {
-    const [activeTab, setActiveTab] = useState('credentials'); // 'credentials' | 'expenses' | 'livefleet'
+const CUSTOMER_CARD_FIELDS = [
+    { id: 'photo', label: 'Profile Photo', icon: '📷' },
+    { id: 'name', label: 'Name', icon: '👤' },
+    { id: 'rating', label: 'Star Rating', icon: '⭐' },
+    { id: 'years_experience', label: 'Years Experience', icon: '🏆' },
+    { id: 'specializations', label: 'Specializations', icon: '🔧' },
+    { id: 'bio', label: 'Bio / Tagline', icon: '💬' },
+];
 
-    // ─── Fleet map state ─────────────────────────────────────────────────────
+function TechnicianManagement() {
+    const [activeTab, setActiveTab] = useState('profile');
+
+    // ─── Fleet map state ──────────────────────────────────────────────────────
     const [activeJobs, setActiveJobs] = useState([]);
     const [fleetLoading, setFleetLoading] = useState(false);
-    const [geocodeStatus, setGeocodeStatus] = useState(null); // null | 'running' | { succeeded, failed, processed }
+    const [geocodeStatus, setGeocodeStatus] = useState(null);
     const [geocodeCount, setGeocodeCount] = useState(null);
 
-    // ─── Credentials state ───────────────────────────────────────────────────
+    // ─── Profile tab state ────────────────────────────────────────────────────
     const [technicians, setTechnicians] = useState([]);
     const [technicianAccounts, setTechnicianAccounts] = useState([]);
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showForm, setShowForm] = useState(false);
-    const [editingTechnician, setEditingTechnician] = useState(null);
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [activeModalTab, setActiveModalTab] = useState('credentials');
-    const [allPermissions, setAllPermissions] = useState({});
+    const [selectedTech, setSelectedTech] = useState(null);
     const [saving, setSaving] = useState(false);
-    const [formData, setFormData] = useState({
-        technician_id: '', password: '', confirmPassword: '', is_active: true,
-        permissions: { viewJobs: true, updateJobStatus: true, submitExpenses: true, viewInventory: true, updateInventory: false, viewCustomerDetails: true, editCustomerDetails: false, viewReports: false }
-    });
-    const [errors, setErrors] = useState({});
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [profileDraft, setProfileDraft] = useState(null);
+    const [newSpecialization, setNewSpecialization] = useState('');
+    const fileInputRef = useRef(null);
 
     // ─── Expenses state ───────────────────────────────────────────────────────
     const [categories, setCategories] = useState([]);
@@ -45,20 +48,9 @@ function TechnicianManagement() {
     const [expenses, setExpenses] = useState([]);
     const [expensesLoading, setExpensesLoading] = useState(false);
     const [newCategory, setNewCategory] = useState({ name: '', daily_limit: '', color: '#3b82f6' });
-    const [editingCat, setEditingCat] = useState(null); // index being edited
+    const [editingCat, setEditingCat] = useState(null);
     const [savingCats, setSavingCats] = useState(false);
     const [reviewNotes, setReviewNotes] = useState({});
-
-    const permissionsList = [
-        { id: 'viewJobs', label: 'View Jobs', description: 'Can see assigned jobs' },
-        { id: 'updateJobStatus', label: 'Update Job Status', description: 'Can mark jobs as complete/in-progress' },
-        { id: 'submitExpenses', label: 'Submit Expenses', description: 'Can submit daily expenses' },
-        { id: 'viewInventory', label: 'View Inventory', description: 'Can see inventory items' },
-        { id: 'updateInventory', label: 'Update Inventory', description: 'Can add/remove inventory items' },
-        { id: 'viewCustomerDetails', label: 'View Customer Details', description: 'Can see customer information' },
-        { id: 'editCustomerDetails', label: 'Edit Customer Details', description: 'Can modify customer information' },
-        { id: 'viewReports', label: 'View Reports', description: 'Can access reports and analytics' }
-    ];
 
     useEffect(() => { fetchTechnicians(); fetchGeocodeCount(); }, []);
     useEffect(() => { if (activeTab === 'expenses') { fetchCategories(); fetchExpenses(); } }, [activeTab, expenseFilter]);
@@ -78,11 +70,8 @@ function TechnicianManagement() {
             const res = await fetch('/api/admin/jobs?status=in-progress&limit=50');
             const data = await res.json();
             setActiveJobs(data.jobs || data.data || []);
-        } catch(e) {
-            setActiveJobs([]);
-        } finally {
-            setFleetLoading(false);
-        }
+        } catch(e) { setActiveJobs([]); }
+        finally { setFleetLoading(false); }
     };
 
     const handleRunGeocode = async () => {
@@ -93,48 +82,93 @@ function TechnicianManagement() {
             const res = await fetch('/api/admin/geocode-properties', { method: 'POST' });
             const data = await res.json();
             setGeocodeStatus(data);
-            // Refresh the count — may be 0 now if all converted
             fetchGeocodeCount();
-        } catch(e) {
-            setGeocodeStatus({ error: e.message });
-        }
+        } catch(e) { setGeocodeStatus({ error: e.message }); }
     };
 
     const fetchTechnicians = async () => {
         try {
             setLoading(true);
-            const [techsData, permsData, accountsData, groupsData] = await Promise.all([
-                techniciansAPI.getAll(),
-                websiteSettingsAPI.getByKey('technician-permissions'),
-                accountsAPI.getAll(),
-                accountGroupsAPI.getAll()
-            ]);
-            setTechnicians(techsData || []);
-            setAllPermissions(permsData?.value || {});
-            setGroups(groupsData || []);
-
-            const getGroupIds = (groupName) => {
-                const targetGroup = (groupsData || []).find(g => g.name.toLowerCase() === groupName.toLowerCase());
-                if (!targetGroup) return new Set();
-                const ids = new Set([targetGroup.id]);
-                const addChildren = (parentId) => {
-                    (groupsData || []).filter(g => g.under === parentId).forEach(c => { ids.add(c.id); addChildren(c.id); });
-                };
-                addChildren(targetGroup.id);
-                return ids;
-            };
-            const validGroupIds = getGroupIds('Technicians');
-            const validTechAccounts = (accountsData || []).filter(a => validGroupIds.has(a.under));
-            setTechnicianAccounts(validTechAccounts);
-            const validAccountIds = new Set(validTechAccounts.map(a => a.id));
-            setTechnicians((techsData || []).filter(t => !t.ledger_id || validAccountIds.has(t.ledger_id)));
+            // Use the new admin technicians API
+            const res = await fetch('/api/admin/technicians');
+            const data = await res.json();
+            if (data.success) {
+                setTechnicians(data.data || []);
+            }
         } catch (err) {
-            console.error('Error fetching data:', err);
+            console.error('Error fetching technicians:', err);
         } finally {
             setLoading(false);
         }
     };
 
+    const handleSelectTech = (tech) => {
+        setSelectedTech(tech);
+        setProfileDraft({
+            name: tech.name || '',
+            photo_url: tech.photo_url || '',
+            rating: tech.rating || '',
+            years_experience: tech.years_experience || '',
+            bio: tech.bio || '',
+            specializations: tech.specializations || [],
+            customer_card_fields: tech.customer_card_fields || { photo: true, name: true, rating: true, years_experience: true, specializations: false, bio: false },
+            is_active: tech.is_active !== false,
+        });
+    };
+
+    const handleSaveProfile = async () => {
+        if (!selectedTech) return;
+        setSaving(true);
+        try {
+            const res = await fetch(`/api/admin/technicians?id=${selectedTech.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profileDraft),
+            });
+            const data = await res.json();
+            if (!data.success) throw new Error(data.error || 'Failed to save');
+            // Update local list
+            setTechnicians(prev => prev.map(t => t.id === selectedTech.id ? { ...t, ...profileDraft } : t));
+            setSelectedTech(prev => ({ ...prev, ...profileDraft }));
+            alert('✅ Technician profile saved!');
+        } catch (err) {
+            alert('Error: ' + err.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handlePhotoUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploadingPhoto(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch('/api/upload', { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.url) {
+                setProfileDraft(prev => ({ ...prev, photo_url: data.url }));
+            } else throw new Error(data.error || 'Upload failed');
+        } catch (err) {
+            alert('Photo upload failed: ' + err.message);
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
+
+    const handleToggleActive = async (tech) => {
+        try {
+            await fetch(`/api/admin/technicians?id=${tech.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ is_active: !tech.is_active }),
+            });
+            fetchTechnicians();
+        } catch (err) { alert('Failed to update status: ' + err.message); }
+    };
+
+    // ─── Expense helpers ──────────────────────────────────────────────────────
     const fetchCategories = async () => {
         try {
             const res = await fetch('/api/admin/expense-categories');
@@ -168,19 +202,12 @@ function TechnicianManagement() {
 
     const handleAddCategory = () => {
         if (!newCategory.name.trim()) return;
-        const cat = {
-            id: newCategory.name.toLowerCase().replace(/\s+/g, '-'),
-            name: newCategory.name.trim(),
-            daily_limit: parseFloat(newCategory.daily_limit) || 0,
-            color: newCategory.color
-        };
+        const cat = { id: newCategory.name.toLowerCase().replace(/\s+/g, '-'), name: newCategory.name.trim(), daily_limit: parseFloat(newCategory.daily_limit) || 0, color: newCategory.color };
         setCategories(prev => [...prev, cat]);
         setNewCategory({ name: '', daily_limit: '', color: '#3b82f6' });
     };
 
-    const handleDeleteCategory = (idx) => {
-        setCategories(prev => prev.filter((_, i) => i !== idx));
-    };
+    const handleDeleteCategory = (idx) => { setCategories(prev => prev.filter((_, i) => i !== idx)); };
 
     const handleReviewExpense = async (expense, status) => {
         try {
@@ -197,64 +224,6 @@ function TechnicianManagement() {
         } catch (err) { alert('Failed to update expense'); }
     };
 
-    const validateForm = () => {
-        const newErrors = {};
-        if (!formData.technician_id) newErrors.technician_id = 'Please select a technician account';
-        if (!editingTechnician || formData.password) {
-            if (!formData.password || formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
-            if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
-        }
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
-    const handleSubmit = async () => {
-        if (!validateForm()) return;
-        try {
-            setSaving(true);
-            const updateData = { is_active: formData.is_active };
-            if (formData.password) updateData.password = formData.password;
-            let techId = formData.technician_id;
-            const isNewSetup = !technicians.some(t => t.id === techId);
-            if (isNewSetup) {
-                const selectedAccount = technicianAccounts.find(a => a.id === techId);
-                if (!selectedAccount) throw new Error('Selected technician account not found');
-                const phone = selectedAccount.mobile || selectedAccount.phone || '';
-                const result = await techniciansAPI.create({ ...updateData, name: selectedAccount.name, phone, username: phone, ledger_id: selectedAccount.id });
-                techId = result.id;
-            } else {
-                await techniciansAPI.update(techId, updateData);
-            }
-            const updatedPermissions = { ...allPermissions, [techId]: formData.permissions };
-            await websiteSettingsAPI.save('technician-permissions', updatedPermissions, 'Technician access control permissions');
-            await fetchTechnicians();
-            handleCloseForm();
-            alert('Technician settings saved successfully!');
-        } catch (err) {
-            alert(err.message || 'Failed to save technician settings');
-        } finally { setSaving(false); }
-    };
-
-    const handleEdit = (tech, tab = 'credentials') => {
-        setEditingTechnician(tech);
-        setFormData({ technician_id: tech.id, password: '', confirmPassword: '', is_active: tech.is_active !== false, permissions: allPermissions[tech.id] || { viewJobs: true, updateJobStatus: true, submitExpenses: true, viewInventory: true, updateInventory: false, viewCustomerDetails: true, editCustomerDetails: false, viewReports: false } });
-        setActiveModalTab(tab);
-        setShowForm(true);
-    };
-
-    const handleToggleActive = async (tech) => {
-        try {
-            await techniciansAPI.update(tech.id, { is_active: !tech.is_active });
-            await fetchTechnicians();
-        } catch (err) { alert('Failed to update status: ' + err.message); }
-    };
-
-    const handleCloseForm = () => {
-        setShowForm(false); setEditingTechnician(null);
-        setFormData({ technician_id: '', password: '', confirmPassword: '', is_active: true, permissions: { viewJobs: true, updateJobStatus: true, submitExpenses: true, viewInventory: true, updateInventory: false, viewCustomerDetails: true, editCustomerDetails: false, viewReports: false } });
-        setErrors({}); setShowPassword(false); setShowConfirmPassword(false); setActiveModalTab('credentials');
-    };
-
     const statusBadge = (status) => {
         const map = { pending: { label: 'Pending', bg: '#fef3c7', color: '#d97706' }, approved: { label: 'Approved', bg: '#d1fae5', color: '#059669' }, rejected: { label: 'Rejected', bg: '#fee2e2', color: '#dc2626' } };
         const s = map[status] || map.pending;
@@ -269,19 +238,14 @@ function TechnicianManagement() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
                 <div>
                     <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Technician Management</h2>
-                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>Manage credentials, permissions and expense approvals</p>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>Manage profiles, customer visibility, and expense approvals</p>
                 </div>
-                {activeTab === 'credentials' && (
-                    <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-                        <Plus size={16} /> Setup Credentials
-                    </button>
-                )}
             </div>
 
             {/* Top-level subtabs */}
             <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', paddingBottom: 0 }}>
                 {[
-                    { id: 'credentials', label: '🔐 Technician Credentials' },
+                    { id: 'profile', label: '👤 Technician Profile' },
                     { id: 'expenses', label: '💰 Technician Expenses' },
                     { id: 'livefleet', label: '🗺️ Technicians on Map' }
                 ].map(t => (
@@ -289,58 +253,241 @@ function TechnicianManagement() {
                         key={t.id}
                         onClick={() => setActiveTab(t.id)}
                         style={{
-                            padding: '8px 16px', border: 'none', cursor: 'pointer', borderBottom: activeTab === t.id ? '2px solid var(--color-primary)' : '2px solid transparent',
-                            backgroundColor: 'transparent', color: activeTab === t.id ? 'var(--color-primary)' : 'var(--text-secondary)', fontWeight: activeTab === t.id ? 600 : 400, fontSize: 'var(--font-size-sm)', transition: 'all 0.15s'
+                            padding: '8px 16px', border: 'none', cursor: 'pointer',
+                            borderBottom: activeTab === t.id ? '2px solid var(--color-primary)' : '2px solid transparent',
+                            backgroundColor: 'transparent',
+                            color: activeTab === t.id ? 'var(--color-primary)' : 'var(--text-secondary)',
+                            fontWeight: activeTab === t.id ? 600 : 400,
+                            fontSize: 'var(--font-size-sm)', transition: 'all 0.15s'
                         }}
                     >{t.label}</button>
                 ))}
             </div>
 
-            {/* ──────────────── CREDENTIALS TAB ──────────────── */}
-            {activeTab === 'credentials' && (
-                <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
-                                <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', fontWeight: 600 }}>Name</th>
-                                <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', fontWeight: 600 }}>Phone (Login)</th>
-                                <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', fontWeight: 600 }}>Status</th>
-                                <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontWeight: 600 }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {technicians.length === 0 ? (
-                                <tr><td colSpan="4" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>No technicians found. Create technician accounts in the Accounts tab first.</td></tr>
-                            ) : (
-                                technicians.map(tech => (
-                                    <tr key={tech.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                        <td style={{ padding: 'var(--spacing-md)' }}>{tech.name}</td>
-                                        <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{tech.phone || '—'}</td>
-                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
-                                            <span style={{ padding: '4px 12px', borderRadius: 'var(--radius-full)', fontSize: 'var(--font-size-xs)', fontWeight: 500, backgroundColor: tech.is_active !== false ? 'var(--color-success-bg)' : 'var(--color-danger-bg)', color: tech.is_active !== false ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                {tech.is_active !== false ? 'Active' : 'Inactive'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right' }}>
-                                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)', justifyContent: 'flex-end' }}>
-                                                <button className="btn-icon" onClick={() => handleEdit(tech, 'permissions')} title="Edit permissions" style={{ color: 'var(--color-primary)' }}><Shield size={16} /></button>
-                                                <button className="btn-icon" onClick={() => handleEdit(tech, 'credentials')} title="Edit credentials"><Edit2 size={16} /></button>
-                                                <button className="btn-icon" onClick={() => handleToggleActive(tech)} title={tech.is_active !== false ? 'Deactivate' : 'Activate'} style={{ color: tech.is_active !== false ? 'var(--color-danger)' : 'var(--color-success)' }}><Power size={16} /></button>
+            {/* ──────────────── TECHNICIAN PROFILE TAB ──────────────── */}
+            {activeTab === 'profile' && (
+                <div style={{ display: 'grid', gridTemplateColumns: selectedTech ? '280px 1fr' : '1fr', gap: 20, alignItems: 'start' }}>
+                    {/* Technician list */}
+                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', margin: 0 }}>Technicians</h3>
+                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{technicians.length} total</span>
+                        </div>
+                        {technicians.length === 0 ? (
+                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+                                No technicians found.<br />Add technicians via the Accounts tab.
+                            </div>
+                        ) : (
+                            technicians.map(tech => (
+                                <div
+                                    key={tech.id}
+                                    onClick={() => handleSelectTech(tech)}
+                                    style={{
+                                        display: 'flex', alignItems: 'center', gap: 12,
+                                        padding: '12px 16px', cursor: 'pointer',
+                                        borderBottom: '1px solid var(--border-primary)',
+                                        background: selectedTech?.id === tech.id ? 'rgba(99,102,241,0.08)' : 'transparent',
+                                        borderLeft: selectedTech?.id === tech.id ? '3px solid var(--color-primary)' : '3px solid transparent',
+                                        transition: 'all 0.15s',
+                                    }}
+                                >
+                                    {tech.photo_url
+                                        ? <img src={tech.photo_url} alt={tech.name} style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                        : <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 15, fontWeight: 700 }}>
+                                            {tech.name?.[0]?.toUpperCase() || '?'}
+                                          </div>
+                                    }
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>{tech.name}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{tech.phone || '—'}</div>
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 9999, backgroundColor: tech.is_active !== false ? '#d1fae5' : '#fee2e2', color: tech.is_active !== false ? '#059669' : '#dc2626' }}>
+                                            {tech.is_active !== false ? 'Active' : 'Inactive'}
+                                        </span>
+                                        {tech.rating > 0 && <span style={{ fontSize: 11, color: '#f59e0b' }}>★ {tech.rating}</span>}
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Profile Editor */}
+                    {selectedTech && profileDraft && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {/* OTP Login notice */}
+                            <div style={{ padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, fontSize: 13, color: '#6ee7b7', display: 'flex', gap: 8, alignItems: 'center' }}>
+                                📱 <span><strong>{selectedTech.name}</strong> logs in via <strong>OTP</strong> on their registered mobile number — no password needed.</span>
+                            </div>
+
+                            {/* Photo + basic info */}
+                            <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                    📋 Profile Information
+                                </div>
+                                <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    {/* Photo upload */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                                            {profileDraft.photo_url
+                                                ? <img src={profileDraft.photo_url} alt="photo" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border-primary)' }} />
+                                                : <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 28, fontWeight: 700 }}>
+                                                    {profileDraft.name?.[0]?.toUpperCase() || '?'}
+                                                  </div>
+                                            }
+                                            <button
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={uploadingPhoto}
+                                                style={{ position: 'absolute', bottom: 0, right: 0, width: 26, height: 26, borderRadius: '50%', background: 'var(--color-primary)', border: '2px solid var(--bg-elevated)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                                            >
+                                                {uploadingPhoto ? <Loader2 size={12} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Camera size={12} />}
+                                            </button>
+                                            <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoUpload} style={{ display: 'none' }} />
+                                        </div>
+                                        <div style={{ flex: 1 }}>
+                                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>Full Name</label>
+                                            <input
+                                                className="form-input"
+                                                value={profileDraft.name}
+                                                onChange={e => setProfileDraft(p => ({ ...p, name: e.target.value }))}
+                                                style={{ width: '100%', padding: '8px 12px' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Rating + Experience */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                                        <div>
+                                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>⭐ Star Rating (1–5)</label>
+                                            <input
+                                                type="number" min="0" max="5" step="0.1"
+                                                className="form-input"
+                                                value={profileDraft.rating}
+                                                onChange={e => setProfileDraft(p => ({ ...p, rating: e.target.value }))}
+                                                placeholder="e.g. 4.7"
+                                                style={{ width: '100%', padding: '8px 12px' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>🏆 Years of Experience</label>
+                                            <input
+                                                type="number" min="0"
+                                                className="form-input"
+                                                value={profileDraft.years_experience}
+                                                onChange={e => setProfileDraft(p => ({ ...p, years_experience: e.target.value }))}
+                                                placeholder="e.g. 5"
+                                                style={{ width: '100%', padding: '8px 12px' }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Bio */}
+                                    <div>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>💬 Bio / Tagline</label>
+                                        <textarea
+                                            className="form-input"
+                                            value={profileDraft.bio}
+                                            onChange={e => setProfileDraft(p => ({ ...p, bio: e.target.value }))}
+                                            placeholder="Short introduction visible to customers..."
+                                            rows={2}
+                                            style={{ width: '100%', padding: '8px 12px', resize: 'vertical' }}
+                                        />
+                                    </div>
+
+                                    {/* Specializations */}
+                                    <div>
+                                        <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>🔧 Specializations</label>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                                            {(profileDraft.specializations || []).map((s, i) => (
+                                                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 12, fontWeight: 600, color: '#6366f1' }}>
+                                                    {s}
+                                                    <button onClick={() => setProfileDraft(p => ({ ...p, specializations: p.specializations.filter((_, j) => j !== i) }))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: 0, lineHeight: 1, marginLeft: 2 }}>×</button>
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <input
+                                                className="form-input"
+                                                value={newSpecialization}
+                                                onChange={e => setNewSpecialization(e.target.value)}
+                                                onKeyDown={e => { if (e.key === 'Enter' && newSpecialization.trim()) { setProfileDraft(p => ({ ...p, specializations: [...(p.specializations || []), newSpecialization.trim()] })); setNewSpecialization(''); } }}
+                                                placeholder="e.g. AC Repair, Washing Machine..."
+                                                style={{ flex: 1, padding: '7px 12px', fontSize: 13 }}
+                                            />
+                                            <button
+                                                onClick={() => { if (newSpecialization.trim()) { setProfileDraft(p => ({ ...p, specializations: [...(p.specializations || []), newSpecialization.trim()] })); setNewSpecialization(''); } }}
+                                                className="btn btn-primary" style={{ padding: '7px 14px', fontSize: 13 }}
+                                            >Add</button>
+                                        </div>
+                                    </div>
+
+                                    {/* Active toggle */}
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                                        <input type="checkbox" checked={profileDraft.is_active} onChange={e => setProfileDraft(p => ({ ...p, is_active: e.target.checked }))} style={{ width: 16, height: 16, accentColor: 'var(--color-primary)' }} />
+                                        <span style={{ fontSize: 13, fontWeight: 600 }}>Active (can receive jobs &amp; log in)</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Customer Card Visibility */}
+                            <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+                                <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                    <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>👁️ Customer Mini-Card Visibility</div>
+                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Choose which fields the customer sees when viewing their assigned technician</div>
+                                </div>
+                                <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                    {CUSTOMER_CARD_FIELDS.map(field => (
+                                        <div key={field.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 10, backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                <span style={{ fontSize: 18 }}>{field.icon}</span>
+                                                <div>
+                                                    <div style={{ fontWeight: 600, fontSize: 13 }}>{field.label}</div>
+                                                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                                        {field.id === 'photo' && (profileDraft.photo_url ? '✓ Photo uploaded' : 'No photo uploaded')}
+                                                        {field.id === 'rating' && (profileDraft.rating ? `Currently: ★ ${profileDraft.rating}` : 'Not set')}
+                                                        {field.id === 'years_experience' && (profileDraft.years_experience ? `${profileDraft.years_experience} yrs` : 'Not set')}
+                                                        {field.id === 'specializations' && `${(profileDraft.specializations || []).length} tags`}
+                                                        {field.id === 'bio' && (profileDraft.bio ? `"${profileDraft.bio.slice(0,30)}..."` : 'Not set')}
+                                                        {field.id === 'name' && profileDraft.name}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                                                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{profileDraft.customer_card_fields?.[field.id] ? 'Visible' : 'Hidden'}</span>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!profileDraft.customer_card_fields?.[field.id]}
+                                                    onChange={e => setProfileDraft(p => ({ ...p, customer_card_fields: { ...p.customer_card_fields, [field.id]: e.target.checked } }))}
+                                                    style={{ width: 16, height: 16, accentColor: 'var(--color-primary)', cursor: 'pointer' }}
+                                                />
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Save */}
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                                <button className="btn btn-secondary" onClick={() => { setSelectedTech(null); setProfileDraft(null); }}>Cancel</button>
+                                <button className="btn btn-primary" onClick={handleSaveProfile} disabled={saving} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    {saving ? <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Saving...</> : <><Save size={14} /> Save Profile</>}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {!selectedTech && technicians.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'var(--text-secondary)', gap: 10 }}>
+                            <User size={40} style={{ opacity: 0.25 }} />
+                            <div style={{ fontSize: 14 }}>Select a technician from the list to edit their profile</div>
+                        </div>
+                    )}
                 </div>
             )}
 
             {/* ──────────────── EXPENSES TAB ──────────────── */}
             {activeTab === 'expenses' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-
-                    {/* Allowed Categories Section */}
                     <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
                         <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
                             <div>
@@ -348,46 +495,36 @@ function TechnicianManagement() {
                                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Define what technicians can claim and the daily limits</p>
                             </div>
                             <button className="btn btn-primary" onClick={handleSaveCategories} disabled={savingCats} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                {savingCats ? <Loader2 size={14} className="spin" /> : <Save size={14} />} Save Categories
+                                {savingCats ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={14} />} Save Categories
                             </button>
                         </div>
-
                         <div style={{ padding: 'var(--spacing-md)' }}>
-                            {/* Existing categories */}
                             <div style={{ display: 'grid', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
                                 {categories.map((cat, i) => (
                                     <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                                        <div style={{ width: '14px', height: '14px', borderRadius: '50%', backgroundColor: cat.color, flexShrink: 0 }} />
+                                        <div style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: cat.color, flexShrink: 0 }} />
                                         {editingCat === i ? (
                                             <>
                                                 <input className="form-input" value={cat.name} onChange={e => { const c=[...categories]; c[i]={...c[i],name:e.target.value}; setCategories(c); }} style={{ flex:1, padding:'4px 8px', fontSize:'var(--font-size-sm)' }} />
                                                 <span style={{ fontSize:'var(--font-size-xs)', color:'var(--text-secondary)' }}>Daily limit ₹</span>
                                                 <input className="form-input" type="number" value={cat.daily_limit} onChange={e => { const c=[...categories]; c[i]={...c[i],daily_limit:parseFloat(e.target.value)||0}; setCategories(c); }} style={{ width:'90px', padding:'4px 8px', fontSize:'var(--font-size-sm)' }} />
-                                                <select value={cat.color} onChange={e => { const c=[...categories]; c[i]={...c[i],color:e.target.value}; setCategories(c); }} style={{ padding:'4px', borderRadius:'var(--radius-sm)', border:'1px solid var(--border-primary)', background:'var(--bg-primary)' }}>
-                                                    {CATEGORY_COLORS.map(col => <option key={col} value={col} style={{ backgroundColor:col }}>{col}</option>)}
-                                                </select>
                                                 <button className="btn-icon" onClick={() => setEditingCat(null)}><Check size={14} color="#10b981" /></button>
                                             </>
                                         ) : (
                                             <>
                                                 <span style={{ flex:1, fontWeight:500, fontSize:'var(--font-size-sm)' }}>{cat.name}</span>
                                                 <span style={{ fontSize:'var(--font-size-xs)', color:'var(--text-secondary)' }}>Daily limit: ₹{cat.daily_limit?.toLocaleString('en-IN') || 0}</span>
-                                                <button className="btn-icon" onClick={()=>setEditingCat(i)}><Edit2 size={14} /></button>
-                                                <button className="btn-icon" onClick={()=>handleDeleteCategory(i)}><Trash2 size={14} color="#ef4444" /></button>
+                                                <button className="btn-icon" onClick={() => setEditingCat(i)}><Edit2 size={14} /></button>
+                                                <button className="btn-icon" onClick={() => handleDeleteCategory(i)}><Trash2 size={14} color="#ef4444" /></button>
                                             </>
                                         )}
                                     </div>
                                 ))}
                             </div>
-
-                            {/* Add new category */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-primary)' }}>
                                 <input className="form-input" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory(p => ({ ...p, name: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-sm)' }} />
                                 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Limit ₹</span>
                                 <input className="form-input" type="number" placeholder="500" value={newCategory.daily_limit} onChange={e => setNewCategory(p => ({ ...p, daily_limit: e.target.value }))} style={{ width: '80px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }} />
-                                <select value={newCategory.color} onChange={e => setNewCategory(p => ({ ...p, color: e.target.value }))} style={{ padding: '6px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)', background: 'var(--bg-primary)' }}>
-                                    {CATEGORY_COLORS.map(col => <option key={col} value={col}>{col}</option>)}
-                                </select>
                                 <button className="btn btn-primary" onClick={handleAddCategory} style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                     <Plus size={14} /> Add
                                 </button>
@@ -395,7 +532,6 @@ function TechnicianManagement() {
                         </div>
                     </div>
 
-                    {/* Expense Requests Section */}
                     <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
                         <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
                             <div>
@@ -412,7 +548,6 @@ function TechnicianManagement() {
                                 <button className="btn-icon" onClick={fetchExpenses} title="Refresh"><RefreshCcw size={16} /></button>
                             </div>
                         </div>
-
                         {expensesLoading ? (
                             <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading expenses...</div>
                         ) : expenses.length === 0 ? (
@@ -431,15 +566,9 @@ function TechnicianManagement() {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
                                                         <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>{cat?.name || exp.category}</span>
                                                         {statusBadge(exp.status)}
-                                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                            {new Date(exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                                        </span>
-                                                    </div>
-                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
-                                                        Tech ID: {exp.technician_id}
+                                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{new Date(exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                                     </div>
                                                     {exp.description && <div style={{ fontSize: 'var(--font-size-sm)', marginTop: '4px' }}>{exp.description}</div>}
-                                                    {exp.admin_notes && <div style={{ fontSize: 'var(--font-size-xs)', color: '#dc2626', marginTop: '4px' }}>Admin note: {exp.admin_notes}</div>}
                                                 </div>
                                                 <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-md)', flexShrink: 0 }}>
                                                     <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(exp.amount).toLocaleString('en-IN')}</div>
@@ -447,13 +576,7 @@ function TechnicianManagement() {
                                             </div>
                                             {exp.status === 'pending' && (
                                                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)' }}>
-                                                    <input
-                                                        className="form-input"
-                                                        placeholder="Admin note (optional for rejection)"
-                                                        value={reviewNotes[exp.id] || ''}
-                                                        onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))}
-                                                        style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-xs)' }}
-                                                    />
+                                                    <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
                                                     <button onClick={() => handleReviewExpense(exp, 'approved')} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         <Check size={14} /> Approve
                                                     </button>
@@ -471,102 +594,6 @@ function TechnicianManagement() {
                 </div>
             )}
 
-            {/* ──────────────── CREDENTIALS MODAL ──────────────── */}
-            {showForm && (
-                <div className="modal-overlay" onClick={handleCloseForm}>
-                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
-                        <div className="modal-header" style={{ paddingBottom: 0 }}>
-                            <div style={{ width: '100%' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
-                                    <h2 className="modal-title">{editingTechnician ? 'Edit' : 'Setup'} Technician Profile</h2>
-                                    <button className="btn-icon" onClick={handleCloseForm}><X size={20} /></button>
-                                </div>
-                                <div style={{ display: 'flex', gap: 'var(--spacing-md)' }}>
-                                    {['credentials', 'permissions'].map(t => (
-                                        <button key={t} onClick={() => setActiveModalTab(t)} style={{ padding: 'var(--spacing-sm) 0', borderBottom: activeModalTab === t ? '2px solid var(--color-primary)' : 'none', color: activeModalTab === t ? 'var(--color-primary)' : 'var(--text-secondary)', background: 'none', cursor: 'pointer', fontWeight: activeModalTab === t ? 600 : 400, border: 'none', borderBottom: activeModalTab === t ? '2px solid var(--color-primary)' : '2px solid transparent', textTransform: 'capitalize', fontSize: 'var(--font-size-sm)' }}>
-                                            {t}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto', padding: 'var(--spacing-lg)' }}>
-                            {activeModalTab === 'credentials' ? (
-                                <>
-                                    <div className="form-group">
-                                        <label className="form-label">Technician Account *</label>
-                                        <select className="form-select" value={formData.technician_id} onChange={e => setFormData({ ...formData, technician_id: e.target.value })} disabled={editingTechnician}>
-                                            <option value="">Select technician account...</option>
-                                            {editingTechnician ? (
-                                                <option value={editingTechnician.id}>{editingTechnician.name} - {editingTechnician.phone}</option>
-                                            ) : (
-                                                <>
-                                                    <optgroup label="Setup Credentials for Ledger Accounts">
-                                                        {technicianAccounts.filter(acc => !technicians.some(t => t.ledger_id === acc.id)).map(acc => (
-                                                            <option key={acc.id} value={acc.id}>{acc.name}</option>
-                                                        ))}
-                                                    </optgroup>
-                                                    <optgroup label="Existing Technician Profiles">
-                                                        {technicians.map(tech => <option key={tech.id} value={tech.id}>{tech.name} - {tech.phone}</option>)}
-                                                    </optgroup>
-                                                </>
-                                            )}
-                                        </select>
-                                        {errors.technician_id && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.technician_id}</span>}
-                                    </div>
-                                    <div style={{ padding: '10px 14px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-md)' }}>
-                                        📱 Technician logs in using their <strong>mobile number</strong> + password
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Password {editingTechnician ? '(leave blank to keep current)' : '*'}</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input type={showPassword ? 'text' : 'password'} className="form-input" placeholder="Minimum 8 characters" value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} style={{ paddingRight: '40px' }} />
-                                            <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '4px' }}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-                                        </div>
-                                        {errors.password && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.password}</span>}
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Confirm Password *</label>
-                                        <div style={{ position: 'relative' }}>
-                                            <input type={showConfirmPassword ? 'text' : 'password'} className="form-input" placeholder="Re-enter password" value={formData.confirmPassword} onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })} style={{ paddingRight: '40px' }} />
-                                            <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)', padding: '4px' }}>{showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-                                        </div>
-                                        {errors.confirmPassword && <span style={{ color: 'var(--color-danger)', fontSize: 'var(--font-size-xs)' }}>{errors.confirmPassword}</span>}
-                                    </div>
-                                    <div className="form-group">
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
-                                            <input type="checkbox" checked={formData.is_active} onChange={e => setFormData({ ...formData, is_active: e.target.checked })} style={{ width: '18px', height: '18px' }} />
-                                            <span className="form-label" style={{ marginBottom: 0 }}><Shield size={16} style={{ marginRight: '4px', verticalAlign: 'middle' }} />Active (Allow login)</span>
-                                        </label>
-                                    </div>
-                                </>
-                            ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                                    <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Set access permissions for this technician.</p>
-                                    {permissionsList.map(permission => (
-                                        <div key={permission.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--spacing-sm)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>{permission.label}</div>
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{permission.description}</div>
-                                            </div>
-                                            <input type="checkbox" checked={!!formData.permissions[permission.id]} onChange={() => setFormData({ ...formData, permissions: { ...formData.permissions, [permission.id]: !formData.permissions[permission.id] } })} style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: 'var(--color-primary)' }} />
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="modal-footer">
-                            <button className="btn btn-secondary" onClick={handleCloseForm} disabled={saving}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>
-                                {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
-                                {saving ? 'Saving...' : 'Save Settings'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
             {/* ──────────────── FLEET MAP TAB ──────────────── */}
             {activeTab === 'livefleet' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -576,65 +603,22 @@ function TechnicianManagement() {
                             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Real-time locations of all technicians currently on in-progress jobs.</p>
                         </div>
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            <button
-                                onClick={fetchActiveJobs}
-                                disabled={fleetLoading}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.1)', color: '#6366f1', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
-                            >
-                                <RefreshCcw size={14} className={fleetLoading ? 'spin' : ''} /> Refresh
+                            <button onClick={fetchActiveJobs} disabled={fleetLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.1)', color: '#6366f1', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                                <RefreshCcw size={14} style={{ animation: fleetLoading ? 'spin 0.8s linear infinite' : 'none' }} /> Refresh
                             </button>
                             {geocodeCount > 0 && (
-                                <button
-                                    onClick={handleRunGeocode}
-                                    disabled={geocodeStatus === 'running'}
-                                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}
-                                >
+                                <button onClick={handleRunGeocode} disabled={geocodeStatus === 'running'} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
                                     <MapPin size={14} />
-                                    {geocodeStatus === 'running' ? 'Converting... (please wait)' : `🔄 Convert ${geocodeCount} Old Addresses`}
+                                    {geocodeStatus === 'running' ? 'Converting...' : `🔄 Convert ${geocodeCount} Old Addresses`}
                                 </button>
                             )}
-                            {geocodeStatus && geocodeStatus !== 'running' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 480 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <div style={{ padding: '8px 14px', borderRadius: 8, background: geocodeStatus.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: geocodeStatus.error ? '#ef4444' : '#10b981', fontSize: 13, fontWeight: 600 }}>
-                                            {geocodeStatus.error
-                                                ? `❌ ${geocodeStatus.error}`
-                                                : `✅ ${geocodeStatus.succeeded}/${geocodeStatus.processed} addresses pinned on map${geocodeStatus.failed > 0 ? ` — ${geocodeStatus.failed} need manual pin` : ' — all done!'}`
-                                            }
-                                        </div>
-                                    </div>
-                                    {/* Show which properties failed so user knows which to manually fix */}
-                                    {geocodeStatus.failed > 0 && geocodeStatus.results && (
-                                        <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '10px 14px' }}>
-                                            <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 6 }}>
-                                                ⚠️ These {geocodeStatus.failed} propert{geocodeStatus.failed === 1 ? 'y' : 'ies'} couldn't be auto-pinned — go to Admin → Accounts → edit the property and drag the pin manually:
-                                            </div>
-                                            {geocodeStatus.results
-                                                .filter(r => r.status === 'not_found')
-                                                .map((r, i) => (
-                                                    <div key={i} style={{ fontSize: 12, color: '#fbbf24', padding: '4px 0', borderTop: i > 0 ? '1px solid rgba(245,158,11,0.1)' : 'none' }}>
-                                                        • {[r.building, r.street, r.locality, r.pincode].filter(Boolean).join(', ') || `Property ID: ${r.id}`}
-                                                    </div>
-                                                ))
-                                            }
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
                         </div>
                     </div>
-
-                    {fleetLoading ? (
-                        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-secondary)' }}>
-                            <Loader2 size={32} className="spin" style={{ marginBottom: 12 }} />
-                            <div>Loading active jobs...</div>
-                        </div>
-                    ) : (
-                        <TechnicianLiveMap activeTechnicians={activeJobs} />
-                    )}
+                    <TechnicianLiveMap activeJobs={activeJobs} />
                 </div>
             )}
+
+            <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
         </div>
     );
 }

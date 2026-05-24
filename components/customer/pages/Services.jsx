@@ -15,6 +15,24 @@ import RescheduleModal from '../modals/RescheduleModal'
 import LiveMap from '@/components/common/LiveMap'
 import { supabase } from '@/lib/supabase'
 
+// ── Shimmer skeleton ────────────────────────────────────────────────────────
+function Shimmer({ w = '100%', h = 20, r = 8, mb = 0 }) {
+    return <div style={{ width: w, height: h, borderRadius: r, background: 'linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 100%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s ease infinite', marginBottom: mb }} />
+}
+
+// ── useTechProfile hook ──────────────────────────────────────────────────────
+function useTechProfile(technicianId) {
+    const [profile, setProfile] = React.useState(null)
+    React.useEffect(() => {
+        if (!technicianId) return
+        fetch(`/api/customer/technician-profile?id=${technicianId}`)
+            .then(r => r.json())
+            .then(d => d.success && setProfile(d.profile))
+            .catch(() => {})
+    }, [technicianId])
+    return profile
+}
+
 // ── Appliance icon map ──────────────────────────────────────────────────────
 function ApplianceIcon({ type = '', size = 20 }) {
     const t = (type || '').toLowerCase()
