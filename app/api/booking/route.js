@@ -70,83 +70,106 @@ export async function POST(request) {
             }
         }
 
-        let customerId = null;
-        let customerAuthId = null;
+        let customerId = null;    // accounts.id  — stored on jobs.customer_id
+        let customerAuthId = null; // customers.id — stored in localStorage for auth
         let propertyId = null;
 
-        // ── Look up or create customer for auto-login ─────────────────────────
-        // Uses the same fuzzy phone-matching as the auth API to handle all
-        // stored formats (+91-XXXXX XXXXX, 10-digit, etc.).
-        // Non-fatal: booking still succeeds even if this step errors.
+        // ── Look up OR create customer (idempotent — safe to run on every booking) ─
+        // Priority chain:
+        //   1. customers table (exact phone match) — fastest, preserves existing session
+        //   2. accounts table  (exact mobile match) — for cases where customers row is missing
+        //   3. Create new accounts + customers rows via upsert (conflict-safe)
         try {
+            const customerName = customer.name ||
+                `${customer.firstName || ''} ${customer.lastName || ''}`.trim() ||
+                `Customer ${rawPhone10.slice(-4)}`;
+
+            // ── Stage 1: Look up in customers table ─────────────────────────────
             const loosePattern = '%' + rawPhone10.split('').join('%') + '%';
-            const { data: candidates, error: lookupErr } = await supabase
+            const { data: candidates } = await supabase
                 .from('customers')
-                .select('id, phone, name, profile_complete, ledger_id')
+                .select('id, phone, name, ledger_id')
                 .ilike('phone', loosePattern)
                 .limit(20);
 
-            if (lookupErr) console.error('[booking] customer lookup error:', lookupErr.message);
-
-            let existingCustomer = null;
-            if (candidates && candidates.length > 0) {
-                existingCustomer = candidates.find(
-                    c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === rawPhone10
-                ) || null;
-            }
-
-            console.log('[booking] customer lookup:', { rawPhone10, found: !!existingCustomer, candidates: candidates?.length });
+            const existingCustomer = (candidates || []).find(
+                c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === rawPhone10
+            ) || null;
 
             if (existingCustomer) {
-                // Customer already has an account — reuse their ID for auto-login
                 customerAuthId = existingCustomer.id;
-                customerId = existingCustomer.id;
-                // Use ledger_id (accounts UUID) for the job's customer_id field
-                // because jobs.customer_id is meant to hold the accounts table UUID
-                if (existingCustomer.ledger_id) {
-                    customerId = existingCustomer.ledger_id;
+                customerId = existingCustomer.ledger_id || existingCustomer.id;
+
+                // If the customer row lacks a ledger_id, check accounts table by mobile
+                if (!existingCustomer.ledger_id) {
+                    const { data: acct } = await supabase
+                        .from('accounts')
+                        .select('id')
+                        .or(`mobile.eq.${rawPhone10},mobile.eq.+91${rawPhone10}`)
+                        .maybeSingle();
+                    if (acct?.id) {
+                        customerId = acct.id;
+                        // Back-fill ledger_id on the customers row
+                        await supabase.from('customers').update({ ledger_id: acct.id }).eq('id', existingCustomer.id);
+                    }
                 }
+
+                console.log('[booking] existing customer found:', { customerId, customerAuthId });
             } else {
-                // No record yet — create a passwordless customer so auto-login works.
-                // The OnboardingWizard will prompt them to set a password on first visit.
-                const customerName = customer.name ||
-                    `${customer.firstName || ''} ${customer.lastName || ''}`.trim() ||
-                    `Customer ${rawPhone10.slice(-4)}`;
+                // ── Stage 2: Look up in accounts table by mobile ────────────────
+                const { data: existingAccount } = await supabase
+                    .from('accounts')
+                    .select('id, name, mobile')
+                    .or(`mobile.eq.${rawPhone10},mobile.eq.+91${rawPhone10}`)
+                    .maybeSingle();
 
-                // Create accounts ledger entry
-                let ledgerId = null;
-                let newSKU = null;
-                try { newSKU = await generateAccountSKU('customer', 'sundry-debtors'); } catch (skuErr) {
-                    console.error('[booking] generateAccountSKU failed:', skuErr.message);
+                let ledgerId = existingAccount?.id || null;
+
+                if (!ledgerId) {
+                    // ── Stage 3: Create accounts entry (upsert by mobile) ───────
+                    let newSKU = null;
+                    try { newSKU = await generateAccountSKU('customer', 'sundry-debtors'); } catch (_) {}
+
+                    const accountPayload = {
+                        name: customerName,
+                        mobile: rawPhone10,
+                        type: 'customer',
+                        under: 'sundry-debtors',
+                        acquisition_source: 'Website Booking',
+                        opening_balance: 0,
+                        balance_type: 'debit',
+                        status: 'active',
+                    };
+                    if (newSKU) accountPayload.sku = newSKU;
+
+                    const { data: newAccount, error: accountErr } = await supabase
+                        .from('accounts')
+                        .insert(accountPayload)
+                        .select('id')
+                        .single();
+
+                    if (accountErr) {
+                        console.error('[booking] accounts insert error:', accountErr.message, accountErr.code);
+                        // On duplicate — try fetching again (race condition / previous failed booking)
+                        if (accountErr.code === '23505') {
+                            const { data: racedAcct } = await supabase
+                                .from('accounts')
+                                .select('id')
+                                .or(`mobile.eq.${rawPhone10},mobile.eq.+91${rawPhone10}`)
+                                .maybeSingle();
+                            ledgerId = racedAcct?.id || null;
+                        }
+                    } else {
+                        ledgerId = newAccount?.id || null;
+                    }
                 }
 
-                const accountInsert = {
-                    name: customerName,
-                    mobile: rawPhone10,
-                    type: 'customer',
-                    under: 'sundry-debtors',
-                    source: 'Website Booking',
-                    opening_balance: 0,
-                    balance_type: 'debit',
-                    status: 'active',
-                    created_at: new Date().toISOString(),
-                };
-                if (newSKU) accountInsert.sku = newSKU;
-
-                const { data: accountEntry, error: accountErr } = await supabase
-                    .from('accounts')
-                    .insert(accountInsert)
-                    .select('id')
-                    .single();
-                if (accountErr) console.error('[booking] accounts insert error:', accountErr.message);
-                if (accountEntry?.id) ledgerId = accountEntry.id;
-
-                // Create the customers row (no password_hash — OTP-verified booking)
-                // username is required (NOT NULL) — derive it from phone so the insert succeeds
+                // ── Create / upsert the customers row ───────────────────────────
+                // Use upsert on username so a second booking never fails
                 const autoUsername = `customer_${rawPhone10}`;
                 const { data: newCustomer, error: customerCreateErr } = await supabase
                     .from('customers')
-                    .insert({
+                    .upsert({
                         phone: rawPhone10,
                         name: customerName,
                         full_name: customerName,
@@ -154,22 +177,27 @@ export async function POST(request) {
                         customer_type: 'one_time',
                         profile_complete: false,
                         ledger_id: ledgerId,
-                        created_at: new Date().toISOString(),
-                    })
+                    }, { onConflict: 'username', ignoreDuplicates: false })
                     .select('id')
                     .single();
 
-                if (customerCreateErr) console.error('[booking] customers insert error:', customerCreateErr.message);
-                console.log('[booking] new customer created:', newCustomer?.id || 'FAILED');
-
-                if (newCustomer?.id) {
+                if (customerCreateErr) {
+                    console.error('[booking] customers upsert error:', customerCreateErr.message);
+                    // Try fetching the existing row instead
+                    const { data: fallbackCx } = await supabase
+                        .from('customers')
+                        .select('id')
+                        .eq('username', autoUsername)
+                        .maybeSingle();
+                    if (fallbackCx?.id) {
+                        customerAuthId = fallbackCx.id;
+                    }
+                } else if (newCustomer?.id) {
                     customerAuthId = newCustomer.id;
-                    // For jobs.customer_id use ledger_id (accounts UUID) — fall back to customers.id
-                    customerId = ledgerId || newCustomer.id;
-                } else if (ledgerId) {
-                    // Customer row creation failed but ledger exists — still linkable
-                    customerId = ledgerId;
                 }
+
+                customerId = ledgerId || customerAuthId;
+                console.log('[booking] new/upserted customer:', { customerAuthId, customerId, ledgerId });
             }
         } catch (customerErr) {
             console.error('[booking] customer lookup/create EXCEPTION:', customerErr.message);
