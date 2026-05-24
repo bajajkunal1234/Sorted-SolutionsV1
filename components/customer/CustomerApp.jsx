@@ -44,12 +44,21 @@ export default function CustomerApp() {
 
     useEffect(() => {
         setMounted(true)
+
+        // ── Auth gate: CustomerApp is the single gatekeeper ─────────────────
+        const cId = localStorage.getItem('customerId') || sessionStorage.getItem('customerId')
+        if (!cId) {
+            // No session at all — send to login
+            window.location.href = '/login'
+            return
+        }
+
         // Check if this is a first-time user who hasn't completed their profile
         try {
             const raw = localStorage.getItem('customerData') || sessionStorage.getItem('customerData')
             if (raw) {
                 const session = JSON.parse(raw)
-                const customerId = session.id || localStorage.getItem('customerId') || sessionStorage.getItem('customerId') || ''
+                const customerId = session.id || cId
                 const name = session.name || ''
                 const isClaim = session.is_claim === true
                 // Show onboarding wizard only if profile_complete is explicitly false

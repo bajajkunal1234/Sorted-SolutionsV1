@@ -80,11 +80,13 @@ export async function POST(request) {
         // Non-fatal: booking still succeeds even if this step errors.
         try {
             const loosePattern = '%' + rawPhone10.split('').join('%') + '%';
-            const { data: candidates } = await supabase
+            const { data: candidates, error: lookupErr } = await supabase
                 .from('customers')
                 .select('id, phone, name, profile_complete, ledger_id')
                 .ilike('phone', loosePattern)
                 .limit(20);
+
+            if (lookupErr) console.error('[booking] customer lookup error:', lookupErr.message);
 
             let existingCustomer = null;
             if (candidates && candidates.length > 0) {
@@ -92,6 +94,8 @@ export async function POST(request) {
                     c => c.phone && c.phone.replace(/\D/g, '').slice(-10) === rawPhone10
                 ) || null;
             }
+
+            console.log('[booking] customer lookup:', { rawPhone10, found: !!existingCustomer, candidates: candidates?.length });
 
             if (existingCustomer) {
                 // Customer already has an account — reuse their ID for auto-login
@@ -107,7 +111,9 @@ export async function POST(request) {
                 // Create accounts ledger entry
                 let ledgerId = null;
                 let newSKU = null;
-                try { newSKU = await generateAccountSKU('customer', 'sundry-debtors'); } catch { }
+                try { newSKU = await generateAccountSKU('customer', 'sundry-debtors'); } catch (skuErr) {
+                    console.error('[booking] generateAccountSKU failed:', skuErr.message);
+                }
 
                 const accountInsert = {
                     name: customerName,
@@ -122,15 +128,16 @@ export async function POST(request) {
                 };
                 if (newSKU) accountInsert.sku = newSKU;
 
-                const { data: accountEntry } = await supabase
+                const { data: accountEntry, error: accountErr } = await supabase
                     .from('accounts')
                     .insert(accountInsert)
                     .select('id')
                     .single();
+                if (accountErr) console.error('[booking] accounts insert error:', accountErr.message);
                 if (accountEntry?.id) ledgerId = accountEntry.id;
 
                 // Create the customers row (no password_hash — OTP-verified booking)
-                const { data: newCustomer } = await supabase
+                const { data: newCustomer, error: customerCreateErr } = await supabase
                     .from('customers')
                     .insert({
                         phone: rawPhone10,
@@ -144,13 +151,16 @@ export async function POST(request) {
                     .select('id')
                     .single();
 
+                if (customerCreateErr) console.error('[booking] customers insert error:', customerCreateErr.message);
+                console.log('[booking] new customer created:', newCustomer?.id || 'FAILED');
+
                 if (newCustomer?.id) {
                     customerAuthId = newCustomer.id;
                     customerId = newCustomer.id;
                 }
             }
         } catch (customerErr) {
-            console.error('[booking] customer lookup/create failed (non-fatal):', customerErr.message);
+            console.error('[booking] customer lookup/create EXCEPTION:', customerErr.message);
         }
 
         // ── Generate booking reference number ──────────────────────────────────

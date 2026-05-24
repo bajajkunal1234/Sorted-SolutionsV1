@@ -343,7 +343,7 @@ export default function HomePage({ setActiveTab }) {
         } catch {}
 
         const cId = localStorage.getItem('customerId')
-        if (!cId) { router.push('/customer/login'); return }
+        if (!cId) return // CustomerApp shell handles the auth redirect
         setCustomerId(cId)
 
         fetch('/api/settings/section-configs?id=customer-app-banners')
