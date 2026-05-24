@@ -280,17 +280,38 @@ export default function BookingWizard() {
         
         setSubmitting(true);
         try {
-            // 1. Verify OTP with Firebase
+            // Step 1 — Verify OTP with Firebase (phone is now confirmed)
             await confirmationResult.confirm(code);
+
+            const rawPhone = formData.phone.replace(/\D/g, '').slice(-10);
+            const customerName = formData.name || `Customer ${rawPhone.slice(-4)}`;
+
+            // Step 2 — Login IMMEDIATELY after OTP confirmation.
+            // Phone is verified — look up the customer now so the session is in
+            // localStorage before the booking API is even called. This decouples
+            // the login from any booking API DB issues.
+            let resolvedCustomerId = null;
+            try {
+                const lookupRes = await fetch(`/api/auth/customer/lookup?phone=${encodeURIComponent(rawPhone)}`);
+                const lookupData = await lookupRes.json();
+                if (lookupData.success && lookupData.customerId) {
+                    resolvedCustomerId = lookupData.customerId;
+                    saveSession({
+                        id: lookupData.customerId,
+                        role: 'customer',
+                        phone: rawPhone,
+                        name: lookupData.name || customerName,
+                        profile_complete: lookupData.profile_complete ?? false,
+                    });
+                }
+            } catch { /* customer may be new — booking API will create them */ }
             
-            // 2. We need to grab or create the customer. We can securely let our own API handle it via phone lookup.
-            // Our /api/booking expects customer details and will auto-create the account/customer rows!
+            // Step 3 — Submit the booking
             const categoryName = getName('appliance', formData.category);
             const subcategoryName = getName('type', formData.subcategory);
             const issueName = Array.isArray(formData.issue) ? formData.issue.join(', ') : getName('issue', formData.issue);
             const resolvedBrandName = formData.brandName || brands.find(b => String(b.id) === String(formData.brand))?.name || '';
-            const nameParts = (formData.name || '').trim().split(' ');
-            const rawPhone = formData.phone.replace(/\D/g, '').slice(-10);
+            const nameParts = customerName.trim().split(' ');
 
             const payload = {
                 enquiryId: formData.enquiryId,
@@ -302,7 +323,7 @@ export default function BookingWizard() {
                 customer: {
                     firstName: nameParts[0] || '',
                     lastName: nameParts.slice(1).join(' ') || '',
-                    name: formData.name,
+                    name: customerName,
                     phone: rawPhone,
                     address: {
                         flat_number: formData.flat_number,
@@ -328,72 +349,62 @@ export default function BookingWizard() {
             const result = await response.json();
             if (!result.success) throw new Error(result.error || 'Failed to complete booking');
 
-            // 3. Log user into customer app so they bypass login screen
+            // Step 4 — Booking API may have created a real customer row.
+            // If we got a better ID back, upgrade the session now.
             const authId = result.customerAuthId || result.customerId;
-
-            if (authId) {
-                // Best case: DB returned a real customer ID
+            if (authId && authId !== resolvedCustomerId) {
+                resolvedCustomerId = authId;
                 saveSession({
                     id: authId,
                     role: 'customer',
                     phone: rawPhone,
-                    name: formData.name,
+                    name: customerName,
                     profile_complete: false,
                 });
-            } else {
-                // Fallback: DB customer creation failed server-side (RLS / constraint).
-                // Try a quick lookup by phone from the client before giving up.
-                try {
-                    const lookupRes = await fetch(`/api/auth/customer/lookup?phone=${encodeURIComponent(rawPhone)}`);
-                    const lookupData = await lookupRes.json();
-                    if (lookupData.success && lookupData.customerId) {
-                        saveSession({
-                            id: lookupData.customerId,
-                            role: 'customer',
-                            phone: rawPhone,
-                            name: formData.name,
-                            profile_complete: lookupData.profile_complete ?? false,
-                        });
-                    } else {
-                        // Last resort: save a temp session with booking number as ID.
-                        // User will be prompted to complete their profile on first visit.
-                        saveSession({
-                            id: `booking-${result.bookingId || result.bookingNumber}`,
-                            role: 'customer',
-                            phone: rawPhone,
-                            name: formData.name,
-                            profile_complete: false,
-                        });
-                    }
-                } catch {
-                    // Even if lookup fails, save temp session so they reach the dashboard
-                    saveSession({
-                        id: `booking-${result.bookingId || result.bookingNumber}`,
-                        role: 'customer',
-                        phone: rawPhone,
-                        name: formData.name,
-                        profile_complete: false,
-                    });
-                }
             }
 
-            // 4. GTM tracking
+            // Step 5 — Still no ID? Do one final lookup (booking API just created the row).
+            if (!resolvedCustomerId) {
+                try {
+                    const finalRes = await fetch(`/api/auth/customer/lookup?phone=${encodeURIComponent(rawPhone)}`);
+                    const finalData = await finalRes.json();
+                    if (finalData.success && finalData.customerId) {
+                        resolvedCustomerId = finalData.customerId;
+                        saveSession({
+                            id: finalData.customerId,
+                            role: 'customer',
+                            phone: rawPhone,
+                            name: finalData.name || customerName,
+                            profile_complete: finalData.profile_complete ?? false,
+                        });
+                    }
+                } catch { /* ignore */ }
+            }
+
+            // Step 6 — Absolute last resort: any session is better than none.
+            if (!resolvedCustomerId) {
+                saveSession({
+                    id: `bk-${result.bookingId || result.bookingNumber || Date.now()}`,
+                    role: 'customer',
+                    phone: rawPhone,
+                    name: customerName,
+                    profile_complete: false,
+                });
+            }
+
+            // GTM
             if (typeof window !== 'undefined') {
                 window.dataLayer = window.dataLayer || [];
                 window.dataLayer.push({ event: 'form_submit_success' });
             }
 
-            // Hard navigate (not router.push) so localStorage is guaranteed
-            // to be flushed before the customer dashboard page loads.
-            // router.push() is a client-side SPA transition where the new
-            // page's useEffect can run before localStorage.setItem() has
-            // fully committed — causing CustomerApp to see no session.
+            // Hard navigate — localStorage is fully written before the new page reads it
             window.location.href = `/customer/dashboard?newBooking=${result.bookingId || result.bookingNumber || 'success'}`;
 
         } catch (err) {
             console.error('Booking failed:', err);
             setError(err.message || 'Incorrect OTP or failed to submit booking. Please try again.');
-            setSubmitting(false); // only reset on error
+            setSubmitting(false);
         }
     };
 
