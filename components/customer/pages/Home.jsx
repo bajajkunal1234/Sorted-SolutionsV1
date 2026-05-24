@@ -337,10 +337,11 @@ function healthColor(months) {
 }
 
 function ApplianceHealthSection({ jobs, onBook }) {
-    // Group jobs by appliance type, take most recent per appliance
     const applianceMap = {}
     for (const job of (jobs || [])) {
-        const type = job.appliance_type || job.product_type || job.issue_category || 'General'
+        // Skip jobs with no meaningful appliance type
+        const type = job.appliance_type || job.product_type || job.issue_category
+        if (!type || type.toLowerCase() === 'general' || type.toLowerCase() === 'other') continue
         if (!applianceMap[type] || new Date(job.created_at) > new Date(applianceMap[type].created_at)) {
             applianceMap[type] = job
         }
@@ -350,39 +351,40 @@ function ApplianceHealthSection({ jobs, onBook }) {
 
     return (
         <div style={{ padding: '0 20px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', letterSpacing: 1.2, textTransform: 'uppercase' }}>Your Appliances</span>
                 <span style={{ fontSize: 11, color: '#334155' }}>Health Status</span>
             </div>
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
                 {appliances.map(([type, job]) => {
-                    const lastDate = new Date(job.created_at)
-                    const monthsAgo = Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
+                    const lastDate = job.created_at ? new Date(job.created_at) : null
+                    const monthsAgo = lastDate && !isNaN(lastDate.getTime())
+                        ? Math.floor((Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
+                        : null
                     const color = healthColor(monthsAgo)
-                    const pct = Math.max(10, 100 - (monthsAgo * 10))
-                    const label = monthsAgo === 0 ? 'This month' : monthsAgo === 1 ? '1 month ago' : `${monthsAgo}m ago`
+                    const pct = monthsAgo !== null ? Math.max(10, 100 - (monthsAgo * 10)) : 50
+                    const label = monthsAgo === null ? 'Tap to book' : monthsAgo === 0 ? 'This month' : monthsAgo === 1 ? '1 mo ago' : `${monthsAgo}m ago`
                     return (
                         <button
                             key={type}
                             onClick={() => onBook(type)}
                             style={{
-                                minWidth: 100, flexShrink: 0,
+                                minWidth: 92, flexShrink: 0,
                                 background: 'linear-gradient(160deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
                                 border: `1px solid ${color}30`,
-                                borderRadius: 18, padding: '14px 12px',
-                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                                borderRadius: 18, padding: '12px 10px',
+                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
                                 cursor: 'pointer', textAlign: 'center',
                                 boxShadow: `0 0 16px ${color}10`,
                                 transition: 'transform 0.15s',
                             }}
-                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.03)'}
-                            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                            onTouchStart={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                            onTouchEnd={e => e.currentTarget.style.transform = 'none'}
                         >
-                            <div style={{ fontSize: 28, filter: `drop-shadow(0 2px 4px ${color}60)` }}>{applianceEmoji(type)}</div>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: '#cbd5e1', lineHeight: 1.2, maxWidth: 80 }}>{type}</div>
-                            {/* Health bar */}
-                            <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-                                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4, transition: 'width 0.6s ease' }} />
+                            <div style={{ fontSize: 26, filter: `drop-shadow(0 2px 4px ${color}60)` }}>{applianceEmoji(type)}</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#cbd5e1', lineHeight: 1.2, maxWidth: 76, wordBreak: 'break-word' }}>{type}</div>
+                            <div style={{ width: '100%', height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 4 }} />
                             </div>
                             <div style={{ fontSize: 9, color: color, fontWeight: 700 }}>{label}</div>
                         </button>
@@ -584,133 +586,98 @@ export default function HomePage({ setActiveTab }) {
                 )}
             </div>
 
-            {/* Quick Actions Grid */}
+            {/* Quick Actions — compact horizontal rows */}
             <div style={{ padding: '0 20px 20px' }}>
                 <style>{`
-                    .qa-card {
-                        display: flex; flex-direction: column; align-items: flex-start;
-                        padding: 16px; border-radius: 22px; cursor: pointer;
-                        transition: transform 0.18s ease, box-shadow 0.18s ease;
-                        position: relative; overflow: hidden; text-align: left;
-                        border: none; width: 100%;
+                    .qa-row {
+                        display: flex; align-items: center; gap: 14px;
+                        padding: 13px 16px; border-radius: 18px; cursor: pointer;
+                        border: none; width: 100%; text-align: left;
+                        transition: transform 0.15s, background 0.15s;
                         -webkit-tap-highlight-color: transparent;
+                        margin-bottom: 10px;
                     }
-                    .qa-card:active { transform: scale(0.96) !important; }
-                    .qa-card:hover { transform: translateY(-3px); }
-                    .qa-icon-3d {
-                        width: 54px; height: 54px; border-radius: 16px;
+                    .qa-row:active { transform: scale(0.97); }
+                    .qa-row:last-child { margin-bottom: 0; }
+                    .qa-emoji {
+                        width: 46px; height: 46px; border-radius: 14px;
                         display: flex; align-items: center; justify-content: center;
-                        margin-bottom: 14px; font-size: 26px;
-                        position: relative; flex-shrink: 0;
+                        font-size: 22px; flex-shrink: 0;
                     }
-                    .qa-icon-3d::after {
-                        content: ''; position: absolute;
-                        bottom: -3px; left: 8px; right: 8px; height: 8px;
-                        border-radius: 50%; filter: blur(5px); opacity: 0.55;
-                    }
-                    .qa-shimmer {
-                        position: absolute; top: -40%; left: -40%;
-                        width: 60%; height: 140%;
-                        background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.07) 50%, transparent 70%);
-                        transform: skewX(-15deg); pointer-events: none;
-                        transition: left 0.5s ease;
-                    }
-                    .qa-card:hover .qa-shimmer { left: 100%; }
                 `}</style>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
 
-                    {/* Book Repair */}
-                    <button
-                        className="qa-card"
-                        onClick={() => setRequestModal({ show: true, coverage: { type: 'standard' } })}
-                        style={{
-                            background: 'linear-gradient(145deg, #0d2137 0%, #0a1828 100%)',
-                            border: '1px solid rgba(56,189,248,0.25)',
-                            boxShadow: '0 4px 20px rgba(56,189,248,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
-                        }}
-                    >
-                        <div className="qa-shimmer" />
-                        <div className="qa-icon-3d" style={{
-                            background: 'linear-gradient(145deg, #1e4d6b, #0e2d42)',
-                            boxShadow: '0 6px 18px rgba(56,189,248,0.25), inset 0 1px 1px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.3)',
-                        }}>
-                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(56,189,248,0.5))' }}>🔧</span>
-                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(56,189,248,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
-                        </div>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: '#f0f9ff', marginBottom: 3, letterSpacing: '-0.2px' }}>Book Repair</span>
-                        <span style={{ fontSize: 11, color: '#4e7a96', fontWeight: 500 }}>Expert tech at your door</span>
-                        <div style={{ position: 'absolute', top: 10, right: 12, width: 6, height: 6, borderRadius: '50%', background: '#38bdf8', boxShadow: '0 0 8px #38bdf8', animation: 'pulseDot 2s ease-in-out infinite' }} />
-                    </button>
+                {/* Book Repair */}
+                <button
+                    className="qa-row"
+                    onClick={() => setRequestModal({ show: true, coverage: { type: 'standard' } })}
+                    style={{ background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(59,130,246,0.05))', border: '1px solid rgba(56,189,248,0.18)' }}
+                >
+                    <div className="qa-emoji" style={{ background: 'linear-gradient(145deg, rgba(56,189,248,0.22), rgba(59,130,246,0.15))', boxShadow: '0 4px 14px rgba(56,189,248,0.25)' }}>
+                        🔧
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0', marginBottom: 2 }}>Book Repair</div>
+                        <div style={{ fontSize: 11, color: '#475569' }}>Expert technician at your door</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: '#38bdf8', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.2)', padding: '2px 7px', borderRadius: 8 }}>BOOK NOW</span>
+                        <span style={{ color: '#334155', fontSize: 16 }}>›</span>
+                    </div>
+                </button>
 
-                    {/* AMC Plans */}
-                    <button
-                        className="qa-card"
-                        onClick={() => { sessionStorage.setItem('targetPlanSection', 'amc'); setActiveTab?.('plans') }}
-                        style={{
-                            background: 'linear-gradient(145deg, #170d2e, #0f0920)',
-                            border: '1px solid rgba(139,92,246,0.25)',
-                            boxShadow: '0 4px 20px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.05)',
-                        }}
-                    >
-                        <div className="qa-shimmer" />
-                        <div className="qa-icon-3d" style={{
-                            background: 'linear-gradient(145deg, #3b1f6b, #210f40)',
-                            boxShadow: '0 6px 18px rgba(139,92,246,0.3), inset 0 1px 1px rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.3)',
-                        }}>
-                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(139,92,246,0.6))' }}>🛡️</span>
-                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(139,92,246,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
-                        </div>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: '#f5f3ff', marginBottom: 3, letterSpacing: '-0.2px' }}>AMC Plans</span>
-                        <span style={{ fontSize: 11, color: '#6b4fa0', fontWeight: 500 }}>Protect your appliances</span>
-                        <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 9, fontWeight: 800, color: '#a78bfa', background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', padding: '2px 6px', borderRadius: 8 }}>POPULAR</div>
-                    </button>
+                {/* AMC Plans */}
+                <button
+                    className="qa-row"
+                    onClick={() => { sessionStorage.setItem('targetPlanSection', 'amc'); setActiveTab?.('plans') }}
+                    style={{ background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(99,102,241,0.05))', border: '1px solid rgba(139,92,246,0.18)' }}
+                >
+                    <div className="qa-emoji" style={{ background: 'linear-gradient(145deg, rgba(139,92,246,0.25), rgba(99,102,241,0.15))', boxShadow: '0 4px 14px rgba(139,92,246,0.25)' }}>
+                        🛡️
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0', marginBottom: 2 }}>AMC Plans</div>
+                        <div style={{ fontSize: 11, color: '#475569' }}>Annual maintenance contracts</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: '#a78bfa', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', padding: '2px 7px', borderRadius: 8 }}>POPULAR</span>
+                        <span style={{ color: '#334155', fontSize: 16 }}>›</span>
+                    </div>
+                </button>
 
-                    {/* Rentals */}
-                    <button
-                        className="qa-card"
-                        onClick={() => { sessionStorage.setItem('targetPlanSection', 'rentals'); setActiveTab?.('plans') }}
-                        style={{
-                            background: 'linear-gradient(145deg, #0b201a, #071510)',
-                            border: '1px solid rgba(16,185,129,0.22)',
-                            boxShadow: '0 4px 20px rgba(16,185,129,0.07), inset 0 1px 0 rgba(255,255,255,0.04)',
-                        }}
-                    >
-                        <div className="qa-shimmer" />
-                        <div className="qa-icon-3d" style={{
-                            background: 'linear-gradient(145deg, #0f4232, #072a20)',
-                            boxShadow: '0 6px 18px rgba(16,185,129,0.25), inset 0 1px 1px rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.3)',
-                        }}>
-                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(16,185,129,0.5))' }}>📦</span>
-                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(16,185,129,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
-                        </div>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: '#f0fdf4', marginBottom: 3, letterSpacing: '-0.2px' }}>Rentals</span>
-                        <span style={{ fontSize: 11, color: '#1c6048', fontWeight: 500 }}>Premium appliances</span>
-                    </button>
+                {/* Rentals */}
+                <button
+                    className="qa-row"
+                    onClick={() => { sessionStorage.setItem('targetPlanSection', 'rentals'); setActiveTab?.('plans') }}
+                    style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(5,150,105,0.05))', border: '1px solid rgba(16,185,129,0.18)' }}
+                >
+                    <div className="qa-emoji" style={{ background: 'linear-gradient(145deg, rgba(16,185,129,0.22), rgba(5,150,105,0.15))', boxShadow: '0 4px 14px rgba(16,185,129,0.2)' }}>
+                        🏠
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0', marginBottom: 2 }}>Appliance Rentals</div>
+                        <div style={{ fontSize: 11, color: '#475569' }}>Rent premium appliances monthly</div>
+                    </div>
+                    <span style={{ color: '#334155', fontSize: 16 }}>›</span>
+                </button>
 
-                    {/* Claim Warranty */}
-                    <button
-                        className="qa-card"
-                        onClick={() => setRequestModal({ show: true, coverage: { type: 'warranty' } })}
-                        style={{
-                            background: 'linear-gradient(145deg, #201600, #150e00)',
-                            border: '1px solid rgba(245,158,11,0.22)',
-                            boxShadow: '0 4px 20px rgba(245,158,11,0.07), inset 0 1px 0 rgba(255,255,255,0.04)',
-                        }}
-                    >
-                        <div className="qa-shimmer" />
-                        <div className="qa-icon-3d" style={{
-                            background: 'linear-gradient(145deg, #5a3800, #3a2400)',
-                            boxShadow: '0 6px 18px rgba(245,158,11,0.28), inset 0 1px 1px rgba(255,255,255,0.12), inset 0 -2px 4px rgba(0,0,0,0.3)',
-                        }}>
-                            <span style={{ filter: 'drop-shadow(0 3px 5px rgba(245,158,11,0.5))' }}>📋</span>
-                            <div style={{ position: 'absolute', bottom: -4, left: 10, right: 10, height: 8, background: 'rgba(245,158,11,0.3)', borderRadius: '50%', filter: 'blur(5px)' }} />
-                        </div>
-                        <span style={{ fontSize: 15, fontWeight: 800, color: '#fffbeb', marginBottom: 3, letterSpacing: '-0.2px' }}>Claim Warranty</span>
-                        <span style={{ fontSize: 11, color: '#775a00', fontWeight: 500 }}>Zero cost inspection</span>
-                        <div style={{ position: 'absolute', top: 10, right: 12, fontSize: 9, fontWeight: 800, color: '#fbbf24', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', padding: '2px 6px', borderRadius: 8 }}>FREE</div>
-                    </button>
-                </div>
-                <style>{`@keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.7)} }`}</style>
+                {/* Claim Warranty */}
+                <button
+                    className="qa-row"
+                    onClick={() => setRequestModal({ show: true, coverage: { type: 'warranty' } })}
+                    style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.08), rgba(217,119,6,0.04))', border: '1px solid rgba(245,158,11,0.18)' }}
+                >
+                    <div className="qa-emoji" style={{ background: 'linear-gradient(145deg, rgba(245,158,11,0.22), rgba(217,119,6,0.15))', boxShadow: '0 4px 14px rgba(245,158,11,0.2)' }}>
+                        📋
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0', marginBottom: 2 }}>Claim Warranty</div>
+                        <div style={{ fontSize: 11, color: '#475569' }}>Zero cost warranty inspection</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: '#fbbf24', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)', padding: '2px 7px', borderRadius: 8 }}>FREE</span>
+                        <span style={{ color: '#334155', fontSize: 16 }}>›</span>
+                    </div>
+                </button>
             </div>
 
 
