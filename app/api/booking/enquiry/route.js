@@ -31,14 +31,14 @@ export async function POST(request) {
 
         const { data: enquiry, error } = await supabase.from('jobs').insert({
             job_number: jobNumber,
-            status: 'enquiry',
-            customer_name: 'Website Lead',
+            status: 'new_job_request',      // 'enquiry' is not a valid DB status value
+            customer_name: rawPhone,        // store phone so admin can see who enquired
             category: categoryName || categoryId || 'Appliance Repair',
             subcategory: subcategoryName || subcategoryId || '',
             issue: issueName || issueId || '',
             brand: brandName || brand || '',
             notes: JSON.stringify(bookingData),
-            source: 'Website Organic',
+            source: 'Website Organic',      // this is what marks it as an enquiry in admin
         }).select('id').single();
 
         if (error) throw error;
