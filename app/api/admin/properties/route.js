@@ -98,7 +98,7 @@ export async function GET(request) {
                 // Source C step 1: get property_ids from jobs (safe two-step to avoid FK name issues)
                 supabase.from('jobs').select('property_id').in('customer_id', lookupIds).not('property_id', 'is', null).limit(200),
                 // Source D: account's own inline properties JSONB (for pre-migration accounts)
-                supabase.from('accounts').select('properties, address, locality, city, pincode').eq('id', customerId).single(),
+                supabase.from('accounts').select('properties, address').eq('id', customerId).single(),
             ]);
 
             // Source C step 2: fetch the actual property rows by id
