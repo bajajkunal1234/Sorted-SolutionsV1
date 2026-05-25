@@ -14,8 +14,14 @@ if (!window.generatePrintHtml) { // Guard: only execute once even if script is l
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
-        const productsList = itemsList.filter(it => !it.isCharge && it.isCharge !== 'true');
-        const servicesList = itemsList.filter(it => it.isCharge === true || it.isCharge === 'true');
+        const isSvc = (it) => {
+            if (it.isCharge === true || it.isCharge === 'true') return true;
+            if (it.type === 'service') return true;
+            const desc = (it.description || it.name || '').toLowerCase();
+            return desc.includes('service charge') || desc.includes('visiting charge') || desc.includes('installation service') || desc.includes('labor charge') || desc.includes('labour charge') || desc.includes('additional charge');
+        };
+        const productsList = itemsList.filter(it => !isSvc(it));
+        const servicesList = itemsList.filter(it => isSvc(it));
 
         const ps           = settingsOverride || (typeof printSettingsRef !== 'undefined' ? printSettingsRef.current : null) || window._globalPrintSettings || {};
         const companyName  = ps.company_name    || 'Your Company';

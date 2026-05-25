@@ -44,11 +44,12 @@ function ProductSelector({ value, onChange, label = 'Item/Product', onProductSel
                 productId: product.id,
                 description: product.name,
                 hsn: product.hsn_code || '',
-                unit: product.unit || 'Nos',
+                unit: product.unit_of_measure || product.unit || 'Nos',
                 rate: product.sale_price || 0,
-                taxRate: product.tax_rate || 18,
+                taxRate: product.gst_rate || product.tax_rate || 18,
                 sku: product.sku || '',
-                terms_conditions: product.terms_conditions || []
+                terms_conditions: product.terms_conditions || [],
+                type: product.type || ''
             });
         }
     };

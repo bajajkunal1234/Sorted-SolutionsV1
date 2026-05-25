@@ -457,6 +457,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                                                 rate: productDetails.rate,
                                                                 taxRate: productDetails.taxRate,
                                                                 unit: productDetails.unit || 'Nos',
+                                                                type: productDetails.type || '',
                                                                 terms_conditions: productDetails.terms_conditions || []
                                                             };
                                                             newItems[index].total = calculateItemTotal(newItems[index]);
