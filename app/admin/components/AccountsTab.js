@@ -956,6 +956,41 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                 }
             }
 
+            // Fetch all products to enrich items (dynamic fallback for units, terms, etc.)
+            let inventoryList = [];
+            try {
+                const invRes = await fetch('/api/admin/inventory');
+                const invJson = await invRes.json();
+                if (invJson.success && invJson.data) {
+                    inventoryList = invJson.data;
+                }
+            } catch (invErr) {
+                console.warn('Failed to fetch inventory for printing fallback:', invErr);
+            }
+
+            // Enrich item.items with real-time inventory details
+            if (Array.isArray(item.items)) {
+                item.items = item.items.map(it => {
+                    const prodId = it.productId || it.product_id || it.serviceId || it.service_id;
+                    if (prodId) {
+                        const match = inventoryList.find(p => p.id === prodId);
+                        if (match) {
+                            return {
+                                ...it,
+                                unit: match.unit_of_measure || match.unit || it.unit || 'pcs',
+                                terms_conditions: Array.isArray(match.terms_conditions) && match.terms_conditions.length > 0 
+                                    ? match.terms_conditions 
+                                    : (it.terms_conditions || []),
+                                type: match.type || it.type || 'product',
+                                hsn: match.hsn_code || it.hsn || '',
+                                taxRate: match.gst_rate || match.tax_rate || it.taxRate || 18
+                            };
+                        }
+                    }
+                    return it;
+                });
+            }
+
             if (liveLedger) {
                 item.accounts = {
                     ...((item.accounts && typeof item.accounts === 'object') ? item.accounts : {}),
