@@ -10,7 +10,7 @@ import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/
 
 function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, prefillItems }) {
     const buildInitialItems = () => {
-        if (existingInvoice?.items) return existingInvoice.items.filter(i => !i.isCharge);
+        if (existingInvoice?.items) return existingInvoice.items.filter(i => !i.isCharge).map(i => ({ ...i, unit: i.unit || 'Nos' }));
         if (prefillItems?.length) {
             return prefillItems
                 .filter(it => !it.isCharge && it.description)
@@ -23,10 +23,11 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                     rate: it.rate || 0,
                     discount: it.discount || 0,
                     taxRate: it.taxRate || 18,
+                    unit: it.unit || 'Nos',
                     total: (it.qty || 1) * (it.rate || 0)
                 }));
         }
-        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }];
+        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, unit: 'Nos', total: 0 }];
     };
 
     const buildInitialCharges = () => {
@@ -218,6 +219,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             discount: it.discount || 0,
             taxRate: it.taxRate || 18,
             terms_conditions: it.terms_conditions || [],
+            unit: it.unit || 'Nos',
             total: (it.qty || 1) * (it.rate || 0)
         }));
 
@@ -255,6 +257,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 rate: 0,
                 discount: 0,
                 taxRate: 18,
+                unit: 'Nos',
                 total: 0
             }]
         });
@@ -453,6 +456,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                                                 hsn: productDetails.hsn,
                                                                 rate: productDetails.rate,
                                                                 taxRate: productDetails.taxRate,
+                                                                unit: productDetails.unit || 'Nos',
                                                                 terms_conditions: productDetails.terms_conditions || []
                                                             };
                                                             newItems[index].total = calculateItemTotal(newItems[index]);

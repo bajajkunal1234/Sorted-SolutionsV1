@@ -14,6 +14,8 @@ if (!window.generatePrintHtml) { // Guard: only execute once even if script is l
         const date      = item.date ? new Date(item.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
         const amount    = item.total_amount || item.amount || 0;
         const itemsList = Array.isArray(item.items) ? item.items : [];
+        const productsList = itemsList.filter(it => !it.isCharge && it.isCharge !== 'true');
+        const servicesList = itemsList.filter(it => it.isCharge === true || it.isCharge === 'true');
 
         const ps           = settingsOverride || (typeof printSettingsRef !== 'undefined' ? printSettingsRef.current : null) || window._globalPrintSettings || {};
         const companyName  = ps.company_name    || 'Your Company';
@@ -99,9 +101,9 @@ if (!window.generatePrintHtml) { // Guard: only execute once even if script is l
     <th style="padding:8px 10px;text-align:right;font-size:11px">Amount</th>
   </tr></thead>`;
 
-        const trows = (bg1, bg2, bd) => itemsList.length === 0
+        const trows = (bg1, bg2, bd) => productsList.length === 0
             ? `<tr><td colspan="${showGST ? 8 : 6}" style="padding:18px;text-align:center;color:#94a3b8;font-style:italic">No items</td></tr>`
-            : itemsList.map((it, i) => {
+            : productsList.map((it, i) => {
                 const qty = it.qty || it.quantity || 1;
                 const rate = it.rate || 0;
                 const amount = qty * rate;
@@ -120,17 +122,35 @@ if (!window.generatePrintHtml) { // Guard: only execute once even if script is l
         // Note: item-specific T&C are intentionally NOT shown under item names.
         // They are prepended at the TOP of the global Terms & Conditions block (see termsHtml).
 
-        const totalsHtml = (accentColor, borderTop) => `
+        const totalsHtml = (accentColor, borderTop) => {
+            const productsSubtotal = productsList.reduce((sum, it) => sum + (it.qty || it.quantity || 1) * (it.rate || 0), 0);
+            const showSubtotal = servicesList.length > 0 || showGST;
+            
+            return `
   <div style="display:flex;justify-content:flex-end;margin-top:14px">
-    <table style="width:260px">
+    <table style="width:280px">
+      ${showSubtotal ? `
       <tr style="border-top:1px solid #e2e8f0">
-        <td style="padding:6px 0;color:#64748b;font-size:12px">Taxable Amount</td>
-        <td style="padding:6px 0;text-align:right;font-size:12px">${rupee}${fmt(taxableBase)}</td>
+        <td style="padding:6px 0;color:#64748b;font-size:12px">Subtotal (Goods)</td>
+        <td style="padding:6px 0;text-align:right;font-size:12px">${rupee}${fmt(productsSubtotal)}</td>
       </tr>
+      ` : ''}
+      ${servicesList.map(svc => `
+      <tr>
+        <td style="padding:5px 0;color:#64748b;font-size:12px">${svc.description || svc.name || 'Service Charge'}</td>
+        <td style="padding:5px 0;text-align:right;font-size:12px">${rupee}${fmt(svc.rate || svc.amount || 0)}</td>
+      </tr>
+      `).join('')}
+      ${showGST ? `
+      <tr style="border-top:1px dashed #cbd5e1">
+        <td style="padding:6px 0;color:#64748b;font-size:12px;font-weight:600">Taxable Value</td>
+        <td style="padding:6px 0;text-align:right;font-size:12px;font-weight:600">${rupee}${fmt(taxableBase)}</td>
+      </tr>
+      ` : ''}
       ${showGST && cgstAmt > 0 ? `<tr><td style="padding:5px 0;color:#64748b;font-size:12px">CGST${effRate(cgstAmt) ? ' @ ' + effRate(cgstAmt) + '%' : ''}</td><td style="padding:5px 0;text-align:right;font-size:12px">${rupee}${fmt(cgstAmt)}</td></tr>` : ''}
       ${showGST && sgstAmt > 0 ? `<tr><td style="padding:5px 0;color:#64748b;font-size:12px">SGST${effRate(sgstAmt) ? ' @ ' + effRate(sgstAmt) + '%' : ''}</td><td style="padding:5px 0;text-align:right;font-size:12px">${rupee}${fmt(sgstAmt)}</td></tr>` : ''}
       ${showGST && igstAmt > 0 ? `<tr><td style="padding:5px 0;color:#64748b;font-size:12px">IGST${effRate(igstAmt) ? ' @ ' + effRate(igstAmt) + '%' : ''}</td><td style="padding:5px 0;text-align:right;font-size:12px">${rupee}${fmt(igstAmt)}</td></tr>` : ''}
-      ${showGST && totalTax > 0 ? `<tr><td style="padding:5px 0;color:#64748b;font-size:12px">Total GST</td><td style="padding:5px 0;text-align:right;font-size:12px;font-weight:600">${rupee}${fmt(totalTax)}</td></tr>` : ''}
+      ${showGST && totalTax > 0 ? `<tr><td style="padding:5px 0;color:#64748b;font-size:12px;font-weight:600">Total GST</td><td style="padding:5px 0;text-align:right;font-size:12px;font-weight:600">${rupee}${fmt(totalTax)}</td></tr>` : ''}
       <tr style="border-top:${borderTop}">
         <td style="padding:9px 0 4px;font-size:15px;font-weight:800;color:${accentColor}">Grand Total</td>
         <td style="padding:9px 0 4px;text-align:right;font-size:17px;font-weight:900;color:${accentColor}">${rupee}${fmt(displayAmount)}</td>
@@ -138,6 +158,7 @@ if (!window.generatePrintHtml) { // Guard: only execute once even if script is l
       <tr><td colspan="2" style="font-size:9px;color:#94a3b8;text-align:right;padding-top:2px">Amounts in INR ${showGST ? '&middot; Rates excl. GST' : ''}</td></tr>
     </table>
   </div>`;
+        };
 
         const hsnBoxHtml = (bg, bd) => "";
 
@@ -197,13 +218,8 @@ ${body}
     </div>
   </div>
 </div>
-<div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:3px solid ${gold}">
-  <div style="padding:14px 20px 14px 32px;border-right:1px solid #e2e8f0">${billToBlock(G, '#475569', '#64748b')}</div>
-  <div style="padding:14px 32px 14px 20px">
-    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:5px">Grand Total</div>
-    <div style="font-size:28px;font-weight:900;color:${gold}">${rupee}${fmt(displayAmount)}</div>
-    ${showGST ? `<div style="font-size:10px;color:#64748b;margin-top:2px">Incl. all taxes</div>` : ''}
-  </div>
+<div style="border-bottom:3px solid ${gold};padding:14px 32px">
+  ${billToBlock(G, '#475569', '#64748b')}
 </div>
 <div style="padding:14px 32px">
   <table>${thead(G, '#fff')}<tbody style="border:1px solid #e2e8f0">${trows('#fafafa', '#fff', '#e2e8f0')}</tbody></table>
@@ -238,12 +254,8 @@ ${body}
   <span>${companyAddr}</span>
   <span>${[companyPhone, companyEmail].filter(Boolean).join(' &middot; ')}</span>
 </div>
-<div style="background:${W};border-bottom:2px solid ${L};padding:12px 32px;display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start">
+<div style="background:${W};border-bottom:2px solid ${L};padding:12px 32px">
   <div>${billToBlock(D, '#78350f', '#92400e')}</div>
-  <div style="margin-left:auto;text-align:right">
-    <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:${S};margin-bottom:4px">Amount Due</div>
-    <div style="font-size:26px;font-weight:900;color:${S}">${rupee}${fmt(displayAmount)}</div>
-  </div>
 </div>
 <div style="padding:14px 32px">
   <table>${thead(S, '#fff')}<tbody>${trows(W, '#fff', L)}</tbody></table>
@@ -278,12 +290,8 @@ ${body}
       </div>
     </div>
   </div>
-  <div style="margin:12px 0;padding:12px 16px;background:#f8fafc;border-radius:8px;display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start">
+  <div style="margin:12px 0;padding:12px 16px;background:#f8fafc;border-radius:8px">
     <div>${billToBlock('#0f172a', '#475569', '#64748b')}</div>
-    <div style="margin-left:auto;text-align:right">
-      <div style="font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:#94a3b8;margin-bottom:4px">Invoice Total</div>
-      <div style="font-size:24px;font-weight:900;color:${C}">${rupee}${fmt(displayAmount)}</div>
-    </div>
   </div>
   <table>${thead(CL, C)}<tbody>${trows('#fff', '#fafafa', '#e2e8f0')}</tbody></table>
   ${totalsHtml(C, '1px solid ' + C)}
@@ -319,14 +327,8 @@ ${body}
       </div>
     </div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;border-bottom:2px solid ${R}">
-    <div style="padding:12px 20px 12px 32px;border-right:1px solid ${RB}">${billToBlock(DR, R, '#64748b')}</div>
-    <div style="padding:12px 32px 12px 20px">
-      <div class="gl">Invoice Total</div>
-      <div style="font-size:28px;font-weight:900;color:${R}">${rupee}${fmt(displayAmount)}</div>
-      ${showGST ? `<div style="font-size:10px;color:#64748b;margin-top:2px">Inclusive of all taxes</div>` : ''}
-      ${showGST && totalTax > 0 ? `<div style="font-size:10px;color:#64748b;margin-top:2px">GST: ${rupee}${fmt(totalTax)}</div>` : ''}
-    </div>
+  <div style="border-bottom:2px solid ${R};padding:12px 32px">
+    ${billToBlock(DR, R, '#64748b')}
   </div>
   <div style="padding:14px 32px">
     <table style="border:1px solid ${RB}">${thead(R, '#fff')}<tbody>${trows('#fff', RL, RB)}</tbody></table>

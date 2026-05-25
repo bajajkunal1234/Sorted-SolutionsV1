@@ -11,7 +11,7 @@ import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/
 function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, prefillItems }) {
     // Build initial items from prefillItems (from RepairCalculator) or existingQuotation or blank
     const buildInitialItems = () => {
-        if (existingQuotation?.items) return existingQuotation.items.filter(i => !i.isCharge);
+        if (existingQuotation?.items) return existingQuotation.items.filter(i => !i.isCharge).map(i => ({ ...i, unit: i.unit || 'Nos' }));
         if (prefillItems?.length) {
             return prefillItems
                 .filter(it => it.type !== 'service' && it.description)
@@ -25,10 +25,11 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                     discount: 0,
                     taxRate: it.taxRate || 18,
                     terms_conditions: it.terms_conditions || [],
+                    unit: it.unit || 'Nos',
                     total: it.qty * it.rate
                 }));
         }
-        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, terms_conditions: [], total: 0 }];
+        return [{ id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, terms_conditions: [], unit: 'Nos', total: 0 }];
     };
 
     const buildInitialCharges = () => {
@@ -204,6 +205,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             discount: it.discount || 0,
             taxRate: it.taxRate || 18,
             terms_conditions: it.terms_conditions || [],
+            unit: it.unit || 'Nos',
             total: (it.qty || 1) * (it.rate || 0)
         }));
 
@@ -241,6 +243,8 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                 rate: 0,
                 discount: 0,
                 taxRate: 18,
+                terms_conditions: [],
+                unit: 'Nos',
                 total: 0
             }]
         });
@@ -467,6 +471,7 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
                                                                 hsn: productDetails.hsn,
                                                                 rate: productDetails.rate,
                                                                 taxRate: productDetails.taxRate,
+                                                                unit: productDetails.unit || 'Nos',
                                                                 terms_conditions: productDetails.terms_conditions || []
                                                             };
                                                             newItems[index].total = calculateItemTotal(newItems[index]);
