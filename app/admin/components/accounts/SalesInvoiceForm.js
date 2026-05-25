@@ -32,7 +32,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
     const buildInitialCharges = () => {
         if (existingInvoice?.items) {
             return existingInvoice.items.filter(i => i.isCharge).map(i => ({
-                id: i.id, serviceId: i.productId, name: i.description, amount: i.rate, taxRate: i.taxRate
+                id: i.id, serviceId: i.productId, name: i.description, amount: i.rate, taxRate: i.taxRate, terms_conditions: i.terms_conditions || []
             }));
         }
         if (prefillItems?.length) {
@@ -43,7 +43,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                     serviceId: it.productId || null,
                     name: it.description,
                     amount: it.rate || 0,
-                    taxRate: it.taxRate || 18
+                    taxRate: it.taxRate || 18,
+                    terms_conditions: it.terms_conditions || []
                 }));
         }
         return [];
@@ -288,6 +289,7 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                 rate: c.amount,
                 discount: 0,
                 taxRate: c.taxRate,
+                terms_conditions: c.terms_conditions || [],
                 total: formData.showTax ? c.amount * (1 + (c.taxRate || 0) / 100) : c.amount
             }))
         ];
@@ -592,7 +594,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                                 ...c,
                                                 serviceId: svc.id,
                                                 name: svc.name,
-                                                taxRate: svc.gst_rate || svc.tax_rate || 18
+                                                taxRate: svc.gst_rate || svc.tax_rate || 18,
+                                                terms_conditions: svc.terms_conditions || []
                                             } : c));
                                         }
                                     }}

@@ -1,7 +1,7 @@
 if (!window.generatePrintHtml) { // Guard: only execute once even if script is loaded multiple times
     const generatePrintHtml = (item, tab, settingsOverride) => {
         const ref       = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
-        const acct      = item.account_name || '';
+        const acct      = item.account_name || item.accounts?.name || item.customer?.name || item.account?.name || '';
         const acctPhone = item.account_phone || item.accounts?.mobile || '';
         const acctGSTIN = item.account_gstin || item.accounts?.gstin || '';
         const buildAddr = (a) => {

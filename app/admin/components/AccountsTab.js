@@ -933,6 +933,29 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
         // Script is already loaded globally via layout.js — no need to reload
         if (typeof window !== 'undefined' && window.generatePrintHtml) {
             const liveLedger = (ledgers || []).find(l => l.id === item.account_id);
+            
+            // Fetch linked properties to guarantee we get the real linked property address
+            let propertyAddress = '';
+            const accountId = item.account_id || item.customer_id;
+            if (accountId) {
+                try {
+                    const res = await fetch(`/api/admin/properties?customer_id=${accountId}`);
+                    const json = await res.json();
+                    if (json.success && json.data && json.data.length > 0) {
+                        const primaryProp = json.data[0];
+                        propertyAddress = [
+                            primaryProp.flat_number,
+                            primaryProp.building_name,
+                            primaryProp.address,
+                            primaryProp.locality,
+                            primaryProp.pincode ? `- ${primaryProp.pincode}` : ''
+                        ].filter(Boolean).join(', ');
+                    }
+                } catch (e) {
+                    console.warn('Failed to fetch property address for printing:', e);
+                }
+            }
+
             if (liveLedger) {
                 item.accounts = {
                     ...((item.accounts && typeof item.accounts === 'object') ? item.accounts : {}),
@@ -940,10 +963,25 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                     mobile: liveLedger.mobile || liveLedger.phone || item.accounts?.mobile,
                     email: liveLedger.email || item.accounts?.email,
                     gstin: liveLedger.gstin || item.accounts?.gstin,
-                    address: liveLedger.address || item.accounts?.address,
-                    billing_address: liveLedger.billing_address || item.accounts?.billing_address,
-                    mailing_address: liveLedger.mailing_address || item.accounts?.mailing_address
+                    address: propertyAddress || liveLedger.address || item.accounts?.address,
+                    billing_address: propertyAddress || liveLedger.billing_address || item.accounts?.billing_address,
+                    mailing_address: propertyAddress || liveLedger.mailing_address || item.accounts?.mailing_address
                 };
+                
+                // Also set the main item address fields to guarantee it resolves in case the print template directly checks them
+                if (propertyAddress) {
+                    item.billing_address = propertyAddress;
+                    item.account_address = propertyAddress;
+                }
+
+                // Guarantee customer name is filled
+                if (!item.account_name) {
+                    item.account_name = liveLedger.name || item.accounts?.name || '';
+                }
+            } else if (propertyAddress) {
+                // If liveLedger is not found locally, still set it if we found a property address
+                item.billing_address = propertyAddress;
+                item.account_address = propertyAddress;
             }
 
             // Fetch latest print settings directly to guarantee they are never null or stale

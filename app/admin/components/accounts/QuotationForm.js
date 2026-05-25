@@ -148,7 +148,15 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
 
     const totals = calculateTotals();
 
-    const handleAccountChange = (account) => {
+    const buildPropertyAddress = (p) => [
+        p.flat_number,
+        p.building_name,
+        p.address,
+        p.locality,
+        p.pincode ? `- ${p.pincode}` : ''
+    ].filter(Boolean).join(', ');
+
+    const handleAccountChange = async (account) => {
         if (!account) return;
         setFormData(prev => ({
             ...prev,
@@ -160,6 +168,22 @@ function QuotationForm({ onClose, onSave, existingQuotation, defaultAccount, pre
             billing_address: '',
             shipping_address: ''
         }));
+
+        try {
+            const res = await fetch(`/api/admin/properties?customer_id=${account.id}`);
+            const json = await res.json();
+            const props = (json.data || []);
+            const firstProp = props[0];
+            const addr = firstProp ? buildPropertyAddress(firstProp) : '';
+            if (addr) {
+                setFormData(prev => ({
+                    ...prev,
+                    billing_address: addr
+                }));
+            }
+        } catch (e) {
+            // No properties found
+        }
     };
 
     const handleItemChange = (index, field, value) => {
