@@ -1669,6 +1669,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 job={editedJob}
                 initialRepairOutcome="Closed on service charge"
                 skipFeedbackStep={false}
+                excludeRepairDone={quotationDecisionMode === 'denied'}
                 onNotesSubmitted={({ formattedNotes }) => {
                     // Notes logged — now launch collect-payment for the visit charge
                     setShowQuotationFeedbackFlow(false);
@@ -1680,10 +1681,27 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         {/* ── Quotation Decision: CollectPaymentFlow (visit charge) ── */}
         {showQuotationCollectPayment && (
             <CollectPaymentFlow
-                job={editedJob}
-                techName={techName}
-                techId={techId}
                 onClose={() => setShowQuotationCollectPayment(false)}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                prefilledCustomer={{
+                    id: editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                    name: editedJob.customerName || editedJob.customer?.name || 'Customer',
+                    phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    mobile: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                }}
+                prefilledJob={{
+                    id: editedJob.id,
+                    job_number: editedJob.job_number,
+                    account_id: editedJob.customerId || editedJob.account_id,
+                    account_name: editedJob.customerName,
+                    customer_name: editedJob.customerName,
+                    customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
+                    technician_id: techId,
+                }}
+                prefilledAmount={editedJob.visitingFee || editedJob.visiting_fee || editedJob.visit_charge || ''}
                 onSuccess={async () => {
                     setShowQuotationCollectPayment(false);
                     if (quotationDecisionMode === 'denied') {
@@ -1732,6 +1750,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 currentUserId={techId}
                 job={{ ...editedJob, status: 'closed' }}
                 initialRepairOutcome="Closed on service charge"
+                excludeRepairDone={true}
+                initialStep={2}
                 onSuccess={() => { setShowQuotationFinalFeedback(false); setQuotationDecisionMode(null); }}
             />
         )}

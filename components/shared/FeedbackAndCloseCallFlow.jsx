@@ -17,8 +17,12 @@ export default function FeedbackAndCloseCallFlow({
     // Optional: instead of auto-closing the job in handleSubmitNotes, call this and let parent chain
     // the collect-payment flow. Receives { formattedNotes, repairOutcome }.
     onNotesSubmitted = null,
+    // Optional: exclude the "Repair Done" option from the outcome list
+    excludeRepairDone = false,
+    // Optional: initialize the flow at a specific step (e.g., 2 to skip step 1)
+    initialStep = 1,
 }) {
-    const [step, setStep] = useState(1); // 1: Questionnaire, 2: Feedback QR & Toggle
+    const [step, setStep] = useState(initialStep); // 1: Questionnaire, 2: Feedback QR & Toggle
     const [isLoading, setIsLoading] = useState(false);
 
     // Form inputs state
@@ -348,7 +352,7 @@ export default function FeedbackAndCloseCallFlow({
                                     Repair Outcome <span style={{ color: 'var(--error)' }}>*</span>
                                 </label>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: repairDone === 'Custom' ? '12px' : '0' }}>
-                                    {['Repair Done', 'Closed on service charge', 'Quoted and Closed', 'Custom'].map(opt => (
+                                    {['Repair Done', 'Closed on service charge', 'Quoted and Closed', 'Custom'].filter(opt => !excludeRepairDone || opt !== 'Repair Done').map(opt => (
                                         <button 
                                             key={opt}
                                             className={`pill-btn ${repairDone === opt ? 'active' : ''}`}
