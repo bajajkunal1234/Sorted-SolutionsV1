@@ -29,13 +29,22 @@ function applyTags(jobs, tags, searchTerm) {
     let result = [...jobs];
     if (searchTerm) {
         const term = searchTerm.toLowerCase();
-        result = result.filter(j =>
-            (j.description || j.jobName || '').toLowerCase().includes(term) ||
-            (j.job_number || '').toLowerCase().includes(term) ||
-            (j.customer?.name || '').toLowerCase().includes(term) ||
-            (j.technician?.name || j.assignedToName || '').toLowerCase().includes(term) ||
-            (j.locality || j.property?.address?.locality || '').toLowerCase().includes(term)
-        );
+        result = result.filter(j => {
+            const prop = j.property || {};
+            const propStr = typeof prop === 'string'
+                ? prop
+                : `${prop.flat_number || ''} ${prop.building_name || ''} ${prop.address || ''} ${prop.locality || ''} ${prop.pincode || ''} ${prop.property_name || ''}`;
+            
+            return (
+                (j.description || j.jobName || '').toLowerCase().includes(term) ||
+                (j.job_number || '').toLowerCase().includes(term) ||
+                (j.customer?.name || '').toLowerCase().includes(term) ||
+                (j.customer?.mobile || j.customer?.phone || '').toLowerCase().includes(term) ||
+                (j.technician?.name || j.assignedToName || '').toLowerCase().includes(term) ||
+                (j.locality || '').toLowerCase().includes(term) ||
+                propStr.toLowerCase().includes(term)
+            );
+        });
     }
     for (const tag of tags) {
         if (tag.type === 'preset') {

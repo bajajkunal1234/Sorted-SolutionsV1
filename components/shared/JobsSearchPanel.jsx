@@ -252,7 +252,7 @@ export default function JobsSearchPanel({
                             setOpen(false);
                         }
                     }}
-                    placeholder={activeTags.length ? 'Add filter...' : 'Search jobs...'}
+                    placeholder={activeTags.length ? 'Add filter...' : 'Search by name, phone, job#, address...'}
                     onFocus={() => setOpen(true)}
                     style={{ flex: 1, minWidth: '100px', background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: '13px', padding: '2px 0' }}
                 />
