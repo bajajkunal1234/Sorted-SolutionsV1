@@ -559,6 +559,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         // Try many address fields in priority order
         const addr = property?.address || {};
         const locality =
+            property?.locality ||
             addr.locality ||
             addr.area ||
             addr.neighbourhood ||
@@ -569,7 +570,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
             (addr.line1 ? addr.line1.split(',').pop()?.trim() : null) ||
             property?.property_name ||
             '';
-        const prefix = warranty ? 'Repeat' : 'New';
+        const prefix = warranty ? 'Repeat Job' : '';
         const applianceType = subcategory?.name || product?.name || '';
         const issueName = issue?.name || '';
         const parts = [
@@ -1512,7 +1513,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                     if (auto) setFormData(prev => ({ ...prev, jobName: auto }));
                                 }}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: '3px', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'rgba(99,102,241,0.1)', whiteSpace: 'nowrap' }}
-                                title="Auto-fill: [New/Repeat] [Appliance Type] [Issue] [Locality]"
+                                title="Auto-fill: [Repeat Job] [Appliance Type] [Issue] [Locality]"
                             >
                                 ✨ Re-generate
                             </button>
@@ -1520,7 +1521,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="e.g., New Split AC Not Cooling Andheri W"
+                            placeholder="e.g., Split AC Not Cooling Andheri W"
                             value={formData.jobName}
                             onChange={(e) => {
                                 setJobNameManuallyEdited(true);
@@ -1530,7 +1531,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         />
                         {!jobNameManuallyEdited && (formData.subcategory || formData.issue || formData.property) && (
                             <div style={{ fontSize: '11px', color: 'var(--color-success)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                ✓ Auto-filled: <strong>{formData.warranty ? 'Repeat' : 'New'}</strong> · Appliance Type · Issue · Locality
+                                ✓ Auto-filled: <strong>{formData.warranty ? 'Repeat Job · ' : ''}</strong>Appliance Type · Issue · Locality
                             </div>
                         )}
                         {jobNameManuallyEdited && (
