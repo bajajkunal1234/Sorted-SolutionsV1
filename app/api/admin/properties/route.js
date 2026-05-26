@@ -109,13 +109,26 @@ export async function GET(request) {
                 jobLinkedProperties = propRows || [];
             }
 
-            // Merge all sources, deduplicate by property id
+            // Merge all sources, deduplicate by property id and normalized address
             const seenIds = new Set();
+            const seenNormalized = new Set();
             const result = [];
+
+            const normalizeAddress = (p) => {
+                if (!p) return '';
+                const str = `${p.flat_number || ''} ${p.building_name || ''} ${p.address || ''} ${p.locality || ''} ${p.pincode || ''}`;
+                return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+            };
 
             const addProperty = (prop, source, linkId = null, linkedAt = null) => {
                 if (!prop || !prop.id || seenIds.has(prop.id)) return;
+                
+                const norm = normalizeAddress(prop);
+                if (norm && seenNormalized.has(norm)) return; // duplicate address
+                
                 seenIds.add(prop.id);
+                if (norm) seenNormalized.add(norm);
+                
                 result.push({ ...prop, link_id: linkId, linked_at: linkedAt, _source: source });
             };
 
@@ -134,9 +147,23 @@ export async function GET(request) {
                 for (const p of accountRow.properties) {
                     const inlineAddr = (p.address || '').trim();
                     if (!inlineAddr) continue;
+                    
                     const syntheticId = `inline:${[p.flat_number, p.building_name, p.address, p.locality, p.pincode].join('|')}`;
                     if (seenIds.has(syntheticId)) continue;
+                    
+                    // Deduplicate synthetic inline property against existing real properties
+                    const norm = normalizeAddress({
+                        flat_number: p.flat_number,
+                        building_name: p.building_name,
+                        address: inlineAddr,
+                        locality: p.locality,
+                        pincode: p.pincode
+                    });
+                    if (norm && seenNormalized.has(norm)) continue; // duplicate address
+                    
                     seenIds.add(syntheticId);
+                    if (norm) seenNormalized.add(norm);
+
                     result.push({
                         id: syntheticId,
                         flat_number: p.flat_number || '',

@@ -1480,12 +1480,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 style={{ borderColor: errors.assignedTo ? 'var(--color-danger)' : undefined }}
                             >
                                 <option value="">{loadingStates.technicians ? 'Loading technicians...' : 'Unassigned'}</option>
-                                {technicians
-                                    .filter(tech => {
-                                        const name = (tech.name || '').toLowerCase();
-                                        return !name.includes('demo') && !name.includes('test');
-                                    })
-                                    .map(tech => (
+                                {technicians.map(tech => (
                                     <option key={tech.id} value={tech.id}>
                                         {tech.name} {tech.status === 'busy' ? '(Busy)' : ''}
                                     </option>
