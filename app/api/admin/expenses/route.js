@@ -10,7 +10,7 @@ export async function GET(request) {
 
         let query = supabase
             .from('expenses')
-            .select('*')
+            .select('*, payment_voucher:payment_vouchers(*), technician:technicians(*)')
             .order('created_at', { ascending: false })
 
         if (technicianId) query = query.eq('technician_id', technicianId)
@@ -27,18 +27,23 @@ export async function GET(request) {
 
 export async function PATCH(request) {
     try {
-        const { id, status, admin_notes } = await request.json()
+        const { id, status, admin_notes, payment_voucher_id } = await request.json()
         if (!id || !status) {
             return NextResponse.json({ error: 'id and status required' }, { status: 400 })
         }
 
+        const updates = {
+            status,
+            admin_notes: admin_notes || null,
+            reviewed_at: new Date().toISOString()
+        }
+        if (payment_voucher_id !== undefined) {
+            updates.payment_voucher_id = payment_voucher_id;
+        }
+
         const { data, error } = await supabase
             .from('expenses')
-            .update({
-                status,
-                admin_notes: admin_notes || null,
-                reviewed_at: new Date().toISOString()
-            })
+            .update(updates)
             .eq('id', id)
             .select()
             .single()

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Users, Plus, Edit2, Power, Save, X, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin, Camera, Star, Award, User, Eye, EyeOff } from 'lucide-react';
-import { websiteSettingsAPI, accountsAPI, accountGroupsAPI } from '@/lib/adminAPI';
+import { websiteSettingsAPI, accountsAPI, accountGroupsAPI, transactionsAPI } from '@/lib/adminAPI';
 import dynamic from 'next/dynamic';
+import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 
 const TechnicianLiveMap = dynamic(() => import('./TechnicianLiveMap'), {
     ssr: false,
@@ -51,9 +52,17 @@ function TechnicianManagement() {
     const [editingCat, setEditingCat] = useState(null);
     const [savingCats, setSavingCats] = useState(false);
     const [reviewNotes, setReviewNotes] = useState({});
+    const [payingExpense, setPayingExpense] = useState(null);
+    const [expenseAccounts, setExpenseAccounts] = useState([]);
 
     useEffect(() => { fetchTechnicians(); fetchGeocodeCount(); }, []);
-    useEffect(() => { if (activeTab === 'expenses') { fetchCategories(); fetchExpenses(); } }, [activeTab, expenseFilter]);
+    useEffect(() => { 
+        if (activeTab === 'expenses') { 
+            fetchCategories(); 
+            fetchExpenses(); 
+            fetchExpenseAccounts();
+        } 
+    }, [activeTab, expenseFilter]);
     useEffect(() => { if (activeTab === 'livefleet') fetchActiveJobs(); }, [activeTab]);
 
     const fetchGeocodeCount = async () => {
@@ -185,6 +194,71 @@ function TechnicianManagement() {
             setExpenses(data.expenses || []);
         } catch (err) { console.error(err); }
         finally { setExpensesLoading(false); }
+    };
+
+    const fetchExpenseAccounts = async () => {
+        try {
+            const data = await accountsAPI.getAll('expense');
+            setExpenseAccounts(data || []);
+        } catch (err) {
+            console.error('Error fetching expense accounts:', err);
+        }
+    };
+
+    const getPrefilledAccount = (expense) => {
+        if (!expense || !expenseAccounts.length) return null;
+        if (expense.category?.toLowerCase() === 'travel') {
+            const travelAcc = expenseAccounts.find(acc => acc.name?.toLowerCase().includes('travel'));
+            if (travelAcc) return travelAcc;
+        }
+        const officeAcc = expenseAccounts.find(acc => acc.name?.toLowerCase().includes('office')) || 
+                          expenseAccounts.find(acc => acc.name?.toLowerCase().includes('general')) ||
+                          expenseAccounts[0];
+        return officeAcc;
+    };
+
+    const getPrefilledNarration = (expense) => {
+        if (!expense) return '';
+        const techName = expense.technician?.name || 'Technician';
+        const catName = expense.category || '';
+        const dateStr = new Date(expense.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const desc = expense.description || '';
+        return `Paid to ${techName} for ${catName} expense request - Date: ${dateStr}${desc ? ' (Description: ' + desc + ')' : ''}`;
+    };
+
+    const handleSavePaymentVoucher = async (voucherData) => {
+        if (!payingExpense) return;
+        try {
+            const res = await transactionsAPI.create(voucherData, 'payment');
+            if (!res.success) {
+                throw new Error(res.error || 'Failed to create payment voucher');
+            }
+            
+            const voucher = res.data;
+
+            const patchRes = await fetch('/api/admin/expenses', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: payingExpense.id,
+                    status: 'approved',
+                    payment_voucher_id: voucher.id,
+                    admin_notes: reviewNotes[payingExpense.id] || ''
+                })
+            });
+            const patchData = await patchRes.json();
+            if (!patchData.success) {
+                throw new Error(patchData.error || 'Failed to link payment voucher to expense');
+            }
+
+            setPayingExpense(null);
+            setReviewNotes(prev => { const n = {...prev}; delete n[payingExpense.id]; return n; });
+            fetchExpenses();
+            alert('✅ Expense approved and payment voucher linked successfully!');
+        } catch (err) {
+            console.error('Error saving payment and approving expense:', err);
+            alert('Error: ' + err.message);
+        }
     };
 
     const handleSaveCategories = async () => {
@@ -567,8 +641,16 @@ function TechnicianManagement() {
                                                         <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>{cat?.name || exp.category}</span>
                                                         {statusBadge(exp.status)}
                                                         <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{new Date(exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                            By: {exp.technician?.name || 'Unknown Technician'}
+                                                        </span>
                                                     </div>
                                                     {exp.description && <div style={{ fontSize: 'var(--font-size-sm)', marginTop: '4px' }}>{exp.description}</div>}
+                                                    {exp.payment_voucher && (
+                                                        <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
+                                                            <span>💳 Paid via {exp.payment_voucher.payment_number} (₹{parseFloat(exp.payment_voucher.amount || 0).toLocaleString('en-IN')})</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-md)', flexShrink: 0 }}>
                                                     <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(exp.amount).toLocaleString('en-IN')}</div>
@@ -577,8 +659,8 @@ function TechnicianManagement() {
                                             {exp.status === 'pending' && (
                                                 <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)' }}>
                                                     <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
-                                                    <button onClick={() => handleReviewExpense(exp, 'approved')} style={{ padding: '6px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <Check size={14} /> Approve
+                                                    <button onClick={() => setPayingExpense(exp)} style={{ padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <Check size={14} /> Approve via Payment
                                                     </button>
                                                     <button onClick={() => handleReviewExpense(exp, 'rejected')} style={{ padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                         <X size={14} /> Reject
@@ -616,6 +698,21 @@ function TechnicianManagement() {
                     </div>
                     <TechnicianLiveMap activeJobs={activeJobs} />
                 </div>
+            )}
+
+            {payingExpense && (
+                <PaymentVoucherForm
+                    onClose={() => setPayingExpense(null)}
+                    onSave={handleSavePaymentVoucher}
+                    accountType="expense"
+                    existingPayment={{
+                        account_id: getPrefilledAccount(payingExpense)?.id || '',
+                        account_name: getPrefilledAccount(payingExpense)?.name || '',
+                        amount: payingExpense.amount,
+                        notes: getPrefilledNarration(payingExpense),
+                        date: new Date().toISOString().split('T')[0]
+                    }}
+                />
             )}
 
             <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
