@@ -5,6 +5,7 @@ import GoogleTagsProvider from '@/components/GoogleTagsProvider'
 import ClickTracker from '@/components/ClickTracker'
 import FloatingCTA from '@/components/common/FloatingCTA'
 import FirstPartyTracker from '@/components/common/FirstPartyTracker'
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 import { supabase } from '@/lib/supabase'
 
@@ -108,6 +109,7 @@ export default function RootLayout({ children }) {
                 <Suspense fallback={null}>
                     <FirstPartyTracker />
                 </Suspense>
+                <SpeedInsights />
             </body>
         </html>
     )
