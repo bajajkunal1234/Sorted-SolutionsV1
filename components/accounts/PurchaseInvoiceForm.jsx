@@ -30,6 +30,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
     // Real vendor accounts from sampleLedgers
     const vendors = sampleLedgers.filter(ledger =>
         ledger.type === 'vendor' ||
+        ledger.type === 'supplier' ||
         ledger.under === 'sundry-creditors'
     );
 

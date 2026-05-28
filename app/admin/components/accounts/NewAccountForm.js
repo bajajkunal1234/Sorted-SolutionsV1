@@ -562,13 +562,33 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
             alias: formData.alias,
             under: formData.under,
             type: (() => {
-                const underLower = (formData.under || '').toLowerCase();
-                const groupNameLower = (groups.find(g => g.id === formData.under)?.name || '').toLowerCase();
-                if (underLower.includes('customer') || underLower.includes('debtor') || groupNameLower.includes('customer') || groupNameLower.includes('debtor')) return 'customer';
-                if (underLower.includes('supplier') || underLower.includes('creditor') || groupNameLower.includes('supplier') || groupNameLower.includes('creditor')) return 'supplier';
-                if (underLower.includes('technician') || groupNameLower.includes('technician')) return 'technician';
-                if (underLower.includes('bank') || groupNameLower.includes('bank')) return 'bank';
-                if (underLower.includes('cash') || groupNameLower.includes('cash')) return 'cash';
+                let currentGroupId = formData.under;
+                while (currentGroupId) {
+                    const group = groups.find(g => g.id === currentGroupId);
+                    if (!group) break;
+                    
+                    const groupIdLower = (group.id || '').toLowerCase();
+                    const groupNameLower = (group.name || '').toLowerCase();
+                    
+                    if (groupIdLower.includes('customer') || groupIdLower.includes('debtor') || groupNameLower.includes('customer') || groupNameLower.includes('debtor')) {
+                        return 'customer';
+                    }
+                    if (groupIdLower.includes('supplier') || groupIdLower.includes('creditor') || groupNameLower.includes('supplier') || groupNameLower.includes('creditor')) {
+                        return 'supplier';
+                    }
+                    if (groupIdLower.includes('technician') || groupNameLower.includes('technician')) {
+                        return 'technician';
+                    }
+                    if (groupIdLower.includes('bank') || groupNameLower.includes('bank')) {
+                        return 'bank';
+                    }
+                    if (groupIdLower.includes('cash') || groupNameLower.includes('cash')) {
+                        return 'cash';
+                    }
+                    
+                    currentGroupId = group.parent;
+                }
+                
                 return groups.find(g => g.id === formData.under)?.nature || coaFieldMappings[formData.under]?.defaultNature || 'asset';
             })(),
             opening_balance: parseFloat(formData.openingBalance) || 0,

@@ -41,6 +41,8 @@ export async function GET(request) {
             if (type && type !== 'all') {
                 if (type === 'customer') {
                     dropdownQuery = dropdownQuery.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%');
+                } else if (type === 'supplier' || type === 'vendor') {
+                    dropdownQuery = dropdownQuery.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%');
                 } else {
                     dropdownQuery = dropdownQuery.eq('type', type);
                 }
@@ -59,8 +61,10 @@ export async function GET(request) {
         if (type && type !== 'all') {
             if (type === 'customer') {
                 query = query.or('type.eq.customer,under.ilike.%customer%,under.ilike.%debtor%')
-            } else if (type === 'supplier' || type === 'vendor' || type === 'technician') {
-                query = query.or(`type.eq.${type},under.ilike.%${type}%,under.ilike.%creditor%`)
+            } else if (type === 'supplier' || type === 'vendor') {
+                query = query.or('type.eq.supplier,type.eq.vendor,under.ilike.%supplier%,under.ilike.%vendor%,under.ilike.%creditor%')
+            } else if (type === 'technician') {
+                query = query.or('type.eq.technician,under.ilike.%technician%,under.ilike.%creditor%')
             } else if (type === 'payment_method') {
                 query = query.or('type.eq.bank,type.eq.cash,under.ilike.%bank%,under.ilike.%cash%')
             } else {
