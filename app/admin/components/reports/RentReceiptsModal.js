@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react';
-import { X, Receipt, CheckCircle, Search, RefreshCcw, Link2, Trash2 } from 'lucide-react';
+import { X, Receipt, CheckCircle, Search, RefreshCcw, Link2, Trash2, Plus } from 'lucide-react';
 import { transactionsAPI } from '@/lib/adminAPI';
+import ReceiptVoucherForm from '@/app/admin/components/accounts/ReceiptVoucherForm';
 
 function RentReceiptsModal({ rental, onClose, onSave }) {
     const customerId = rental.customer_id || rental.customerId;
@@ -30,6 +31,7 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
     // Picker state
     const [pickerState, setPickerState] = useState({ isOpen: false, type: null, index: null, amountExpected: 0 }); // type: 'deposit' or 'rent'
     const [receiptSearch, setReceiptSearch] = useState('');
+    const [showCreateReceiptForm, setShowCreateReceiptForm] = useState(false);
 
     useEffect(() => {
         if (!customerId) return;
@@ -257,9 +259,19 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
             {pickerState.isOpen && (
                 <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setPickerState({ isOpen: false, type: null, index: null, amountExpected: 0 })}>
                     <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">Select {pickerState.type === 'deposit' ? 'Deposit' : 'Rent'} Receipt</h3>
-                            <button className="btn-icon" onClick={() => setPickerState({ isOpen: false, type: null, index: null, amountExpected: 0 })}><X size={18} /></button>
+                        <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 className="modal-title" style={{ margin: 0 }}>Select {pickerState.type === 'deposit' ? 'Deposit' : 'Rent'} Receipt</h3>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <button 
+                                    type="button"
+                                    className="btn btn-primary" 
+                                    style={{ padding: '4px 10px', fontSize: '12px', backgroundColor: '#10b981', display: 'flex', alignItems: 'center', gap: '4px', border: 'none' }}
+                                    onClick={() => setShowCreateReceiptForm(true)}
+                                >
+                                    <Plus size={14} /> Create Receipt
+                                </button>
+                                <button className="btn-icon" onClick={() => setPickerState({ isOpen: false, type: null, index: null, amountExpected: 0 })}><X size={18} /></button>
+                            </div>
                         </div>
                         <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-primary)' }}>
                             <div style={{ position: 'relative' }}>
@@ -314,6 +326,37 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Create Receipt Voucher Form Overlay */}
+            {showCreateReceiptForm && (
+                <ReceiptVoucherForm
+                    onClose={() => setShowCreateReceiptForm(false)}
+                    existingReceipt={{
+                        account_id: customerId,
+                        account_name: rental.customer_name || rental.accounts?.name || '',
+                        amount: pickerState.amountExpected,
+                        narration: pickerState.type === 'deposit'
+                            ? `Security Deposit received for ${productName}`
+                            : `Rent received for ${productName} - Month ${pickerState.index}`
+                    }}
+                    onSave={async (voucherData) => {
+                        try {
+                            const newReceipt = await transactionsAPI.create(voucherData, 'receipt');
+                            if (newReceipt) {
+                                // Add to receipts list so it shows in lookup
+                                setReceipts(prev => [newReceipt, ...prev]);
+                                // Auto-link to the active row
+                                handleLink(newReceipt);
+                            }
+                        } catch (err) {
+                            console.error('Failed to create new receipt:', err);
+                            alert('Failed to save receipt: ' + err.message);
+                        } finally {
+                            setShowCreateReceiptForm(false);
+                        }
+                    }}
+                />
             )}
         </div>
     );

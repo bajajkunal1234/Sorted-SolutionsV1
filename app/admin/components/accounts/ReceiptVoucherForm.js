@@ -97,7 +97,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                 }}>
                     <div>
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, color: '#10b981' }}>
-                            {existingReceipt ? 'Edit Receipt Voucher' : 'Create Receipt Voucher'}
+                            {existingReceipt?.id ? 'Edit Receipt Voucher' : 'Create Receipt Voucher'}
                         </h3>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
                             Receipt No: {formData.receipt_number}
@@ -249,7 +249,7 @@ function ReceiptVoucherForm({ onClose, onSave, existingReceipt }) {
                         style={{ padding: '8px 24px', backgroundColor: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                         <Save size={18} />
-                        {existingReceipt ? 'Update Receipt' : 'Save Receipt'}
+                        {existingReceipt?.id ? 'Update Receipt' : 'Save Receipt'}
                     </button>
                 </div>
             </div>
