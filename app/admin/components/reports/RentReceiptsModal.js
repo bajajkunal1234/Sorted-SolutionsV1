@@ -298,13 +298,19 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                             
                                         return (
                                             <button key={r.id} type="button"
-                                                onClick={() => handleLink(r)}
+                                                onClick={() => {
+                                                    if (isAlreadyLinked) {
+                                                        alert("This receipt is already linked to another slot in this agreement. Please unlink it first if you wish to re-allocate it.");
+                                                        return;
+                                                    }
+                                                    handleLink(r);
+                                                }}
                                                 style={{
                                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                                     padding: '10px 14px', border: `2px solid ${match ? '#10b981' : 'var(--border-primary)'}`,
                                                     borderRadius: 'var(--radius-md)', 
                                                     backgroundColor: match ? '#10b98108' : (isAlreadyLinked ? '#ef444408' : 'var(--bg-secondary)'),
-                                                    cursor: 'pointer', textAlign: 'left', width: '100%',
+                                                    cursor: isAlreadyLinked ? 'not-allowed' : 'pointer', textAlign: 'left', width: '100%',
                                                     opacity: isAlreadyLinked ? 0.6 : 1
                                                 }}>
                                                 <div>
