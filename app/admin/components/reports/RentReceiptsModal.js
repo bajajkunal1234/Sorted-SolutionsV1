@@ -256,7 +256,7 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
             </div>
 
             {/* Receipt Picker Overlay */}
-            {pickerState.isOpen && (
+            {pickerState.isOpen && !showCreateReceiptForm && (
                 <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setPickerState({ isOpen: false, type: null, index: null, amountExpected: 0 })}>
                     <div className="modal-container" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
                         <div className="modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -348,12 +348,11 @@ function RentReceiptsModal({ rental, onClose, onSave }) {
                                 setReceipts(prev => [newReceipt, ...prev]);
                                 // Auto-link to the active row
                                 handleLink(newReceipt);
+                                setShowCreateReceiptForm(false);
                             }
                         } catch (err) {
                             console.error('Failed to create new receipt:', err);
                             alert('Failed to save receipt: ' + err.message);
-                        } finally {
-                            setShowCreateReceiptForm(false);
                         }
                     }}
                 />

@@ -96,7 +96,7 @@ function ReceiptVoucherForm({ onClose, existingReceipt, onSuccess }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 1000,
+            zIndex: 1200,
             padding: 'var(--spacing-md)'
         }}>
             <div style={{

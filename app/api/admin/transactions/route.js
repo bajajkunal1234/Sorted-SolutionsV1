@@ -214,11 +214,23 @@ export async function POST(request) {
         const allowedCols = tableColumns[type];
         const payload = {};
         if (allowedCols) {
-            allowedCols.forEach(col => { if (body[col] !== undefined) payload[col] = body[col]; });
+            allowedCols.forEach(col => {
+                if (body[col] !== undefined) {
+                    payload[col] = body[col] === '' ? null : body[col];
+                }
+            });
         } else {
             // Unknown type — fall through with minimal strip
             Object.assign(payload, body);
             delete payload.__formType;
+            Object.keys(payload).forEach(key => {
+                if (payload[key] === '') payload[key] = null;
+            });
+        }
+
+        // Auto-generate unique internal invoice number for purchase invoices if not sent
+        if (type === 'purchase' && !payload.invoice_number) {
+            payload.invoice_number = `PUR-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
         }
 
         const { data, error } = await supabase
@@ -334,9 +346,16 @@ export async function PUT(request) {
         const allowedCols = tableColumns[type];
         const updates = {};
         if (allowedCols) {
-            allowedCols.forEach(col => { if (rawUpdates[col] !== undefined) updates[col] = rawUpdates[col]; });
+            allowedCols.forEach(col => {
+                if (rawUpdates[col] !== undefined) {
+                    updates[col] = rawUpdates[col] === '' ? null : rawUpdates[col];
+                }
+            });
         } else {
             Object.assign(updates, rawUpdates);
+            Object.keys(updates).forEach(key => {
+                if (updates[key] === '') updates[key] = null;
+            });
         }
 
         const { data, error } = await supabase
