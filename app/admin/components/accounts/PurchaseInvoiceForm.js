@@ -29,6 +29,31 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
     const [showCalculator, setShowCalculator] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
+    const [invoiceMode, setInvoiceMode] = useState('item');
+    const [expenseAccounts, setExpenseAccounts] = useState([]);
+
+    useEffect(() => {
+        const fetchExpenseAccounts = async () => {
+            try {
+                const data = await accountsAPI.getAll('expense');
+                setExpenseAccounts(data || []);
+            } catch (err) {
+                console.error('Error fetching expense accounts for selector:', err);
+            }
+        };
+        fetchExpenseAccounts();
+    }, []);
+
+    useEffect(() => {
+        if (existingInvoice && expenseAccounts.length > 0) {
+            const hasExpenseItem = existingInvoice.items?.some(item =>
+                expenseAccounts.some(acc => acc.id === item.productId)
+            );
+            if (hasExpenseItem) {
+                setInvoiceMode('ledger');
+            }
+        }
+    }, [existingInvoice, expenseAccounts]);
 
     const companyState = 'Maharashtra';
 
@@ -309,6 +334,64 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                         </div>
                     </div>
 
+                    {/* Invoice Mode Toggle */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        marginBottom: 'var(--spacing-md)',
+                        padding: '10px 14px',
+                        backgroundColor: 'var(--bg-secondary)',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-primary)'
+                    }}>
+                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            Invoice Type:
+                        </span>
+                        <div style={{ display: 'flex', gap: '4px', backgroundColor: 'var(--bg-primary)', padding: '3px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
+                            <button
+                                type="button"
+                                onClick={() => setInvoiceMode('item')}
+                                style={{
+                                    padding: '6px 16px',
+                                    fontSize: 'var(--font-size-xs)',
+                                    fontWeight: 600,
+                                    borderRadius: 'var(--radius-xs)',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    backgroundColor: invoiceMode === 'item' ? '#3b82f6' : 'transparent',
+                                    color: invoiceMode === 'item' ? '#ffffff' : 'var(--text-secondary)',
+                                    transition: 'all 0.2s ease-in-out',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                📦 Item Invoice (Catalog Products)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setInvoiceMode('ledger')}
+                                style={{
+                                    padding: '6px 16px',
+                                    fontSize: 'var(--font-size-xs)',
+                                    fontWeight: 600,
+                                    borderRadius: 'var(--radius-xs)',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    backgroundColor: invoiceMode === 'ledger' ? '#3b82f6' : 'transparent',
+                                    color: invoiceMode === 'ledger' ? '#ffffff' : 'var(--text-secondary)',
+                                    transition: 'all 0.2s ease-in-out',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                            >
+                                💼 Accounting Invoice (Expense Ledgers)
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Items Table */}
                     <div style={{
                         marginBottom: 'var(--spacing-lg)',
@@ -340,24 +423,46 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                             <td style={{ padding: 'var(--spacing-xs)', textAlign: 'center' }}>{index + 1}</td>
                                             <td style={{ padding: 'var(--spacing-xs)', position: 'relative', overflow: 'visible' }} colSpan="2">
                                                 <div style={{ marginBottom: 'var(--spacing-xs)' }}>
-                                                    <ProductSelector
-                                                        value={item.productId}
-                                                        onChange={(productId) => handleItemChange(index, 'productId', productId)}
-                                                        label="Select Product"
-                                                        onProductSelect={(productDetails) => {
-                                                            const newItems = [...formData.items];
-                                                            newItems[index] = {
-                                                                ...newItems[index],
-                                                                productId: productDetails.productId,
-                                                                description: productDetails.description,
-                                                                hsn: productDetails.hsn,
-                                                                rate: productDetails.rate,
-                                                                taxRate: productDetails.taxRate
-                                                            };
-                                                            newItems[index].total = calculateItemTotal(newItems[index]);
-                                                            setFormData({ ...formData, items: newItems });
-                                                        }}
-                                                    />
+                                                    {invoiceMode === 'ledger' ? (
+                                                        <AccountSelector
+                                                            value={item.productId}
+                                                            onChange={(acc) => {
+                                                                if (!acc) return;
+                                                                const newItems = [...formData.items];
+                                                                newItems[index] = {
+                                                                    ...newItems[index],
+                                                                    productId: acc.id,
+                                                                    description: acc.name,
+                                                                    hsn: '',
+                                                                    rate: newItems[index].rate || 0,
+                                                                    taxRate: newItems[index].taxRate || 18
+                                                                };
+                                                                newItems[index].total = calculateItemTotal(newItems[index]);
+                                                                setFormData({ ...formData, items: newItems });
+                                                            }}
+                                                            accountType="expense"
+                                                            label="Select Expense Ledger"
+                                                        />
+                                                    ) : (
+                                                        <ProductSelector
+                                                            value={item.productId}
+                                                            onChange={(productId) => handleItemChange(index, 'productId', productId)}
+                                                            label="Select Product"
+                                                            onProductSelect={(productDetails) => {
+                                                                const newItems = [...formData.items];
+                                                                newItems[index] = {
+                                                                    ...newItems[index],
+                                                                    productId: productDetails.productId,
+                                                                    description: productDetails.description,
+                                                                    hsn: productDetails.hsn,
+                                                                    rate: productDetails.rate,
+                                                                    taxRate: productDetails.taxRate
+                                                                };
+                                                                newItems[index].total = calculateItemTotal(newItems[index]);
+                                                                setFormData({ ...formData, items: newItems });
+                                                            }}
+                                                        />
+                                                    )}
                                                 </div>
                                                 <input
                                                     type="text"
