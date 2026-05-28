@@ -247,18 +247,38 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
 
         // Create account object
         const account = {
-            // id: Date.now(), // Let DB handle ID or generate a temp one if needed for optimistic UI
-            ...formData,
-            properties: (effectiveGroup === 'sundry-debtors' || effectiveGroup === 'customer-accounts') ? properties : undefined,
+            name: formData.name,
+            sku: formData.sku,
+            alias: formData.alias,
+            under: formData.under,
             type: accountNature,
-            // Ensure numeric values are numbers
-            openingBalance: parseFloat(formData.openingBalance) || 0,
-            creditLimit: parseFloat(formData.creditLimit) || 0,
-            creditPeriod: parseInt(formData.creditPeriod) || 0,
-            taxRate: parseFloat(formData.taxRate) || 0,
-            purchaseValue: parseFloat(formData.purchaseValue) || 0,
-            depreciationRate: parseFloat(formData.depreciationRate) || 0,
-            usefulLife: parseFloat(formData.usefulLife) || 0
+            opening_balance: parseFloat(formData.openingBalance) || 0,
+            balance_type: formData.balanceType,
+            as_on_date: formData.asOnDate,
+            contact_person: formData.contactPerson,
+            mobile: formData.mobile,
+            email: formData.email,
+            mailing_name: formData.mailingName,
+            mailing_address: formData.mailingAddress || formData.customerDescription,
+            gstin: formData.gstin,
+            pan: formData.pan,
+            state_name: formData.stateName,
+            country: formData.country,
+            credit_limit: parseFloat(formData.creditLimit) || 0,
+            credit_period: parseInt(formData.creditPeriod) || 0,
+            bank_name: formData.bankName,
+            account_number: formData.accountNumber,
+            ifsc_code: formData.ifscCode,
+            branch: formData.branch,
+            tax_rate: parseFloat(formData.taxRate) || 0,
+            gst_applicable: formData.gstApplicable,
+            properties: (effectiveGroup === 'sundry-debtors' || effectiveGroup === 'customer-accounts') ? properties : undefined,
+            asset_category: formData.assetCategory,
+            purchase_date: formData.purchaseDate || null,
+            purchase_value: parseFloat(formData.purchaseValue) || 0,
+            depreciation_method: formData.depreciationMethod,
+            depreciation_rate: parseFloat(formData.depreciationRate) || 0,
+            useful_life: parseFloat(formData.usefulLife) || 0
         };
 
         try {
@@ -675,6 +695,73 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, existingAccou
                                                         <input type="checkbox" checked={formData.inventoryAffected} onChange={(e) => setFormData({ ...formData, inventoryAffected: e.target.checked })} />
                                                         <span style={{ fontSize: 'var(--font-size-sm)' }}>Inventory values are affected?</span>
                                                     </label>
+                                                </div>
+                                            )}
+
+                                            {/* GST Applicable (for Income/Expense Accounts) */}
+                                            {showField('gstApplicable') && (
+                                                <div style={{
+                                                    padding: 'var(--spacing-md)',
+                                                    backgroundColor: 'var(--bg-secondary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    border: '1px solid var(--border-primary)',
+                                                    marginBottom: 'var(--spacing-md)'
+                                                }}>
+                                                    <div className="form-group" style={{ marginBottom: formData.gstApplicable ? 'var(--spacing-md)' : 0 }}>
+                                                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={formData.gstApplicable}
+                                                                onChange={(e) => setFormData({ ...formData, gstApplicable: e.target.checked })}
+                                                            />
+                                                            <span style={{ fontWeight: 500 }}>Is GST Applicable?</span>
+                                                        </label>
+                                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', display: 'block', marginTop: 'var(--spacing-xs)' }}>
+                                                            Enable if this account is used in GST calculations
+                                                        </span>
+                                                    </div>
+
+                                                    {formData.gstApplicable && (
+                                                        <>
+                                                            <div className="form-group" style={{ marginBottom: formData.gstRegistration ? 'var(--spacing-md)' : 0 }}>
+                                                                <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer' }}>
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={formData.gstRegistration}
+                                                                        onChange={(e) => setFormData({ ...formData, gstRegistration: e.target.checked })}
+                                                                    />
+                                                                    <span style={{ fontWeight: 500 }}>Set/Alter GST Details</span>
+                                                                </label>
+                                                            </div>
+
+                                                            {formData.gstRegistration && (
+                                                                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
+                                                                    <div className="form-group">
+                                                                        <label className="form-label">GSTIN</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="form-input"
+                                                                            value={formData.gstin}
+                                                                            onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                                                                            placeholder="27AABCU9603R1ZM"
+                                                                            maxLength={15}
+                                                                        />
+                                                                    </div>
+                                                                    <div className="form-group">
+                                                                        <label className="form-label">PAN</label>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="form-input"
+                                                                            value={formData.pan}
+                                                                            onChange={(e) => setFormData({ ...formData, pan: e.target.value.toUpperCase() })}
+                                                                            placeholder="ABCDE1234F"
+                                                                            maxLength={10}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </>
+                                                    )}
                                                 </div>
                                             )}
 

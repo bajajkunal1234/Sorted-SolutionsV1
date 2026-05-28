@@ -34,7 +34,7 @@ export async function GET(request) {
         if (purpose === 'dropdown') {
             let dropdownQuery = supabase
                 .from('accounts')
-                .select('id, name, mobile, phone, type, under')
+                .select('id, name, mobile, phone, type, under, gst_applicable, tax_rate')
                 .neq('status', 'archived')
                 .order('name', { ascending: true })
                 .limit(1000);
@@ -125,7 +125,7 @@ const ALLOWED_COLUMNS = [
     'referred_by', 'properties', 'as_on_date', 'balance_type', 'asset_category',
     'purchase_date', 'purchase_value', 'depreciation_method', 'depreciation_rate',
     'useful_life', 'status', 'micr_code', 'account_type', 'enable_cheque_printing',
-    'rounding_method', 'currency'
+    'rounding_method', 'currency', 'gst_applicable'
 ];
 
 // POST - Create new account

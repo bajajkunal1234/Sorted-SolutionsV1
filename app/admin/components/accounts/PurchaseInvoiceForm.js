@@ -188,13 +188,32 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
             alert('Please enter vendor invoice number');
             return;
         }
-        if (formData.items.some(item => !item.description || item.qty <= 0 || item.rate < 0)) {
-            alert('Please fill all item details correctly');
+        if (invoiceMode === 'ledger' && !formData.notes?.trim()) {
+            alert('Please enter a narration for this accounting invoice');
+            return;
+        }
+        const hasInvalidItems = invoiceMode === 'ledger'
+            ? formData.items.some(item => !item.productId || !item.description || item.rate <= 0)
+            : formData.items.some(item => !item.productId || !item.description || item.qty <= 0 || item.rate < 0);
+        if (hasInvalidItems) {
+            alert(invoiceMode === 'ledger' ? 'Please select an expense ledger and enter a valid amount' : 'Please fill all item details correctly');
             return;
         }
 
+        const cleanedItems = formData.items.map(item => {
+            if (invoiceMode === 'ledger') {
+                return {
+                    ...item,
+                    qty: 1,
+                    discount: 0
+                };
+            }
+            return item;
+        });
+
         const purchaseData = {
             ...formData,
+            items: cleanedItems,
             ...totals,
             __formType: 'purchase',
             status: 'finalized'
@@ -405,121 +424,203 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                 <thead>
-                                    <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '5%' }}>#</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '30%' }}>Description *</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '10%' }}>HSN</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Qty *</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '12%' }}>Rate *</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Disc.</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '10%' }}>Tax %</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '13%' }}>Total</th>
-                                        <th style={{ padding: 'var(--spacing-xs)', width: '5%' }}></th>
-                                    </tr>
+                                    {invoiceMode === 'ledger' ? (
+                                        <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '5%' }}>#</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '55%' }}>Expense Ledger & Narration *</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '12%' }}>Tax %</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '15%' }}>Amount *</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '13%' }}>Total</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', width: '5%' }}></th>
+                                        </tr>
+                                    ) : (
+                                        <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '5%' }}>#</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '30%' }}>Description *</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '10%' }}>HSN</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Qty *</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '12%' }}>Rate *</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Disc.</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '10%' }}>Tax %</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '13%' }}>Total</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', width: '5%' }}></th>
+                                        </tr>
+                                    )}
                                 </thead>
                                 <tbody>
                                     {formData.items.map((item, index) => (
                                         <tr key={item.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
                                             <td style={{ padding: 'var(--spacing-xs)', textAlign: 'center' }}>{index + 1}</td>
-                                            <td style={{ padding: 'var(--spacing-xs)', position: 'relative', overflow: 'visible' }} colSpan="2">
-                                                <div style={{ marginBottom: 'var(--spacing-xs)' }}>
-                                                    {invoiceMode === 'ledger' ? (
-                                                        <AccountSelector
-                                                            value={item.productId}
-                                                            onChange={(acc) => {
-                                                                if (!acc) return;
+                                            
+                                            {invoiceMode === 'ledger' ? (
+                                                <>
+                                                    {/* Expense Ledger Selector */}
+                                                    <td style={{ padding: 'var(--spacing-xs)', position: 'relative', overflow: 'visible' }}>
+                                                        <div style={{ marginBottom: 'var(--spacing-xs)' }}>
+                                                            <AccountSelector
+                                                                value={item.productId}
+                                                                onChange={(acc) => {
+                                                                    if (!acc) return;
+                                                                    const isGstApplicable = acc.gst_applicable !== false && acc.gstApplicable !== false;
+                                                                    const defaultTaxRate = isGstApplicable ? (acc.tax_rate !== undefined ? parseFloat(acc.tax_rate) : (acc.taxRate !== undefined ? parseFloat(acc.taxRate) : 18)) : 0;
+                                                                    const newItems = [...formData.items];
+                                                                    newItems[index] = {
+                                                                        ...newItems[index],
+                                                                        productId: acc.id,
+                                                                        description: acc.name,
+                                                                        hsn: '',
+                                                                        qty: 1,
+                                                                        discount: 0,
+                                                                        rate: newItems[index].rate || 0,
+                                                                        taxRate: defaultTaxRate
+                                                                    };
+                                                                    newItems[index].total = calculateItemTotal(newItems[index]);
+                                                                    setFormData({ ...formData, items: newItems });
+                                                                }}
+                                                                accountType="expense"
+                                                                label="Select Expense Ledger"
+                                                            />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            value={item.description}
+                                                            onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                                            placeholder="Or enter custom description"
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                        />
+                                                    </td>
+                                                    
+                                                    {/* Tax % */}
+                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                        <select
+                                                            className="form-input"
+                                                            value={item.taxRate}
+                                                            onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                        >
+                                                            <option value="0">0%</option>
+                                                            <option value="5">5%</option>
+                                                            <option value="12">12%</option>
+                                                            <option value="18">18%</option>
+                                                            <option value="28">28%</option>
+                                                        </select>
+                                                    </td>
+
+                                                    {/* Amount field (maps to rate under the hood, with qty=1) */}
+                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                        <input
+                                                            type="number"
+                                                            className="form-input"
+                                                            value={item.rate || ''}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value) || 0;
                                                                 const newItems = [...formData.items];
-                                                                newItems[index] = {
-                                                                    ...newItems[index],
-                                                                    productId: acc.id,
-                                                                    description: acc.name,
-                                                                    hsn: '',
-                                                                    rate: newItems[index].rate || 0,
-                                                                    taxRate: newItems[index].taxRate || 18
-                                                                };
+                                                                newItems[index].rate = val;
+                                                                newItems[index].qty = 1;
+                                                                newItems[index].discount = 0;
                                                                 newItems[index].total = calculateItemTotal(newItems[index]);
                                                                 setFormData({ ...formData, items: newItems });
                                                             }}
-                                                            accountType="expense"
-                                                            label="Select Expense Ledger"
+                                                            min="0"
+                                                            step="0.01"
+                                                            placeholder="Amount"
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
                                                         />
-                                                    ) : (
-                                                        <ProductSelector
-                                                            value={item.productId}
-                                                            onChange={(productId) => handleItemChange(index, 'productId', productId)}
-                                                            label="Select Product"
-                                                            onProductSelect={(productDetails) => {
-                                                                const newItems = [...formData.items];
-                                                                newItems[index] = {
-                                                                    ...newItems[index],
-                                                                    productId: productDetails.productId,
-                                                                    description: productDetails.description,
-                                                                    hsn: productDetails.hsn,
-                                                                    rate: productDetails.rate,
-                                                                    taxRate: productDetails.taxRate
-                                                                };
-                                                                newItems[index].total = calculateItemTotal(newItems[index]);
-                                                                setFormData({ ...formData, items: newItems });
-                                                            }}
+                                                    </td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td style={{ padding: 'var(--spacing-xs)', position: 'relative', overflow: 'visible' }} colSpan="2">
+                                                        <div style={{ marginBottom: 'var(--spacing-xs)' }}>
+                                                            <ProductSelector
+                                                                value={item.productId}
+                                                                onChange={(productId) => handleItemChange(index, 'productId', productId)}
+                                                                label="Select Product"
+                                                                onProductSelect={(productDetails) => {
+                                                                    const newItems = [...formData.items];
+                                                                    newItems[index] = {
+                                                                        ...newItems[index],
+                                                                        productId: productDetails.productId,
+                                                                        description: productDetails.description,
+                                                                        hsn: productDetails.hsn,
+                                                                        rate: productDetails.rate,
+                                                                        taxRate: productDetails.taxRate
+                                                                    };
+                                                                    newItems[index].total = calculateItemTotal(newItems[index]);
+                                                                    setFormData({ ...formData, items: newItems });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            value={item.description}
+                                                            onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                                                            placeholder="Or enter custom description"
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
                                                         />
-                                                    )}
-                                                </div>
-                                                <input
-                                                    type="text"
-                                                    className="form-input"
-                                                    value={item.description}
-                                                    onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                                                    placeholder="Or enter custom description"
-                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    value={item.qty}
-                                                    onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
-                                                    min="0"
-                                                    step="1"
-                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    value={item.rate}
-                                                    onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
-                                                    min="0"
-                                                    step="0.01"
-                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                <input
-                                                    type="number"
-                                                    className="form-input"
-                                                    value={item.discount}
-                                                    onChange={(e) => handleItemChange(index, 'discount', e.target.value)}
-                                                    min="0"
-                                                    step="0.01"
-                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
-                                                />
-                                            </td>
-                                            <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                <select
-                                                    className="form-input"
-                                                    value={item.taxRate}
-                                                    onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
-                                                    style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                                >
-                                                    <option value="0">0%</option>
-                                                    <option value="5">5%</option>
-                                                    <option value="12">12%</option>
-                                                    <option value="18">18%</option>
-                                                    <option value="28">28%</option>
-                                                </select>
-                                            </td>
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            value={item.hsn}
+                                                            onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
+                                                            placeholder="HSN"
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                        <input
+                                                            type="number"
+                                                            className="form-input"
+                                                            value={item.qty}
+                                                            onChange={(e) => handleItemChange(index, 'qty', e.target.value)}
+                                                            min="0"
+                                                            step="1"
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                        <input
+                                                            type="number"
+                                                            className="form-input"
+                                                            value={item.rate}
+                                                            onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
+                                                            min="0"
+                                                            step="0.01"
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                        <input
+                                                            type="number"
+                                                            className="form-input"
+                                                            value={item.discount}
+                                                            onChange={(e) => handleItemChange(index, 'discount', e.target.value)}
+                                                            min="0"
+                                                            step="0.01"
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
+                                                        />
+                                                    </td>
+                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                        <select
+                                                            className="form-input"
+                                                            value={item.taxRate}
+                                                            onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
+                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                        >
+                                                            <option value="0">0%</option>
+                                                            <option value="5">5%</option>
+                                                            <option value="12">12%</option>
+                                                            <option value="18">18%</option>
+                                                            <option value="28">28%</option>
+                                                        </select>
+                                                    </td>
+                                                </>
+                                            )}
+
                                             <td style={{ padding: 'var(--spacing-xs)', textAlign: 'right', fontWeight: 600 }}>
                                                 ₹{(item.total || 0).toFixed(2)}
                                             </td>
@@ -608,17 +709,17 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                         </div>
                     </div>
 
-                    {/* Notes */}
+                    {/* Notes / Narration */}
                     <div>
                         <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                            Notes
+                            {invoiceMode === 'ledger' ? 'Narration *' : 'Notes'}
                         </label>
                         <textarea
                             className="form-input"
                             value={formData.notes}
                             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                             rows="3"
-                            placeholder="Additional notes..."
+                            placeholder={invoiceMode === 'ledger' ? 'Enter narration for this accounting invoice...' : 'Additional notes...'}
                             style={{ width: '100%', resize: 'vertical' }}
                         />
                     </div>
