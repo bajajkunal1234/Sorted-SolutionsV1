@@ -312,3 +312,93 @@ button[class*="cancel"]:hover,
     background-color: var(--bg-hover);
     color: var(--text-primary);
 }
+
+/* ==========================================================================
+   MOBILE & RESPONSIVE UX OVERRIDES (Screens <= 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+    /* 1. Force all desktop-centric multi-column form grids to stack vertically */
+    .form-grid {
+        grid-template-columns: 1fr !important;
+        gap: var(--spacing-sm) !important;
+    }
+
+    /* 2. Overrule hardcoded inline max-width/max-height on Modals for Mobile Fullscreen */
+    .modal,
+    .modal-container {
+        max-width: 100% !important;
+        width: 100% !important;
+        max-height: 100dvh !important;
+        height: 100dvh !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .modal-overlay {
+        padding: 0 !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+    }
+
+    /* 3. Ensure modal body scroll takes the full remaining height without clipping or double-scrolling */
+    .modal-body,
+    .modal-content {
+        max-height: none !important;
+        flex: 1 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding: var(--spacing-md) !important;
+    }
+
+    /* 4. Let the top sub-tabs panel horizontal-scroll rather than overflow or wrap awkwardly */
+    .sub-tabs {
+        overflow-x: auto !important;
+        white-space: nowrap !important;
+        padding-bottom: 8px !important;
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        gap: 8px !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .sub-tab {
+        flex-shrink: 0 !important;
+        white-space: nowrap !important;
+    }
+
+    /* 5. Make all tables responsive so they don't break the page layout */
+    .transactions-table, 
+    .table-container,
+    .table-responsive {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 8px !important;
+    }
+    
+    .transactions-table table,
+    .table-container table {
+        min-width: 650px !important; /* Forces scrollable area rather than compression */
+    }
+
+    /* 6. Flex alignments & Controls stacking */
+    .filter-bar,
+    .controls-row,
+    .accounts-header,
+    .tab-actions {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--spacing-sm) !important;
+    }
+
+    .filter-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+
+    /* Adjust padding to prevent footer nav overlap */
+    .admin-content-area {
+        padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 20px) !important;
+    }
+}
