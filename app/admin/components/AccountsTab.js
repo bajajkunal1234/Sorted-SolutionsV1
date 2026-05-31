@@ -1690,8 +1690,8 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
             {/* Row 1: Header — title + unified Odoo-style search/filter panel */}
-            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Accounts</span>
+            <div className="tab-header-row" style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="tab-title" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Accounts</span>
                 <AccountsSearchPanel
                     tab={activeTab}
                     searchTerm={searchTerm}
@@ -1733,7 +1733,7 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
             </div>
 
             {/* Row 3: View Type Toggles + Columns + Refresh + Count */}
-            <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="tab-controls-row" style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* View toggles */}
                 <select 
                     value={activeTab === 'accounts' ? viewType : txViewType}

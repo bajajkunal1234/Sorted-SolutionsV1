@@ -397,6 +397,65 @@ button[class*="cancel"]:hover,
         align-items: stretch !important;
     }
 
+    /* 7. Stacking Tab Header Rows cleanly on Mobile */
+    .tab-header-row {
+        flex-wrap: wrap !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+    }
+
+    .tab-header-row .tab-title {
+        order: 1 !important;
+    }
+
+    .tab-header-row .btn-primary {
+        order: 2 !important;
+        margin-left: auto !important;
+    }
+
+    /* Search panel wrapper is the child that is neither title nor primary button */
+    .tab-header-row > :not(.tab-title):not(.btn-primary):not(.btn-secondary) {
+        order: 3 !important;
+        flex: 1 0 100% !important;
+        width: 100% !important;
+    }
+
+    /* Support secondary buttons (like Collect Payment in Receipts) */
+    .tab-header-row .btn-secondary {
+        order: 2 !important;
+    }
+
+    /* 8. Responsive Tab Controls Row (View toggles, Refresh, Count) */
+    .tab-controls-row {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 8px 12px !important;
+    }
+
+    /* View toggles/Selects */
+    .tab-controls-row > :first-child,
+    .tab-controls-row > select {
+        flex: 1 0 auto !important;
+    }
+
+    /* Hide flex spacers on mobile to prevent stretching the page width */
+    .tab-controls-row > div[style*="flex: 1"],
+    .tab-controls-row > div[style*="flex: 1 1 0%"] {
+        display: none !important;
+    }
+
+    /* Stacking remaining controls side-by-side or wrapping */
+    .tab-controls-row > button,
+    .tab-controls-row > span {
+        flex: 0 0 auto !important;
+    }
+
+    /* Make sure Create button inside controls row is aligned nicely */
+    .tab-controls-row > .btn-primary {
+        margin-left: auto !important;
+    }
+
     /* Adjust padding to prevent footer nav overlap */
     .admin-content-area {
         padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 20px) !important;

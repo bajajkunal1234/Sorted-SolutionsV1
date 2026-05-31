@@ -288,8 +288,8 @@ function JobsTab({ jobToOpen, onJobOpened }) {
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
 
             {/* ── Row 1: Title + Search ── */}
-            <div style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Jobs</span>
+            <div className="tab-header-row" style={{ padding: '8px 12px', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="tab-title" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Jobs</span>
                 <JobsSearchPanel
                     searchTerm={searchTerm} onSearchChange={setSearchTerm}
                     groupBy={groupBy} onGroupByChange={setGroupBy}
@@ -308,7 +308,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
             </div>
 
             {/* ── Row 2: View Types + Refresh + Count + Create ── */}
-            <div style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="tab-controls-row" style={{ padding: '6px 12px', backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* View Type toggles */}
                 <div style={{ display: 'flex', gap: '4px' }}>
                     {[{ type: 'kanban', Icon: Columns, label: 'Kanban' }, { type: 'card', Icon: Grid, label: 'Cards' }, { type: 'table', Icon: TableIcon, label: 'Table' }, { type: 'list', Icon: List, label: 'List' }].map(({ type, Icon, label }) => (
