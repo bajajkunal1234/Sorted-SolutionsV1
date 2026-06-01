@@ -460,4 +460,55 @@ button[class*="cancel"]:hover,
     .admin-content-area {
         padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 20px) !important;
     }
+
+    /* Modal Sheet Stacking and z-index elevation on Mobile */
+    .modal-overlay {
+        z-index: 10000 !important;
+        position: fixed !important;
+        inset: 0 !important;
+        height: 100dvh !important;
+    }
+
+    /* Form inside modals - make it a full-height flex column */
+    .modal-container form,
+    .modal form {
+        display: flex !important;
+        flex-direction: column !important;
+        flex: 1 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        margin: 0 !important;
+    }
+
+    /* Lock modal-footer at the bottom of the form context */
+    .modal-footer {
+        flex-shrink: 0 !important;
+        padding: var(--spacing-md) !important;
+        background-color: var(--bg-elevated) !important;
+        border-top: 1px solid var(--border-primary) !important;
+    }
+
+    /* Print Setup layout columns collapse to stack vertically */
+    .print-setup-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Active Rentals card column stacking and action wrapping */
+    .rental-card-flex {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--spacing-md) !important;
+    }
+    
+    .rental-card-actions {
+        flex-wrap: wrap !important;
+        width: 100% !important;
+        justify-content: flex-start !important;
+        gap: var(--spacing-xs) !important;
+    }
+    
+    .rental-card-actions .btn {
+        flex: 1 1 auto !important;
+        justify-content: center !important;
+    }
 }

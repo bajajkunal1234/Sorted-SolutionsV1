@@ -226,7 +226,7 @@ function RentalsTab() {
                                         borderRadius: 'var(--radius-lg)',
                                         border: '1px solid var(--border-primary)'
                                     }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div className="rental-card-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-xs)' }}>
                                                     <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
@@ -272,7 +272,7 @@ function RentalsTab() {
                                                 </div>
                                             </div>
 
-                                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                            <div className="rental-card-actions" style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                                                 <button
                                                     className="btn btn-secondary"
                                                     style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}

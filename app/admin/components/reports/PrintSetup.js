@@ -313,7 +313,7 @@ function PrintSetup() {
                     </div>
 
                     {/* Tab Content */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)' }}>
+                    <div className="print-setup-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--spacing-lg)', marginTop: 'var(--spacing-md)' }}>
                         {/* Settings for specific document type */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                             <div style={card}>
