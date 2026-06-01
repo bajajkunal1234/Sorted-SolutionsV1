@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Globe, DollarSign, Settings, Calendar, Printer, List, TrendingUp, Clock, Shield, Award, MessageSquare, QrCode, Package, History, ChevronRight, Building2, Moon, Sun, Search, Users, Database, Bell, Home, Smartphone, BookOpen, Mail } from 'lucide-react';
 import DaybookView from './reports/DaybookView';
 import VoucherNumberingSettings from './reports/VoucherNumberingSettings';
@@ -35,6 +35,12 @@ function ReportsTab() {
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    // Synchronize toggle state with actual document theme attribute upon mounting
+    useEffect(() => {
+        const theme = document.documentElement.getAttribute('data-theme');
+        setIsDarkMode(theme !== 'light');
+    }, []);
 
     const sections = [
         { id: 'daybook', label: 'Daybook', icon: Calendar, component: DaybookView, color: '#3b82f6', description: 'View daily transaction records' },
