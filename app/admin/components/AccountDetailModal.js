@@ -1152,6 +1152,7 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
                     {activeTab === 'jobs' && (
                         <CustomerJobsTab 
                             customerId={account.id} 
+                            account={account}
                             onClose={onClose} 
                         />
                     )}

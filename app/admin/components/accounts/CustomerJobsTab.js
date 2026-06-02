@@ -1,31 +1,33 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Loader2, Briefcase } from 'lucide-react';
+import { Loader2, Briefcase, Plus } from 'lucide-react';
 import { jobsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
+import CreateJobForm from '../CreateJobForm';
 
-function CustomerJobsTab({ customerId, onClose }) {
+function CustomerJobsTab({ customerId, account, onClose }) {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [showCreateJob, setShowCreateJob] = useState(false);
+
+    const fetchJobs = async () => {
+        if (!customerId) return;
+        try {
+            setLoading(true);
+            // The GET /api/admin/jobs supports customer_id filter via API service
+            const data = await jobsAPI.getAll({ customer_id: customerId });
+            setJobs(data || []);
+        } catch (err) {
+            console.error(err);
+            setError('Failed to load jobs');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchJobs = async () => {
-            if (!customerId) return;
-            try {
-                setLoading(true);
-                // The GET /api/admin/jobs supports customer_id filter via API service
-                const data = await jobsAPI.getAll({ customer_id: customerId });
-                setJobs(data || []);
-            } catch (err) {
-                console.error(err);
-                setError('Failed to load jobs');
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchJobs();
     }, [customerId]);
 
@@ -75,76 +77,101 @@ function CustomerJobsTab({ customerId, onClose }) {
         );
     }
 
-    if (jobs.length === 0) {
-        return (
-            <div style={{
-                padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-sm)', minHeight: '300px', justifyContent: 'center'
-            }}>
-                <Briefcase size={48} style={{ opacity: 0.2 }} />
-                <h3>No Jobs Found</h3>
-                <p>There are no jobs associated with this account.</p>
-            </div>
-        );
-    }
-
     // Sort jobs by created_at descending
     const sortedJobs = [...jobs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
-            <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                Jobs History ({jobs.length})
-            </h3>
-
-            <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
-                    <thead>
-                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
-                            <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Job ID</th>
-                            <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Category</th>
-                            <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Date</th>
-                            <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Amount</th>
-                            <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Status</th>
-                            <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Technician</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedJobs.map((job) => (
-                            <tr
-                                key={job.id}
-                                onClick={() => handleJobClick(job)}
-                                style={{
-                                    borderBottom: '1px solid var(--border-primary)',
-                                    cursor: 'pointer',
-                                    transition: 'background-color 0.2s'
-                                }}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                                <td style={{ padding: 'var(--spacing-md)', fontWeight: 500, color: 'var(--color-primary)' }}>
-                                    {job.job_number || 'N/A'}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-md)' }}>
-                                    {job.category || 'N/A'}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-md)' }}>
-                                    {new Date(job.created_at).toLocaleDateString()}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>
-                                    {formatCurrency(job.amount || 0)}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-md)' }}>
-                                    {renderStatusBadge(job.status)}
-                                </td>
-                                <td style={{ padding: 'var(--spacing-md)' }}>
-                                    {job.technician?.name || 'Unassigned'}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                <h3 style={{ fontSize: 'var(--font-size-md)', fontWeight: 600, margin: 0 }}>
+                    Jobs History ({jobs.length})
+                </h3>
+                <button 
+                    className="btn btn-primary" 
+                    onClick={() => setShowCreateJob(true)}
+                    style={{ 
+                        fontSize: 'var(--font-size-sm)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 'var(--spacing-xs)'
+                    }}
+                >
+                    <Plus size={16} />
+                    Create New Job
+                </button>
             </div>
+
+            {jobs.length === 0 ? (
+                <div style={{
+                    padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--spacing-sm)', minHeight: '200px', justifyContent: 'center',
+                    border: '1px dashed var(--border-primary)', borderRadius: 'var(--radius-md)'
+                }}>
+                    <Briefcase size={48} style={{ opacity: 0.2 }} />
+                    <h3 style={{ margin: 0 }}>No Jobs Found</h3>
+                    <p style={{ margin: 0 }}>There are no jobs associated with this account.</p>
+                </div>
+            ) : (
+                <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Job ID</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Category</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Date</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Amount</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Status</th>
+                                <th style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>Technician</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {sortedJobs.map((job) => (
+                                <tr
+                                    key={job.id}
+                                    onClick={() => handleJobClick(job)}
+                                    style={{
+                                        borderBottom: '1px solid var(--border-primary)',
+                                        cursor: 'pointer',
+                                        transition: 'background-color 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    <td style={{ padding: 'var(--spacing-md)', fontWeight: 500, color: 'var(--color-primary)' }}>
+                                        {job.job_number || 'N/A'}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-md)' }}>
+                                        {job.category || 'N/A'}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-md)' }}>
+                                        {new Date(job.created_at).toLocaleDateString()}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-md)', fontWeight: 600 }}>
+                                        {formatCurrency(job.amount || 0)}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-md)' }}>
+                                        {renderStatusBadge(job.status)}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-md)' }}>
+                                        {job.technician?.name || 'Unassigned'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            {showCreateJob && (
+                <CreateJobForm 
+                    existingJob={{ customer: account, customer_id: account?.id }} 
+                    onClose={() => setShowCreateJob(false)} 
+                    onCreate={() => {
+                        setShowCreateJob(false);
+                        fetchJobs(); // Trigger refresh on jobs list
+                    }} 
+                />
+            )}
         </div>
     );
 }
