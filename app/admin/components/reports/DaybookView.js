@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, RefreshCcw, FileText, Info, ChevronDown, Check, ArrowLeft, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
-import { transactionsAPI } from '@/lib/adminAPI';
+import { transactionsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import { formatCurrency } from '@/lib/utils/accountingHelpers';
 
 // ── Helper: Normalize raw DB row into display-ready shape ───────────────────
@@ -98,16 +98,24 @@ function DaybookView() {
     const [selectedTransaction, setSelectedTransaction] = useState(null);
     const [editMode, setEditMode] = useState(false);
     
+    // Print settings and export dropdown states
+    const [printSettings, setPrintSettings] = useState(null);
+    const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+    const exportRef = useRef(null);
+    
     // Custom views
     const [activeView, setActiveView] = useState(null); // null, 'money-in', 'money-out', 'summary'
     const [moneyInFilter, setMoneyInFilter] = useState('all'); // 'all', 'cash', 'bank'
     const [moneyOutFilter, setMoneyOutFilter] = useState('all'); // 'all', 'cash', 'bank'
 
-    // Close filter dropdown on outside click
+    // Close dropdowns on outside click
     useEffect(() => {
         const handleClick = (e) => {
             if (filterRef.current && !filterRef.current.contains(e.target)) {
                 setFilterOpen(false);
+            }
+            if (exportRef.current && !exportRef.current.contains(e.target)) {
+                setExportDropdownOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClick);
@@ -130,15 +138,17 @@ function DaybookView() {
             setLoading(true);
             setError(null);
 
-            const [data, ob, acctsRes] = await Promise.all([
+            const [data, ob, acctsRes, settingsRes] = await Promise.all([
                 transactionsAPI.getAll({ type: 'all', start_date: startDate, end_date: endDate }),
                 fetchOpeningBalance(startDate),
                 fetch('/api/admin/accounts?type=payment_method').then(r => r.json()),
+                printSettingsAPI.get().catch(() => null),
             ]);
 
             setTransactions((data || []).map(normalizeTransaction));
             setOpeningBalance(ob);
             setAccounts(acctsRes?.data || []);
+            setPrintSettings(settingsRes || {});
         } catch (err) {
             console.error('Failed to fetch transactions:', err);
             setError('Failed to load transactions');
@@ -305,6 +315,70 @@ function DaybookView() {
         payment: 'Payment'
     }[type] || type);
 
+    const handleExportCSV = () => {
+        if (activeView === 'money-in') {
+            const headers = ['Date', 'Receipt No', 'Received From', 'Deposit Account', 'Narration', 'Amount'];
+            const rows = visibleReceipts.map(txn => {
+                const acct = accounts.find(a => a.id === txn.payment_account_id);
+                const acctName = acct ? acct.name : (txn.payment_mode || '—');
+                return [
+                    new Date(txn.date).toLocaleDateString('en-GB'),
+                    txn.voucherNo,
+                    txn.account,
+                    acctName,
+                    (txn.narration || '').replace(/,/g, ' '),
+                    txn.amount.toFixed(2),
+                ];
+            });
+            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Receipts_${startDate}_to_${endDate}.csv`;
+            a.click();
+        } else if (activeView === 'money-out') {
+            const headers = ['Date', 'Payment No', 'Paid To', 'Payment Account', 'Narration', 'Amount'];
+            const rows = visiblePayments.map(txn => {
+                const acct = accounts.find(a => a.id === txn.payment_account_id);
+                const acctName = acct ? acct.name : (txn.payment_mode || '—');
+                return [
+                    new Date(txn.date).toLocaleDateString('en-GB'),
+                    txn.voucherNo,
+                    txn.account,
+                    acctName,
+                    (txn.narration || '').replace(/,/g, ' '),
+                    txn.amount.toFixed(2),
+                ];
+            });
+            const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Payments_${startDate}_to_${endDate}.csv`;
+            a.click();
+        } else {
+            const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
+            const obRow = ['', 'Opening Balance', '', '', '', '', '', openingBalance.toFixed(2)];
+            const rows = processedTransactions.map(txn => [
+                new Date(txn.date).toLocaleDateString('en-GB'),
+                txn.type,
+                txn.voucherNo,
+                txn.account,
+                (txn.narration || '').replace(/,/g, ' '),
+                txn.debit.toFixed(2),
+                txn.credit.toFixed(2),
+                txn.balance.toFixed(2),
+            ]);
+            const cbRow = ['', 'Closing Balance', '', '', '', totals.debit.toFixed(2), totals.credit.toFixed(2), closingBalance.toFixed(2)];
+            const csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Daybook_${startDate}_to_${endDate}.csv`;
+            a.click();
+        }
+    };
+
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Filters Row */}
@@ -466,76 +540,60 @@ function DaybookView() {
                         <RefreshCcw size={16} className={loading ? 'spin' : ''} />
                         {loading ? 'Refreshing...' : 'Refresh'}
                     </button>
-                    <button
-                        className="btn btn-secondary"
-                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                        onClick={() => {
-                            if (activeView === 'money-in') {
-                                const headers = ['Date', 'Receipt No', 'Received From', 'Deposit Account', 'Narration', 'Amount'];
-                                const rows = visibleReceipts.map(txn => {
-                                    const acct = accounts.find(a => a.id === txn.payment_account_id);
-                                    const acctName = acct ? acct.name : (txn.payment_mode || '—');
-                                    return [
-                                        new Date(txn.date).toLocaleDateString('en-GB'),
-                                        txn.voucherNo,
-                                        txn.account,
-                                        acctName,
-                                        (txn.narration || '').replace(/,/g, ' '),
-                                        txn.amount.toFixed(2),
-                                    ];
-                                });
-                                const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-                                const blob = new Blob([csv], { type: 'text/csv' });
-                                const a = document.createElement('a');
-                                a.href = URL.createObjectURL(blob);
-                                a.download = `Receipts_${startDate}_to_${endDate}.csv`;
-                                a.click();
-                            } else if (activeView === 'money-out') {
-                                const headers = ['Date', 'Payment No', 'Paid To', 'Payment Account', 'Narration', 'Amount'];
-                                const rows = visiblePayments.map(txn => {
-                                    const acct = accounts.find(a => a.id === txn.payment_account_id);
-                                    const acctName = acct ? acct.name : (txn.payment_mode || '—');
-                                    return [
-                                        new Date(txn.date).toLocaleDateString('en-GB'),
-                                        txn.voucherNo,
-                                        txn.account,
-                                        acctName,
-                                        (txn.narration || '').replace(/,/g, ' '),
-                                        txn.amount.toFixed(2),
-                                    ];
-                                });
-                                const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
-                                const blob = new Blob([csv], { type: 'text/csv' });
-                                const a = document.createElement('a');
-                                a.href = URL.createObjectURL(blob);
-                                a.download = `Payments_${startDate}_to_${endDate}.csv`;
-                                a.click();
-                            } else {
-                                const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
-                                const obRow = ['', 'Opening Balance', '', '', '', '', '', openingBalance.toFixed(2)];
-                                const rows = processedTransactions.map(txn => [
-                                    new Date(txn.date).toLocaleDateString('en-GB'),
-                                    txn.type,
-                                    txn.voucherNo,
-                                    txn.account,
-                                    (txn.narration || '').replace(/,/g, ' '),
-                                    txn.debit.toFixed(2),
-                                    txn.credit.toFixed(2),
-                                    txn.balance.toFixed(2),
-                                ]);
-                                const cbRow = ['', 'Closing Balance', '', '', '', totals.debit.toFixed(2), totals.credit.toFixed(2), closingBalance.toFixed(2)];
-                                const csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
-                                const blob = new Blob([csv], { type: 'text/csv' });
-                                const a = document.createElement('a');
-                                a.href = URL.createObjectURL(blob);
-                                a.download = `Daybook_${startDate}_to_${endDate}.csv`;
-                                a.click();
-                            }
-                        }}
-                    >
-                        <Download size={16} />
-                        Export
-                    </button>
+                    <div ref={exportRef} style={{ position: 'relative' }}>
+                        <button
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                            onClick={() => setExportDropdownOpen(v => !v)}
+                        >
+                            <Download size={16} />
+                            Export
+                            <ChevronDown size={13} style={{ opacity: 0.6, transform: exportDropdownOpen ? 'rotate(180deg)' : 'none', transition: '0.2s' }} />
+                        </button>
+                        {exportDropdownOpen && (
+                            <div style={{
+                                position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                                backgroundColor: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.35)',
+                                zIndex: 999, minWidth: 160, overflow: 'hidden',
+                            }}>
+                                <button
+                                    onClick={() => {
+                                        setExportDropdownOpen(false);
+                                        handleExportCSV();
+                                    }}
+                                    style={{
+                                        display: 'block', width: '100%', padding: '10px 16px',
+                                        textAlign: 'left', background: 'none', border: 'none',
+                                        fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)',
+                                        cursor: 'pointer', transition: 'background 0.12s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    Export as CSV
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setExportDropdownOpen(false);
+                                        window.print();
+                                    }}
+                                    style={{
+                                        display: 'block', width: '100%', padding: '10px 16px',
+                                        textAlign: 'left', background: 'none', border: 'none',
+                                        fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)',
+                                        cursor: 'pointer', borderTop: '1px solid var(--border-primary)',
+                                        transition: 'background 0.12s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+                                >
+                                    Export as PDF (A4)
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <button
                         className="btn btn-secondary"
                         style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
@@ -1222,6 +1280,346 @@ function DaybookView() {
                     </div>
                 </div>
             )}
+
+            {/* Printable PDF layout */}
+            <div className="daybook-print-container" style={{ display: 'none' }}>
+                <div style={{ 
+                    padding: '20mm', 
+                    fontFamily: 'Arial, sans-serif', 
+                    color: '#000000', 
+                    backgroundColor: '#ffffff',
+                    fontSize: '12px',
+                    lineHeight: '1.5'
+                }}>
+                    {/* Company Header */}
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'flex-start',
+                        borderBottom: '2px solid #1e293b',
+                        paddingBottom: '15px',
+                        marginBottom: '20px'
+                    }}>
+                        <div>
+                            {printSettings?.logo_url && (
+                                <img src={printSettings.logo_url} alt="Logo" style={{ height: '40px', marginBottom: '8px' }} />
+                            )}
+                            <h1 style={{ margin: 0, fontSize: '18px', color: '#0f172a', fontWeight: 700 }}>
+                                {printSettings?.company_name || 'Sorted Solutions'}
+                            </h1>
+                            <p style={{ margin: '3px 0', fontSize: '10px', color: '#475569', whiteSpace: 'pre-wrap' }}>
+                                {printSettings?.company_address}
+                            </p>
+                            <p style={{ margin: '3px 0', fontSize: '10px', color: '#475569' }}>
+                                Phone: {printSettings?.company_phone} | Email: {printSettings?.company_email}
+                            </p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <h2 style={{ margin: 0, fontSize: '20px', color: '#0f172a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                                {activeView === 'money-in' ? 'Receipts (Money In)' : activeView === 'money-out' ? 'Payments (Money Out)' : 'Daybook Ledger'}
+                            </h2>
+                            <div style={{ marginTop: '10px', fontSize: '11px', color: '#334155' }}>
+                                <b>Period:</b> {new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} to {new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </div>
+                            <div style={{ fontSize: '9px', color: '#64748b', marginTop: '4px' }}>
+                                Generated: {new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PDF View Dynamic Content */}
+                    {activeView === 'money-in' ? (
+                        <div>
+                            {/* Receipts Bifurcation Card */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                                <div style={{ padding: '12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>Cash Receipts</div>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#10b981' }}>{formatCurrency(moneyInBifurcation.cash)}</div>
+                                </div>
+                                <div style={{ padding: '12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>Bank Receipts</div>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#3b82f6' }}>{formatCurrency(moneyInBifurcation.bank)}</div>
+                                </div>
+                            </div>
+
+                            <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Deposit Accounts Breakdown
+                            </h3>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155' }}>Account Name</th>
+                                        <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#334155', width: '150px' }}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {moneyInBifurcation.details.map((item, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '8px' }}>{item.name}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>{formatCurrency(item.amount)}</td>
+                                        </tr>
+                                    ))}
+                                    {moneyInBifurcation.details.length === 0 && (
+                                        <tr>
+                                            <td colSpan={2} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>No receipts recorded</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+
+                            <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Receipts List ({moneyInFilter === 'all' ? 'All' : moneyInFilter === 'cash' ? 'Cash Mode' : 'Bank Mode'})
+                            </h3>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Date</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Receipt No</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Received From</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Deposit Account</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Narration</th>
+                                        <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#334155', fontSize: '11px', width: '120px' }}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {visibleReceipts.map((txn, idx) => {
+                                        const acct = accounts.find(a => a.id === txn.payment_account_id);
+                                        const acctName = acct ? acct.name : (txn.payment_mode || '—');
+                                        return (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                    {new Date(txn.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </td>
+                                                <td style={{ padding: '8px', fontFamily: 'monospace' }}>{txn.voucherNo}</td>
+                                                <td style={{ padding: '8px', fontWeight: 500 }}>{txn.account}</td>
+                                                <td style={{ padding: '8px', color: '#475569' }}>{acctName}</td>
+                                                <td style={{ padding: '8px', color: '#475569' }}>{txn.narration}</td>
+                                                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>{formatCurrency(txn.amount)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {visibleReceipts.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No matching receipts found</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : activeView === 'money-out' ? (
+                        <div>
+                            {/* Payments Bifurcation Card */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
+                                <div style={{ padding: '12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>Cash Payments</div>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#ef4444' }}>{formatCurrency(moneyOutBifurcation.cash)}</div>
+                                </div>
+                                <div style={{ padding: '12px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '10px', color: '#64748b', marginBottom: '4px', fontWeight: 600 }}>Bank Payments</div>
+                                    <div style={{ fontSize: '16px', fontWeight: 700, color: '#3b82f6' }}>{formatCurrency(moneyOutBifurcation.bank)}</div>
+                                </div>
+                            </div>
+
+                            <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Payment Accounts Breakdown
+                            </h3>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155' }}>Account Name</th>
+                                        <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#334155', width: '150px' }}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {moneyOutBifurcation.details.map((item, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '8px' }}>{item.name}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>{formatCurrency(item.amount)}</td>
+                                        </tr>
+                                    ))}
+                                    {moneyOutBifurcation.details.length === 0 && (
+                                        <tr>
+                                            <td colSpan={2} style={{ padding: '12px', textAlign: 'center', color: '#64748b' }}>No payments recorded</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+
+                            <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Payments List ({moneyOutFilter === 'all' ? 'All' : moneyOutFilter === 'cash' ? 'Cash Mode' : 'Bank Mode'})
+                            </h3>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Date</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Payment No</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Paid To</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Payment Account</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Narration</th>
+                                        <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#334155', fontSize: '11px', width: '120px' }}>Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {visiblePayments.map((txn, idx) => {
+                                        const acct = accounts.find(a => a.id === txn.payment_account_id);
+                                        const acctName = acct ? acct.name : (txn.payment_mode || '—');
+                                        return (
+                                            <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                                <td style={{ padding: '8px' }}>
+                                                    {new Date(txn.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                </td>
+                                                <td style={{ padding: '8px', fontFamily: 'monospace' }}>{txn.voucherNo}</td>
+                                                <td style={{ padding: '8px', fontWeight: 500 }}>{txn.account}</td>
+                                                <td style={{ padding: '8px', color: '#475569' }}>{acctName}</td>
+                                                <td style={{ padding: '8px', color: '#475569' }}>{txn.narration}</td>
+                                                <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>{formatCurrency(txn.amount)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {visiblePayments.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ padding: '16px', textAlign: 'center', color: '#64748b' }}>No matching payments found</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div>
+                            {/* Summary Metrics */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', marginBottom: '20px' }}>
+                                <div style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '3px', fontWeight: 600 }}>Opening Balance</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: openingBalance >= 0 ? '#10b981' : '#ef4444' }}>
+                                        {formatCurrency(Math.abs(openingBalance))} {openingBalance >= 0 ? 'Dr' : 'Cr'}
+                                    </div>
+                                </div>
+                                <div style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '3px', fontWeight: 600 }}>Total Debit (In)</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#ef4444' }}>{formatCurrency(totals.debit)}</div>
+                                </div>
+                                <div style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '3px', fontWeight: 600 }}>Total Credit (Out)</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#10b981' }}>{formatCurrency(totals.credit)}</div>
+                                </div>
+                                <div style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                                    <div style={{ fontSize: '9px', color: '#64748b', marginBottom: '3px', fontWeight: 600 }}>Closing Balance</div>
+                                    <div style={{ fontSize: '13px', fontWeight: 700, color: closingBalance >= 0 ? '#10b981' : '#ef4444' }}>
+                                        {formatCurrency(Math.abs(closingBalance))} {closingBalance >= 0 ? 'Dr' : 'Cr'}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                Transaction Ledger List
+                            </h3>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Date</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px', width: '80px' }}>Type</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px', width: '100px' }}>Voucher No</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Account</th>
+                                        <th style={{ padding: '8px', textAlign: 'left', fontWeight: 600, color: '#334155', fontSize: '11px' }}>Narration</th>
+                                        <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#334155', fontSize: '11px', width: '100px' }}>Debit</th>
+                                        <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#334155', fontSize: '11px', width: '100px' }}>Credit</th>
+                                        <th style={{ padding: '8px', textAlign: 'right', fontWeight: 600, color: '#334155', fontSize: '11px', width: '110px' }}>Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {/* Opening Row */}
+                                    <tr style={{ backgroundColor: 'rgba(99,102,241,0.05)', borderBottom: '1px solid #e2e8f0', fontStyle: 'italic' }}>
+                                        <td style={{ padding: '8px' }}>
+                                            {new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </td>
+                                        <td colSpan={6} style={{ padding: '8px', fontWeight: 600 }}>Opening Balance</td>
+                                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>
+                                            {formatCurrency(Math.abs(openingBalance))} {openingBalance >= 0 ? 'Dr' : 'Cr'}
+                                        </td>
+                                    </tr>
+
+                                    {/* Txn Rows */}
+                                    {processedTransactions.map((txn, idx) => (
+                                        <tr key={idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                            <td style={{ padding: '8px' }}>
+                                                {new Date(txn.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </td>
+                                            <td style={{ padding: '8px', textTransform: 'capitalize', fontWeight: 600, fontSize: '10px' }}>{txn.type}</td>
+                                            <td style={{ padding: '8px', fontFamily: 'monospace' }}>{txn.voucherNo}</td>
+                                            <td style={{ padding: '8px', fontWeight: 500 }}>{txn.account}</td>
+                                            <td style={{ padding: '8px', color: '#475569' }}>{txn.narration}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', color: '#ef4444' }}>{txn.debit > 0 ? formatCurrency(txn.debit) : '—'}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', color: '#10b981' }}>{txn.credit > 0 ? formatCurrency(txn.credit) : '—'}</td>
+                                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: 600 }}>
+                                                {formatCurrency(Math.abs(txn.balance))} {txn.balance >= 0 ? 'Dr' : 'Cr'}
+                                            </td>
+                                        </tr>
+                                    ))}
+
+                                    {/* Period Totals */}
+                                    <tr style={{ backgroundColor: '#f1f5f9', borderTop: '2px solid #cbd5e1', fontWeight: 700 }}>
+                                        <td colSpan={5} style={{ padding: '8px', textAlign: 'right' }}>Period Totals:</td>
+                                        <td style={{ padding: '8px', textAlign: 'right', color: '#ef4444' }}>{formatCurrency(totals.debit)}</td>
+                                        <td style={{ padding: '8px', textAlign: 'right', color: '#10b981' }}>{formatCurrency(totals.credit)}</td>
+                                        <td style={{ padding: '8px', textAlign: 'right' }}>
+                                            Net: {formatCurrency(Math.abs(totals.debit - totals.credit))} {totals.debit >= totals.credit ? 'Dr' : 'Cr'}
+                                        </td>
+                                    </tr>
+
+                                    {/* Closing Row */}
+                                    <tr style={{ backgroundColor: 'rgba(99,102,241,0.05)', borderTop: '1px solid #e2e8f0', fontWeight: 700 }}>
+                                        <td style={{ padding: '8px' }}>
+                                            {new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                        </td>
+                                        <td colSpan={6} style={{ padding: '8px', fontStyle: 'italic' }}>Closing Balance</td>
+                                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700 }}>
+                                            {formatCurrency(Math.abs(closingBalance))} {closingBalance >= 0 ? 'Dr' : 'Cr'}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Print CSS Injection */}
+            <style jsx global>{`
+                @media print {
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    .daybook-print-container,
+                    .daybook-print-container * {
+                        visibility: visible !important;
+                    }
+                    .daybook-print-container {
+                        display: block !important;
+                        position: absolute !important;
+                        left: 0 !important;
+                        top: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        background-color: #ffffff !important;
+                        color: #000000 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        box-shadow: none !important;
+                    }
+                    @page {
+                        size: A4 portrait !important;
+                        margin: 15mm !important;
+                    }
+                    th {
+                        background-color: #f1f5f9 !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
+                    }
+                    tr {
+                        page-break-inside: avoid !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }
