@@ -166,9 +166,14 @@ function CustomerJobsTab({ customerId, account, onClose }) {
                 <CreateJobForm 
                     existingJob={{ customer: account, customer_id: account?.id }} 
                     onClose={() => setShowCreateJob(false)} 
-                    onCreate={() => {
-                        setShowCreateJob(false);
-                        fetchJobs(); // Trigger refresh on jobs list
+                    onCreate={async (newJob) => {
+                        try {
+                            await jobsAPI.create(newJob);
+                            setShowCreateJob(false);
+                            fetchJobs(); // Trigger refresh on jobs list
+                        } catch (err) {
+                            alert('Failed to create job: ' + err.message);
+                        }
                     }} 
                 />
             )}
