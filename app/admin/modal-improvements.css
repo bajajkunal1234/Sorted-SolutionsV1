@@ -511,4 +511,54 @@ button[class*="cancel"]:hover,
         flex: 1 1 auto !important;
         justify-content: center !important;
     }
+
+    /* Daybook Mobile Adjustments */
+    .daybook-filters-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--spacing-sm) !important;
+    }
+
+    .daybook-filters-row .flex-spacer {
+        display: none !important;
+    }
+
+    .daybook-filters-row .date-range-container {
+        display: flex !important;
+        width: 100% !important;
+        align-items: center !important;
+        gap: var(--spacing-xs) !important;
+    }
+
+    .daybook-filters-row .date-range-container input {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+
+    .daybook-filters-row .daybook-actions-container {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: var(--spacing-xs) !important;
+        width: 100% !important;
+    }
+
+    .daybook-filters-row .daybook-actions-container button {
+        flex: 1 1 auto !important;
+        justify-content: center !important;
+    }
+
+    .daybook-summary-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: var(--spacing-sm) !important;
+    }
+
+    .daybook-summary-grid > :last-child {
+        grid-column: span 2 !important;
+    }
+
+    .daybook-table td,
+    .daybook-table th {
+        padding: var(--spacing-xs) !important;
+        font-size: var(--font-size-xs) !important;
+    }
 }

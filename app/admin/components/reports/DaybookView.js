@@ -190,7 +190,7 @@ function DaybookView() {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Filters Row */}
-            <div style={{
+            <div className="daybook-filters-row" style={{
                 padding: 'var(--spacing-md)',
                 backgroundColor: 'var(--bg-elevated)',
                 borderBottom: '1px solid var(--border-primary)',
@@ -200,7 +200,7 @@ function DaybookView() {
                 alignItems: 'center'
             }}>
                 {/* Date Range */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                <div className="date-range-container" style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                     <Calendar size={16} style={{ color: 'var(--text-tertiary)' }} />
                     <input
                         type="date"
@@ -336,57 +336,59 @@ function DaybookView() {
                     )}
                 </div>
 
-                <div style={{ flex: 1 }} />
+                <div className="flex-spacer" style={{ flex: 1 }} />
 
-                <button
-                    className={`btn ${loading ? 'btn-secondary' : 'btn-primary'}`}
-                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                    onClick={fetchTransactions}
-                    disabled={loading}
-                >
-                    <RefreshCcw size={16} className={loading ? 'spin' : ''} />
-                    {loading ? 'Refreshing...' : 'Refresh'}
-                </button>
-                <button
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                    onClick={() => {
-                        const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
-                        const obRow = ['', 'Opening Balance', '', '', '', '', '', openingBalance.toFixed(2)];
-                        const rows = processedTransactions.map(txn => [
-                            new Date(txn.date).toLocaleDateString('en-GB'),
-                            txn.type,
-                            txn.voucherNo,
-                            txn.account,
-                            (txn.narration || '').replace(/,/g, ' '),
-                            txn.debit.toFixed(2),
-                            txn.credit.toFixed(2),
-                            txn.balance.toFixed(2),
-                        ]);
-                        const cbRow = ['', 'Closing Balance', '', '', '', totals.debit.toFixed(2), totals.credit.toFixed(2), closingBalance.toFixed(2)];
-                        const csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv' });
-                        const a = document.createElement('a');
-                        a.href = URL.createObjectURL(blob);
-                        a.download = `Daybook_${startDate}_to_${endDate}.csv`;
-                        a.click();
-                    }}
-                >
-                    <Download size={16} />
-                    Export
-                </button>
-                <button
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                    onClick={() => window.print()}
-                >
-                    <Printer size={16} />
-                    Print
-                </button>
+                <div className="daybook-actions-container" style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+                    <button
+                        className={`btn ${loading ? 'btn-secondary' : 'btn-primary'}`}
+                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                        onClick={fetchTransactions}
+                        disabled={loading}
+                    >
+                        <RefreshCcw size={16} className={loading ? 'spin' : ''} />
+                        {loading ? 'Refreshing...' : 'Refresh'}
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                        onClick={() => {
+                            const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
+                            const obRow = ['', 'Opening Balance', '', '', '', '', '', openingBalance.toFixed(2)];
+                            const rows = processedTransactions.map(txn => [
+                                new Date(txn.date).toLocaleDateString('en-GB'),
+                                txn.type,
+                                txn.voucherNo,
+                                txn.account,
+                                (txn.narration || '').replace(/,/g, ' '),
+                                txn.debit.toFixed(2),
+                                txn.credit.toFixed(2),
+                                txn.balance.toFixed(2),
+                            ]);
+                            const cbRow = ['', 'Closing Balance', '', '', '', totals.debit.toFixed(2), totals.credit.toFixed(2), closingBalance.toFixed(2)];
+                            const csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
+                            const blob = new Blob([csv], { type: 'text/csv' });
+                            const a = document.createElement('a');
+                            a.href = URL.createObjectURL(blob);
+                            a.download = `Daybook_${startDate}_to_${endDate}.csv`;
+                            a.click();
+                        }}
+                    >
+                        <Download size={16} />
+                        Export
+                    </button>
+                    <button
+                        className="btn btn-secondary"
+                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                        onClick={() => window.print()}
+                    >
+                        <Printer size={16} />
+                        Print
+                    </button>
+                </div>
             </div>
 
             {/* Summary Cards */}
-            <div style={{
+            <div className="daybook-summary-grid" style={{
                 padding: 'var(--spacing-md)',
                 backgroundColor: 'var(--bg-secondary)',
                 borderBottom: '1px solid var(--border-primary)',
@@ -474,7 +476,7 @@ function DaybookView() {
             </div>
 
             {/* Content Area */}
-            <div style={{ flex: 1, overflow: 'auto', position: 'relative', padding: 'var(--spacing-md)' }}>
+            <div className="table-container" style={{ flex: 1, overflow: 'auto', position: 'relative', padding: 'var(--spacing-md)' }}>
                 {loading && transactions.length === 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)' }}>
                         <RefreshCcw size={48} className="spin" style={{ marginBottom: 'var(--spacing-md)', opacity: 0.5 }} />
@@ -486,7 +488,7 @@ function DaybookView() {
                         <button className="btn btn-primary" onClick={fetchTransactions} style={{ marginTop: 'var(--spacing-md)' }}>Retry</button>
                     </div>
                 ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                    <table className="daybook-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                         <thead>
                             <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', position: 'sticky', top: 0 }}>
                                 <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Date</th>
@@ -619,22 +621,24 @@ function DaybookView() {
 
             {/* Transaction Detail Modal */}
             {selectedTransaction && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    zIndex: 1000, padding: 'var(--spacing-md)'
-                }}
+                <div className="modal-overlay"
+                    style={{
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: 'var(--spacing-md)'
+                    }}
                     onClick={() => { setSelectedTransaction(null); setEditMode(false); }}
                 >
-                    <div style={{
-                        backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)',
-                        maxWidth: '600px', width: '100%', maxHeight: '90vh', overflow: 'auto'
-                    }}
+                    <div className="modal-container"
+                        style={{
+                            maxWidth: '600px',
+                            backgroundColor: 'var(--bg-primary)', borderRadius: 'var(--radius-lg)',
+                            width: '100%', overflow: 'hidden'
+                        }}
                         onClick={e => e.stopPropagation()}
                     >
-                        <div style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0 }}>Transaction Details</h3>
+                        <div className="modal-header" style={{ padding: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 className="modal-title" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0 }}>Transaction Details</h3>
                             <span style={{
                                 padding: '4px 10px', borderRadius: 'var(--radius-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 600,
                                 backgroundColor: `${getTypeColor(selectedTransaction.type)}20`, color: getTypeColor(selectedTransaction.type), textTransform: 'capitalize'
@@ -642,7 +646,7 @@ function DaybookView() {
                                 {getTypeLabel(selectedTransaction.type)}
                             </span>
                         </div>
-                        <div style={{ padding: 'var(--spacing-lg)' }}>
+                        <div className="modal-body" style={{ padding: 'var(--spacing-lg)', overflowY: 'auto' }}>
                             <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
                                 <div>
                                     <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 4 }}>Voucher No</label>
