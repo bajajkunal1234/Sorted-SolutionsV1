@@ -173,6 +173,8 @@ function CustomerJobsTab({ customerId, account, onClose }) {
                             fetchJobs(); // Trigger refresh on jobs list
                         } catch (err) {
                             alert('Failed to create job: ' + err.message);
+                            console.error('Error in jobsAPI.create:', err);
+                            throw err; // Rethrow to prevent form closing
                         }
                     }} 
                 />
