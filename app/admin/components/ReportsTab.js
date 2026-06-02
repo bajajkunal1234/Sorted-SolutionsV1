@@ -84,9 +84,11 @@ function ReportsTab() {
         const nextMode = !isDarkMode;
         setIsDarkMode(nextMode);
         if (nextMode) {
-            document.documentElement.removeAttribute('data-theme');
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
         } else {
             document.documentElement.setAttribute('data-theme', 'light');
+            localStorage.setItem('theme', 'light');
         }
     };
 

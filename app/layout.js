@@ -71,7 +71,14 @@ export default function RootLayout({ children }) {
                         __html: `
                             (function() {
                                 try {
-                                    const theme = localStorage.getItem('theme') || 'light';
+                                    const path = window.location.pathname;
+                                    const isAppPath = path.startsWith('/admin') || 
+                                                       path.startsWith('/technician') || 
+                                                       path.startsWith('/tech') || 
+                                                       path.startsWith('/customer') || 
+                                                       path.startsWith('/login');
+                                    const defaultTheme = isAppPath ? 'dark' : 'light';
+                                    const theme = localStorage.getItem('theme') || defaultTheme;
                                     document.documentElement.setAttribute('data-theme', theme);
                                 } catch (e) {}
                             })();
