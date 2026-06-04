@@ -4,6 +4,201 @@ import { useState, useEffect } from 'react';
 import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3, Loader2, RefreshCcw, CreditCard } from 'lucide-react';
 import { techniciansAPI, websiteSettingsAPI, transactionsAPI } from '@/lib/adminAPI';
 
+const parseSlotStartTime = (slotStr) => {
+    if (!slotStr) return null;
+    const timeRegex = /(\d+)(?::(\d+))?\s*(am|pm)?/i;
+    const match = slotStr.match(timeRegex);
+    if (!match) return null;
+    
+    let hours = parseInt(match[1]);
+    let minutes = match[2] ? parseInt(match[2]) : 0;
+    const ampm = match[3] ? match[3].toLowerCase() : null;
+    
+    if (ampm === 'pm' && hours < 12) {
+        hours += 12;
+    } else if (ampm === 'am' && hours === 12) {
+        hours = 0;
+    }
+    return { hours, minutes };
+};
+
+const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, quotationsList, vouchersList) => {
+    const techJobs = jobsList.filter(j =>
+        (j.assigned_to === techId || j.technician_id === techId) &&
+        j.scheduled_date >= mStart && j.scheduled_date <= mEnd
+    );
+    const completedJobs = techJobs.filter(j => j.status === 'completed');
+    const totalJobs = techJobs.length;
+
+    const techInvoices = invoicesList.filter(inv =>
+        (inv.technician_id === techId) &&
+        inv.date >= mStart && inv.date <= mEnd
+    );
+    const monthlyRevenue = techInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+    const uniqueCustomers = new Set(techInvoices.map(inv => inv.account_id).filter(Boolean)).size;
+    const revenuePerCustomer = uniqueCustomers > 0 ? Math.round(monthlyRevenue / uniqueCustomers) : 0;
+    const workDays = new Set(completedJobs.map(j => j.scheduled_date)).size || 1;
+    const revenuePerDay = Math.round(monthlyRevenue / workDays);
+
+    let onTimeCount = 0, lateCount = 0, arrivedCount = 0;
+    completedJobs.forEach(j => {
+        const arrivedAt = j.arrived_at;
+        if (!arrivedAt || !j.scheduled_time) return;
+        arrivedCount++;
+        const arrivedDate = new Date(arrivedAt);
+        const timeParsed = parseSlotStartTime(j.scheduled_time);
+        if (timeParsed) {
+            const scheduledDt = new Date(j.scheduled_date);
+            scheduledDt.setHours(timeParsed.hours, timeParsed.minutes, 0, 0);
+            if (arrivedDate <= new Date(scheduledDt.getTime() + 15 * 60 * 1000)) {
+                onTimeCount++;
+            } else {
+                lateCount++;
+            }
+        } else {
+            const [hrs, mins] = j.scheduled_time.split(':').map(Number);
+            if (!isNaN(hrs)) {
+                const scheduledDt = new Date(j.scheduled_date);
+                scheduledDt.setHours(hrs || 0, mins || 0, 0, 0);
+                if (arrivedDate <= new Date(scheduledDt.getTime() + 15 * 60 * 1000)) {
+                    onTimeCount++;
+                } else {
+                    lateCount++;
+                }
+            } else {
+                onTimeCount++;
+            }
+        }
+    });
+    const onTimeVisits = arrivedCount > 0 ? Math.round((onTimeCount / arrivedCount) * 100) : 0;
+    const lateArrivals = arrivedCount > 0 ? Math.round((lateCount / arrivedCount) * 100) : 0;
+
+    const ratedJobs = completedJobs.filter(j => j.customer_rating > 0);
+    const goodRatings = ratedJobs.filter(j => j.customer_rating >= 4).length;
+    const badRatings = ratedJobs.filter(j => j.customer_rating < 4).length;
+    const feedbackAbove4 = ratedJobs.length > 0 ? Math.round((goodRatings / ratedJobs.length) * 100) : 0;
+    const feedbackBelow4 = ratedJobs.length > 0 ? Math.round((badRatings / ratedJobs.length) * 100) : 0;
+
+    const totalRating = ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0);
+    const avgRating = ratedJobs.length > 0 ? parseFloat((totalRating / ratedJobs.length).toFixed(1)) : 0;
+
+    let repeatCalls = 0;
+    completedJobs.forEach(job => {
+        const jobDate = new Date(job.scheduled_date);
+        const cutoff = new Date(jobDate.getTime() - 14 * 24 * 60 * 60 * 1000);
+        const priorJob = completedJobs.find(other =>
+            other.id !== job.id &&
+            other.customer_id === job.customer_id &&
+            new Date(other.scheduled_date) >= cutoff &&
+            new Date(other.scheduled_date) < jobDate
+        );
+        if (priorJob) repeatCalls++;
+    });
+    const repeatCallPercent = completedJobs.length > 0 ? Math.round((repeatCalls / completedJobs.length) * 100) : 0;
+
+    const techQuotes = quotationsList.filter(q =>
+        q.technician_id === techId &&
+        q.date >= mStart && q.date <= mEnd
+    );
+    const approvedQuotes = techQuotes.filter(q => q.status === 'approved' || q.status === 'finalized').length;
+    const quoteConversionRate = techQuotes.length > 0 ? Math.round((approvedQuotes / techQuotes.length) * 100) : 0;
+
+    let totalMinutes = 0, timedJobsCount = 0;
+    completedJobs.forEach(j => {
+        if (j.arrived_at && j.completed_at) {
+            const durationMs = new Date(j.completed_at) - new Date(j.arrived_at);
+            const durationMins = Math.round(durationMs / (60 * 1000));
+            if (durationMins > 0 && durationMins < 480) {
+                totalMinutes += durationMins;
+                timedJobsCount++;
+            }
+        }
+    });
+    const avgJobDuration = timedJobsCount > 0 ? Math.round(totalMinutes / timedJobsCount) : 0;
+
+    const monthPart = mStart.substring(0, 7);
+    const alreadyPaid = (vouchersList || [])
+        .filter(v => v.account_id === ledgerId && (v.notes || '').includes(monthPart))
+        .reduce((sum, v) => sum + (v.amount || 0), 0);
+
+    return {
+        onTimeVisits,
+        feedbackAbove4,
+        revenuePerCustomer,
+        revenuePerDay,
+        monthlyRevenue,
+        feedbackBelow4,
+        repeatCallPercent,
+        lateArrivals,
+        totalJobs,
+        completedJobs: completedJobs.length,
+        uniqueCustomers,
+        ratedJobs: ratedJobs.length,
+        arrivedJobs: arrivedCount,
+        quoteConversionRate,
+        avgJobDuration,
+        avgRating,
+        alreadyPaid
+    };
+};
+
+const computeIncentivesForTechsList = (techsList, paramsList) => {
+    return techsList.map(tech => {
+        let total = 0;
+        const breakdown = [];
+
+        paramsList.forEach(param => {
+            if (!param.enabled) return;
+
+            let metricValue = 0;
+            let qualifies = false;
+
+            const metrics = tech.currentMetrics;
+            switch (param.id) {
+                case 'p1': metricValue = metrics.onTimeVisits; qualifies = metricValue >= param.threshold; break;
+                case 'p2': metricValue = metrics.feedbackAbove4; qualifies = metricValue >= param.threshold; break;
+                case 'p3': metricValue = metrics.revenuePerCustomer; qualifies = metricValue >= param.threshold; break;
+                case 'p4': metricValue = metrics.revenuePerDay; qualifies = metricValue >= param.threshold; break;
+                case 'p5': metricValue = metrics.monthlyRevenue; qualifies = metricValue >= param.threshold; break;
+                case 'p6': metricValue = metrics.quoteConversionRate; qualifies = metricValue >= param.threshold; break;
+                case 'p7': metricValue = metrics.avgJobDuration; qualifies = metricValue > 0 && metricValue <= param.threshold; break;
+                case 'p8': metricValue = metrics.avgRating; qualifies = metricValue >= param.threshold; break;
+                case 'n1': metricValue = metrics.feedbackBelow4; qualifies = metricValue > param.threshold; break;
+                case 'n2': metricValue = metrics.repeatCallPercent; qualifies = metricValue > param.threshold; break;
+                case 'n3': metricValue = metrics.lateArrivals; qualifies = metricValue > param.threshold; break;
+            }
+
+            if (qualifies) {
+                let amount = 0;
+                if (param.rewardType === 'fixed') {
+                    amount = param.rewardValue;
+                } else {
+                    amount = (metricValue * param.rewardValue) / 100;
+                }
+
+                if (param.type === 'negative') {
+                    amount = -amount;
+                }
+
+                total += amount;
+                breakdown.push({
+                    parameter: param.name,
+                    type: param.type,
+                    metricValue,
+                    threshold: param.threshold,
+                    amount
+                });
+            }
+        });
+
+        return {
+            ...tech,
+            calculatedIncentive: Math.max(0, total),
+            breakdown
+        };
+    });
+};
+
 function IncentivesManagement() {
     const [activeView, setActiveView] = useState('configure'); // configure, performance, history
     const [showPolicyPdf, setShowPolicyPdf] = useState(false);
@@ -15,6 +210,74 @@ function IncentivesManagement() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [payingTechId, setPayingTechId] = useState(null);
+
+    const handlePrintPdf = (divId, title) => {
+        const content = document.getElementById(divId);
+        if (!content) return;
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>\${title}</title>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            color: #000000;
+                            background: #ffffff;
+                            padding: 40px;
+                        }
+                        h1 { margin: 0; font-size: 28px; color: #1e293b; text-align: center; }
+                        h3 { font-size: 18px; font-weight: 600; margin-bottom: 15px; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
+                        p { margin: 5px 0; font-size: 14px; color: #64748b; text-align: center; }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-top: 15px;
+                            font-size: 14px;
+                        }
+                        th, td {
+                            border: 1px solid #cbd5e1;
+                            padding: 10px;
+                            text-align: left;
+                        }
+                        th {
+                            background-color: #f1f5f9;
+                        }
+                        .text-right {
+                            text-align: right;
+                        }
+                        .text-center {
+                            text-align: center;
+                        }
+                        ul {
+                            font-size: 12px;
+                            color: #64748b;
+                            padding-left: 20px;
+                        }
+                        li {
+                            margin-bottom: 4px;
+                        }
+                        .footer {
+                            margin-top: 40px;
+                            padding-top: 20px;
+                            border-top: 2px solid #e2e8f0;
+                            font-size: 12px;
+                            color: #64748b;
+                            text-align: center;
+                        }
+                    </style>
+                </head>
+                <body>
+                    \${content.innerHTML}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        setTimeout(() => {
+            printWindow.print();
+            printWindow.close();
+        }, 300);
+    };
 
     // Incentive Parameters Configuration
     const [parameters, setParameters] = useState([]);
@@ -36,185 +299,146 @@ function IncentivesManagement() {
                 websiteSettingsAPI.getByKey('incentive-parameters')
             ]);
 
-            if (paramsData && paramsData.value) {
-                setParameters(paramsData.value);
-            } else {
-                setParameters([
-                    { id: 'p1', name: 'On-Time Visits %', type: 'positive', threshold: 95, rewardType: 'fixed', rewardValue: 5000, enabled: true },
-                    { id: 'p2', name: 'Customer Feedback (4+ stars)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 3000, enabled: true },
-                    { id: 'p3', name: 'Revenue Per Customer', type: 'positive', threshold: 2000, rewardType: 'percentage', rewardValue: 5, enabled: true },
-                    { id: 'p4', name: 'Revenue Per Day', type: 'positive', threshold: 5000, rewardType: 'percentage', rewardValue: 3, enabled: true },
-                    { id: 'p5', name: 'Monthly Revenue', type: 'positive', threshold: 100000, rewardType: 'fixed', rewardValue: 10000, enabled: true },
-                    { id: 'n1', name: 'Feedback Below 4 Stars', type: 'negative', threshold: 10, rewardType: 'fixed', rewardValue: 4000, enabled: true },
-                    { id: 'n2', name: 'Repeat Call %', type: 'negative', threshold: 15, rewardType: 'fixed', rewardValue: 2000, enabled: true },
-                    { id: 'n3', name: 'Late Arrivals %', type: 'negative', threshold: 10, rewardType: 'percentage', rewardValue: 10, enabled: true }
-                ]);
-            }
+            const defaultParams = [
+                { id: 'p1', name: 'On-Time Visits %', type: 'positive', threshold: 95, rewardType: 'fixed', rewardValue: 5000, enabled: true },
+                { id: 'p2', name: 'Customer Feedback (4+ stars)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 3000, enabled: true },
+                { id: 'p3', name: 'Revenue Per Customer', type: 'positive', threshold: 2000, rewardType: 'percentage', rewardValue: 5, enabled: true },
+                { id: 'p4', name: 'Revenue Per Day', type: 'positive', threshold: 5000, rewardType: 'percentage', rewardValue: 3, enabled: true },
+                { id: 'p5', name: 'Monthly Revenue', type: 'positive', threshold: 100000, rewardType: 'fixed', rewardValue: 10000, enabled: true },
+                { id: 'p6', name: 'Quotation Conversion %', type: 'positive', threshold: 70, rewardType: 'fixed', rewardValue: 3000, enabled: true },
+                { id: 'p7', name: 'Avg Job Duration (Mins)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 2000, enabled: true },
+                { id: 'p8', name: 'Average Rating (out of 5)', type: 'positive', threshold: 4.5, rewardType: 'fixed', rewardValue: 3000, enabled: true },
+                { id: 'n1', name: 'Feedback Below 4 Stars', type: 'negative', threshold: 10, rewardType: 'fixed', rewardValue: 4000, enabled: true },
+                { id: 'n2', name: 'Repeat Call %', type: 'negative', threshold: 15, rewardType: 'fixed', rewardValue: 2000, enabled: true },
+                { id: 'n3', name: 'Late Arrivals %', type: 'negative', threshold: 10, rewardType: 'percentage', rewardValue: 10, enabled: true }
+            ];
+
+            let loadedParams = paramsData && paramsData.value ? paramsData.value : defaultParams;
+            const mergedParams = [...loadedParams];
+            defaultParams.forEach(dp => {
+                if (!mergedParams.some(mp => mp.id === dp.id)) {
+                    mergedParams.push(dp);
+                }
+            });
+            setParameters(mergedParams);
 
             if (techsData && techsData.length > 0) {
-                // Build date range for the selected month
                 const [yr, mo] = activeMonth.split('-').map(Number);
                 const monthStart = `${activeMonth}-01`;
-                const monthEnd = new Date(yr, mo, 0).toISOString().split('T')[0]; // last day
+                const monthEnd = new Date(yr, mo, 0).toISOString().split('T')[0];
 
-                // Fetch all jobs for this month across all techs in one query
-                const { data: monthJobs } = await supabase
+                const historyStartObj = new Date(yr, mo - 4, 1);
+                const historyStart = `${historyStartObj.getFullYear()}-${String(historyStartObj.getMonth() + 1).padStart(2, '0')}-01`;
+
+                const { data: allJobs } = await supabase
                     .from('jobs')
-                    .select('id, assigned_to, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id')
-                    .gte('scheduled_date', monthStart)
-                    .lte('scheduled_date', monthEnd)
-                    .not('assigned_to', 'is', null);
+                    .select('id, assigned_to, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name')
+                    .gte('scheduled_date', historyStart)
+                    .lte('scheduled_date', monthEnd);
 
-                // Fetch arrival interactions for on-time tracking
-                const jobIds = (monthJobs || []).map(j => j.id);
-                let invoicesByJob = {};
-                let arrivalsByJob = {};
+                const { data: allInvoices } = await supabase
+                    .from('sales_invoices')
+                    .select('id, total_amount, date, job_id, technician_id, technician_name, status, account_id')
+                    .gte('date', historyStart)
+                    .lte('date', monthEnd)
+                    .neq('status', 'cancelled');
+
+                const { data: allQuotations } = await supabase
+                    .from('quotations')
+                    .select('id, status, date, technician_id, job_id')
+                    .gte('date', historyStart)
+                    .lte('date', monthEnd)
+                    .neq('status', 'cancelled');
 
                 const { data: paidVouchers } = await supabase
                     .from('payment_vouchers')
-                    .select('account_id, amount, notes')
-                    .ilike('notes', `%Incentive%${activeMonth}%`);
+                    .select('account_id, amount, notes, date')
+                    .ilike('notes', '%Incentive%');
 
-                if (jobIds.length > 0) {
-                    // Revenue from linked sales_invoices
-                    const { data: invoices } = await supabase
-                        .from('sales_invoices')
-                        .select('job_id, total_amount')
-                        .in('job_id', jobIds);
-                    (invoices || []).forEach(inv => {
-                        invoicesByJob[inv.job_id] = (invoicesByJob[inv.job_id] || 0) + (inv.total_amount || 0);
-                    });
-
-                    // Arrival events from job_interactions
-                    const { data: arrivals } = await supabase
-                        .from('job_interactions')
-                        .select('job_id, created_at')
-                        .eq('type', 'arrived')
-                        .in('job_id', jobIds);
-                    (arrivals || []).forEach(a => {
-                        arrivalsByJob[a.job_id] = a.created_at;
-                    });
-
-                    // Also pull arrived_at directly from jobs table (new column)
-                    const { data: jobsWithArrival } = await supabase
-                        .from('jobs')
-                        .select('id, arrived_at, scheduled_time, scheduled_date, customer_rating, rating_note, customer_id')
-                        .in('id', jobIds);
-                    (jobsWithArrival || []).forEach(j => {
-                        if (j.arrived_at) arrivalsByJob[j.id] = arrivalsByJob[j.id] || j.arrived_at;
-                    });
-
-                    // Merge customer_rating into monthJobs for easy access
-                    (jobsWithArrival || []).forEach(jw => {
-                        const idx = (monthJobs || []).findIndex(j => j.id === jw.id);
-                        if (idx !== -1) {
-                            monthJobs[idx].customer_rating = jw.customer_rating;
-                            monthJobs[idx].arrived_at = jw.arrived_at;
-                            monthJobs[idx].scheduled_time = jw.scheduled_time || monthJobs[idx].scheduled_time;
-                        }
-                    });
-                }
+                const { data: finalizedData } = await supabase
+                    .from('website_settings')
+                    .select('value')
+                    .eq('key', `incentives-finalized-${activeMonth}`)
+                    .single();
+                setIsFinalized(!!finalizedData?.value);
 
                 const processedTechs = techsData.map(tech => {
-                    const techJobs = (monthJobs || []).filter(j =>
-                        j.assigned_to === tech.id || j.technician_id === tech.id
+                    const currentMetrics = calculateMetricsForMonth(
+                        tech.id,
+                        tech.ledger_id,
+                        monthStart,
+                        monthEnd,
+                        allJobs || [],
+                        allInvoices || [],
+                        allQuotations || [],
+                        paidVouchers || []
                     );
-                    const completedJobs = techJobs.filter(j => j.status === 'completed');
-                    const totalJobs = techJobs.length;
 
-                    // ── Revenue metrics (p3, p4, p5) ──────────────────
-                    const monthlyRevenue = completedJobs.reduce((sum, j) => sum + (invoicesByJob[j.id] || j.amount || 0), 0);
-                    const uniqueCustomers = new Set(completedJobs.map(j => j.customer_id)).size;
-                    const revenuePerCustomer = uniqueCustomers > 0 ? Math.round(monthlyRevenue / uniqueCustomers) : 0;
-                    const workDays = new Set(completedJobs.map(j => j.scheduled_date)).size || 1;
-                    const revenuePerDay = Math.round(monthlyRevenue / workDays);
-
-                    // ── On-time / Late arrivals (p1, n3) ──────────────
-                    // Compare arrived_at timestamp vs scheduled_time string (HH:MM)
-                    let onTimeCount = 0, lateCount = 0, arrivedCount = 0;
-                    completedJobs.forEach(j => {
-                        const arrivedAt = arrivalsByJob[j.id];
-                        if (!arrivedAt || !j.scheduled_time) return; // no data → skip
-                        arrivedCount++;
-                        const arrivedDate = new Date(arrivedAt);
-                        // Parse scheduled_time as HH:MM on the scheduled_date
-                        const [hrs, mins] = (j.scheduled_time || '').split(':').map(Number);
-                        const scheduledDt = new Date(j.scheduled_date);
-                        scheduledDt.setHours(hrs || 0, mins || 0, 0, 0);
-                        // Allow 15min grace period
-                        if (arrivedDate <= new Date(scheduledDt.getTime() + 15 * 60 * 1000)) {
-                            onTimeCount++;
-                        } else {
-                            lateCount++;
-                        }
-                    });
-                    const onTimeVisits = arrivedCount > 0 ? Math.round((onTimeCount / arrivedCount) * 100) : 0;
-                    const lateArrivals = arrivedCount > 0 ? Math.round((lateCount / arrivedCount) * 100) : 0;
-
-                    // ── Customer Feedback (p2, n1) ─────────────────────
-                    const ratedJobs = completedJobs.filter(j => j.customer_rating > 0);
-                    const goodRatings = ratedJobs.filter(j => j.customer_rating >= 4).length;
-                    const badRatings = ratedJobs.filter(j => j.customer_rating < 4).length;
-                    const feedbackAbove4 = ratedJobs.length > 0 ? Math.round((goodRatings / ratedJobs.length) * 100) : 0;
-                    const feedbackBelow4 = ratedJobs.length > 0 ? Math.round((badRatings / ratedJobs.length) * 100) : 0;
-
-                    // ── Repeat Call % (n2) ─────────────────────────────
-                    // A repeat call = a completed job where the same customer had a different
-                    // completed job in the 14 days before this one (comeback within 2 weeks)
-                    let repeatCalls = 0;
-                    completedJobs.forEach(job => {
-                        const jobDate = new Date(job.scheduled_date);
-                        const cutoff = new Date(jobDate.getTime() - 14 * 24 * 60 * 60 * 1000);
-                        const priorJob = completedJobs.find(other =>
-                            other.id !== job.id &&
-                            other.customer_id === job.customer_id &&
-                            new Date(other.scheduled_date) >= cutoff &&
-                            new Date(other.scheduled_date) < jobDate
-                        );
-                        if (priorJob) repeatCalls++;
-                    });
-                    const repeatCallPercent = completedJobs.length > 0
-                        ? Math.round((repeatCalls / completedJobs.length) * 100)
-                        : 0;
-
-                    // ── Already paid incentive this month ──────────────
-                    const alreadyPaid = (paidVouchers || [])
-                        .filter(v => v.account_id === tech.ledger_id)
-                        .reduce((s, v) => s + (v.amount || 0), 0);
-
-                    // ── 3-month history placeholders ───────────────────
                     const history = [-1, -2, -3].map(offset => {
                         const d = new Date(yr, mo - 1 + offset, 1);
                         const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                        return { month: mStr, incentive: 0, onTimeVisits: 0, feedbackAbove4: 0, monthlyRevenue: 0 };
+                        const histStart = `${mStr}-01`;
+                        const histEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
+
+                        const metrics = calculateMetricsForMonth(
+                            tech.id,
+                            tech.ledger_id,
+                            histStart,
+                            histEnd,
+                            allJobs || [],
+                            allInvoices || [],
+                            allQuotations || [],
+                            paidVouchers || []
+                        );
+
+                        let incentiveTotal = 0;
+                        mergedParams.forEach(param => {
+                            if (!param.enabled) return;
+                            let val = 0;
+                            let qualifies = false;
+                            switch (param.id) {
+                                case 'p1': val = metrics.onTimeVisits; qualifies = val >= param.threshold; break;
+                                case 'p2': val = metrics.feedbackAbove4; qualifies = val >= param.threshold; break;
+                                case 'p3': val = metrics.revenuePerCustomer; qualifies = val >= param.threshold; break;
+                                case 'p4': val = metrics.revenuePerDay; qualifies = val >= param.threshold; break;
+                                case 'p5': val = metrics.monthlyRevenue; qualifies = val >= param.threshold; break;
+                                case 'p6': val = metrics.quoteConversionRate; qualifies = val >= param.threshold; break;
+                                case 'p7': val = metrics.avgJobDuration; qualifies = val > 0 && val <= param.threshold; break;
+                                case 'p8': val = metrics.avgRating; qualifies = val >= param.threshold; break;
+                                case 'n1': val = metrics.feedbackBelow4; qualifies = val > param.threshold; break;
+                                case 'n2': val = metrics.repeatCallPercent; qualifies = val > param.threshold; break;
+                                case 'n3': val = metrics.lateArrivals; qualifies = val > param.threshold; break;
+                            }
+                            if (qualifies) {
+                                let amt = param.rewardType === 'fixed' ? param.rewardValue : (val * param.rewardValue) / 100;
+                                if (param.type === 'negative') amt = -amt;
+                                incentiveTotal += amt;
+                            }
+                        });
+
+                        return {
+                            month: mStr,
+                            onTimeVisits: metrics.onTimeVisits,
+                            feedbackAbove4: metrics.feedbackAbove4,
+                            monthlyRevenue: metrics.monthlyRevenue,
+                            incentive: Math.max(0, incentiveTotal)
+                        };
                     });
 
                     return {
                         id: tech.id,
                         ledger_id: tech.ledger_id,
                         name: tech.name,
-                        alreadyPaid,
-                        currentMetrics: {
-                            onTimeVisits,      // p1 — real (from arrived_at vs scheduled_time)
-                            feedbackAbove4,    // p2 — real (from customer_rating >= 4)
-                            revenuePerCustomer,// p3 — real
-                            revenuePerDay,     // p4 — real
-                            monthlyRevenue,    // p5 — real
-                            feedbackBelow4,    // n1 — real (from customer_rating < 4)
-                            repeatCallPercent, // n2 — real (same customer within 14 days)
-                            lateArrivals,      // n3 — real (from arrived_at > scheduled_time)
-                            totalJobs,
-                            completedJobs: completedJobs.length,
-                            uniqueCustomers,
-                            ratedJobs: ratedJobs.length,
-                            arrivedJobs: arrivedCount,
-                        },
+                        alreadyPaid: currentMetrics.alreadyPaid,
+                        currentMetrics,
                         history,
                         calculatedIncentive: 0,
                         breakdown: []
                     };
                 });
-                setTechnicians(processedTechs);
+
+                const calculatedTechs = computeIncentivesForTechsList(processedTechs, mergedParams);
+                setTechnicians(calculatedTechs);
             }
         } catch (err) {
             console.error('Failed to fetch incentives data:', err);
@@ -224,60 +448,7 @@ function IncentivesManagement() {
     };
 
     const calculateIncentives = () => {
-        const updated = technicians.map(tech => {
-            let total = 0;
-            const breakdown = [];
-
-            parameters.forEach(param => {
-                if (!param.enabled) return;
-
-                let metricValue = 0;
-                let qualifies = false;
-
-                // Map parameter to metric
-                const metrics = tech.currentMetrics;
-                switch (param.id) {
-                    case 'p1': metricValue = metrics.onTimeVisits; qualifies = metricValue >= param.threshold; break;
-                    case 'p2': metricValue = metrics.feedbackAbove4; qualifies = metricValue >= param.threshold; break;
-                    case 'p3': metricValue = metrics.revenuePerCustomer; qualifies = metricValue >= param.threshold; break;
-                    case 'p4': metricValue = metrics.revenuePerDay; qualifies = metricValue >= param.threshold; break;
-                    case 'p5': metricValue = metrics.monthlyRevenue; qualifies = metricValue >= param.threshold; break;
-                    case 'n1': metricValue = metrics.feedbackBelow4; qualifies = metricValue > param.threshold; break;
-                    case 'n2': metricValue = metrics.repeatCallPercent; qualifies = metricValue > param.threshold; break;
-                    case 'n3': metricValue = metrics.lateArrivals; qualifies = metricValue > param.threshold; break;
-                }
-
-                if (qualifies) {
-                    let amount = 0;
-                    if (param.rewardType === 'fixed') {
-                        amount = param.rewardValue;
-                    } else {
-                        amount = (metricValue * param.rewardValue) / 100;
-                    }
-
-                    if (param.type === 'negative') {
-                        amount = -amount;
-                    }
-
-                    total += amount;
-                    breakdown.push({
-                        parameter: param.name,
-                        type: param.type,
-                        metricValue,
-                        threshold: param.threshold,
-                        amount
-                    });
-                }
-            });
-
-            return {
-                ...tech,
-                calculatedIncentive: Math.max(0, total),
-                breakdown
-            };
-        });
-
-        setTechnicians(updated);
+        setTechnicians(prev => computeIncentivesForTechsList(prev, parameters));
     };
 
     const addParameter = () => {
@@ -312,7 +483,8 @@ function IncentivesManagement() {
         if (window.confirm('Finalize incentives for this month? This cannot be undone.')) {
             try {
                 setSaving(true);
-                calculateIncentives();
+                const finalizedTechs = computeIncentivesForTechsList(technicians, parameters);
+                setTechnicians(finalizedTechs);
                 setIsFinalized(true);
 
                 // Persist parameters when finalizing too
@@ -766,6 +938,27 @@ function IncentivesManagement() {
                                             {tech.currentMetrics.lateArrivals}%
                                         </div>
                                     </div>
+
+                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(20, 184, 166, 0.1)', borderRadius: 'var(--radius-md)' }}>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Quote Conversion</div>
+                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#14b8a6' }}>
+                                            {tech.currentMetrics.quoteConversionRate || 0}%
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(249, 115, 22, 0.1)', borderRadius: 'var(--radius-md)' }}>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Avg Resolution Time</div>
+                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700 }}>
+                                            {tech.currentMetrics.avgJobDuration || 0} mins
+                                        </div>
+                                    </div>
+
+                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(234, 179, 8, 0.1)', borderRadius: 'var(--radius-md)' }}>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Average Rating</div>
+                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#eab308' }}>
+                                            {tech.currentMetrics.avgRating || 0} ★
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -870,7 +1063,7 @@ function IncentivesManagement() {
                             <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                                 <button
                                     className="btn"
-                                    onClick={() => alert('PDF download - integrate jsPDF')}
+                                    onClick={() => handlePrintPdf('policy-pdf-content', `Incentives Policy Sheet - ${activeMonth}`)}
                                     style={{
                                         padding: '6px 12px',
                                         backgroundColor: '#10b981',
@@ -897,7 +1090,7 @@ function IncentivesManagement() {
                         </div>
 
                         {/* PDF Content */}
-                        <div style={{
+                        <div id="policy-pdf-content" style={{
                             padding: '40px',
                             backgroundColor: '#ffffff',
                             color: '#000000',
@@ -1033,7 +1226,7 @@ function IncentivesManagement() {
                             <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                                 <button
                                     className="btn"
-                                    onClick={() => alert('PDF download - integrate jsPDF')}
+                                    onClick={() => handlePrintPdf('tech-pdf-content', `Incentive Sheet - ${selectedTechForPdf.name}`)}
                                     style={{
                                         padding: '6px 12px',
                                         backgroundColor: '#10b981',
@@ -1062,7 +1255,7 @@ function IncentivesManagement() {
                             </div>
                         </div>
 
-                        <div style={{
+                        <div id="tech-pdf-content" style={{
                             padding: '40px',
                             backgroundColor: '#ffffff',
                             color: '#000000',
