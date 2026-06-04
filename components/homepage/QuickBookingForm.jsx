@@ -187,16 +187,16 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                 {/* Book button */}
                 <button
                     type="submit"
-                    className="book-button"
+                    className={`book-button ${formData.issue ? 'pulse-active' : ''}`}
                     aria-label="Book technician"
                 >
                     {(() => {
                         if (formData.issue) {
                             const issueObj = visibleIssues.find(i => String(i.id) === formData.issue);
                             if (issueObj && issueObj.price) {
-                                return `Book Now @ ₹${issueObj.price}`;
+                                return `Book Now @ ₹${issueObj.price} (Click here)`;
                             }
-                            return "Book Now";
+                            return "Book Now (Click here)";
                         }
                         return "Select Issue to Continue";
                     })()}
