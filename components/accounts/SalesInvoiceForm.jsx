@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import AccountSelector from '../common/AccountSelector';
 import ProductSelector from '../common/ProductSelector';
@@ -22,8 +22,17 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice }) {
         ],
         notes: existingInvoice?.notes || '',
         terms: existingInvoice?.terms || 'Payment due within 30 days.\nLate payments subject to 2% monthly interest.',
-        technician: existingInvoice?.technician || ''
+        technician_id: existingInvoice?.technician_id || null,
+        technician_name: existingInvoice?.technician_name || ''
     });
+
+    const [technicians, setTechnicians] = useState([]);
+    useEffect(() => {
+        fetch('/api/admin/technicians')
+            .then(r => r.json())
+            .then(res => setTechnicians(res.data || []))
+            .catch(() => {});
+    }, []);
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
 
@@ -243,6 +252,32 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice }) {
                                 onChange={(e) => setFormData({ ...formData, invoiceDate: e.target.value })}
                                 style={{ width: '100%' }}
                             />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Assigned Technician
+                            </label>
+                            <select
+                                className="form-input"
+                                value={formData.technician_id || ''}
+                                onChange={(e) => {
+                                    const techId = e.target.value;
+                                    const tech = technicians.find(t => t.id === techId);
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        technician_id: techId || null,
+                                        technician_name: tech ? tech.name : ''
+                                    }));
+                                }}
+                                style={{ width: '100%' }}
+                            >
+                                <option value="">— Unassigned / Select Technician —</option>
+                                {technicians.map(tech => (
+                                    <option key={tech.id} value={tech.id}>
+                                        {tech.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

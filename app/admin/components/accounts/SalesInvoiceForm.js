@@ -70,7 +70,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         items: buildInitialItems(),
         notes: existingInvoice?.notes || '',
         terms: existingInvoice?.terms || 'Payment due within 30 days.\nLate payments subject to 2% monthly interest.',
-        technician: existingInvoice?.technician || '',
+        technician_id: existingInvoice?.technician_id || defaultAccount?.technician_id || null,
+        technician_name: existingInvoice?.technician_name || defaultAccount?.technician_name || '',
         showTax: existingInvoice?.showTax !== undefined ? existingInvoice.showTax : false
     });
 
@@ -81,16 +82,20 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
     const [services, setServices] = useState([]);
     const [productLinks, setProductLinks] = useState([]);
 
-    // Fetch services and product-links from inventory
+    const [technicians, setTechnicians] = useState([]);
+
+    // Fetch services, product-links, and technicians
     useEffect(() => {
         Promise.all([
             inventoryAPI.getAll(),
             productLinksAPI.getAll().catch(() => []),
-            printSettingsAPI.get().catch(() => null)
-        ]).then(([data, links, printData]) => {
+            printSettingsAPI.get().catch(() => null),
+            fetch('/api/admin/technicians').then(r => r.json()).catch(() => ({ data: [] }))
+        ]).then(([data, links, printData, techData]) => {
             const svcList = (data || []).filter(p => p.type === 'service' || p.product_type === 'service');
             setServices(svcList);
             setProductLinks(links || []);
+            setTechnicians(techData?.data || []);
             if (printData && existingInvoice?.showTax === undefined) {
                 setFormData(prev => ({ ...prev, showTax: printData.invoice_show_gst ?? printData.show_gst ?? true }));
             }
@@ -407,6 +412,32 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                 style={{ width: '100%' }}
                             />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Assigned Technician
+                            </label>
+                            <select
+                                className="form-input"
+                                value={formData.technician_id || ''}
+                                onChange={(e) => {
+                                    const techId = e.target.value;
+                                    const tech = technicians.find(t => t.id === techId);
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        technician_id: techId || null,
+                                        technician_name: tech ? tech.name : ''
+                                    }));
+                                }}
+                                style={{ width: '100%' }}
+                            >
+                                <option value="">— Unassigned / Select Technician —</option>
+                                {technicians.map(tech => (
+                                    <option key={tech.id} value={tech.id}>
+                                        {tech.name}
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 

@@ -1172,7 +1172,9 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                                                         total_tax: savedQuotation.total_tax,
                                                                         total_amount: savedQuotation.total_amount,
                                                                         notes: 'Auto-generated from approved quotation',
-                                                                        terms: savedQuotation.terms
+                                                                        terms: savedQuotation.terms,
+                                                                        technician_id: savedQuotation.technician_id || editedJob.technician_id || null,
+                                                                        technician_name: savedQuotation.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
                                                                     })
                                                                 });
                                                                 const data = await res.json();
@@ -1332,7 +1334,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             const saveRes = await fetch(`/api/admin/transactions?type=${type}`, {
                                 method: data.id ? 'PUT' : 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ ...data, job_id: editedJob.id })
+                                body: JSON.stringify({ 
+                                    ...data, 
+                                    job_id: editedJob.id,
+                                    technician_id: data.technician_id || editedJob.technician_id || null,
+                                    technician_name: data.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
+                                })
                             });
                             const saveJson = await saveRes.json();
                             if (saveJson.success) savedData = saveJson.data;
@@ -1374,7 +1381,12 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                             const saveRes = await fetch(`/api/admin/transactions?type=sales`, {
                                 method: data.id ? 'PUT' : 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ ...data, job_id: editedJob.id })
+                                body: JSON.stringify({ 
+                                    ...data, 
+                                    job_id: editedJob.id,
+                                    technician_id: data.technician_id || editedJob.technician_id || null,
+                                    technician_name: data.technician_name || editedJob.technician_name || editedJob.technician?.name || ''
+                                })
                             });
                             const saveJson = await saveRes.json();
                             if (saveJson.success) savedData = saveJson.data;

@@ -1108,7 +1108,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                         total_tax: savedQuotation.total_tax,
                                                                         total_amount: savedQuotation.total_amount,
                                                                         notes: 'Auto-generated from approved quotation',
-                                                                        terms: savedQuotation.terms
+                                                                        terms: savedQuotation.terms,
+                                                                        technician_id: savedQuotation.technician_id || techId,
+                                                                        technician_name: savedQuotation.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
                                                                     })
                                                                 });
                                                                 const data = await res.json();
@@ -1537,7 +1539,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 const saveRes = await fetch(`/api/admin/transactions?type=${type}`, {
                                     method: data.id ? 'PUT' : 'POST',
                                     headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ ...data, job_id: editedJob.id })
+                                    body: JSON.stringify({ 
+                                        ...data, 
+                                        job_id: editedJob.id,
+                                        technician_id: data.technician_id || techId,
+                                        technician_name: data.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+                                    })
                                 });
                                 const saveJson = await saveRes.json();
                                 if (saveJson.success) savedData = saveJson.data;
