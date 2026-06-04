@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic';
+
 // Helper: fetch available AMC plans (public, no auth)
 async function getAMCPlans() {
     const { data, error } = await supabase

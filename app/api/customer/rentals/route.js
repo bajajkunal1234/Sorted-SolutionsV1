@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic';
+
 // Transform DB snake_case row → camelCase for customer frontend
 function transformPlan(p) {
     return {
