@@ -79,7 +79,7 @@ const PricePills = ({ b, setPriceType, setCustomPrice }) => (
     </div>
 );
 
-export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose }) {
+export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel }) {
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading]           = useState(true);
@@ -422,7 +422,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                         )}
                         {onCreateInvoice && (
                             <button onClick={handleCreateInvoice} style={{ padding: '10px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '12px', cursor: 'pointer', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0, whiteSpace: 'nowrap' }}>
-                                <FileText size={15} /> Invoice
+                                <FileText size={15} /> {invoiceLabel || 'Invoice'}
                             </button>
                         )}
                         {onApply && (

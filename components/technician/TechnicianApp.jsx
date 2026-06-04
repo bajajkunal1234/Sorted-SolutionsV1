@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import RepairCalculator from '@/components/common/RepairCalculator';
@@ -48,6 +48,13 @@ function TechnicianApp() {
     });
     const [showCollectPayment, setShowCollectPayment] = useState(false);
     const [showJobSelectorModal, setShowJobSelectorModal] = useState(false);
+    const [showPurchaseJobSelectorModal, setShowPurchaseJobSelectorModal] = useState(false);
+    const [purchaseJob, setPurchaseJob] = useState(null);
+    const [showPurchaseCalculator, setShowPurchaseCalculator] = useState(false);
+    const [pendingPurchaseItems, setPendingPurchaseItems] = useState(null);
+    const [showPurchaseNotesModal, setShowPurchaseNotesModal] = useState(false);
+    const [purchaseVendorName, setPurchaseVendorName] = useState('');
+    const [purchaseNotes, setPurchaseNotes] = useState('');
 
     // Apply dark mode theme class initially and on change
     useEffect(() => {
@@ -528,6 +535,89 @@ function TechnicianApp() {
         });
         const addr = encodeURIComponent(job.address || job.locality || job.customerName);
         window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`, '_blank');
+    };
+
+    const submitPurchaseInvoice = async () => {
+        if (!pendingPurchaseItems || pendingPurchaseItems.length === 0) return;
+        
+        try {
+            const itemsList = pendingPurchaseItems.map(item => {
+                const itemSubtotal = item.qty * item.rate;
+                const taxAmount = itemSubtotal * (item.taxRate || 18) / 100;
+                return {
+                    ...item,
+                    total: itemSubtotal + taxAmount
+                };
+            });
+
+            const subtotal = itemsList.reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const totalTax = itemsList.reduce((sum, item) => sum + (item.qty * item.rate * (item.taxRate || 18) / 100), 0);
+            const cgst = totalTax / 2;
+            const sgst = totalTax / 2;
+            const igst = 0;
+            const totalAmount = subtotal + totalTax;
+
+            const nameOfTech = technicianData?.name || 'Technician';
+            const techNotes = purchaseNotes.trim();
+            const formattedNotes = `Technician: ${nameOfTech}${techNotes ? ` | Notes: ${techNotes}` : ''}`;
+
+            const purchaseData = {
+                reference: 'Technician Purchase',
+                status: 'draft',
+                account_id: null,
+                account_name: purchaseVendorName.trim() || `Spare Purchase (${nameOfTech})`,
+                po_reference: technicianId || '',
+                notes: formattedNotes,
+                job_id: purchaseJob?.id || null,
+                items: itemsList,
+                subtotal,
+                discount: 0,
+                cgst,
+                sgst,
+                igst,
+                total_tax: totalTax,
+                total_amount: totalAmount,
+                date: new Date().toISOString().split('T')[0],
+                vendor_invoice_number: ''
+            };
+
+            const response = await fetch('/api/admin/transactions?type=purchase', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(purchaseData)
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                alert('✅ Purchase invoice draft created successfully! Admin will review and post it.');
+                
+                // Track interaction
+                if (purchaseJob?.id) {
+                    fetch(`/api/technician/jobs/${purchaseJob.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'purchase-invoice-created',
+                            category: 'billing',
+                            description: `Technician spare purchase draft of ₹${totalAmount.toLocaleString('en-IN')} created`,
+                            user_name: 'Technician',
+                            customer_id: purchaseJob.customerId || null
+                        })
+                    }).catch(() => {});
+                }
+            } else {
+                throw new Error(result.error || 'Failed to create purchase invoice');
+            }
+        } catch (err) {
+            console.error('Error submitting purchase invoice:', err);
+            alert('Failed to submit purchase invoice: ' + err.message);
+        } finally {
+            setShowPurchaseNotesModal(false);
+            setPendingPurchaseItems(null);
+            setPurchaseVendorName('');
+            setPurchaseNotes('');
+            setPurchaseJob(null);
+        }
     };
 
     // Jobs Tab Content
@@ -1119,6 +1209,25 @@ function TechnicianApp() {
                     </div>
                 </div>
 
+                {/* Purchase Spare Parts Card */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #f59e0b', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
+                    onClick={() => setShowPurchaseJobSelectorModal(true)}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
+                                <Package size={20} color="#f59e0b" /> Purchase Spare Parts
+                            </h3>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                Log parts purchased from local vendors / suppliers
+                            </p>
+                        </div>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                </div>
+
                 {/* Jobs Summary Card */}
                 <div 
                     className="card"
@@ -1424,6 +1533,240 @@ function TechnicianApp() {
                         setSelectedJob({ ...calculatorJob, _calculatorItems: items });
                     }}
                 />
+            )}
+
+            {/* Purchase Spare Parts Job Selector Modal */}
+            {showPurchaseJobSelectorModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: 'var(--spacing-md)'
+                }}
+                    onClick={() => setShowPurchaseJobSelectorModal(false)}
+                >
+                    <div
+                        style={{
+                            backgroundColor: 'var(--bg-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-lg)',
+                            maxWidth: '500px',
+                            width: '100%',
+                            maxHeight: '80vh',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxShadow: 'var(--shadow-xl)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                                <Package size={20} color="#f59e0b" /> Select Job for Purchase
+                            </h3>
+                            <button onClick={() => setShowPurchaseJobSelectorModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* General Purchase Option */}
+                        <div style={{ marginBottom: '12px' }}>
+                            <button
+                                onClick={() => {
+                                    setPurchaseJob(null);
+                                    setShowPurchaseJobSelectorModal(false);
+                                    setShowPurchaseCalculator(true);
+                                }}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    backgroundColor: 'rgba(245,158,11,0.1)',
+                                    color: '#f59e0b',
+                                    border: '1px dashed #f59e0b',
+                                    borderRadius: '8px',
+                                    fontSize: '14px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    textAlign: 'center',
+                                }}
+                            >
+                                🛒 General Purchase (Not associated with any job)
+                            </button>
+                        </div>
+
+                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', paddingRight: '4px' }}>
+                            {jobs.filter(j => j.status !== 'closed' && j.status !== 'cancelled').length === 0 ? (
+                                <div style={{ padding: 'var(--spacing-lg)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                    No active jobs found.
+                                </div>
+                            ) : (
+                                jobs.filter(j => j.status !== 'closed' && j.status !== 'cancelled').map(job => (
+                                    <div 
+                                        key={job.id} 
+                                        style={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center', 
+                                            padding: '12px', 
+                                            backgroundColor: 'var(--bg-elevated)', 
+                                            border: '1px solid var(--border-primary)', 
+                                            borderRadius: 'var(--radius-md)' 
+                                        }}
+                                    >
+                                        <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>
+                                                    #{job.job_number || String(job.id).slice(0, 8)}
+                                                </span>
+                                            </div>
+                                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: '2px' }}>
+                                                {job.customerName || 'Walk-in Customer'}
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                {job.description || job.product?.type || job.issueCategory || 'Service Job'}
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => {
+                                                setPurchaseJob(job);
+                                                setShowPurchaseJobSelectorModal(false);
+                                                setShowPurchaseCalculator(true);
+                                            }}
+                                            style={{ 
+                                                padding: '6px 12px', 
+                                                backgroundColor: '#f59e0b', 
+                                                color: '#fff', 
+                                                border: 'none', 
+                                                borderRadius: '6px', 
+                                                fontSize: '12px', 
+                                                fontWeight: 600, 
+                                                cursor: 'pointer',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            Select
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Purchase Calculator Overlay */}
+            {showPurchaseCalculator && (
+                <RepairCalculator
+                    job={purchaseJob}
+                    invoiceLabel="Create Purchase Invoice"
+                    onCreateInvoice={(items) => {
+                        setPendingPurchaseItems(items);
+                        setShowPurchaseCalculator(false);
+                        setShowPurchaseNotesModal(true);
+                    }}
+                    onClose={() => {
+                        setShowPurchaseCalculator(false);
+                        setPurchaseJob(null);
+                    }}
+                />
+            )}
+
+            {/* Purchase Vendor & Notes Modal */}
+            {showPurchaseNotesModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                    padding: 'var(--spacing-md)'
+                }}
+                    onClick={() => {
+                        setShowPurchaseNotesModal(false);
+                        setPendingPurchaseItems(null);
+                        setPurchaseVendorName('');
+                        setPurchaseNotes('');
+                        setPurchaseJob(null);
+                    }}
+                >
+                    <div
+                        style={{
+                            backgroundColor: 'var(--bg-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-lg)',
+                            maxWidth: '500px',
+                            width: '100%',
+                            boxShadow: 'var(--shadow-xl)'
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                            Confirm Spare Parts Purchase
+                        </h3>
+
+                        <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Vendor / Shop Name (Optional)
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. National Spares, local market, etc."
+                                value={purchaseVendorName}
+                                onChange={(e) => setPurchaseVendorName(e.target.value)}
+                                className="form-input"
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Additional Purchase Notes / Remarks (Optional)
+                            </label>
+                            <textarea
+                                placeholder="Enter details about payment or parts..."
+                                value={purchaseNotes}
+                                onChange={(e) => setPurchaseNotes(e.target.value)}
+                                className="form-input"
+                                rows="3"
+                                style={{ width: '100%', resize: 'vertical' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                            <button
+                                onClick={() => {
+                                    setShowPurchaseNotesModal(false);
+                                    setPendingPurchaseItems(null);
+                                    setPurchaseVendorName('');
+                                    setPurchaseNotes('');
+                                    setPurchaseJob(null);
+                                }}
+                                className="btn btn-secondary"
+                                style={{ flex: 1, padding: '10px' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={submitPurchaseInvoice}
+                                className="btn btn-primary"
+                                style={{ flex: 1, padding: '10px' }}
+                            >
+                                Submit Purchase Invoice
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
             {/* Job Selector Modal for Estimate Calculator */}
             {showJobSelectorModal && (

@@ -265,21 +265,21 @@ export async function POST(request) {
             if (allocationRows.length > 0) {
                 await supabase.from(allocationTable).insert(allocationRows);
 
-                // Update paid_amount on each referenced sales invoice
-                if (type === 'receipt') {
-                    for (const alloc of allocationRows) {
-                        const { data: invData } = await supabase
-                            .from('sales_invoices')
-                            .select('paid_amount, total_amount')
-                            .eq('id', alloc.invoice_id)
-                            .single();
-                        if (invData) {
-                            const newPaid = (parseFloat(invData.paid_amount) || 0) + alloc.amount_applied;
-                            const newStatus = newPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : 'partial';
-                            await supabase.from('sales_invoices')
-                                .update({ paid_amount: newPaid, status: newStatus })
-                                .eq('id', alloc.invoice_id);
-                        }
+                // Update paid_amount on each referenced sales or purchase invoice
+                const invoiceTable = type === 'receipt' ? 'sales_invoices' : 'purchase_invoices';
+                for (const alloc of allocationRows) {
+                    const invId = type === 'receipt' ? alloc.invoice_id : alloc.purchase_invoice_id;
+                    const { data: invData } = await supabase
+                        .from(invoiceTable)
+                        .select('paid_amount, total_amount')
+                        .eq('id', invId)
+                        .single();
+                    if (invData) {
+                        const newPaid = (parseFloat(invData.paid_amount) || 0) + alloc.amount_applied;
+                        const newStatus = newPaid >= (parseFloat(invData.total_amount) || 0) ? 'paid' : 'partial';
+                        await supabase.from(invoiceTable)
+                            .update({ paid_amount: newPaid, status: newStatus })
+                            .eq('id', invId);
                     }
                 }
             }
