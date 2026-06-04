@@ -538,6 +538,10 @@ function TechnicianApp() {
     };
 
     const submitPurchaseInvoice = async () => {
+        if (!purchaseVendorName.trim()) {
+            alert('Please enter Vendor / Shop Name');
+            return;
+        }
         if (!pendingPurchaseItems || pendingPurchaseItems.length === 0) return;
         
         try {
@@ -1717,7 +1721,7 @@ function TechnicianApp() {
 
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
                             <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Vendor / Shop Name (Optional)
+                                Vendor / Shop Name *
                             </label>
                             <input
                                 type="text"
