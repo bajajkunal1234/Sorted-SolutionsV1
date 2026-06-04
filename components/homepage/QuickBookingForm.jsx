@@ -192,6 +192,10 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                 >
                     {(() => {
                         if (formData.issue) {
+                            const issueObj = visibleIssues.find(i => String(i.id) === formData.issue);
+                            if (issueObj && issueObj.price) {
+                                return `Book Now @ ₹${issueObj.price}`;
+                            }
                             return "Book Now";
                         }
                         return "Select Issue to Continue";
