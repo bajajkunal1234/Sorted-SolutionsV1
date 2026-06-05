@@ -2,12 +2,13 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import { generateJobNumber } from '@/lib/generateJobNumber'
+import { trackLeadAttribution } from '@/lib/lead-tracker'
 
 export async function POST(request) {
     const supabase = createServerSupabase()
     try {
         const body = await request.json()
-        const { categoryId, categoryName, subcategoryId, subcategoryName, issueId, issueName, brand, brandName, pincode, locality, phone } = body
+        const { categoryId, categoryName, subcategoryId, subcategoryName, issueId, issueName, brand, brandName, pincode, locality, phone, session_id } = body
         
         if (!phone) {
             return NextResponse.json({ success: false, error: 'Phone required' }, { status: 400 })
@@ -59,6 +60,13 @@ export async function POST(request) {
             metadata: { categoryId, subcategoryId, pincode, phone: rawPhone },
             source: 'Website',
         });
+
+        await trackLeadAttribution(supabase, {
+            phone: phone,
+            session_id,
+            conversion_type: 'web_enquiry',
+            status: 'interested'
+        }).catch(err => console.error('[enquiry] trackLeadAttribution error:', err));
 
         return NextResponse.json({ success: true, enquiryId: enquiry.id });
 

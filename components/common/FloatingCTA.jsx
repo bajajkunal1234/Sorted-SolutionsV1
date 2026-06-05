@@ -282,6 +282,19 @@ export default function FloatingCTA() {
                         if (typeof window !== 'undefined') {
                             window.dataLayer = window.dataLayer || [];
                             window.dataLayer.push({ event: 'custom_whatsapp_click' });
+                            
+                            const session_id = sessionStorage.getItem('sorted_session_id');
+                            if (session_id) {
+                                fetch('/api/analytics/track/click', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        session_id,
+                                        click_type: 'whatsapp',
+                                        page_path: window.location.pathname
+                                    })
+                                }).catch(() => {});
+                            }
                         }
                     }}
                 >
@@ -305,6 +318,19 @@ export default function FloatingCTA() {
                         if (typeof window !== 'undefined') {
                             window.dataLayer = window.dataLayer || [];
                             window.dataLayer.push({ event: 'custom_call_click' });
+                            
+                            const session_id = sessionStorage.getItem('sorted_session_id');
+                            if (session_id) {
+                                fetch('/api/analytics/track/click', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        session_id,
+                                        click_type: 'call',
+                                        page_path: window.location.pathname
+                                    })
+                                }).catch(() => {});
+                            }
                         }
                     }}
                     suppressHydrationWarning

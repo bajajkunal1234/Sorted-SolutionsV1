@@ -5,7 +5,10 @@ import {
     TrendingUp, TrendingDown, Users, Calendar, BarChart2,
     Globe, Loader2, RefreshCw, AlertCircle,
     ShoppingCart, ArrowUp, ArrowDown, Minus,
-    Activity, Eye, MousePointer, Clock, X, ChevronRight
+    Activity, Eye, MousePointer, Clock, X, ChevronRight,
+    ArrowLeft, Plus, Trash2, PhoneCall, Check, Link2,
+    MessageSquare, DollarSign, CalendarDays, Info, Percent,
+    FileText, User, HelpCircle
 } from 'lucide-react'
 
 // ─── Status colour map ─────────────────────────────────────────────────────────
@@ -85,7 +88,7 @@ function Drawer({ open, title, subtitle, onClose, children }) {
             <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', zIndex: 1000, backdropFilter: 'blur(2px)' }} />
             {/* Panel */}
             <div style={{
-                position: 'fixed', right: 0, top: 0, bottom: 0, width: 'min(600px, 95vw)',
+                position: 'fixed', right: 0, top: 0, bottom: 0, width: 'min(650px, 95vw)',
                 backgroundColor: 'var(--bg-primary)', borderLeft: '1px solid var(--border-primary)',
                 zIndex: 1001, display: 'flex', flexDirection: 'column', boxShadow: '-8px 0 32px rgba(0,0,0,0.25)',
                 animation: 'slideIn 0.2s ease'
@@ -280,7 +283,7 @@ function GA4Banner() {
 }
 
 function SectionTitle({ children }) {
-    return <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: '2px', marginTop: '4px' }}>{children}</div>
+    return <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-tertiary)', letterSpacing: '0.08em', textTransform: 'uppercase', paddingLeft: '2px', marginTop: '16px', marginBottom: '8px' }}>{children}</div>
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
@@ -291,6 +294,36 @@ export default function WebsiteAnalytics() {
     const [error, setError] = useState('')
     const [lastFetched, setLastFetched] = useState(null)
 
+    // Sub-view control
+    const [subView, setSubView] = useState('dashboard') // 'dashboard' | 'leads_tracker'
+    
+    // Leads Tracker state
+    const [leadsData, setLeadsData] = useState(null)
+    const [leadsSearch, setLeadsSearch] = useState('')
+    const [leadsTab, setLeadsTab] = useState('directory') // 'directory' | 'daily_spend' | 'log_lead'
+    const [selectedLead, setSelectedLead] = useState(null) // for journey timeline drawer
+    
+    const [dailySpendForm, setDailySpendForm] = useState({
+        date: new Date().toISOString().split('T')[0],
+        amount_spent: '',
+        clicks: '',
+        impressions: '',
+        conversions_recorded: ''
+    })
+    const [dailySpendList, setDailySpendList] = useState([])
+    const [dailySpendLoading, setDailySpendLoading] = useState(false)
+
+    const [manualLeadForm, setManualLeadForm] = useState({
+        phone: '',
+        name: '',
+        type: 'call',
+        date: new Date().toISOString().slice(0, 16),
+        notes: '',
+        status: 'interested'
+    })
+    const [manualLeadSubmitting, setManualLeadSubmitting] = useState(false)
+    const [manualLeadResult, setManualLeadResult] = useState(null)
+
     // Drawer state
     const [drawer, setDrawer] = useState(null) // { type, filter, title, subtitle }
     const [drawerRows, setDrawerRows] = useState([])
@@ -299,15 +332,46 @@ export default function WebsiteAnalytics() {
     const load = async (r = range) => {
         setLoading(true); setError('')
         try {
-            const res = await fetch(`/api/analytics?range=${r}`)
-            const json = await res.json()
-            if (!json.success) throw new Error(json.error || 'Failed to load')
-            setData(json); setLastFetched(new Date())
+            const [analyticsRes, leadsRes] = await Promise.all([
+                fetch(`/api/analytics?range=${r}`),
+                fetch(`/api/admin/leads?range=${r}`)
+            ])
+            
+            const analyticsJson = await analyticsRes.json()
+            const leadsJson = await leadsRes.json()
+            
+            if (!analyticsJson.success) throw new Error(analyticsJson.error || 'Failed to load analytics')
+            if (!leadsJson.success) throw new Error(leadsJson.error || 'Failed to load leads')
+            
+            setData(analyticsJson)
+            setLeadsData(leadsJson)
+            setLastFetched(new Date())
         } catch (e) { setError(e.message) }
         finally { setLoading(false) }
     }
 
+    const loadDailySpends = async () => {
+        setDailySpendLoading(true)
+        try {
+            const res = await fetch('/api/admin/google-ads/metrics')
+            const json = await res.json()
+            if (json.success) {
+                setDailySpendList(json.data || [])
+            }
+        } catch (e) {
+            console.error('Failed to load daily spends:', e)
+        } finally {
+            setDailySpendLoading(false)
+        }
+    }
+
     useEffect(() => { load(range) }, [range])
+
+    useEffect(() => {
+        if (leadsTab === 'daily_spend') {
+            loadDailySpends()
+        }
+    }, [leadsTab])
 
     const openDrawer = useCallback(async (type, filter, title, subtitle) => {
         setDrawer({ type, filter, title, subtitle }); setDrawerRows([]); setDrawerLoading(true)
@@ -323,6 +387,112 @@ export default function WebsiteAnalytics() {
 
     const closeDrawer = useCallback(() => setDrawer(null), [])
 
+    // Daily Spend submit
+    const handleSaveSpend = async (e) => {
+        e.preventDefault()
+        try {
+            const res = await fetch('/api/admin/google-ads/metrics', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dailySpendForm)
+            })
+            const json = await res.json()
+            if (json.success) {
+                loadDailySpends()
+                load(range) // refresh aggregates
+                setDailySpendForm(prev => ({
+                    ...prev,
+                    amount_spent: '',
+                    clicks: '',
+                    impressions: '',
+                    conversions_recorded: ''
+                }))
+            } else {
+                alert(json.error || 'Failed to save spend metrics')
+            }
+        } catch (err) {
+            console.error(err)
+            alert('Server error saving spend metrics')
+        }
+    }
+
+    // Daily Spend delete
+    const handleDeleteSpend = async (date) => {
+        if (!confirm(`Delete Google Ads metrics for ${date}?`)) return
+        try {
+            const res = await fetch(`/api/admin/google-ads/metrics?date=${date}`, {
+                method: 'DELETE'
+            })
+            const json = await res.json()
+            if (json.success) {
+                loadDailySpends()
+                load(range) // refresh aggregates
+            }
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    // Manual lead save
+    const handleSaveManualLead = async (e) => {
+        e.preventDefault()
+        setManualLeadSubmitting(true)
+        setManualLeadResult(null)
+        try {
+            const res = await fetch('/api/admin/leads', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(manualLeadForm)
+            })
+            const json = await res.json()
+            if (json.success) {
+                setManualLeadResult({
+                    success: true,
+                    lead: json.lead,
+                    matchedSession: json.matchedSession
+                })
+                load(range) // refresh directory
+                setManualLeadForm({
+                    phone: '',
+                    name: '',
+                    type: 'call',
+                    date: new Date().toISOString().slice(0, 16),
+                    notes: '',
+                    status: 'interested'
+                })
+            } else {
+                setManualLeadResult({
+                    success: false,
+                    error: json.error || 'Failed to save lead log'
+                })
+            }
+        } catch (err) {
+            setManualLeadResult({
+                success: false,
+                error: err.message || 'Server error saving lead log'
+            })
+        } finally {
+            setManualLeadSubmitting(false)
+        }
+    }
+
+    // Lead status update
+    const handleUpdateLeadStatus = async (phone, status) => {
+        try {
+            const res = await fetch('/api/admin/leads', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, status })
+            })
+            const json = await res.json()
+            if (json.success) {
+                load(range)
+            }
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
     const sb = data?.supabase
     const fp = data?.firstParty
     const ga4 = data?.ga4
@@ -333,10 +503,24 @@ export default function WebsiteAnalytics() {
     const deviceSlices = (ga4?.deviceCategories || []).map((s, i) => ({ label: s.device, value: s.sessions, color: ['#8b5cf6', '#06b6d4', '#f59e0b'][i % 3] }))
     const userTypeSlices = (ga4?.userTypes || []).map((s, i) => ({ label: s.type, value: s.users, color: ['#10b981', '#6366f1'][i % 2] }))
 
-    // Booking status donut slices — derived from sb.bookings.byStatus
+    // Booking status donut slices
     const statusSlices = Object.entries(sb?.bookings?.byStatus || {})
         .filter(([, v]) => v > 0)
         .map(([k, v]) => ({ label: k, value: v, color: STATUS_COLORS[k] || '#94a3b8' }))
+
+    // Lead attributes search filtering
+    const allLeads = leadsData?.leads || []
+    const filteredLeads = allLeads.filter(l => {
+        const query = leadsSearch.toLowerCase()
+        return (
+            l.phone.includes(query) ||
+            l.name?.toLowerCase().includes(query) ||
+            l.lead_source.toLowerCase().includes(query) ||
+            (l.campaign && l.campaign.toLowerCase().includes(query))
+        )
+    })
+
+    const leadsSummary = leadsData?.summary
 
     // Is this drawer for customers or bookings?
     const isCustomerDrawer = drawer?.type?.startsWith('customers')
@@ -344,12 +528,20 @@ export default function WebsiteAnalytics() {
     return (
         <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
 
-            {/* Header */}
+            {/* ─── HEADER ────────────────────────────────────────────────────────── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ fontSize: '26px' }}>📊</div>
+                    {subView !== 'dashboard' ? (
+                        <button onClick={() => setSubView('dashboard')} style={{ background: 'none', border: '1px solid var(--border-primary)', cursor: 'pointer', color: 'var(--text-secondary)', borderRadius: 'var(--radius-md)', padding: '8px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}>
+                            <ArrowLeft size={14} /> Back
+                        </button>
+                    ) : (
+                        <div style={{ fontSize: '26px' }}>📊</div>
+                    )}
                     <div>
-                        <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>Website Analytics</h2>
+                        <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                            {subView === 'leads_tracker' ? 'Google Ads Leads & ROI Tracker' : 'Website Analytics'}
+                        </h2>
                         <p style={{ margin: '2px 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>
                             {lastFetched ? `Last updated ${lastFetched.toLocaleTimeString()}` : 'Loading...'}
                         </p>
@@ -372,14 +564,466 @@ export default function WebsiteAnalytics() {
             </div>
 
             {error && <div style={{ padding: '12px', backgroundColor: '#ef444415', border: '1px solid #ef444430', borderRadius: 'var(--radius-md)', color: '#ef4444', fontSize: '13px' }}>{error}</div>}
-            {!ga4Connected && <GA4Banner />}
 
             {loading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '60px', color: 'var(--text-tertiary)' }}>
                     <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /> Loading analytics data...
                 </div>
+            ) : subView === 'leads_tracker' ? (
+                
+                // ─── LEADS TRACKER SUB-VIEW ───────────────────────────────────────────
+                <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
+                    
+                    {/* ROI Summary metrics */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '12px' }}>
+                        <MetricCard icon={Users} color="#6366f1" label="Total Spends Leads" value={leadsSummary?.adsLeads} subtitle={`${leadsSummary?.adsConversions} Converted`} />
+                        <MetricCard icon={Percent} color="#10b981" label="Conversion Rate" value={`${leadsSummary?.conversionRate.toFixed(1)}%`} subtitle="Leads to Jobs" />
+                        <MetricCard icon={DollarSign} color="#ea4335" label="Google Ads Spend" value={`₹${leadsSummary?.adsSpend.toLocaleString()}`} subtitle={`${leadsSummary?.adsClicks} clicks · ${leadsSummary?.adsImpressions} impr.`} />
+                        <MetricCard icon={Info} color="#06b6d4" label="Cost Per Lead (CPL)" value={`₹${Math.round(leadsSummary?.cpl || 0).toLocaleString()}`} subtitle="Spend / Leads" />
+                        <MetricCard icon={ShoppingCart} color="#fbbc04" label="Revenue Generated" value={`₹${leadsSummary?.adsRevenue.toLocaleString()}`} subtitle={`ROAS: ${leadsSummary?.roas.toFixed(2)}x`} />
+                    </div>
+
+                    {/* Leads sub-tabs */}
+                    <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', gap: '16px' }}>
+                        {['directory', 'daily_spend', 'log_lead'].map(t => (
+                            <button
+                                key={t}
+                                onClick={() => setLeadsTab(t)}
+                                style={{
+                                    padding: '10px 4px',
+                                    border: 'none',
+                                    background: 'none',
+                                    cursor: 'pointer',
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    borderBottom: leadsTab === t ? '2px solid var(--color-primary)' : '2px solid transparent',
+                                    color: leadsTab === t ? 'var(--color-primary)' : 'var(--text-secondary)',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em'
+                                }}
+                            >
+                                {t === 'directory' ? 'Leads Directory' : t === 'daily_spend' ? 'Google Ads Spends' : 'Log Manual Call/WA'}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* TAB Content: Directory */}
+                    {leadsTab === 'directory' && (
+                        <div style={{ display: 'grid', gap: '12px' }}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, phone or campaign..."
+                                    value={leadsSearch}
+                                    onChange={e => setLeadsSearch(e.target.value)}
+                                    style={{
+                                        flex: 1, padding: '10px 14px', border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                                        borderRadius: 'var(--radius-md)', fontSize: '13px'
+                                    }}
+                                />
+                            </div>
+
+                            <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                            {['Date', 'Lead Details', 'Attribution Source', 'Type', 'Status', 'Jobs', 'Revenue', 'Actions'].map(h => (
+                                                <th key={h} style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredLeads.map((l) => (
+                                            <tr key={l.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', color: 'var(--text-secondary)' }}>
+                                                    {new Date(l.first_contact_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}<br/>
+                                                    <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </td>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{l.name || 'Anonymous Visitor'}</span><br/>
+                                                    <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{l.phone}</span>
+                                                </td>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    <span style={{
+                                                        padding: '2px 8px', borderRadius: '4px',
+                                                        backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
+                                                        color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-secondary)',
+                                                        fontSize: '11px', fontWeight: 700
+                                                    }}>
+                                                        {l.lead_source === 'google_ads' ? 'Google Ads' : l.lead_source}
+                                                    </span>
+                                                    {l.campaign && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Camp: {l.campaign}</div>}
+                                                </td>
+                                                <td style={{ padding: '12px 16px', textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
+                                                    {l.conversion_type?.replace(/_/g, ' ') || '—'}
+                                                </td>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    <select
+                                                        value={l.status}
+                                                        onChange={e => handleUpdateLeadStatus(l.phone, e.target.value)}
+                                                        style={{
+                                                            padding: '4px 8px', borderRadius: '4px',
+                                                            backgroundColor: l.status === 'converted' ? '#10b98115' : l.status === 'junk' ? '#ef444415' : 'var(--bg-secondary)',
+                                                            color: l.status === 'converted' ? '#10b981' : l.status === 'junk' ? '#ef4444' : 'var(--text-primary)',
+                                                            border: '1px solid var(--border-primary)', fontSize: '11px', fontWeight: 600
+                                                        }}
+                                                    >
+                                                        <option value="interested">Interested</option>
+                                                        <option value="converted">Converted</option>
+                                                        <option value="junk">Junk/Spam</option>
+                                                        <option value="lost">Lost</option>
+                                                    </select>
+                                                </td>
+                                                <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                                                    {l.jobsCount > 0 ? (
+                                                        <span style={{ color: '#6366f1' }}>{l.jobsCount} jobs</span>
+                                                    ) : '—'}
+                                                </td>
+                                                <td style={{ padding: '12px 16px', fontWeight: 700, color: '#10b981' }}>
+                                                    {l.totalRevenue > 0 ? `₹${l.totalRevenue.toLocaleString()}` : '—'}
+                                                </td>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    <button
+                                                        onClick={() => setSelectedLead(l)}
+                                                        style={{
+                                                            padding: '6px 10px', border: '1px solid var(--border-primary)',
+                                                            backgroundColor: 'var(--bg-primary)', color: 'var(--text-secondary)',
+                                                            borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '11px', fontWeight: 600
+                                                        }}
+                                                    >
+                                                        Journey Flow
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {filteredLeads.length === 0 && (
+                                            <tr>
+                                                <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>No leads found.</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TAB Content: Daily Spend Manager */}
+                    {leadsTab === 'daily_spend' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', alignItems: 'start' }}>
+                            {/* Input Form */}
+                            <form onSubmit={handleSaveSpend} style={{ padding: '18px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '12px' }}>
+                                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>Enter Daily Ad Spend</div>
+                                
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date</label>
+                                    <input type="date" required value={dailySpendForm.date} onChange={e => setDailySpendForm({ ...dailySpendForm, date: e.target.value })}
+                                        style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Amount Spent (₹)</label>
+                                    <input type="number" step="0.01" required placeholder="0.00" value={dailySpendForm.amount_spent} onChange={e => setDailySpendForm({ ...dailySpendForm, amount_spent: e.target.value })}
+                                        style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                    <div style={{ display: 'grid', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Clicks</label>
+                                        <input type="number" required placeholder="0" value={dailySpendForm.clicks} onChange={e => setDailySpendForm({ ...dailySpendForm, clicks: e.target.value })}
+                                            style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                    </div>
+                                    <div style={{ display: 'grid', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Impressions</label>
+                                        <input type="number" required placeholder="0" value={dailySpendForm.impressions} onChange={e => setDailySpendForm({ ...dailySpendForm, impressions: e.target.value })}
+                                            style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Conversions (Google Ads reported)</label>
+                                    <input type="number" placeholder="0" value={dailySpendForm.conversions_recorded} onChange={e => setDailySpendForm({ ...dailySpendForm, conversions_recorded: e.target.value })}
+                                        style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                </div>
+
+                                <button type="submit" style={{ padding: '10px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '6px' }}>
+                                    <Plus size={14} /> Save Metrics
+                                </button>
+                            </form>
+
+                            {/* Spends Directory List */}
+                            <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)', overflow: 'hidden' }}>
+                                <div style={{ padding: '14px', borderBottom: '1px solid var(--border-primary)', fontWeight: 700, fontSize: '13px' }}>Daily Metric Records</div>
+                                {dailySpendLoading ? (
+                                    <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}><Loader2 size={16} className="animate-spin" /> Loading spends...</div>
+                                ) : (
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
+                                        <thead>
+                                            <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
+                                                {['Date', 'Spent', 'Clicks', 'Impr.', 'CPC', 'Actions'].map(h => (
+                                                    <th key={h} style={{ padding: '8px 12px', color: 'var(--text-tertiary)', fontWeight: 600 }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dailySpendList.map(s => {
+                                                const cpc = s.clicks > 0 ? (s.amount_spent / s.clicks) : 0;
+                                                return (
+                                                    <tr key={s.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>{s.date}</td>
+                                                        <td style={{ padding: '10px 12px', fontWeight: 700 }}>₹{parseFloat(s.amount_spent).toLocaleString()}</td>
+                                                        <td style={{ padding: '10px 12px' }}>{s.clicks}</td>
+                                                        <td style={{ padding: '10px 12px' }}>{s.impressions}</td>
+                                                        <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>₹{cpc.toFixed(1)}</td>
+                                                        <td style={{ padding: '10px 12px' }}>
+                                                            <button onClick={() => handleDeleteSpend(s.date)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex' }}>
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                            {dailySpendList.length === 0 && (
+                                                <tr>
+                                                    <td colSpan="6" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No spend records registered.</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* TAB Content: Log Call/WhatsApp */}
+                    {leadsTab === 'log_lead' && (
+                        <div style={{ maxWidth: '500px', margin: '0 auto', display: 'grid', gap: '16px' }}>
+                            <form onSubmit={handleSaveManualLead} style={{ padding: '24px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gap: '14px' }}>
+                                <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                                    <PhoneCall size={28} style={{ color: 'var(--color-primary)', margin: '0 auto 10px' }} />
+                                    <div style={{ fontWeight: 700, fontSize: '15px', color: 'var(--text-primary)' }}>Log Received Call / WhatsApp</div>
+                                    <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                        Log callers to automatically match them with their website visits.
+                                    </p>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Mobile Number *</label>
+                                    <input type="tel" required placeholder="Enter 10-digit number" value={manualLeadForm.phone}
+                                        onChange={e => setManualLeadForm({ ...manualLeadForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '14px', fontWeight: 600 }} />
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Customer Name (Optional)</label>
+                                    <input type="text" placeholder="Enter name" value={manualLeadForm.name}
+                                        onChange={e => setManualLeadForm({ ...manualLeadForm, name: e.target.value })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div style={{ display: 'grid', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Channel</label>
+                                        <select value={manualLeadForm.type} onChange={e => setManualLeadForm({ ...manualLeadForm, type: e.target.value })}
+                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                                            <option value="call">Call Received</option>
+                                            <option value="whatsapp">WhatsApp Message</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'grid', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Status</label>
+                                        <select value={manualLeadForm.status} onChange={e => setManualLeadForm({ ...manualLeadForm, status: e.target.value })}
+                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                                            <option value="interested">Interested</option>
+                                            <option value="converted">Converted</option>
+                                            <option value="junk">Junk/Spam</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date &amp; Time received</label>
+                                    <input type="datetime-local" value={manualLeadForm.date} onChange={e => setManualLeadForm({ ...manualLeadForm, date: e.target.value })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                </div>
+
+                                <div style={{ display: 'grid', gap: '4px' }}>
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Notes / Enquiry description</label>
+                                    <textarea placeholder="e.g. Inquired about AC Gas charging rates" rows={3} value={manualLeadForm.notes} onChange={e => setManualLeadForm({ ...manualLeadForm, notes: e.target.value })}
+                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', resize: 'vertical', fontSize: '13px' }} />
+                                </div>
+
+                                <button type="submit" disabled={manualLeadSubmitting}
+                                    style={{ padding: '12px', borderRadius: '6px', border: 'none', backgroundColor: 'var(--color-primary)', color: 'white', fontWeight: 700, cursor: manualLeadSubmitting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
+                                    {manualLeadSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Save Lead Log
+                                </button>
+                            </form>
+
+                            {/* Attrib Result Notification */}
+                            {manualLeadResult && (
+                                <div style={{
+                                    padding: '16px',
+                                    borderRadius: 'var(--radius-lg)',
+                                    border: manualLeadResult.success ? '1px solid #10b98150' : '1px solid #ef444450',
+                                    backgroundColor: manualLeadResult.success ? '#10b98110' : '#ef444410',
+                                    color: manualLeadResult.success ? '#065f46' : '#991b1b',
+                                    fontSize: '13px',
+                                    animation: 'fadeIn 0.2s'
+                                }}>
+                                    {manualLeadResult.success ? (
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                                            <Check size={18} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                                            <div>
+                                                <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Lead Saved Successfully!</div>
+                                                {manualLeadResult.matchedSession ? (
+                                                    <div style={{ marginTop: '6px', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
+                                                        <Link2 size={14} style={{ marginTop: '2px' }} />
+                                                        <span>
+                                                            <strong>Auto-matched session:</strong> Landed via Google Ads ({manualLeadResult.matchedSession.utm_campaign || 'Paid campaign'}) from referrer <strong>{manualLeadResult.matchedSession.referrer || 'google.com'}</strong>.
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>No matching active website click found near this time. Lead attributed to Direct/Offline.</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', gap: '10px' }}>
+                                            <AlertCircle size={18} style={{ flexShrink: 0 }} />
+                                            <span>{manualLeadResult.error}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Timeline drawer inside leads directory */}
+                    <Drawer open={!!selectedLead} title={`Visitor Journey Timeline`} subtitle={`${selectedLead?.name || 'Anonymous Lead'} (${selectedLead?.phone})`} onClose={() => setSelectedLead(null)}>
+                        {selectedLead && (
+                            <div style={{ display: 'grid', gap: '20px', padding: '10px 0' }}>
+                                
+                                {/* Lead Details Summary */}
+                                <div style={{ padding: '14px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Lead Channel</span>
+                                        <div style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-primary)', marginTop: '2px', textTransform: 'capitalize' }}>{selectedLead.lead_source?.replace(/_/g, ' ')}</div>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Status</span>
+                                        <div style={{ fontWeight: 700, fontSize: '14px', color: selectedLead.status === 'converted' ? '#10b981' : 'var(--text-primary)', marginTop: '2px', textTransform: 'capitalize' }}>{selectedLead.status}</div>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Campaign / UTM</span>
+                                        <div style={{ fontWeight: 600, fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>{selectedLead.campaign || 'N/A'}</div>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>GCLID</span>
+                                        <div style={{ fontFamily: 'monospace', fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px', wordBreak: 'break-all' }}>{selectedLead.gclid || 'N/A'}</div>
+                                    </div>
+                                    {selectedLead.notes && (
+                                        <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--border-primary)', paddingTop: '10px', marginTop: '4px' }}>
+                                            <span style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 600 }}>Admin/System Notes</span>
+                                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-secondary)' }}>{selectedLead.notes}</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)', marginBottom: '-8px' }}>Journey Flow</div>
+
+                                {/* Journey Timeline Visual */}
+                                <div style={{ display: 'grid', gap: '0px', position: 'relative', paddingLeft: '24px' }}>
+                                    
+                                    {/* Line connecting items */}
+                                    <div style={{ position: 'absolute', left: '7px', top: '12px', bottom: '12px', width: '2px', backgroundColor: 'var(--border-primary)', zIndex: 1 }} />
+
+                                    {selectedLead.journey?.map((step, idx) => {
+                                        const isJob = step.type?.startsWith('job');
+                                        const isLanding = step.type === 'landing';
+                                        const isClick = step.type === 'click';
+                                        
+                                        let iconColor = '#94a3b8';
+                                        let iconBg = 'var(--bg-secondary)';
+                                        if (isLanding) { iconColor = '#ea4335'; iconBg = '#ea433515'; }
+                                        else if (isClick) { iconColor = '#fbbc04'; iconBg = '#fbbc0415'; }
+                                        else if (step.type === 'job_completed') { iconColor = '#10b981'; iconBg = '#10b98115'; }
+                                        else if (isJob) { iconColor = '#6366f1'; iconBg = '#6366f115'; }
+
+                                        return (
+                                            <div key={idx} style={{ position: 'relative', display: 'grid', gap: '4px', paddingBottom: '20px' }}>
+                                                
+                                                {/* Node dot icon */}
+                                                <div style={{
+                                                    position: 'absolute', left: '-23px', top: '2px', width: '16px', height: '16px', borderRadius: '50%',
+                                                    backgroundColor: iconBg, border: `2px solid ${iconColor}`, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                }} />
+
+                                                <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 600 }}>
+                                                    {new Date(step.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} at {new Date(step.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </div>
+
+                                                <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>
+                                                    {step.event}
+                                                </div>
+
+                                                {step.details && (
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                                        {step.details}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    
+                                    {(!selectedLead.journey || selectedLead.journey.length === 0) && (
+                                        <div style={{ color: 'var(--text-tertiary)', fontSize: '12px' }}>No session logs available.</div>
+                                    )}
+                                </div>
+
+                            </div>
+                        )}
+                    </Drawer>
+
+                </div>
+
             ) : (
+
+                // ─── STANDARD ANALYTICS DASHBOARD ─────────────────────────────────────
                 <>
+                    {/* 🎯 Google Ads ROI Tracker card section */}
+                    <SectionTitle>🎯 Google Ads Campaigns</SectionTitle>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '12px' }}>
+                        <MetricCard
+                            icon={TrendingUp}
+                            color="#10b981"
+                            label="Leads Generated"
+                            value={leadsSummary?.adsLeads ?? 0}
+                            subtitle="Open ROI & Leads Tracker"
+                            onClick={() => setSubView('leads_tracker')}
+                        />
+                        <MetricCard
+                            icon={DollarSign}
+                            color="#ea4335"
+                            label="Google Ads Spend"
+                            value={leadsSummary ? `₹${leadsSummary.adsSpend.toLocaleString()}` : '—'}
+                            subtitle={`${leadsSummary?.adsClicks ?? 0} clicks · ${leadsSummary?.adsImpressions ?? 0} impressions`}
+                        />
+                        <MetricCard
+                            icon={Info}
+                            color="#8b5cf6"
+                            label="Cost Per Lead (CPL)"
+                            value={leadsSummary ? `₹${Math.round(leadsSummary.cpl).toLocaleString()}` : '—'}
+                            subtitle="Total ad spend / leads"
+                        />
+                        <MetricCard
+                            icon={ShoppingCart}
+                            color="#4285f4"
+                            label="Revenue (Ads ROI)"
+                            value={leadsSummary ? `₹${leadsSummary.adsRevenue.toLocaleString()}` : '—'}
+                            subtitle={leadsSummary ? `ROAS: ${leadsSummary.roas.toFixed(2)}x` : '—'}
+                        />
+                    </div>
+
                     {/* ── First Party Traffic ──────────────────────────────────────── */}
                     <SectionTitle>📡 Web Traffic (First-Party Tracker)</SectionTitle>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '12px' }}>
@@ -398,7 +1042,7 @@ export default function WebsiteAnalytics() {
 
                     {/* First Party Top Pages */}
                     {fp?.topPages?.length > 0 && (
-                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', marginTop: '12px' }}>
+                        <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
                             <div style={{ fontWeight: 700, fontSize: '13px', marginBottom: '12px' }}>Top Pages (First-Party)</div>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                                 <thead>
@@ -524,102 +1168,6 @@ export default function WebsiteAnalytics() {
                         </>
                     )}
 
-                    {/* ── Top Subcategories ─────────────────────────────────── */}
-                    {sb?.topSubcategories?.length > 0 && (
-                        <>
-                            <SectionTitle>⭐ Top Sub-Categories (Booked)</SectionTitle>
-                            <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
-                                    <BarMini items={sb.topSubcategories} color="#8b5cf6" width={Math.min(560, sb.topSubcategories.length * 60)} height={90} />
-                                    <div style={{ flex: 1, display: 'grid', gap: '8px', minWidth: '200px' }}>
-                                        {sb.topSubcategories.map((s, i) => {
-                                            const max = sb.topSubcategories[0].count
-                                            return (
-                                                <div key={i}
-                                                    onClick={() => openDrawer('top_subcategory', s.name, `${s.name.replace(/-/g, ' ')} Bookings`, `${s.count} bookings for ${s.name.replace(/-/g, ' ')}`)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '3px 4px', borderRadius: '4px', transition: 'background 0.1s' }}
-                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#8b5cf615'}
-                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', flexShrink: 0, textTransform: 'capitalize' }}>{s.name?.replace(/-/g, ' ')}</span>
-                                                    <div style={{ flex: 1, height: '6px', backgroundColor: 'var(--border-primary)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                        <div style={{ width: `${(s.count / max) * 100}%`, height: '100%', backgroundColor: '#8b5cf6', borderRadius: '3px' }} />
-                                                    </div>
-                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', width: '28px', textAlign: 'right' }}>{s.count}</span>
-                                                    <ChevronRight size={12} style={{ color: '#8b5cf6' }} />
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {/* ── Top Issues ─────────────────────────────────── */}
-                    {sb?.topIssues?.length > 0 && (
-                        <>
-                            <SectionTitle>🚨 Top Issues (Booked)</SectionTitle>
-                            <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
-                                    <BarMini items={sb.topIssues} color="#ef4444" width={Math.min(560, sb.topIssues.length * 60)} height={90} />
-                                    <div style={{ flex: 1, display: 'grid', gap: '8px', minWidth: '200px' }}>
-                                        {sb.topIssues.map((s, i) => {
-                                            const max = sb.topIssues[0].count
-                                            return (
-                                                <div key={i}
-                                                    onClick={() => openDrawer('top_issue', s.name, `${s.name.replace(/-/g, ' ')} Bookings`, `${s.count} bookings for ${s.name.replace(/-/g, ' ')}`)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '3px 4px', borderRadius: '4px', transition: 'background 0.1s' }}
-                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#ef444415'}
-                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', flexShrink: 0, textTransform: 'capitalize' }}>{s.name?.replace(/-/g, ' ')}</span>
-                                                    <div style={{ flex: 1, height: '6px', backgroundColor: 'var(--border-primary)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                        <div style={{ width: `${(s.count / max) * 100}%`, height: '100%', backgroundColor: '#ef4444', borderRadius: '3px' }} />
-                                                    </div>
-                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', width: '28px', textAlign: 'right' }}>{s.count}</span>
-                                                    <ChevronRight size={12} style={{ color: '#ef4444' }} />
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {/* ── Top Pincodes ─────────────────────────────────── */}
-                    {sb?.topPincodes?.length > 0 && (
-                        <>
-                            <SectionTitle>📍 Top Pincodes (Booked)</SectionTitle>
-                            <div style={{ padding: '16px', backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', flexWrap: 'wrap' }}>
-                                    <BarMini items={sb.topPincodes} color="#10b981" width={Math.min(560, sb.topPincodes.length * 60)} height={90} />
-                                    <div style={{ flex: 1, display: 'grid', gap: '8px', minWidth: '200px' }}>
-                                        {sb.topPincodes.map((s, i) => {
-                                            const max = sb.topPincodes[0].count
-                                            return (
-                                                <div key={i}
-                                                    onClick={() => openDrawer('top_pincode', s.name, `Pincode ${s.name} Bookings`, `${s.count} bookings for ${s.name}`)}
-                                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '3px 4px', borderRadius: '4px', transition: 'background 0.1s' }}
-                                                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#10b98115'}
-                                                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
-                                                >
-                                                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)', width: '130px', flexShrink: 0, fontFamily: 'monospace' }}>{s.name}</span>
-                                                    <div style={{ flex: 1, height: '6px', backgroundColor: 'var(--border-primary)', borderRadius: '3px', overflow: 'hidden' }}>
-                                                        <div style={{ width: `${(s.count / max) * 100}%`, height: '100%', backgroundColor: '#10b981', borderRadius: '3px' }} />
-                                                    </div>
-                                                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', width: '28px', textAlign: 'right' }}>{s.count}</span>
-                                                    <ChevronRight size={12} style={{ color: '#10b981' }} />
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
                     {/* ── Audience Insights (GA4) ───────────────────────────────── */}
                     {ga4Connected && (channelSlices.length > 0 || deviceSlices.length > 0 || userTypeSlices.length > 0) && (
                         <>
@@ -696,7 +1244,7 @@ export default function WebsiteAnalytics() {
                         </>
                     )}
 
-                    {/* ── Top Pages ─────────────────────────────────────── */}
+                    {/* ── Top Pages (GA4) ── */}
                     {ga4Connected && ga4?.topPages?.length > 0 && (
                         <>
                             <SectionTitle>📄 Top Pages</SectionTitle>

@@ -226,7 +226,8 @@ export default function BookingWizard() {
                     brand: formData.brand, brandName: resolvedBrandName,
                     pincode: formData.pincode,
                     locality: formData.locality,
-                    phone: formData.phone.replace(/\D/g, '').slice(-10)
+                    phone: formData.phone.replace(/\D/g, '').slice(-10),
+                    session_id: typeof window !== 'undefined' ? sessionStorage.getItem('sorted_session_id') : null
                 };
                 
                 // Do not await to avoid blocking the UI
@@ -323,6 +324,7 @@ export default function BookingWizard() {
                 issueId: formData.issue, issueName,
                 brand: formData.brand, brandName: resolvedBrandName,
                 pincode: formData.pincode,
+                session_id: typeof window !== 'undefined' ? sessionStorage.getItem('sorted_session_id') : null,
                 customer: {
                     firstName: nameParts[0] || '',
                     lastName: nameParts.slice(1).join(' ') || '',

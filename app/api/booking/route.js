@@ -4,6 +4,7 @@ import { logInteractionServer } from '@/lib/log-interaction-server'
 import { fireNotification } from '@/lib/fire-notification'
 import { generateJobNumber } from '@/lib/generateJobNumber'
 import { generateAccountSKU } from '@/lib/generateAccountSKU'
+import { trackLeadAttribution } from '@/lib/lead-tracker'
 
 export async function POST(request) {
     const supabase = createServerSupabase()
@@ -22,7 +23,8 @@ export async function POST(request) {
             description,
             customer,
             schedule,
-            enquiryId
+            enquiryId,
+            session_id
         } = body
 
         // ── Validate mandatory fields ──────────────────────────────────────────
@@ -309,6 +311,14 @@ export async function POST(request) {
             metadata: { bookingNumber, categoryId, subcategoryId, pincode, customerId },
             source: 'Website',
         });
+
+        await trackLeadAttribution(supabase, {
+            phone: customer.phone,
+            session_id,
+            conversion_type: 'web_booking',
+            name: customer.name || `${customer.firstName} ${customer.lastName}`.trim(),
+            status: 'converted'
+        }).catch(err => console.error('[booking] trackLeadAttribution error:', err));
 
         // Fire notification trigger (direct module call — no HTTP self-fetch)
         await fireNotification('booking_created_website', {
