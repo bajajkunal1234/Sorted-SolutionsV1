@@ -351,7 +351,7 @@ export default function ExpensesList({ technicianId }) {
                                         {['mopid-petrol', 'bike-petrol'].includes(formData.category) && formData.amount && parseFloat(formData.amount) > 0 && (
                                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                 <span>🚲 Approx. Distance: </span>
-                                                <strong style={{ color: 'var(--color-primary)' }}>
+                                                <strong style={{ color: '#10b981' }}>
                                                     {((parseFloat(formData.amount) / 100) * (formData.category === 'mopid-petrol' ? 35 : 45)).toFixed(1)} Kms
                                                 </strong>
                                                 <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>(assuming ₹100/L petrol price)</span>
@@ -476,7 +476,7 @@ export default function ExpensesList({ technicianId }) {
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
                                                         <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-md)', fontSize: '11px', fontWeight: 600, backgroundColor: cat.color + '20', color: cat.color }}>{cat.name}</span>
                                                         {['mopid-petrol', 'bike-petrol'].includes(expense.category) && (
-                                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                                            <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>
                                                                 🚲 {((parseFloat(expense.amount || 0) / 100) * (expense.category === 'mopid-petrol' ? 35 : 45)).toFixed(1)} Kms
                                                             </span>
                                                         )}

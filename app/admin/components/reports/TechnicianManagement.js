@@ -890,7 +890,7 @@ function TechnicianManagement() {
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
                                                             <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>{cat?.name || exp.category}</span>
                                                             {['mopid-petrol', 'bike-petrol'].includes(exp.category) && (
-                                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                                                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700 }}>
                                                                     🚲 {((parseFloat(exp.amount || 0) / 100) * (exp.category === 'mopid-petrol' ? 35 : 45)).toFixed(1)} Kms
                                                                 </span>
                                                             )}
