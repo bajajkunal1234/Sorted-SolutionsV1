@@ -889,6 +889,21 @@ function TechnicianManagement() {
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
                                                             <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>{cat?.name || exp.category}</span>
+                                                            {['mopid-petrol', 'bike-petrol'].includes(exp.category) && (
+                                                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                                                    🚲 {((parseFloat(exp.amount || 0) / 100) * (exp.category === 'mopid-petrol' ? 35 : 45)).toFixed(1)} Kms
+                                                                </span>
+                                                            )}
+                                                            {['mopid-petrol', 'bike-petrol'].includes(exp.category) && exp.latitude && exp.longitude && (
+                                                                <a 
+                                                                    href={`https://www.google.com/maps?q=${exp.latitude},${exp.longitude}`} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer" 
+                                                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '11px', color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}
+                                                                >
+                                                                    📍 Location
+                                                                </a>
+                                                            )}
                                                             {statusBadge(exp.status)}
                                                             <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{new Date(exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                                                             <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>

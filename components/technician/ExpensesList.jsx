@@ -11,6 +11,28 @@ const getLocalDateString = () => {
     return `${year}-${month}-${day}`;
 };
 
+const getCoords = () => {
+    return new Promise((resolve) => {
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            resolve(null);
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                resolve({
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude
+                });
+            },
+            (err) => {
+                console.error('GPS error:', err);
+                resolve(null);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+    });
+};
+
 export default function ExpensesList({ technicianId }) {
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -179,6 +201,11 @@ export default function ExpensesList({ technicianId }) {
         setSubmitting(true);
         setError(null);
 
+        let coords = null;
+        if (['mopid-petrol', 'bike-petrol'].includes(formData.category)) {
+            coords = await getCoords();
+        }
+
         let techName = 'Technician';
         if (typeof window !== 'undefined') {
             const storedTech = localStorage.getItem('technicianData');
@@ -198,7 +225,9 @@ export default function ExpensesList({ technicianId }) {
                     category: formData.category,
                     amount: parseFloat(formData.amount),
                     description: formData.description,
-                    receipt: receiptUrl
+                    receipt: receiptUrl,
+                    latitude: coords?.latitude || null,
+                    longitude: coords?.longitude || null
                 })
             });
             const data = await response.json();
@@ -319,6 +348,15 @@ export default function ExpensesList({ technicianId }) {
                                     <div>
                                         <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Amount (₹)</label>
                                         <input type="number" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} className="form-input" style={{ width: '100%' }} placeholder="0" step="0.01" min="0" required />
+                                        {['mopid-petrol', 'bike-petrol'].includes(formData.category) && formData.amount && parseFloat(formData.amount) > 0 && (
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                <span>🚲 Approx. Distance: </span>
+                                                <strong style={{ color: 'var(--color-primary)' }}>
+                                                    {((parseFloat(formData.amount) / 100) * (formData.category === 'mopid-petrol' ? 35 : 45)).toFixed(1)} Kms
+                                                </strong>
+                                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>(assuming ₹100/L petrol price)</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Description (Optional)</label>
@@ -437,6 +475,21 @@ export default function ExpensesList({ technicianId }) {
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
                                                         <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-md)', fontSize: '11px', fontWeight: 600, backgroundColor: cat.color + '20', color: cat.color }}>{cat.name}</span>
+                                                        {['mopid-petrol', 'bike-petrol'].includes(expense.category) && (
+                                                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                                                                🚲 {((parseFloat(expense.amount || 0) / 100) * (expense.category === 'mopid-petrol' ? 35 : 45)).toFixed(1)} Kms
+                                                            </span>
+                                                        )}
+                                                        {['mopid-petrol', 'bike-petrol'].includes(expense.category) && expense.latitude && expense.longitude && (
+                                                            <a 
+                                                                href={`https://www.google.com/maps?q=${expense.latitude},${expense.longitude}`} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer" 
+                                                                style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '11px', color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'underline' }}
+                                                            >
+                                                                📍 Location
+                                                            </a>
+                                                        )}
                                                         {getStatusBadge(expense.status || 'pending')}
                                                         {expense.status === 'pending' && (
                                                             <button
