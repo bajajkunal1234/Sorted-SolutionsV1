@@ -217,8 +217,11 @@ function AccountDetailModal({ account, onClose, onUpdate, groups = [] }) {
             }
         }
 
+        const cleanMobile = editedAccount.mobile ? editedAccount.mobile.replace(/\D/g, '').slice(-10) : '';
+
         const payloadToSave = {
             ...editedAccount,
+            mobile: cleanMobile,
             contact_person: editedAccount.contactPerson,
             mailing_name: editedAccount.mailingName,
             mailing_address: editedAccount.customerDescription, // Or mailingAddress

@@ -134,7 +134,7 @@ export async function POST(request) {
         const { data: customer, error: insertError } = await supabase
             .from('customers')
             .insert([{
-                phone,
+                phone: last10,
                 full_name: name.trim(),
                 name: name.trim(),
                 username: cleanUsername,

@@ -66,7 +66,7 @@ export const formatMobileNumber = (mobile) => {
     }
 
     if (digits.length === 10) {
-        return `+91 ${digits.substring(0, 5)} ${digits.substring(5)}`;
+        return `+91-${digits.substring(0, 5)} ${digits.substring(5)}`;
     }
 
     return mobile;

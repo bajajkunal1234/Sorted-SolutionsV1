@@ -21,6 +21,7 @@ import NewAccountForm from './accounts/NewAccountForm';
 import PropertyForm from './accounts/PropertyForm';
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils/helpers';
+import { formatMobileNumber } from '@/lib/utils/validation';
 
 
 const normalizeAddress = (p) => {
@@ -93,7 +94,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
     useEffect(() => {
         if (formData.customer && formData.customer.name) {
-            setCustomerSearchTerm(`${formData.customer.name} ${formData.customer.phone || formData.customer.mobile ? `- ${formData.customer.phone || formData.customer.mobile}` : ''}`);
+            const phoneVal = formData.customer.phone || formData.customer.mobile;
+            setCustomerSearchTerm(`${formData.customer.name} ${phoneVal ? `- ${formatMobileNumber(phoneVal)}` : ''}`);
         } else {
             setCustomerSearchTerm('');
         }
@@ -1038,7 +1040,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                                 justifyContent: 'space-between'
                             }}>
                                 <div>
-                                    <div><strong>Phone:</strong> {formData.customer.mobile || formData.customer.phone || 'N/A'}</div>
+                                    <div><strong>Phone:</strong> {formData.customer.mobile || formData.customer.phone ? formatMobileNumber(formData.customer.mobile || formData.customer.phone) : 'N/A'}</div>
                                     <div><strong>Email:</strong> {formData.customer.email || 'N/A'}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>

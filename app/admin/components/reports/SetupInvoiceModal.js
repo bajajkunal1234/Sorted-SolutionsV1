@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Printer, RefreshCcw, Plus, Trash2 } from 'lucide-react';
 import { printSettingsAPI } from '@/lib/adminAPI';
+import { formatMobileNumber } from '@/lib/utils/validation';
 
 export default function SetupInvoiceModal({ type, data, onClose }) {
     const [settings, setSettings] = useState(null);
@@ -280,7 +281,7 @@ export default function SetupInvoiceModal({ type, data, onClose }) {
                                 {customerAddressStr ? customerAddressStr : 'Address not provided'}
                             </div>
                             <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>
-                                {customer.phone && `Phone: ${customer.phone}`}
+                                {customer.phone && `Phone: ${formatMobileNumber(customer.phone)}`}
                                 {customer.email && ` | Email: ${customer.email}`}
                             </div>
                         </div>

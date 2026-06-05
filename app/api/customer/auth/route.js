@@ -610,7 +610,7 @@ export async function POST(request) {
                 return NextResponse.json({ success: true, user: { id: 'admin-' + incomingLast10, name: 'Admin', phone: incomingLast10, role: 'admin' } })
             }
             // New customer via OTP (fallback)
-            const { data: newC, error: ce } = await supabase.from('customers').insert({ firebase_uid: firebaseUid, phone: phoneNumber, name: `Customer ${phoneNumber.slice(-4)}`, created_at: new Date().toISOString() }).select().single()
+            const { data: newC, error: ce } = await supabase.from('customers').insert({ firebase_uid: firebaseUid, phone: incomingLast10, name: `Customer ${phoneNumber.slice(-4)}`, created_at: new Date().toISOString() }).select().single()
             if (ce) return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
             user = newC; role = 'customer'
         }

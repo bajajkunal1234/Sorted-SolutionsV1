@@ -184,25 +184,15 @@ function QuickBookingForm({ preSelectedCategory, preSelectedSubcategoryId, initi
                     </div>
                 )}
 
-                {formData.issue && (
-                    <div className="booking-helper-bubble">
-                        Click Here!
-                    </div>
-                )}
-
                 {/* Book button */}
                 <button
                     type="submit"
-                    className={`book-button ${formData.issue ? 'outlined pulse-active' : ''}`}
+                    className="book-button"
                     aria-label="Book technician"
                 >
                     {(() => {
                         if (formData.issue) {
-                            const issueObj = visibleIssues.find(i => String(i.id) === formData.issue);
-                            if (issueObj && issueObj.price) {
-                                return `Book Now @ ₹${issueObj.price}`;
-                            }
-                            return "Book Now";
+                            return "Find Technician Near Me";
                         }
                         return "Select Issue to Continue";
                     })()}

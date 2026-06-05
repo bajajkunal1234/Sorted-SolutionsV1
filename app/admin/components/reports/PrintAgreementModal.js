@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { X, Printer, RefreshCcw } from 'lucide-react';
 import { printSettingsAPI, agreementTemplatesAPI } from '@/lib/adminAPI';
+import { formatMobileNumber } from '@/lib/utils/validation';
 
 export default function PrintAgreementModal({ type, data, onClose }) {
     const [settings, setSettings] = useState(null);
@@ -80,7 +81,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
             if (customer.pincode) addressStr += ` - ${customer.pincode}`;
         }
         processed = processed.replace(/\[CUSTOMER_ADDRESS\]/g, addressStr || 'N/A');
-        processed = processed.replace(/\[CUSTOMER_PHONE\]/g, customer.phone || 'N/A');
+        processed = processed.replace(/\[CUSTOMER_PHONE\]/g, customer.phone ? formatMobileNumber(customer.phone) : 'N/A');
         processed = processed.replace(/\[CUSTOMER_EMAIL\]/g, customer.email || 'N/A');
 
         // Product Details
@@ -308,7 +309,7 @@ export default function PrintAgreementModal({ type, data, onClose }) {
                                 {customerAddressStr ? customerAddressStr : 'Address not provided'}
                             </div>
                             <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>
-                                {customer.phone && `Phone: ${customer.phone}`}
+                                {customer.phone && `Phone: ${formatMobileNumber(customer.phone)}`}
                                 {customer.email && ` | Email: ${customer.email}`}
                             </div>
                         </div>

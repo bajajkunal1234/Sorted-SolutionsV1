@@ -12,22 +12,24 @@ export async function POST(request) {
             )
         }
 
+        const cleanPhone = phoneNumber.replace(/\D/g, '').slice(-10);
+
         // Check if customer exists with this phone number
         let { data: customer, error: fetchError } = await supabase
             .from('customers')
             .select('*')
-            .eq('phone', phoneNumber)
+            .eq('phone', cleanPhone)
             .single()
 
         // If customer doesn't exist, create new customer
         if (fetchError || !customer) {
-            console.log('Creating new customer for:', phoneNumber)
+            console.log('Creating new customer for:', cleanPhone)
 
             const { data: newCustomer, error: createError } = await supabase
                 .from('customers')
                 .insert({
-                    phone: phoneNumber,
-                    name: `Customer ${phoneNumber.slice(-4)}` // Default name
+                    phone: cleanPhone,
+                    name: `Customer ${cleanPhone.slice(-4)}` // Default name
                 })
                 .select()
                 .single()

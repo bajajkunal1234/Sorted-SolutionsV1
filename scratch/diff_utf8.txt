@@ -1,0 +1,1076 @@
+﻿diff --git a/app/admin/components/reports/DaybookView.js b/app/admin/components/reports/DaybookView.js
+index 2d3d3bd..4022317 100644
+--- a/app/admin/components/reports/DaybookView.js
++++ b/app/admin/components/reports/DaybookView.js
+@@ -1,7 +1,7 @@
+ 'use client'
+ 
+ import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+-import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, RefreshCcw, FileText, Info, ChevronDown, Check } from 'lucide-react';
++import { Calendar, Download, Printer, Filter, TrendingUp, TrendingDown, RefreshCcw, FileText, Info, ChevronDown, Check, ArrowLeft, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
+ import { transactionsAPI } from '@/lib/adminAPI';
+ import { formatCurrency } from '@/lib/utils/accountingHelpers';
+ 
+@@ -84,10 +84,12 @@ function getPrevDate(dateStr) {
+ function DaybookView() {
+     const [transactions, setTransactions] = useState([]);
+     const [openingBalance, setOpeningBalance] = useState(0);
++    const [accounts, setAccounts] = useState([]);
+     const [loading, setLoading] = useState(true);
+     const [error, setError] = useState(null);
+     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
++    
+     // Excel-style multi-checkbox filter ΓÇö all types selected by default
+     const ALL_TYPES = ['sales', 'purchase', 'receipt', 'payment'];
+     const [selectedTypes, setSelectedTypes] = useState(new Set(ALL_TYPES));
+@@ -95,7 +97,11 @@ function DaybookView() {
+     const filterRef = useRef(null);
+     const [selectedTransaction, setSelectedTransaction] = useState(null);
+     const [editMode, setEditMode] = useState(false);
+-    const [showBalanceInfo, setShowBalanceInfo] = useState(false);
++    
++    // Custom views
++    const [activeView, setActiveView] = useState(null); // null, 'money-in', 'money-out', 'summary'
++    const [moneyInFilter, setMoneyInFilter] = useState('all'); // 'all', 'cash', 'bank'
++    const [moneyOutFilter, setMoneyOutFilter] = useState('all'); // 'all', 'cash', 'bank'
+ 
+     // Close filter dropdown on outside click
+     useEffect(() => {
+@@ -124,13 +130,15 @@ function DaybookView() {
+             setLoading(true);
+             setError(null);
+ 
+-            const [data, ob] = await Promise.all([
++            const [data, ob, acctsRes] = await Promise.all([
+                 transactionsAPI.getAll({ type: 'all', start_date: startDate, end_date: endDate }),
+                 fetchOpeningBalance(startDate),
++                fetch('/api/admin/accounts?type=payment_method').then(r => r.json()),
+             ]);
+ 
+             setTransactions((data || []).map(normalizeTransaction));
+             setOpeningBalance(ob);
++            setAccounts(acctsRes?.data || []);
+         } catch (err) {
+             console.error('Failed to fetch transactions:', err);
+             setError('Failed to load transactions');
+@@ -141,6 +149,116 @@ function DaybookView() {
+ 
+     useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+ 
++    // Helper to determine if account is cash
++    const isCashAccount = (account) => {
++        if (!account) return false;
++        const type = (account.type || '').toLowerCase();
++        const under = (account.under || '').toLowerCase();
++        const name = (account.name || '').toLowerCase();
++        return type === 'cash' || under.includes('cash') || name.includes('cash-in-hand');
++    };
++
++    // Calculate all receipts and payments regardless of sidebar checkboxes
++    const allReceipts = useMemo(() => {
++        return transactions.filter(t => t.type === 'receipt');
++    }, [transactions]);
++
++    const allPayments = useMemo(() => {
++        return transactions.filter(t => t.type === 'payment');
++    }, [transactions]);
++
++    const totalMoneyIn = useMemo(() => {
++        return allReceipts.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0);
++    }, [allReceipts]);
++
++    const totalMoneyOut = useMemo(() => {
++        return allPayments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
++    }, [allPayments]);
++
++    // Receipts bifurcation
++    const moneyInBifurcation = useMemo(() => {
++        let cash = 0;
++        let bank = 0;
++        const details = {}; // account_id -> { name, amount, txns: [] }
++
++        allReceipts.forEach(txn => {
++            const amt = parseFloat(txn.amount) || 0;
++            const acctId = txn.payment_account_id || 'unknown';
++            const acct = accounts.find(a => a.id === acctId);
++            
++            const isCash = acct ? isCashAccount(acct) : (txn.payment_mode || '').toLowerCase() === 'cash';
++            
++            if (isCash) {
++                cash += amt;
++            } else {
++                bank += amt;
++            }
++
++            const name = acct ? acct.name : (txn.payment_mode || 'Unknown Mode');
++            if (!details[acctId]) {
++                details[acctId] = { name, amount: 0, txns: [] };
++            }
++            details[acctId].amount += amt;
++            details[acctId].txns.push(txn);
++        });
++
++        return { cash, bank, details: Object.values(details) };
++    }, [allReceipts, accounts]);
++
++    // Payments bifurcation
++    const moneyOutBifurcation = useMemo(() => {
++        let cash = 0;
++        let bank = 0;
++        const details = {}; // account_id -> { name, amount, txns: [] }
++
++        allPayments.forEach(txn => {
++            const amt = parseFloat(txn.amount) || 0;
++            const acctId = txn.payment_account_id || 'unknown';
++            const acct = accounts.find(a => a.id === acctId);
++            
++            const isCash = acct ? isCashAccount(acct) : (txn.payment_mode || '').toLowerCase() === 'cash';
++            
++            if (isCash) {
++                cash += amt;
++            } else {
++                bank += amt;
++            }
++
++            const name = acct ? acct.name : (txn.payment_mode || 'Unknown Mode');
++            if (!details[acctId]) {
++                details[acctId] = { name, amount: 0, txns: [] };
++            }
++            details[acctId].amount += amt;
++            details[acctId].txns.push(txn);
++        });
++
++        return { cash, bank, details: Object.values(details) };
++    }, [allPayments, accounts]);
++
++    // Filter receipts list based on tab
++    const visibleReceipts = useMemo(() => {
++        return allReceipts.filter(txn => {
++            if (moneyInFilter === 'all') return true;
++            const acct = accounts.find(a => a.id === txn.payment_account_id);
++            const isCash = acct ? isCashAccount(acct) : (txn.payment_mode || '').toLowerCase() === 'cash';
++            if (moneyInFilter === 'cash') return isCash;
++            if (moneyInFilter === 'bank') return !isCash;
++            return true;
++        });
++    }, [allReceipts, moneyInFilter, accounts]);
++
++    // Filter payments list based on tab
++    const visiblePayments = useMemo(() => {
++        return allPayments.filter(txn => {
++            if (moneyOutFilter === 'all') return true;
++            const acct = accounts.find(a => a.id === txn.payment_account_id);
++            const isCash = acct ? isCashAccount(acct) : (txn.payment_mode || '').toLowerCase() === 'cash';
++            if (moneyOutFilter === 'cash') return isCash;
++            if (moneyOutFilter === 'bank') return !isCash;
++            return true;
++        });
++    }, [allPayments, moneyOutFilter, accounts]);
++
+     // Filter, sort, and compute running balance starting from opening balance
+     const processedTransactions = useMemo(() => {
+         let filtered = transactions.filter(txn => {
+@@ -352,25 +470,67 @@ function DaybookView() {
+                         className="btn btn-secondary"
+                         style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
+                         onClick={() => {
+-                            const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
+-                            const obRow = ['', 'Opening Balance', '', '', '', '', '', openingBalance.toFixed(2)];
+-                            const rows = processedTransactions.map(txn => [
+-                                new Date(txn.date).toLocaleDateString('en-GB'),
+-                                txn.type,
+-                                txn.voucherNo,
+-                                txn.account,
+-                                (txn.narration || '').replace(/,/g, ' '),
+-                                txn.debit.toFixed(2),
+-                                txn.credit.toFixed(2),
+-                                txn.balance.toFixed(2),
+-                            ]);
+-                            const cbRow = ['', 'Closing Balance', '', '', '', totals.debit.toFixed(2), totals.credit.toFixed(2), closingBalance.toFixed(2)];
+-                            const csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
+-                            const blob = new Blob([csv], { type: 'text/csv' });
+-                            const a = document.createElement('a');
+-                            a.href = URL.createObjectURL(blob);
+-                            a.download = `Daybook_${startDate}_to_${endDate}.csv`;
+-                            a.click();
++                            if (activeView === 'money-in') {
++                                const headers = ['Date', 'Receipt No', 'Received From', 'Deposit Account', 'Narration', 'Amount'];
++                                const rows = visibleReceipts.map(txn => {
++                                    const acct = accounts.find(a => a.id === txn.payment_account_id);
++                                    const acctName = acct ? acct.name : (txn.payment_mode || 'ΓÇö');
++                                    return [
++                                        new Date(txn.date).toLocaleDateString('en-GB'),
++                                        txn.voucherNo,
++                                        txn.account,
++                                        acctName,
++                                        (txn.narration || '').replace(/,/g, ' '),
++                                        txn.amount.toFixed(2),
++                                    ];
++                                });
++                                const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
++                                const blob = new Blob([csv], { type: 'text/csv' });
++                                const a = document.createElement('a');
++                                a.href = URL.createObjectURL(blob);
++                                a.download = `Receipts_${startDate}_to_${endDate}.csv`;
++                                a.click();
++                            } else if (activeView === 'money-out') {
++                                const headers = ['Date', 'Payment No', 'Paid To', 'Payment Account', 'Narration', 'Amount'];
++                                const rows = visiblePayments.map(txn => {
++                                    const acct = accounts.find(a => a.id === txn.payment_account_id);
++                                    const acctName = acct ? acct.name : (txn.payment_mode || 'ΓÇö');
++                                    return [
++                                        new Date(txn.date).toLocaleDateString('en-GB'),
++                                        txn.voucherNo,
++                                        txn.account,
++                                        acctName,
++                                        (txn.narration || '').replace(/,/g, ' '),
++                                        txn.amount.toFixed(2),
++                                    ];
++                                });
++                                const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
++                                const blob = new Blob([csv], { type: 'text/csv' });
++                                const a = document.createElement('a');
++                                a.href = URL.createObjectURL(blob);
++                                a.download = `Payments_${startDate}_to_${endDate}.csv`;
++                                a.click();
++                            } else {
++                                const headers = ['Date', 'Type', 'Voucher No', 'Account', 'Narration', 'Debit', 'Credit', 'Balance'];
++                                const obRow = ['', 'Opening Balance', '', '', '', '', '', openingBalance.toFixed(2)];
++                                const rows = processedTransactions.map(txn => [
++                                    new Date(txn.date).toLocaleDateString('en-GB'),
++                                    txn.type,
++                                    txn.voucherNo,
++                                    txn.account,
++                                    (txn.narration || '').replace(/,/g, ' '),
++                                    txn.debit.toFixed(2),
++                                    txn.credit.toFixed(2),
++                                    txn.balance.toFixed(2),
++                                ]);
++                                const cbRow = ['', 'Closing Balance', '', '', '', totals.debit.toFixed(2), totals.credit.toFixed(2), closingBalance.toFixed(2)];
++                                const csv = [headers, obRow, ...rows, cbRow].map(r => r.join(',')).join('\n');
++                                const blob = new Blob([csv], { type: 'text/csv' });
++                                const a = document.createElement('a');
++                                a.href = URL.createObjectURL(blob);
++                                a.download = `Daybook_${startDate}_to_${endDate}.csv`;
++                                a.click();
++                            }
+                         }}
+                     >
+                         <Download size={16} />
+@@ -387,235 +547,599 @@ function DaybookView() {
+                 </div>
+             </div>
+ 
+-            {/* Summary Cards */}
+-            <div className="daybook-summary-grid" style={{
+-                padding: 'var(--spacing-md)',
+-                backgroundColor: 'var(--bg-secondary)',
+-                borderBottom: '1px solid var(--border-primary)',
+-                display: 'grid',
+-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+-                gap: 'var(--spacing-md)'
+-            }}>
+-                {/* Opening Balance */}
+-                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Opening Balance</div>
+-                    <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: openingBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+-                        {formatCurrency(Math.abs(openingBalance))}
+-                        <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 4, color: 'var(--text-tertiary)' }}>
+-                            {openingBalance >= 0 ? 'Dr' : 'Cr'}
+-                        </span>
++            {/* Main Daybook Body */}
++            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
++                {loading && transactions.length === 0 ? (
++                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)' }}>
++                        <RefreshCcw size={48} className="spin" style={{ marginBottom: 'var(--spacing-md)', opacity: 0.5 }} />
++                        <p>Loading transaction data...</p>
+                     </div>
+-                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>Cash + Bank at start of period</div>
+-                </div>
+-
+-                {/* Total Debit */}
+-                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total Debit</div>
+-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+-                        <TrendingUp size={20} style={{ color: 'var(--color-danger)' }} />
+-                        <span style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: 'var(--color-danger)' }}>
+-                            {formatCurrency(totals.debit)}
+-                        </span>
++                ) : error ? (
++                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-danger)' }}>
++                        <p>{error}</p>
++                        <button className="btn btn-primary" onClick={fetchTransactions} style={{ marginTop: 'var(--spacing-md)' }}>Retry</button>
+                     </div>
+-                </div>
++                ) : activeView === null ? (
++                    /* 3 Cards Mode */
++                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
++                        <div className="daybook-summary-grid" style={{
++                            display: 'grid',
++                            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
++                            gap: 'var(--spacing-md)'
++                        }}>
++                            {/* Card 1: Total Money In */}
++                            <div 
++                                onClick={() => setActiveView('money-in')}
++                                style={{
++                                    padding: 'var(--spacing-lg)',
++                                    backgroundColor: 'var(--bg-elevated)',
++                                    borderRadius: 'var(--radius-lg)',
++                                    border: '2px solid rgba(16, 185, 129, 0.2)',
++                                    cursor: 'pointer',
++                                    transition: 'all 0.2s ease',
++                                    display: 'flex',
++                                    flexDirection: 'column',
++                                    gap: 'var(--spacing-sm)',
++                                    boxShadow: 'var(--shadow-md)',
++                                }}
++                                onMouseEnter={(e) => {
++                                    e.currentTarget.style.borderColor = '#10b981';
++                                    e.currentTarget.style.transform = 'translateY(-4px)';
++                                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.15)';
++                                }}
++                                onMouseLeave={(e) => {
++                                    e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.2)';
++                                    e.currentTarget.style.transform = 'translateY(0)';
++                                    e.currentTarget.style.boxShadow = 'var(--shadow-md)';
++                                }}
++                            >
++                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
++                                    <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Money In</span>
++                                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: 6, borderRadius: '50%' }}>
++                                        <TrendingDown size={20} color="#10b981" />
++                                    </div>
++                                </div>
++                                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981' }}>
++                                    {formatCurrency(totalMoneyIn)}
++                                </div>
++                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
++                                    All receipts collected across cash and bank. Click to see details.
++                                </div>
++                            </div>
+ 
+-                {/* Total Credit */}
+-                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Total Credit</div>
+-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
+-                        <TrendingDown size={20} style={{ color: 'var(--color-success)' }} />
+-                        <span style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: 'var(--color-success)' }}>
+-                            {formatCurrency(totals.credit)}
+-                        </span>
+-                    </div>
+-                </div>
++                            {/* Card 2: Total Money Out */}
++                            <div 
++                                onClick={() => setActiveView('money-out')}
++                                style={{
++                                    padding: 'var(--spacing-lg)',
++                                    backgroundColor: 'var(--bg-elevated)',
++                                    borderRadius: 'var(--radius-lg)',
++                                    border: '2px solid rgba(245, 158, 11, 0.2)',
++                                    cursor: 'pointer',
++                                    transition: 'all 0.2s ease',
++                                    display: 'flex',
++                                    flexDirection: 'column',
++                                    gap: 'var(--spacing-sm)',
++                                    boxShadow: 'var(--shadow-md)',
++                                }}
++                                onMouseEnter={(e) => {
++                                    e.currentTarget.style.borderColor = '#f59e0b';
++                                    e.currentTarget.style.transform = 'translateY(-4px)';
++                                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(245, 158, 11, 0.15)';
++                                }}
++                                onMouseLeave={(e) => {
++                                    e.currentTarget.style.borderColor = 'rgba(245, 158, 11, 0.2)';
++                                    e.currentTarget.style.transform = 'translateY(0)';
++                                    e.currentTarget.style.boxShadow = 'var(--shadow-md)';
++                                }}
++                            >
++                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
++                                    <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Money Out</span>
++                                    <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: 6, borderRadius: '50%' }}>
++                                        <TrendingUp size={20} color="#f59e0b" />
++                                    </div>
++                                </div>
++                                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f59e0b' }}>
++                                    {formatCurrency(totalMoneyOut)}
++                                </div>
++                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
++                                    All payments made across cash and bank. Click to see details.
++                                </div>
++                            </div>
+ 
+-                {/* Closing Balance */}
+-                <div
+-                    style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-primary)', cursor: 'help', position: 'relative' }}
+-                    onMouseEnter={() => setShowBalanceInfo(true)}
+-                    onMouseLeave={() => setShowBalanceInfo(false)}
+-                >
+-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: '4px' }}>
+-                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>Closing Balance</div>
+-                        <Info size={11} style={{ color: 'var(--text-tertiary)' }} />
+-                    </div>
+-                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: closingBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+-                        {formatCurrency(Math.abs(closingBalance))}
+-                        <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 4, color: 'var(--text-tertiary)' }}>
+-                            {closingBalance >= 0 ? 'Dr' : 'Cr'}
+-                        </span>
++                            {/* Card 3: Daybook Summary */}
++                            <div 
++                                onClick={() => setActiveView('summary')}
++                                style={{
++                                    padding: 'var(--spacing-lg)',
++                                    backgroundColor: 'var(--bg-elevated)',
++                                    borderRadius: 'var(--radius-lg)',
++                                    border: '2px solid rgba(99, 102, 241, 0.2)',
++                                    cursor: 'pointer',
++                                    transition: 'all 0.2s ease',
++                                    display: 'flex',
++                                    flexDirection: 'column',
++                                    gap: 'var(--spacing-sm)',
++                                    boxShadow: 'var(--shadow-md)',
++                                }}
++                                onMouseEnter={(e) => {
++                                    e.currentTarget.style.borderColor = '#6366f1';
++                                    e.currentTarget.style.transform = 'translateY(-4px)';
++                                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(99, 102, 241, 0.15)';
++                                }}
++                                onMouseLeave={(e) => {
++                                    e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.2)';
++                                    e.currentTarget.style.transform = 'translateY(0)';
++                                    e.currentTarget.style.boxShadow = 'var(--shadow-md)';
++                                }}
++                            >
++                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
++                                    <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-secondary)' }}>Daybook & Net Position</span>
++                                    <div style={{ backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: 6, borderRadius: '50%' }}>
++                                        <FileText size={20} color="#6366f1" />
++                                    </div>
++                                </div>
++                                
++                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
++                                    <div>
++                                        <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Opening Balance</div>
++                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: openingBalance >= 0 ? '#10b981' : '#ef4444' }}>
++                                            {formatCurrency(Math.abs(openingBalance))} {openingBalance >= 0 ? 'Dr' : 'Cr'}
++                                        </div>
++                                    </div>
++                                    <div>
++                                        <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Closing Balance</div>
++                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: closingBalance >= 0 ? '#10b981' : '#ef4444' }}>
++                                            {formatCurrency(Math.abs(closingBalance))} {closingBalance >= 0 ? 'Dr' : 'Cr'}
++                                        </div>
++                                    </div>
++                                    <div>
++                                        <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Total Debit (In)</div>
++                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: '#ef4444' }}>
++                                            {formatCurrency(totals.debit)}
++                                        </div>
++                                    </div>
++                                    <div>
++                                        <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>Total Credit (Out)</div>
++                                        <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: '#10b981' }}>
++                                            {formatCurrency(totals.credit)}
++                                        </div>
++                                    </div>
++                                </div>
++
++                                <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-xs)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--font-size-xs)' }}>
++                                    <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Transactions List</span>
++                                    <span style={{ backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: 10, fontWeight: 700 }}>
++                                        {processedTransactions.length} items
++                                    </span>
++                                </div>
++                            </div>
++                        </div>
+                     </div>
+-                    <div style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 2 }}>Cash + Bank at end of period</div>
++                ) : activeView === 'money-in' ? (
++                    /* Receipts (Money In) Detailed View */
++                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
++                        <button 
++                            className="btn btn-secondary" 
++                            onClick={() => setActiveView(null)} 
++                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}
++                        >
++                            <ArrowLeft size={16} /> Back to Daybook
++                        </button>
+ 
+-                    {/* Tooltip */}
+-                    {showBalanceInfo && (
+-                        <div style={{
+-                            position: 'absolute', bottom: '110%', left: 0, right: 0,
+-                            backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)',
+-                            borderRadius: 8, padding: '10px 12px', fontSize: 11, zIndex: 999,
+-                            boxShadow: '0 4px 24px rgba(0,0,0,0.3)', lineHeight: 1.6,
+-                            color: 'var(--text-primary)', minWidth: 260,
+-                        }}>
+-                            <strong>Closing Balance = Opening Balance + Debits ΓêÆ Credits</strong>
+-                            <br />
+-                            <span style={{ color: 'var(--text-secondary)' }}>= {formatCurrency(Math.abs(openingBalance))} + {formatCurrency(totals.debit)} ΓêÆ {formatCurrency(totals.credit)}</span>
+-                            <br /><br />
+-                            This is your <strong>total cash + bank position</strong> at the end of this period ΓÇö the sum of Cash-in-hand, HDFC Current A/c, Razorpay, and Google Pay balances combined.
+-                            <br /><br />
+-                            It does <strong>not</strong> include receivables (unpaid sales invoices) or payables.
++                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
++                            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
++                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: 4 }}>
++                                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#10b981' }} />
++                                    Cash Receipts
++                                </div>
++                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: '#10b981' }}>
++                                    {formatCurrency(moneyInBifurcation.cash)}
++                                </div>
++                            </div>
++                            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
++                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: 4 }}>
++                                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#3b82f6' }} />
++                                    Bank Receipts
++                                </div>
++                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: '#3b82f6' }}>
++                                    {formatCurrency(moneyInBifurcation.bank)}
++                                </div>
++                            </div>
+                         </div>
+-                    )}
+-                </div>
+ 
+-                {/* Count */}
+-                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+-                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Transactions</div>
+-                    <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700 }}>{processedTransactions.length}</div>
+-                </div>
+-            </div>
++                        <div>
++                            <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
++                                Deposit Accounts Breakdown
++                            </h4>
++                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 'var(--spacing-sm)' }}>
++                                {moneyInBifurcation.details.map((item, idx) => (
++                                    <div key={idx} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
++                                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{item.name}</span>
++                                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: '#10b981' }}>{formatCurrency(item.amount)}</span>
++                                    </div>
++                                ))}
++                                {moneyInBifurcation.details.length === 0 && (
++                                    <div style={{ gridColumn: '1 / -1', padding: 'var(--spacing-md)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
++                                        No receipts recorded for this period
++                                    </div>
++                                )}
++                            </div>
++                        </div>
+ 
+-            {/* Content Area */}
+-            <div className="table-container" style={{ flex: 1, overflow: 'auto', position: 'relative', padding: 'var(--spacing-md)' }}>
+-                {loading && transactions.length === 0 ? (
+-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-tertiary)' }}>
+-                        <RefreshCcw size={48} className="spin" style={{ marginBottom: 'var(--spacing-md)', opacity: 0.5 }} />
+-                        <p>Loading transactions...</p>
++                        <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-md)', marginTop: 'var(--spacing-sm)' }}>
++                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
++                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
++                                    <button 
++                                        className={`view-toggle-btn ${moneyInFilter === 'all' ? 'active' : ''}`}
++                                        onClick={() => setMoneyInFilter('all')}
++                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
++                                    >
++                                        All Receipts ({allReceipts.length})
++                                    </button>
++                                    <button 
++                                        className={`view-toggle-btn ${moneyInFilter === 'cash' ? 'active' : ''}`}
++                                        onClick={() => setMoneyInFilter('cash')}
++                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
++                                    >
++                                        Cash Mode ({allReceipts.filter(r => {
++                                            const acct = accounts.find(a => a.id === r.payment_account_id);
++                                            return acct ? isCashAccount(acct) : (r.payment_mode || '').toLowerCase() === 'cash';
++                                        }).length})
++                                    </button>
++                                    <button 
++                                        className={`view-toggle-btn ${moneyInFilter === 'bank' ? 'active' : ''}`}
++                                        onClick={() => setMoneyInFilter('bank')}
++                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
++                                    >
++                                        Bank Mode ({allReceipts.filter(r => {
++                                            const acct = accounts.find(a => a.id === r.payment_account_id);
++                                            return !(acct ? isCashAccount(acct) : (r.payment_mode || '').toLowerCase() === 'cash');
++                                        }).length})
++                                    </button>
++                                </div>
++                            </div>
++
++                            <div className="table-container" style={{ overflowX: 'auto' }}>
++                                <table className="daybook-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
++                                    <thead>
++                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Date</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Receipt No</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Received From</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Deposit Account</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Narration</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Amount</th>
++                                        </tr>
++                                    </thead>
++                                    <tbody>
++                                        {visibleReceipts.map(txn => {
++                                            const acct = accounts.find(a => a.id === txn.payment_account_id);
++                                            const acctName = acct ? acct.name : (txn.payment_mode || 'ΓÇö');
++                                            return (
++                                                <tr 
++                                                    key={txn.id}
++                                                    onClick={() => setSelectedTransaction(txn)}
++                                                    style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer' }}
++                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
++                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
++                                                >
++                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
++                                                        {new Date(txn.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace', fontSize: 'var(--font-size-xs)' }}>
++                                                        {txn.voucherNo}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
++                                                        {txn.account}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
++                                                        {acctName}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
++                                                        {txn.narration}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: '#10b981' }}>
++                                                        {formatCurrency(txn.amount)}
++                                                    </td>
++                                                </tr>
++                                            );
++                                        })}
++                                        {visibleReceipts.length === 0 && (
++                                            <tr>
++                                                <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-tertiary)' }}>
++                                                    No receipts found matching selected criteria
++                                                </td>
++                                            </tr>
++                                        )}
++                                    </tbody>
++                                </table>
++                            </div>
++                        </div>
+                     </div>
+-                ) : error ? (
+-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-danger)' }}>
+-                        <p>{error}</p>
+-                        <button className="btn btn-primary" onClick={fetchTransactions} style={{ marginTop: 'var(--spacing-md)' }}>Retry</button>
++                ) : activeView === 'money-out' ? (
++                    /* Payments (Money Out) Detailed View */
++                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
++                        <button 
++                            className="btn btn-secondary" 
++                            onClick={() => setActiveView(null)} 
++                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}
++                        >
++                            <ArrowLeft size={16} /> Back to Daybook
++                        </button>
++
++                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
++                            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
++                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: 4 }}>
++                                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ef4444' }} />
++                                    Cash Payments
++                                </div>
++                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: '#ef4444' }}>
++                                    {formatCurrency(moneyOutBifurcation.cash)}
++                                </div>
++                            </div>
++                            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
++                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: 4 }}>
++                                    <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#3b82f6' }} />
++                                    Bank Payments
++                                </div>
++                                <div style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, color: '#3b82f6' }}>
++                                    {formatCurrency(moneyOutBifurcation.bank)}
++                                </div>
++                            </div>
++                        </div>
++
++                        <div>
++                            <h4 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)' }}>
++                                Payment Accounts Breakdown
++                            </h4>
++                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 'var(--spacing-sm)' }}>
++                                {moneyOutBifurcation.details.map((item, idx) => (
++                                    <div key={idx} style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
++                                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>{item.name}</span>
++                                        <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, color: '#ef4444' }}>{formatCurrency(item.amount)}</span>
++                                    </div>
++                                ))}
++                                {moneyOutBifurcation.details.length === 0 && (
++                                    <div style={{ gridColumn: '1 / -1', padding: 'var(--spacing-md)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-sm)', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)' }}>
++                                        No payments recorded for this period
++                                    </div>
++                                )}
++                            </div>
++                        </div>
++
++                        <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 'var(--spacing-md)', marginTop: 'var(--spacing-sm)' }}>
++                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
++                                <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
++                                    <button 
++                                        className={`view-toggle-btn ${moneyOutFilter === 'all' ? 'active' : ''}`}
++                                        onClick={() => setMoneyOutFilter('all')}
++                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
++                                    >
++                                        All Payments ({allPayments.length})
++                                    </button>
++                                    <button 
++                                        className={`view-toggle-btn ${moneyOutFilter === 'cash' ? 'active' : ''}`}
++                                        onClick={() => setMoneyOutFilter('cash')}
++                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
++                                    >
++                                        Cash Mode ({allPayments.filter(p => {
++                                            const acct = accounts.find(a => a.id === p.payment_account_id);
++                                            return acct ? isCashAccount(acct) : (p.payment_mode || '').toLowerCase() === 'cash';
++                                        }).length})
++                                    </button>
++                                    <button 
++                                        className={`view-toggle-btn ${moneyOutFilter === 'bank' ? 'active' : ''}`}
++                                        onClick={() => setMoneyOutFilter('bank')}
++                                        style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)' }}
++                                    >
++                                        Bank Mode ({allPayments.filter(p => {
++                                            const acct = accounts.find(a => a.id === p.payment_account_id);
++                                            return !(acct ? isCashAccount(acct) : (p.payment_mode || '').toLowerCase() === 'cash');
++                                        }).length})
++                                    </button>
++                                </div>
++                            </div>
++
++                            <div className="table-container" style={{ overflowX: 'auto' }}>
++                                <table className="daybook-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
++                                    <thead>
++                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Date</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Payment No</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Paid To</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Payment Account</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Narration</th>
++                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Amount</th>
++                                        </tr>
++                                    </thead>
++                                    <tbody>
++                                        {visiblePayments.map(txn => {
++                                            const acct = accounts.find(a => a.id === txn.payment_account_id);
++                                            const acctName = acct ? acct.name : (txn.payment_mode || 'ΓÇö');
++                                            return (
++                                                <tr 
++                                                    key={txn.id}
++                                                    onClick={() => setSelectedTransaction(txn)}
++                                                    style={{ borderBottom: '1px solid var(--border-primary)', cursor: 'pointer' }}
++                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
++                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
++                                                >
++                                                    <td style={{ padding: 'var(--spacing-sm)' }}>
++                                                        {new Date(txn.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace', fontSize: 'var(--font-size-xs)' }}>
++                                                        {txn.voucherNo}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
++                                                        {txn.account}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
++                                                        {acctName}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)' }}>
++                                                        {txn.narration}
++                                                    </td>
++                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: '#ef4444' }}>
++                                                        {formatCurrency(txn.amount)}
++                                                    </td>
++                                                </tr>
++                                            );
++                                        })}
++                                        {visiblePayments.length === 0 && (
++                                            <tr>
++                                                <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-tertiary)' }}>
++                                                    No payments found matching selected criteria
++                                                </td>
++                                            </tr>
++                                        )}
++                                    </tbody>
++                                </table>
++                            </div>
++                        </div>
+                     </div>
+                 ) : (
+-                    <table className="daybook-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+-                        <thead>
+-                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', position: 'sticky', top: 0 }}>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Date</th>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Type</th>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Voucher No</th>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Account</th>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Narration</th>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Debit</th>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Credit</th>
+-                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Balance</th>
+-                            </tr>
+-                        </thead>
+-                        <tbody>
+-                            {/* ΓöÇΓöÇ Opening Balance Row ΓöÇΓöÇ */}
+-                            <tr style={{ backgroundColor: 'rgba(99,102,241,0.07)', borderBottom: '1px solid var(--border-primary)' }}>
+-                                <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
+-                                    {new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+-                                </td>
+-                                <td colSpan={6} style={{ padding: 'var(--spacing-sm)', fontWeight: 700, color: 'var(--color-primary)', fontStyle: 'italic' }}>
+-                                    Opening Balance
+-                                    <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-tertiary)', marginLeft: 8 }}>
+-                                        (Cash + Bank balance before this period)
+-                                    </span>
+-                                </td>
+-                                <td style={{
+-                                    padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700,
+-                                    color: openingBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
+-                                }}>
+-                                    {formatCurrency(Math.abs(openingBalance))}
+-                                    <span style={{ fontSize: 10, marginLeft: 3 }}>{openingBalance >= 0 ? 'Dr' : 'Cr'}</span>
+-                                </td>
+-                            </tr>
+-
+-                            {/* ΓöÇΓöÇ Transaction Rows ΓöÇΓöÇ */}
+-                            {processedTransactions.length === 0 ? (
+-                                <tr>
+-                                    <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-tertiary)' }}>
+-                                        <FileText size={32} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
+-                                        No transactions for this period
+-                                    </td>
+-                                </tr>
+-                            ) : processedTransactions.map(txn => (
+-                                <tr
+-                                    key={txn.id}
+-                                    onClick={() => setSelectedTransaction(txn)}
+-                                    style={{ borderBottom: '1px solid var(--border-primary)', transition: 'background-color var(--transition-fast)', cursor: 'pointer' }}
+-                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+-                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+-                                >
+-                                    <td style={{ padding: 'var(--spacing-sm)' }}>
+-                                        {new Date(txn.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+-                                    </td>
+-                                    <td style={{ padding: 'var(--spacing-sm)' }}>
+-                                        <span style={{
+-                                            padding: '3px 8px', borderRadius: 'var(--radius-sm)',
+-                                            fontSize: 'var(--font-size-xs)', fontWeight: 600,
+-                                            backgroundColor: `${getTypeColor(txn.type)}20`,
+-                                            color: getTypeColor(txn.type), textTransform: 'capitalize'
++                    /* Daybook Summary / All Transactions View */
++                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
++                        <button 
++                            className="btn btn-secondary" 
++                            onClick={() => setActiveView(null)} 
++                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', width: 'fit-content' }}
++                        >
++                            <ArrowLeft size={16} /> Back to Daybook
++                        </button>
++
++                        <div className="table-container" style={{ overflowX: 'auto' }}>
++                            <table className="daybook-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
++                                <thead>
++                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)', position: 'sticky', top: 0 }}>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Date</th>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Type</th>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Voucher No</th>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Account</th>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontWeight: 600 }}>Narration</th>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Debit</th>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Credit</th>
++                                        <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>Balance</th>
++                                    </tr>
++                                </thead>
++                                <tbody>
++                                    {/* ΓöÇΓöÇ Opening Balance Row ΓöÇΓöÇ */}
++                                    <tr style={{ backgroundColor: 'rgba(99,102,241,0.07)', borderBottom: '1px solid var(--border-primary)' }}>
++                                        <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
++                                            {new Date(startDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
++                                        </td>
++                                        <td colSpan={6} style={{ padding: 'var(--spacing-sm)', fontWeight: 700, color: 'var(--color-primary)', fontStyle: 'italic' }}>
++                                            Opening Balance
++                                            <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-tertiary)', marginLeft: 8 }}>
++                                                (Cash + Bank balance before this period)
++                                            </span>
++                                        </td>
++                                        <td style={{
++                                            padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700,
++                                            color: openingBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
+                                         }}>
+-                                            {getTypeLabel(txn.type)}
+-                                        </span>
+-                                    </td>
+-                                    <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace', fontSize: 'var(--font-size-xs)' }}>
+-                                        {txn.voucherNo}
+-                                    </td>
+-                                    <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
+-                                        {txn.account}
+-                                    </td>
+-                                    <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+-                                        {txn.narration}
+-                                    </td>
+-                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-danger)' }}>
+-                                        {txn.debit > 0 ? formatCurrency(txn.debit) : 'ΓÇö'}
+-                                    </td>
+-                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>
+-                                        {txn.credit > 0 ? formatCurrency(txn.credit) : 'ΓÇö'}
+-                                    </td>
+-                                    <td style={{
+-                                        padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700,
+-                                        color: txn.balance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
+-                                    }}>
+-                                        {formatCurrency(Math.abs(txn.balance))}
+-                                        <span style={{ fontSize: 10, marginLeft: 3, fontWeight: 400 }}>{txn.balance >= 0 ? 'Dr' : 'Cr'}</span>
+-                                    </td>
+-                                </tr>
+-                            ))}
+-                        </tbody>
+-                        <tfoot>
+-                            {/* ΓöÇΓöÇ Totals Row ΓöÇΓöÇ */}
+-                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '2px solid var(--border-primary)', fontWeight: 700 }}>
+-                                <td colSpan={5} style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--text-tertiary)' }}>
+-                                    Period Totals:
+-                                </td>
+-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--color-danger)' }}>
+-                                    {formatCurrency(totals.debit)}
+-                                </td>
+-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--color-success)' }}>
+-                                    {formatCurrency(totals.credit)}
+-                                </td>
+-                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--text-secondary)' }}>
+-                                    Net: {formatCurrency(Math.abs(totals.debit - totals.credit))}
+-                                    <span style={{ fontSize: 10, marginLeft: 3, fontWeight: 400 }}>
+-                                        {totals.debit >= totals.credit ? 'Dr' : 'Cr'}
+-                                    </span>
+-                                </td>
+-                            </tr>
+-                            {/* ΓöÇΓöÇ Closing Balance Row ΓöÇΓöÇ */}
+-                            <tr style={{ backgroundColor: 'rgba(99,102,241,0.07)', borderTop: '1px solid var(--border-primary)', fontWeight: 700 }}>
+-                                <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
+-                                    {new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+-                                </td>
+-                                <td colSpan={6} style={{ padding: 'var(--spacing-sm)', fontWeight: 700, color: 'var(--color-primary)', fontStyle: 'italic' }}>
+-                                    Closing Balance
+-                                    <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-tertiary)', marginLeft: 8 }}>
+-                                        = Opening {formatCurrency(Math.abs(openingBalance))} + Debits {formatCurrency(totals.debit)} ΓêÆ Credits {formatCurrency(totals.credit)}
+-                                    </span>
+-                                </td>
+-                                <td style={{
+-                                    padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700,
+-                                    color: closingBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
+-                                }}>
+-                                    {formatCurrency(Math.abs(closingBalance))}
+-                                    <span style={{ fontSize: 10, marginLeft: 3, fontWeight: 400 }}>{closingBalance >= 0 ? 'Dr' : 'Cr'}</span>
+-                                </td>
+-                            </tr>
+-                        </tfoot>
+-                    </table>
++                                            {formatCurrency(Math.abs(openingBalance))}
++                                            <span style={{ fontSize: 10, marginLeft: 3 }}>{openingBalance >= 0 ? 'Dr' : 'Cr'}</span>
++                                        </td>
++                                    </tr>
++
++                                    {/* ΓöÇΓöÇ Transaction Rows ΓöÇΓöÇ */}
++                                    {processedTransactions.length === 0 ? (
++                                        <tr>
++                                            <td colSpan={8} style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-tertiary)' }}>
++                                                <FileText size={32} style={{ display: 'block', margin: '0 auto 8px', opacity: 0.4 }} />
++                                                No transactions for this period
++                                            </td>
++                                        </tr>
++                                    ) : processedTransactions.map(txn => (
++                                        <tr
++                                            key={txn.id}
++                                            onClick={() => setSelectedTransaction(txn)}
++                                            style={{ borderBottom: '1px solid var(--border-primary)', transition: 'background-color var(--transition-fast)', cursor: 'pointer' }}
++                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
++                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
++                                        >
++                                            <td style={{ padding: 'var(--spacing-sm)' }}>
++                                                {new Date(txn.date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
++                                            </td>
++                                            <td style={{ padding: 'var(--spacing-sm)' }}>
++                                                <span style={{
++                                                    padding: '3px 8px', borderRadius: 'var(--radius-sm)',
++                                                    fontSize: 'var(--font-size-xs)', fontWeight: 600,
++                                                    backgroundColor: `${getTypeColor(txn.type)}20`,
++                                                    color: getTypeColor(txn.type), textTransform: 'capitalize'
++                                                }}>
++                                                    {getTypeLabel(txn.type)}
++                                                </span>
++                                            </td>
++                                            <td style={{ padding: 'var(--spacing-sm)', fontFamily: 'monospace', fontSize: 'var(--font-size-xs)' }}>
++                                                {txn.voucherNo}
++                                            </td>
++                                            <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
++                                                {txn.account}
++                                            </td>
++                                            <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
++                                                {txn.narration}
++                                            </td>
++                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-danger)' }}>
++                                                {txn.debit > 0 ? formatCurrency(txn.debit) : 'ΓÇö'}
++                                            </td>
++                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600, color: 'var(--color-success)' }}>
++                                                {txn.credit > 0 ? formatCurrency(txn.credit) : 'ΓÇö'}
++                                            </td>
++                                            <td style={{
++                                                padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700,
++                                                color: txn.balance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
++                                            }}>
++                                                {formatCurrency(Math.abs(txn.balance))}
++                                                <span style={{ fontSize: 10, marginLeft: 3, fontWeight: 400 }}>{txn.balance >= 0 ? 'Dr' : 'Cr'}</span>
++                                            </td>
++                                        </tr>
++                                    ))}
++                                </tbody>
++                                <tfoot>
++                                    {/* ΓöÇΓöÇ Totals Row ΓöÇΓöÇ */}
++                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderTop: '2px solid var(--border-primary)', fontWeight: 700 }}>
++                                        <td colSpan={5} style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--text-tertiary)' }}>
++                                            Period Totals:
++                                        </td>
++                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--color-danger)' }}>
++                                            {formatCurrency(totals.debit)}
++                                        </td>
++                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--color-success)' }}>
++                                            {formatCurrency(totals.credit)}
++                                        </td>
++                                        <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', color: 'var(--text-secondary)' }}>
++                                            Net: {formatCurrency(Math.abs(totals.debit - totals.credit))}
++                                            <span style={{ fontSize: 10, marginLeft: 3, fontWeight: 400 }}>
++                                                {totals.debit >= totals.credit ? 'Dr' : 'Cr'}
++                                            </span>
++                                        </td>
++                                    </tr>
++                                    {/* ΓöÇΓöÇ Closing Balance Row ΓöÇΓöÇ */}
++                                    <tr style={{ backgroundColor: 'rgba(99,102,241,0.07)', borderTop: '1px solid var(--border-primary)', fontWeight: 700 }}>
++                                        <td style={{ padding: 'var(--spacing-sm)', color: 'var(--text-tertiary)', fontSize: 'var(--font-size-xs)' }}>
++                                            {new Date(endDate + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
++                                        </td>
++                                        <td colSpan={6} style={{ padding: 'var(--spacing-sm)', fontWeight: 700, color: 'var(--color-primary)', fontStyle: 'italic' }}>
++                                            Closing Balance
++                                            <span style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-tertiary)', marginLeft: 8 }}>
++                                                = Opening {formatCurrency(Math.abs(openingBalance))} + Debits {formatCurrency(totals.debit)} ΓêÆ Credits {formatCurrency(totals.credit)}
++                                            </span>
++                                        </td>
++                                        <td style={{
++                                            padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700,
++                                            color: closingBalance >= 0 ? 'var(--color-success)' : 'var(--color-danger)'
++                                        }}>
++                                            {formatCurrency(Math.abs(closingBalance))}
++                                            <span style={{ fontSize: 10, marginLeft: 3, fontWeight: 400 }}>{closingBalance >= 0 ? 'Dr' : 'Cr'}</span>
++                                        </td>
++                                    </tr>
++                                </tfoot>
++                            </table>
++                        </div>
++                    </div>
+                 )}
+             </div>
+ 

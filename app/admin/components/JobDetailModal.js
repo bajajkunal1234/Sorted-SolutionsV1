@@ -13,6 +13,7 @@ import RepairCalculator from '@/components/common/RepairCalculator';
 import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFlow';
+import { formatMobileNumber } from '@/lib/utils/validation';
 import { supabase } from '@/lib/supabase';
 
 function JobDetailModal({ job, onClose, onUpdate }) {
@@ -155,7 +156,8 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         } catch (e) { }
     }
 
-    const displayPhone = customer.mobile || customer.phone || bookingData.customer?.phone || editedJob.customer_phone || 'N/A';
+    const displayPhoneRaw = customer.mobile || customer.phone || bookingData.customer?.phone || editedJob.customer_phone || 'N/A';
+    const displayPhone = displayPhoneRaw !== 'N/A' ? formatMobileNumber(displayPhoneRaw) : 'N/A';
     const rawAddr = bookingData.customer?.address || {};
     const bookingAddr = rawAddr.locality ? `${rawAddr.apartment || ''}, ${rawAddr.street || ''}, ${rawAddr.locality}, ${rawAddr.city}`.replace(/^, /, '') : null;
 

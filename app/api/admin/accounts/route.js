@@ -133,6 +133,11 @@ export async function POST(request) {
     try {
         const body = await request.json()
 
+        // Normalize mobile phone number to raw 10 digits
+        if (body.mobile) {
+            body.mobile = body.mobile.replace(/\D/g, '').slice(-10);
+        }
+
         const isCustomer = body.type === 'customer' ||
             (body.under_name || '').toLowerCase().includes('customer') ||
             (body.under_name || '').toLowerCase().includes('debtor');
@@ -279,6 +284,11 @@ export async function PUT(request) {
     try {
         const body = await request.json()
         const { id, ...updates } = body
+
+        // Normalize mobile phone number to raw 10 digits
+        if (updates.mobile) {
+            updates.mobile = updates.mobile.replace(/\D/g, '').slice(-10);
+        }
 
         // Fetch the current state BEFORE updating so we can diff it
         const { data: before } = await supabase

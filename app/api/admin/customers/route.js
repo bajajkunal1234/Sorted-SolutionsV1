@@ -53,6 +53,9 @@ export async function PUT(request) {
     try {
         const body = await request.json()
         const { id, ...updates } = body
+        if (updates.mobile) {
+            updates.mobile = updates.mobile.replace(/\D/g, '').slice(-10);
+        }
         const { data, error } = await supabase.from('accounts').update(updates).eq('id', id).select().single()
         if (error) throw error
         return NextResponse.json({ success: true, data })
