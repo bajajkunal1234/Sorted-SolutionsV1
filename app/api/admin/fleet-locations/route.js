@@ -11,12 +11,10 @@ export const dynamic = 'force-dynamic'
  */
 export async function GET() {
     try {
-        const cutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString() // 15 min ago
-
         const { data, error } = await supabase
             .from('technician_live_locations')
             .select('technician_id, latitude, longitude, is_on_job, updated_at')
-            .gte('updated_at', cutoff)
+            .not('latitude', 'is', null)
             .order('updated_at', { ascending: false })
 
         if (error) throw error

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Users, Plus, Edit2, Power, Save, X, Shield, Loader2, Check, AlertCircle, Receipt, Trash2, RefreshCcw, MapPin, Camera, Star, Award, User, Eye, EyeOff, Package } from 'lucide-react';
 import { websiteSettingsAPI, accountsAPI, accountGroupsAPI, transactionsAPI } from '@/lib/adminAPI';
+import { supabase } from '@/lib/supabase';
 import dynamic from 'next/dynamic';
 import PaymentVoucherForm from '../accounts/PaymentVoucherForm';
 import PurchaseInvoiceForm from '../accounts/PurchaseInvoiceForm';
@@ -85,6 +86,29 @@ function TechnicianManagement() {
     }, [activeTab, selectedTechFilter, adminExpenseViewMode]);
     useEffect(() => { if (activeTab === 'livefleet') fetchActiveJobs(); }, [activeTab]);
 
+    useEffect(() => {
+        const channel = supabase.channel('realtime:technician_updates');
+        
+        channel.on('broadcast', { event: 'expense_submitted' }, ({ payload }) => {
+            console.log('Realtime broadcast: expense submitted', payload);
+            fetchExpenses();
+            if (payload?.technicianId && selectedTechFilter === payload.technicianId) {
+                fetchAdminLedger(payload.technicianId);
+            }
+        });
+
+        channel.on('broadcast', { event: 'purchase_submitted' }, () => {
+            console.log('Realtime broadcast: purchase submitted');
+            fetchSpares();
+        });
+
+        channel.subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [selectedTechFilter]);
+
     const fetchSpares = async () => {
         setSparesLoading(true);
         try {
@@ -137,7 +161,7 @@ function TechnicianManagement() {
 
     const fetchGeocodeCount = async () => {
         try {
-            const res = await fetch('/api/admin/geocode-properties');
+            const res = await fetch(`/api/admin/geocode-properties?t=${Date.now()}`, { cache: 'no-store' });
             const data = await res.json();
             if (data.success) setGeocodeCount(data.needsGeocoding);
         } catch(e) {}

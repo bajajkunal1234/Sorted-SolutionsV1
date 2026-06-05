@@ -31,6 +31,15 @@ const idleIcon = new L.DivIcon({
     popupAnchor: [0, -18],
 });
 
+// Faded grey/dark pin for offline/last-known location
+const offlineIcon = new L.DivIcon({
+    className: '',
+    html: `<div style="width:32px;height:32px;border-radius:50%;background:#334155;border:3px solid #64748b;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,0.4);opacity:0.65">💤</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
+});
+
 const MUMBAI = [19.076, 72.8777];
 
 function FitBounds({ positions }) {
@@ -124,22 +133,28 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
         };
     });
 
-    const onJob  = mergedLocations.filter(l => l.is_on_job);
-    const idle   = mergedLocations.filter(l => !l.is_on_job);
-    const online = mergedLocations.length;
+    const activeTechsList = mergedLocations.filter(l => l.seconds_ago <= 900);
+    const offlineTechsList = mergedLocations.filter(l => l.seconds_ago > 900);
+    const onJobCount = activeTechsList.filter(l => l.is_on_job).length;
+    const idleCount = activeTechsList.filter(l => !l.is_on_job).length;
+    const onlineCount = activeTechsList.length;
+    const offlineCount = offlineTechsList.length;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Status badges */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.25)', color: '#38bdf8', fontWeight: 700, fontSize: 13 }}>
-                    🔵 {online} Online now
+                    🟢 {onlineCount} Online now
                 </div>
                 <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.25)', color: '#10b981', fontWeight: 700, fontSize: 13 }}>
-                    🟢 {onJob.length} On a job
+                    💼 {onJobCount} On a job
                 </div>
                 <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(100,116,139,0.1)', border: '1px solid rgba(100,116,139,0.25)', color: '#94a3b8', fontWeight: 700, fontSize: 13 }}>
-                    ⚪ {idle.length} Idle
+                    ⚪ {idleCount} Idle
+                </div>
+                <div style={{ padding: '8px 16px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', fontWeight: 700, fontSize: 13 }}>
+                    💤 {offlineCount} Offline (Last Known)
                 </div>
                 {lastRefresh && (
                     <div style={{ fontSize: 11, color: '#475569', marginLeft: 'auto' }}>
@@ -160,72 +175,86 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
                     />
                     {mergedLocations.length > 0 && <FitBounds positions={mergedLocations} />}
 
-                    {mergedLocations.map(loc => (
-                        <Marker
-                            key={loc.technician_id}
-                            position={[loc.latitude, loc.longitude]}
-                            icon={loc.is_on_job ? onJobIcon : idleIcon}
-                        >
-                            <Popup>
-                                <div style={{ minWidth: 160 }}>
-                                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                                        🔧 {loc.name}
+                    {mergedLocations.map(loc => {
+                        const isOffline = loc.seconds_ago > 900;
+                        let markerIcon = idleIcon;
+                        if (isOffline) {
+                            markerIcon = offlineIcon;
+                        } else if (loc.is_on_job) {
+                            markerIcon = onJobIcon;
+                        }
+
+                        return (
+                            <Marker
+                                key={loc.technician_id}
+                                position={[loc.latitude, loc.longitude]}
+                                icon={markerIcon}
+                            >
+                                <Popup>
+                                    <div style={{ minWidth: 160 }}>
+                                        <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                                            🔧 {loc.name}
+                                        </div>
+                                        <div style={{
+                                            display: 'inline-block', padding: '2px 8px', borderRadius: 12,
+                                            background: isOffline ? 'rgba(239,68,68,0.15)' : (loc.is_on_job ? '#dcfce7' : '#f1f5f9'),
+                                            color: isOffline ? '#ef4444' : (loc.is_on_job ? '#16a34a' : '#64748b'),
+                                            fontSize: 11, fontWeight: 700, marginBottom: 6
+                                        }}>
+                                            {isOffline ? '💤 OFFLINE (LAST KNOWN)' : (loc.is_on_job ? '🟢 ON JOB' : '⚪ IDLE')}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                                            📍 {isOffline ? 'Last seen' : 'Updated'}: {formatAge(loc.seconds_ago)}
+                                            {loc.isRealtime && <span style={{ color: '#10b981', marginLeft: 4 }}>● Live</span>}
+                                        </div>
                                     </div>
-                                    <div style={{
-                                        display: 'inline-block', padding: '2px 8px', borderRadius: 12,
-                                        background: loc.is_on_job ? '#dcfce7' : '#f1f5f9',
-                                        color: loc.is_on_job ? '#16a34a' : '#64748b',
-                                        fontSize: 11, fontWeight: 700, marginBottom: 6
-                                    }}>
-                                        {loc.is_on_job ? '🟢 ON JOB' : '⚪ IDLE'}
-                                    </div>
-                                    <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                                        📍 Last seen: {formatAge(loc.seconds_ago)}
-                                        {loc.isRealtime && <span style={{ color: '#10b981', marginLeft: 4 }}>● Live</span>}
-                                    </div>
-                                </div>
-                            </Popup>
-                        </Marker>
-                    ))}
+                                </Popup>
+                            </Marker>
+                        );
+                    })}
                 </MapContainer>
             </div>
 
-            {/* No one online */}
-            {!loading && online === 0 && (
+            {/* No one has any location */}
+            {!loading && mergedLocations.length === 0 && (
                 <div style={{ textAlign: 'center', padding: 32, color: '#475569', fontSize: 14 }}>
-                    No technicians have opened the app in the last 15 minutes.
+                    No technician locations have been recorded yet.
                 </div>
             )}
 
             {/* Technician roster */}
-            {online > 0 && (
+            {mergedLocations.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8 }}>
-                    {mergedLocations.map(loc => (
-                        <div key={loc.technician_id} style={{
-                            padding: '10px 12px', borderRadius: 10,
-                            background: 'rgba(255,255,255,0.03)',
-                            border: `1px solid ${loc.is_on_job ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'}`,
-                            display: 'flex', alignItems: 'center', gap: 10
-                        }}>
-                            <div style={{
-                                width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                                backgroundColor: loc.is_on_job ? '#10b981' : '#475569',
-                                boxShadow: loc.is_on_job ? '0 0 0 3px rgba(16,185,129,0.2)' : 'none',
-                                animation: loc.is_on_job ? 'pulse 2s infinite' : 'none',
-                            }} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontWeight: 600, fontSize: 13, color: '#e2e8f0' }}>
-                                    {loc.name}
+                    {mergedLocations.map(loc => {
+                        const isOffline = loc.seconds_ago > 900;
+                        return (
+                            <div key={loc.technician_id} style={{
+                                padding: '10px 12px', borderRadius: 10,
+                                background: isOffline ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)',
+                                border: `1px solid ${isOffline ? 'rgba(255,255,255,0.03)' : (loc.is_on_job ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)')}`,
+                                display: 'flex', alignItems: 'center', gap: 10,
+                                opacity: isOffline ? 0.6 : 1
+                            }}>
+                                <div style={{
+                                    width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                                    backgroundColor: isOffline ? '#64748b' : (loc.is_on_job ? '#10b981' : '#475569'),
+                                    boxShadow: (!isOffline && loc.is_on_job) ? '0 0 0 3px rgba(16,185,129,0.2)' : 'none',
+                                    animation: (!isOffline && loc.is_on_job) ? 'pulse 2s infinite' : 'none',
+                                }} />
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, fontSize: 13, color: isOffline ? '#94a3b8' : '#e2e8f0' }}>
+                                        {loc.name}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#64748b' }}>
+                                        {isOffline ? '💤 Offline' : (loc.is_on_job ? '🟢 On job' : '⚪ Idle')} · {formatAge(loc.seconds_ago)}
+                                    </div>
                                 </div>
-                                <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                                    {loc.is_on_job ? '🟢 On a job' : '⚪ Idle'} · {formatAge(loc.seconds_ago)}
-                                </div>
+                                {loc.isRealtime && (
+                                    <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>● LIVE</div>
+                                )}
                             </div>
-                            {loc.isRealtime && (
-                                <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>● LIVE</div>
-                            )}
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const getLocalDateString = () => {
     const d = new Date();
@@ -238,6 +239,19 @@ export default function ExpensesList({ technicianId }) {
             setReceiptPhoto(null);
             setReceiptUrl(null);
             setShowAddForm(false);
+
+            // Send Supabase realtime broadcast
+            const channel = supabase.channel('realtime:technician_updates');
+            channel.subscribe(async (status) => {
+                if (status === 'SUBSCRIBED') {
+                    await channel.send({
+                        type: 'broadcast',
+                        event: 'expense_submitted',
+                        payload: { technicianId }
+                    });
+                    supabase.removeChannel(channel);
+                }
+            });
         } catch (err) {
             setError(err.message);
         } finally {

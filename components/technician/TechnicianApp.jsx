@@ -595,6 +595,19 @@ function TechnicianApp() {
             if (result.success) {
                 alert('✅ Purchase invoice draft created successfully! Admin will review and post it.');
                 
+                // Send Supabase realtime broadcast
+                const channel = supabase.channel('realtime:technician_updates');
+                channel.subscribe(async (status) => {
+                    if (status === 'SUBSCRIBED') {
+                        await channel.send({
+                            type: 'broadcast',
+                            event: 'purchase_submitted',
+                            payload: { technicianId }
+                        });
+                        supabase.removeChannel(channel);
+                    }
+                });
+
                 // Track interaction
                 if (purchaseJob?.id) {
                     fetch(`/api/technician/jobs/${purchaseJob.id}/interactions`, {
