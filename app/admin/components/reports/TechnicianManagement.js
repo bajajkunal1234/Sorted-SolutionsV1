@@ -702,6 +702,27 @@ function TechnicianManagement() {
                                                         </span>
                                                     </div>
                                                     {exp.description && <div style={{ fontSize: 'var(--font-size-sm)', marginTop: '4px' }}>{exp.description}</div>}
+                                                    {exp.receipt && (
+                                                        <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                <Camera size={12} /> Receipt Attachment:
+                                                            </div>
+                                                            <a href={exp.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                                                <img 
+                                                                    src={exp.receipt} 
+                                                                    alt="Receipt Preview" 
+                                                                    style={{ 
+                                                                        maxHeight: '60px', 
+                                                                        borderRadius: 'var(--radius-md)', 
+                                                                        border: '1px solid var(--border-primary)', 
+                                                                        cursor: 'pointer',
+                                                                        backgroundColor: '#fff',
+                                                                        padding: '2px'
+                                                                    }} 
+                                                                />
+                                                            </a>
+                                                        </div>
+                                                    )}
                                                     {exp.payment_voucher && (
                                                         <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
                                                             <span>💳 Paid via {exp.payment_voucher.payment_number} (₹{parseFloat(exp.payment_voucher.amount || 0).toLocaleString('en-IN')})</span>

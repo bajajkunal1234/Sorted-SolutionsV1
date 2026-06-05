@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X } from 'lucide-react';
 
 export default function ExpensesList({ technicianId }) {
     const [expenses, setExpenses] = useState([]);
@@ -16,6 +16,12 @@ export default function ExpensesList({ technicianId }) {
         description: ''
     });
     const [submitting, setSubmitting] = useState(false);
+
+    // Photo/Receipt states
+    const fileInputRef = useRef(null);
+    const [receiptPhoto, setReceiptPhoto] = useState(null);
+    const [receiptUrl, setReceiptUrl] = useState(null);
+    const [uploading, setUploading] = useState(false);
 
     useEffect(() => {
         // Fetch admin-defined expense categories
@@ -49,24 +55,109 @@ export default function ExpensesList({ technicianId }) {
         }
     };
 
+    const handlePhotoUpload = async (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // Instant local preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setReceiptPhoto(reader.result);
+        };
+        reader.readAsDataURL(file);
+
+        // Upload to server
+        setUploading(true);
+        setError(null);
+        try {
+            const formDataUpload = new FormData();
+            const safeFileName = file.name ? file.name.replace(/[^a-zA-Z0-9.\-_]/g, '') : 'image.jpg';
+            formDataUpload.append('file', file, safeFileName);
+            formDataUpload.append('bucket', 'media');
+            formDataUpload.append('folder', 'receipts');
+
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formDataUpload
+            });
+
+            if (!res.ok) {
+                throw new Error('Upload failed with status ' + res.status);
+            }
+
+            const data = await res.json();
+            if (data.success) {
+                setReceiptUrl(data.url);
+            } else {
+                throw new Error(data.error || 'Failed to get public URL');
+            }
+        } catch (err) {
+            console.error('Receipt upload error:', err);
+            setError('Receipt upload failed: ' + err.message);
+            setReceiptPhoto(null);
+            setReceiptUrl(null);
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDeleteExpense = async (expenseId) => {
+        if (!window.confirm('Are you sure you want to delete this expense request?')) return;
+        
+        setError(null);
+        try {
+            const res = await fetch(`/api/technician/expenses?id=${expenseId}&technicianId=${technicianId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to delete expense');
+            }
+
+            // Remove from state list
+            setExpenses(prev => prev.filter(e => e.id !== expenseId));
+            alert('✅ Expense request deleted successfully.');
+        } catch (err) {
+            console.error('Delete expense error:', err);
+            setError(err.message);
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.amount || parseFloat(formData.amount) <= 0) {
             setError('Please enter a valid amount');
             return;
         }
+        if (!receiptUrl) {
+            setError('Receipt image is mandatory. Please capture/upload a photo.');
+            return;
+        }
+
         setSubmitting(true);
         setError(null);
+
+        let techName = 'Technician';
+        if (typeof window !== 'undefined') {
+            const storedTech = localStorage.getItem('technicianData');
+            if (storedTech) {
+                try { techName = JSON.parse(storedTech).name || techName; } catch(e){}
+            }
+        }
+
         try {
             const response = await fetch('/api/technician/expenses', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     technician_id: technicianId,
+                    technician_name: techName,
                     date: formData.date,
                     category: formData.category,
                     amount: parseFloat(formData.amount),
-                    description: formData.description
+                    description: formData.description,
+                    receipt: receiptUrl
                 })
             });
             const data = await response.json();
@@ -74,6 +165,8 @@ export default function ExpensesList({ technicianId }) {
 
             setExpenses([data.expense, ...expenses]);
             setFormData({ date: new Date().toISOString().split('T')[0], category: categories[0]?.id || '', amount: '', description: '' });
+            setReceiptPhoto(null);
+            setReceiptUrl(null);
             setShowAddForm(false);
         } catch (err) {
             setError(err.message);
@@ -142,7 +235,7 @@ export default function ExpensesList({ technicianId }) {
                                 {categories.length > 0 ? (
                                     <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="form-input" style={{ width: '100%' }} required>
                                         {categories.map(cat => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}{cat.daily_limit > 0 ? ` (limit ₹${cat.daily_limit}/day)` : ''}</option>
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
                                         ))}
                                     </select>
                                 ) : (
@@ -159,11 +252,93 @@ export default function ExpensesList({ technicianId }) {
                                 <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Description (Optional)</label>
                                 <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="form-input" style={{ width: '100%' }} rows={2} placeholder="Add details..." />
                             </div>
+                            <div>
+                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                                    Receipt Photo (Mandatory)
+                                </label>
+                                
+                                {!receiptPhoto ? (
+                                    <div
+                                        onClick={() => !uploading && fileInputRef.current?.click()}
+                                        style={{
+                                            border: '2px dashed var(--border-primary)',
+                                            borderRadius: 'var(--radius-md)',
+                                            padding: 'var(--spacing-md)',
+                                            textAlign: 'center',
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            cursor: uploading ? 'not-allowed' : 'pointer',
+                                            transition: 'border-color var(--transition-normal)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            gap: 'var(--spacing-xs)'
+                                        }}
+                                        onMouseEnter={(e) => !uploading && (e.currentTarget.style.borderColor = '#3b82f6')}
+                                        onMouseLeave={(e) => !uploading && (e.currentTarget.style.borderColor = 'var(--border-primary)')}
+                                    >
+                                        <Camera size={24} color="var(--text-secondary)" />
+                                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                            Tap to capture or upload receipt
+                                        </div>
+                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                            (Petrol bill, tools bill, etc.)
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', padding: 'var(--spacing-sm)' }}>
+                                        <img src={receiptPhoto} alt="Receipt Preview" style={{ maxHeight: '180px', objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
+                                        
+                                        {uploading ? (
+                                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#fff' }}>
+                                                <Loader2 className="animate-spin" size={24} />
+                                                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Uploading to media store...</span>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setReceiptPhoto(null);
+                                                    setReceiptUrl(null);
+                                                }}
+                                                className="btn"
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '8px',
+                                                    right: '8px',
+                                                    padding: '4px 8px',
+                                                    backgroundColor: '#ef4444',
+                                                    color: '#fff',
+                                                    minWidth: 'auto',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    border: 'none',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    onChange={handlePhotoUpload}
+                                    style={{ display: 'none' }}
+                                />
+                            </div>
                             <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                <button type="submit" disabled={submitting || categories.length === 0} className="btn btn-primary" style={{ flex: 1 }}>
-                                    {submitting ? 'Submitting...' : 'Submit Expense'}
+                                <button type="submit" disabled={submitting || uploading || categories.length === 0} className="btn btn-primary" style={{ flex: 1 }}>
+                                    {submitting ? 'Submitting...' : uploading ? 'Uploading Receipt...' : 'Submit Expense'}
                                 </button>
-                                <button type="button" onClick={() => setShowAddForm(false)} className="btn btn-secondary">Cancel</button>
+                                <button type="button" onClick={() => {
+                                    setShowAddForm(false);
+                                    setReceiptPhoto(null);
+                                    setReceiptUrl(null);
+                                }} className="btn btn-secondary">Cancel</button>
                             </div>
                         </div>
                     </form>
@@ -191,8 +366,47 @@ export default function ExpensesList({ technicianId }) {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
                                                 <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-md)', fontSize: '11px', fontWeight: 600, backgroundColor: cat.color + '20', color: cat.color }}>{cat.name}</span>
                                                 {getStatusBadge(expense.status || 'pending')}
+                                                {expense.status === 'pending' && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteExpense(expense.id)}
+                                                        style={{
+                                                            background: 'none',
+                                                            border: 'none',
+                                                            color: 'var(--text-tertiary)',
+                                                            cursor: 'pointer',
+                                                            padding: '2px',
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            marginLeft: '4px'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
+                                                        title="Delete expense request"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                )}
                                             </div>
                                             {expense.description && <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: 'var(--spacing-xs)' }}>{expense.description}</div>}
+                                            {expense.receipt && (
+                                                <div style={{ marginTop: 'var(--spacing-xs)' }}>
+                                                    <a href={expense.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                                        <img 
+                                                            src={expense.receipt} 
+                                                            alt="Receipt Thumbnail" 
+                                                            style={{ 
+                                                                maxHeight: '50px', 
+                                                                borderRadius: 'var(--radius-md)', 
+                                                                border: '1px solid var(--border-primary)',
+                                                                backgroundColor: '#fff',
+                                                                padding: '2px',
+                                                                cursor: 'pointer'
+                                                            }} 
+                                                        />
+                                                    </a>
+                                                </div>
+                                            )}
                                             {expense.admin_notes && expense.status === 'rejected' && (
                                                 <div style={{ fontSize: 'var(--font-size-xs)', color: '#dc2626', marginTop: '4px', fontStyle: 'italic' }}>Admin note: {expense.admin_notes}</div>
                                             )}
@@ -211,3 +425,4 @@ export default function ExpensesList({ technicianId }) {
         </div>
     );
 }
+

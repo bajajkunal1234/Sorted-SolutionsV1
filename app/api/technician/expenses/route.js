@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url)
@@ -57,10 +59,10 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const expenseData = await request.json()
-        // Validate required fields
-        if (!expenseData.technician_id || !expenseData.amount || !expenseData.category) {
+        // Validate required fields (including receipt)
+        if (!expenseData.technician_id || !expenseData.amount || !expenseData.category || !expenseData.receipt) {
             return NextResponse.json(
-                { error: 'Missing required fields' },
+                { error: 'Missing required fields (including receipt image)' },
                 { status: 400 }
             )
         }
@@ -98,6 +100,16 @@ export async function POST(request) {
             timestamp: new Date().toISOString(),
         }).then(() => {}).catch(() => {});
 
+        // Insert in-app notification for admin
+        supabase.from('app_notifications').insert({
+            recipient_type: 'admin',
+            recipient_id: 'admin',
+            title: 'New Expense Request 💰',
+            message: `${expenseData.technician_name || 'A technician'} submitted a new ${expenseData.category} expense request of ₹${expenseData.amount}.`,
+            link: '/admin',
+            is_read: false
+        }).then(() => {}).catch((err) => console.error('Error creating admin notification:', err));
+
         return NextResponse.json({
             success: true,
             expense,
@@ -112,3 +124,50 @@ export async function POST(request) {
         )
     }
 }
+
+export async function DELETE(request) {
+    try {
+        const { searchParams } = new URL(request.url)
+        const id = searchParams.get('id')
+        const technicianId = searchParams.get('technicianId')
+
+        if (!id || !technicianId) {
+            return NextResponse.json(
+                { error: 'Missing required parameters' },
+                { status: 400 }
+            )
+        }
+
+        // Delete expense but only if it belongs to this technician and status is 'pending'
+        const { data, error } = await supabase
+            .from('expenses')
+            .delete()
+            .eq('id', id)
+            .eq('technician_id', technicianId)
+            .eq('status', 'pending')
+            .select()
+            .single()
+
+        if (error) {
+            console.error('Error deleting expense:', error)
+            return NextResponse.json(
+                { error: 'Failed to delete expense or expense is not pending' },
+                { status: 500 }
+            )
+        }
+
+        return NextResponse.json({
+            success: true,
+            message: 'Expense deleted successfully',
+            expense: data
+        })
+
+    } catch (error) {
+        console.error('Error in expense deletion API:', error)
+        return NextResponse.json(
+            { error: 'Internal server error' },
+            { status: 500 }
+        )
+    }
+}
+
