@@ -197,7 +197,7 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
     const selectedDateLeave = getLeaveForDate(selectedDateStr);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
             {/* Back Button to Dashboard */}
             <div style={{ alignSelf: 'flex-start' }}>
                 <button
@@ -221,24 +221,24 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                 </button>
             </div>
 
-            <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ maxWidth: '340px', width: '100%', alignSelf: 'center', padding: '10px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', boxShadow: 'var(--shadow-sm)' }}>
                 {/* Calendar Navigation Header */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', color: 'var(--text-primary)' }}>
-                        <CalendarIcon size={20} color="#ec4899" /> {monthNames[currentMonth]} {currentYear}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)' }}>
+                        <CalendarIcon size={16} color="#ec4899" /> {monthNames[currentMonth]} {currentYear}
                     </h3>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={prevMonth} style={{ padding: '6px', borderRadius: '50%', border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <ChevronLeft size={16} />
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        <button onClick={prevMonth} style={{ padding: '5px', borderRadius: '50%', border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ChevronLeft size={12} />
                         </button>
-                        <button onClick={nextMonth} style={{ padding: '6px', borderRadius: '50%', border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <ChevronRight size={16} />
+                        <button onClick={nextMonth} style={{ padding: '5px', borderRadius: '50%', border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ChevronRight size={12} />
                         </button>
                     </div>
                 </div>
 
                 {/* Week Day Titles */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', textAlign: 'center', fontWeight: 600, fontSize: '12px', color: 'var(--text-tertiary)', marginBottom: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center', fontWeight: 600, fontSize: '10px', color: 'var(--text-tertiary)', marginBottom: '6px' }}>
                     <div>Sun</div>
                     <div>Mon</div>
                     <div>Tue</div>
@@ -249,9 +249,9 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                 </div>
 
                 {/* Days Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
                     {blanks.map((_, i) => (
-                        <div key={`blank-${i}`} style={{ aspectRatio: '1/1' }} />
+                        <div key={`blank-${i}`} style={{ height: '34px' }} />
                     ))}
                     {days.map(day => {
                         const mm = String(currentMonth + 1).padStart(2, '0');
@@ -300,8 +300,8 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                                 key={`day-${day}`}
                                 onClick={() => setSelectedDateStr(dateStr)}
                                 style={{
-                                    aspectRatio: '1/1',
-                                    borderRadius: '8px',
+                                    height: '34px',
+                                    borderRadius: '6px',
                                     border: borderStyle,
                                     backgroundColor: bgColor,
                                     color: textColor,
@@ -312,24 +312,24 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     position: 'relative',
-                                    padding: '4px',
-                                    fontSize: '13px',
+                                    padding: '2px',
+                                    fontSize: '11px',
                                     transition: 'all 0.15s'
                                 }}
                             >
                                 <span>{day}</span>
                                 {dateJobs.length > 0 && !isSelected && (
                                     <span style={{
-                                        width: '5px',
-                                        height: '5px',
+                                        width: '4px',
+                                        height: '4px',
                                         borderRadius: '50%',
-                                        backgroundColor: isToday ? '#3b82f6' : '#3b82f6',
+                                        backgroundColor: '#3b82f6',
                                         position: 'absolute',
-                                        bottom: '4px'
+                                        bottom: '3px'
                                     }} />
                                 )}
                                 {dateLeave && dateLeave.status === 'approved' && !isSelected && (
-                                    <span style={{ fontSize: '8px', position: 'absolute', bottom: '1px', opacity: 0.8 }}>OFF</span>
+                                    <span style={{ fontSize: '7px', position: 'absolute', bottom: '1px', opacity: 0.8 }}>OFF</span>
                                 )}
                             </button>
                         );

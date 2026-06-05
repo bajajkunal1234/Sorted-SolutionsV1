@@ -732,7 +732,7 @@ function TechnicianApp() {
                 </div>
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-sm)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
+            <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: 'var(--spacing-sm)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
                         <div style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--spacing-sm)' }}>
@@ -887,7 +887,7 @@ function TechnicianApp() {
 
     // Incentives Tab Content
     const renderIncentivesTab = () => (
-        <div style={{ padding: 'var(--spacing-md)', overflow: 'auto', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
             <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                 <TrendingUp size={24} color="#10b981" />
                 My Incentives
@@ -994,7 +994,7 @@ function TechnicianApp() {
 
     // Settings Tab Content
     const renderSettingsTab = () => (
-        <div style={{ padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', overflowY: 'auto', flex: 1 }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
             <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                 <Settings size={24} color="#3b82f6" />
                 {firstName}'s Settings
@@ -1176,7 +1176,7 @@ function TechnicianApp() {
         const completedJobsCount = jobs.filter(j => j.status === 'completed').length;
         
         return (
-            <div style={{ padding: 'var(--spacing-md)', overflow: 'auto', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', margin: 0 }}>
                         <LayoutDashboard size={24} color="#3b82f6" />
