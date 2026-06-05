@@ -68,6 +68,11 @@ function TechnicianManagement() {
     const [editingPurchase, setEditingPurchase] = useState(null);
     const [payingSparesInvoice, setPayingSparesInvoice] = useState(null);
 
+    // ─── Leaves state ─────────────────────────────────────────────────────────
+    const [leaves, setLeaves] = useState([]);
+    const [leavesLoading, setLeavesLoading] = useState(false);
+    const [leavesFilter, setLeavesFilter] = useState('all');
+
     useEffect(() => { fetchTechnicians(); fetchGeocodeCount(); }, []);
     useEffect(() => { 
         if (activeTab === 'expenses') { 
@@ -76,8 +81,10 @@ function TechnicianManagement() {
             fetchExpenseAccounts();
         } else if (activeTab === 'spares') {
             fetchSpares();
+        } else if (activeTab === 'leaves') {
+            fetchLeaves();
         }
-    }, [activeTab, expenseFilter, sparesFilter, selectedTechFilter]);
+    }, [activeTab, expenseFilter, sparesFilter, selectedTechFilter, leavesFilter]);
 
     useEffect(() => {
         if (activeTab === 'expenses' && selectedTechFilter && adminExpenseViewMode === 'ledger') {
@@ -100,6 +107,11 @@ function TechnicianManagement() {
         channel.on('broadcast', { event: 'purchase_submitted' }, () => {
             console.log('Realtime broadcast: purchase submitted');
             fetchSpares();
+        });
+
+        channel.on('broadcast', { event: 'leave_submitted' }, () => {
+            console.log('Realtime broadcast: leave submitted');
+            fetchLeaves();
         });
 
         channel.subscribe();
@@ -155,6 +167,39 @@ function TechnicianManagement() {
             alert('✅ Supplier payment recorded and allocated successfully!');
         } catch (err) {
             console.error('Error recording supplier payment:', err);
+            alert('Error: ' + err.message);
+        }
+    };
+
+    const fetchLeaves = async () => {
+        setLeavesLoading(true);
+        try {
+            const res = await fetch('/api/admin/leaves');
+            const data = await res.json();
+            if (data.success) {
+                setLeaves(data.leaves || []);
+            }
+        } catch (err) {
+            console.error('Error fetching admin leaves:', err);
+        } finally {
+            setLeavesLoading(false);
+        }
+    };
+
+    const handleUpdateLeaveStatus = async (id, status) => {
+        try {
+            const res = await fetch('/api/admin/leaves', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, status })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to update leave status');
+            
+            setLeaves(prev => prev.map(l => l.id === id ? { ...l, status } : l));
+            alert(`✅ Leave request successfully ${status}!`);
+        } catch (err) {
+            console.error('Update leave error:', err);
             alert('Error: ' + err.message);
         }
     };
@@ -431,6 +476,7 @@ function TechnicianManagement() {
                     { id: 'profile', label: '👤 Technician Profile' },
                     { id: 'expenses', label: '💰 Technician Expenses' },
                     { id: 'spares', label: '⚙️ Spares Purchases' },
+                    { id: 'leaves', label: '📅 Leave Requests' },
                     { id: 'livefleet', label: '🗺️ Technicians on Map' }
                 ].map(t => (
                     <button
@@ -1114,6 +1160,127 @@ function TechnicianManagement() {
                             </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {/* ──────────────── LEAVE REQUESTS TAB ──────────────── */}
+            {activeTab === 'leaves' && (
+                <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', padding: 'var(--spacing-lg)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                        <div>
+                            <h3 style={{ fontWeight: 700, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Calendar size={18} color="var(--color-primary)" /> Leave Requests
+                            </h3>
+                            <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Review and approve/reject technician leave schedules.</p>
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                            {/* Technician Filter */}
+                            <select
+                                value={selectedTechFilter}
+                                onChange={e => setSelectedTechFilter(e.target.value)}
+                                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none' }}
+                            >
+                                <option value="">All Technicians</option>
+                                {technicians.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+
+                            {/* Status Filter */}
+                            <select
+                                value={leavesFilter}
+                                onChange={e => setLeavesFilter(e.target.value)}
+                                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', fontSize: 13, outline: 'none' }}
+                            >
+                                <option value="all">All Statuses</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+
+                            {/* Refresh Button */}
+                            <button onClick={fetchLeaves} disabled={leavesLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                                <RefreshCcw size={14} style={{ animation: leavesLoading ? 'spin 0.8s linear infinite' : 'none' }} /> Refresh
+                            </button>
+                        </div>
+                    </div>
+
+                    {leavesLoading ? (
+                        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>Loading leaves...</div>
+                    ) : leaves.filter(l => {
+                        const matchesTech = selectedTechFilter ? l.technician_id === selectedTechFilter : true;
+                        const matchesStatus = leavesFilter === 'all' ? true : l.status === leavesFilter;
+                        return matchesTech && matchesStatus;
+                    }).length === 0 ? (
+                        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: 10 }}>No leave requests found.</div>
+                    ) : (
+                        <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Technician</th>
+                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Leave Date</th>
+                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Reason</th>
+                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Applied On</th>
+                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Status</th>
+                                        <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {leaves.filter(l => {
+                                        const matchesTech = selectedTechFilter ? l.technician_id === selectedTechFilter : true;
+                                        const matchesStatus = leavesFilter === 'all' ? true : l.status === leavesFilter;
+                                        return matchesTech && matchesStatus;
+                                    }).map(l => {
+                                        const appliedDate = new Date(l.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+                                        const leaveDateFormatted = new Date(l.leave_date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+                                        
+                                        return (
+                                            <tr key={l.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                <td style={{ padding: '12px 16px', fontWeight: 600 }}>{l.technician_name}</td>
+                                                <td style={{ padding: '12px 16px', color: 'var(--text-primary)' }}>{leaveDateFormatted}</td>
+                                                <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>{l.reason || '-'}</td>
+                                                <td style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontSize: 11 }}>{appliedDate}</td>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    <span style={{
+                                                        padding: '4px 10px',
+                                                        borderRadius: 12,
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                        backgroundColor: l.status === 'approved' ? 'rgba(16,185,129,0.1)' : (l.status === 'rejected' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)'),
+                                                        color: l.status === 'approved' ? '#10b981' : (l.status === 'rejected' ? '#ef4444' : '#f59e0b')
+                                                    }}>
+                                                        {l.status.toUpperCase()}
+                                                    </span>
+                                                </td>
+                                                <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                                                    {l.status === 'pending' ? (
+                                                        <div style={{ display: 'inline-flex', gap: 8 }}>
+                                                            <button
+                                                                onClick={() => handleUpdateLeaveStatus(l.id, 'approved')}
+                                                                style={{ padding: '6px 12px', borderRadius: 6, border: 'none', backgroundColor: '#10b981', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                                                            >
+                                                                Approve
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleUpdateLeaveStatus(l.id, 'rejected')}
+                                                                style={{ padding: '6px 12px', borderRadius: 6, border: 'none', backgroundColor: '#ef4444', color: '#fff', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                                                            >
+                                                                Reject
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>Resolved</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    }).reverse()}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             )}
 

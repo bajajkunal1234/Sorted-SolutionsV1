@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
+import CalendarView from '@/components/technician/CalendarView';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import NotificationBell from '@/components/common/NotificationBell';
 import { logInteraction, logNavigation } from '@/lib/interactions';
@@ -1245,6 +1246,25 @@ function TechnicianApp() {
                     </div>
                 </div>
 
+                {/* Calendar Card */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #ec4899', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
+                    onClick={() => setActiveTab('calendar')}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
+                                <Calendar size={20} color="#ec4899" /> Calendar &amp; Leaves
+                            </h3>
+                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                                View assigned jobs timeline and apply for leaves
+                            </p>
+                        </div>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                </div>
+
                 {/* Jobs Summary Card */}
                 <div 
                     className="card"
@@ -1348,6 +1368,14 @@ function TechnicianApp() {
                 ) : (
                     <>
                         {activeTab === 'dashboard' && renderDashboardTab()}
+                        {activeTab === 'calendar' && (
+                            <CalendarView 
+                                technicianId={technicianId} 
+                                jobs={jobs} 
+                                onSelectJob={setSelectedJob}
+                                setActiveTab={setActiveTab}
+                            />
+                        )}
                         {activeTab === 'jobs' && renderJobsTab()}
                         {activeTab === 'expenses' && <ExpensesList technicianId={technicianId} />}
                         {activeTab === 'incentives' && renderIncentivesTab()}
