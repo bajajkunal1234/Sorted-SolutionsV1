@@ -576,11 +576,11 @@ export default function WebsiteAnalytics() {
                     
                     {/* ROI Summary metrics */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: '12px' }}>
-                        <MetricCard icon={Users} color="#6366f1" label="Total Spends Leads" value={leadsSummary?.adsLeads} subtitle={`${leadsSummary?.adsConversions} Converted`} />
-                        <MetricCard icon={Percent} color="#10b981" label="Conversion Rate" value={`${leadsSummary?.conversionRate.toFixed(1)}%`} subtitle="Leads to Jobs" />
-                        <MetricCard icon={DollarSign} color="#ea4335" label="Google Ads Spend" value={`₹${leadsSummary?.adsSpend.toLocaleString()}`} subtitle={`${leadsSummary?.adsClicks} clicks · ${leadsSummary?.adsImpressions} impr.`} />
-                        <MetricCard icon={Info} color="#06b6d4" label="Cost Per Lead (CPL)" value={`₹${Math.round(leadsSummary?.cpl || 0).toLocaleString()}`} subtitle="Spend / Leads" />
-                        <MetricCard icon={ShoppingCart} color="#fbbc04" label="Revenue Generated" value={`₹${leadsSummary?.adsRevenue.toLocaleString()}`} subtitle={`ROAS: ${leadsSummary?.roas.toFixed(2)}x`} />
+                        <MetricCard icon={Users} color="#6366f1" label="Total Spends Leads" value={leadsSummary?.adsLeads ?? 0} subtitle={`${leadsSummary?.adsConversions ?? 0} Converted`} />
+                        <MetricCard icon={Percent} color="#10b981" label="Conversion Rate" value={`${(leadsSummary?.conversionRate ?? 0).toFixed(1)}%`} subtitle="Leads to Jobs" />
+                        <MetricCard icon={DollarSign} color="#ea4335" label="Google Ads Spend" value={`₹${(leadsSummary?.adsSpend ?? 0).toLocaleString()}`} subtitle={`${leadsSummary?.adsClicks ?? 0} clicks · ${leadsSummary?.adsImpressions ?? 0} impr.`} />
+                        <MetricCard icon={Info} color="#06b6d4" label="Cost Per Lead (CPL)" value={`₹${Math.round(leadsSummary?.cpl ?? 0).toLocaleString()}`} subtitle="Spend / Leads" />
+                        <MetricCard icon={ShoppingCart} color="#fbbc04" label="Revenue Generated" value={`₹${(leadsSummary?.adsRevenue ?? 0).toLocaleString()}`} subtitle={`ROAS: ${(leadsSummary?.roas ?? 0).toFixed(2)}x`} />
                     </div>
 
                     {/* Leads sub-tabs */}
@@ -1005,22 +1005,22 @@ export default function WebsiteAnalytics() {
                             icon={DollarSign}
                             color="#ea4335"
                             label="Google Ads Spend"
-                            value={leadsSummary ? `₹${leadsSummary.adsSpend.toLocaleString()}` : '—'}
+                            value={leadsSummary?.adsSpend !== undefined ? `₹${leadsSummary.adsSpend.toLocaleString()}` : '—'}
                             subtitle={`${leadsSummary?.adsClicks ?? 0} clicks · ${leadsSummary?.adsImpressions ?? 0} impressions`}
                         />
                         <MetricCard
                             icon={Info}
                             color="#8b5cf6"
                             label="Cost Per Lead (CPL)"
-                            value={leadsSummary ? `₹${Math.round(leadsSummary.cpl).toLocaleString()}` : '—'}
+                            value={leadsSummary?.cpl !== undefined ? `₹${Math.round(leadsSummary.cpl).toLocaleString()}` : '—'}
                             subtitle="Total ad spend / leads"
                         />
                         <MetricCard
                             icon={ShoppingCart}
                             color="#4285f4"
                             label="Revenue (Ads ROI)"
-                            value={leadsSummary ? `₹${leadsSummary.adsRevenue.toLocaleString()}` : '—'}
-                            subtitle={leadsSummary ? `ROAS: ${leadsSummary.roas.toFixed(2)}x` : '—'}
+                            value={leadsSummary?.adsRevenue !== undefined ? `₹${leadsSummary.adsRevenue.toLocaleString()}` : '—'}
+                            subtitle={leadsSummary ? `ROAS: ${(leadsSummary.roas ?? 0).toFixed(2)}x` : '—'}
                         />
                     </div>
 
