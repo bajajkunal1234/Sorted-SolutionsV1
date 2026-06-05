@@ -86,6 +86,14 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
         };
     }, [technicianId]);
 
+    useEffect(() => {
+        if (selectedDateStr >= minLeaveDateStr) {
+            setLeaveDate(selectedDateStr);
+        } else {
+            setLeaveDate('');
+        }
+    }, [selectedDateStr, minLeaveDateStr]);
+
     // Handle Month Nav
     const prevMonth = () => {
         if (currentMonth === 0) {
@@ -415,98 +423,102 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
                 )}
             </div>
 
-            {/* Apply Leave Panel */}
+            {/* Apply Leave Panel - Conditionally shown only on or after the 7th working day from today */}
+            {selectedDateStr >= minLeaveDateStr && (
+                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', boxShadow: 'var(--shadow-sm)' }}>
+                    <h4 style={{ margin: 0, marginBottom: '6px', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        📅 Apply for Leave
+                    </h4>
+                    <p style={{ margin: 0, marginBottom: 'var(--spacing-md)', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                        ⚠️ Notice period rule: Leaves must be requested at least 1 week (6 working days) in advance. Sundays are fixed off days.
+                    </p>
+
+                    {error && (
+                        <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <AlertCircle size={14} /> <span>{error}</span>
+                        </div>
+                    )}
+
+                    {successMsg && (
+                        <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', fontSize: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <CheckCircle size={14} /> <span>{successMsg}</span>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Leave Date</label>
+                            <input 
+                                type="date"
+                                min={minLeaveDateStr}
+                                value={leaveDate}
+                                onChange={(e) => setLeaveDate(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-primary)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none',
+                                    fontSize: '13px'
+                                }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Reason for Leave</label>
+                            <textarea 
+                                rows="2"
+                                placeholder="Please explain the reason for this leave request..."
+                                value={leaveReason}
+                                onChange={(e) => setLeaveReason(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--border-primary)',
+                                    backgroundColor: 'var(--bg-secondary)',
+                                    color: 'var(--text-primary)',
+                                    outline: 'none',
+                                    resize: 'none',
+                                    fontSize: '13px'
+                                }}
+                            />
+                        </div>
+                        <button 
+                            type="submit"
+                            disabled={submittingLeave}
+                            style={{
+                                padding: '10px',
+                                backgroundColor: '#ec4899',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'opacity 0.2s',
+                                opacity: submittingLeave ? 0.6 : 1,
+                                fontSize: '13px'
+                            }}
+                        >
+                            {submittingLeave ? 'Submitting request...' : '🚀 Submit Leave Request'}
+                        </button>
+                    </form>
+                </div>
+            )}
+
+            {/* Applied Leaves History Panel - Always visible */}
             <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', boxShadow: 'var(--shadow-sm)' }}>
-                <h4 style={{ margin: 0, marginBottom: '6px', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    📅 Apply for Leave
+                <h4 style={{ margin: 0, marginBottom: '10px', fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileText size={16} color="#ec4899" /> Applied Leaves History
                 </h4>
-                <p style={{ margin: 0, marginBottom: 'var(--spacing-md)', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    ⚠️ Notice period rule: Leaves must be requested at least 1 week (6 working days) in advance. Sundays are fixed off days.
-                </p>
-
-                {error && (
-                    <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444', fontSize: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <AlertCircle size={14} /> <span>{error}</span>
-                    </div>
-                )}
-
-                {successMsg && (
-                    <div style={{ padding: '10px', borderRadius: '6px', backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)', color: '#10b981', fontSize: '12px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <CheckCircle size={14} /> <span>{successMsg}</span>
-                    </div>
-                )}
-
-                <form onSubmit={handleApplyLeave} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Leave Date</label>
-                        <input 
-                            type="date"
-                            min={minLeaveDateStr}
-                            value={leaveDate}
-                            onChange={(e) => setLeaveDate(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-primary)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                color: 'var(--text-primary)',
-                                outline: 'none',
-                                fontSize: '13px'
-                            }}
-                        />
-                    </div>
-                    <div>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px' }}>Reason for Leave</label>
-                        <textarea 
-                            rows="2"
-                            placeholder="Please explain the reason for this leave request..."
-                            value={leaveReason}
-                            onChange={(e) => setLeaveReason(e.target.value)}
-                            style={{
-                                width: '100%',
-                                padding: '10px',
-                                borderRadius: '6px',
-                                border: '1px solid var(--border-primary)',
-                                backgroundColor: 'var(--bg-secondary)',
-                                color: 'var(--text-primary)',
-                                outline: 'none',
-                                resize: 'none',
-                                fontSize: '13px'
-                            }}
-                        />
-                    </div>
-                    <button 
-                        type="submit"
-                        disabled={submittingLeave}
-                        style={{
-                            padding: '10px',
-                            backgroundColor: '#ec4899',
-                            color: '#ffffff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'opacity 0.2s',
-                            opacity: submittingLeave ? 0.6 : 1,
-                            fontSize: '13px'
-                        }}
-                    >
-                        {submittingLeave ? 'Submitting request...' : '🚀 Submit Leave Request'}
-                    </button>
-                </form>
-
-                {/* Leaves History */}
-                <h5 style={{ margin: 0, marginTop: '20px', marginBottom: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <FileText size={14} /> Applied Leaves History
-                </h5>
 
                 {leavesLoading && leaves.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textAlign: 'center' }}>Loading leaves history...</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textAlign: 'center', padding: '12px 0' }}>Loading leaves history...</div>
                 ) : leaves.length === 0 ? (
-                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textAlign: 'center' }}>No leave requests made yet.</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-tertiary)', textAlign: 'center', padding: '12px 0' }}>No leave requests made yet.</div>
                 ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
                         {leaves.map(l => (
                             <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', borderRadius: '6px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
