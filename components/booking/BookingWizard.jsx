@@ -611,13 +611,9 @@ export default function BookingWizard() {
                                     </div>
                                 </div>
 
-                                {formData.slotTime ? (
+                                {formData.slotTime && (
                                     <p style={{ color: 'var(--color-success, #10b981)', fontSize: '17px', fontWeight: 700, margin: '14px 0', animation: 'fadeIn 0.2s ease-out' }}>
                                         Technician will arrive between {formatSlotRange(formData.slotTime)}
-                                    </p>
-                                ) : (
-                                    <p style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
-                                        We will call you within 15 mins to confirm your exact time slot.
                                     </p>
                                 )}
                             </div>
