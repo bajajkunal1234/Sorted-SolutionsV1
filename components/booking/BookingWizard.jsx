@@ -238,6 +238,10 @@ export default function BookingWizard() {
                 }).then(res => res.json()).then(data => {
                     if (data.success && data.enquiryId) {
                         setFormData(prev => ({ ...prev, enquiryId: data.enquiryId }));
+                        if (typeof window !== 'undefined') {
+                            window.dataLayer = window.dataLayer || [];
+                            window.dataLayer.push({ event: 'check_availability_success' });
+                        }
                     }
                 }).catch(e => console.error('Enquiry capture failed:', e));
             } catch (e) {
