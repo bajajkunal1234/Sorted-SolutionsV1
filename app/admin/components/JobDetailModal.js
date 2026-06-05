@@ -51,7 +51,7 @@ function JobDetailModal({ job, onClose, onUpdate }) {
         const fetchSlots = async () => {
             setFetchingSlots(true);
             try {
-                const res = await fetch(`/api/booking/available-slots?days=1&startDate=${editedJob.scheduled_date}`);
+                const res = await fetch(`/api/booking/available-slots?days=1&startDate=${editedJob.scheduled_date}&bypassFilter=true`);
                 const data = await res.json();
                 if (data.success && data.data[editedJob.scheduled_date]) {
                     setAvailableSlots(data.data[editedJob.scheduled_date]);

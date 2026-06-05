@@ -37,6 +37,18 @@ function OtpBoxes({ otp, onChange, onKeyDown }) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+function formatSlotRange(slotLabel) {
+    if (!slotLabel) return '';
+    const regex = /(\d+\s*(?:AM|PM|am|pm))\s*[-–—]\s*(\d+\s*(?:AM|PM|am|pm))/i;
+    const match = slotLabel.match(regex);
+    if (match) {
+        const start = match[1].toUpperCase().trim();
+        const end = match[2].toUpperCase().trim();
+        return `${start} to ${end}`;
+    }
+    return slotLabel;
+}
+
 function saveSession(user) {
     // Save session similar to login page so they are logged in seamlessly
     const session = JSON.stringify({ ...user, token: 'sorted-auth-v2' });
@@ -599,9 +611,15 @@ export default function BookingWizard() {
                                     </div>
                                 </div>
 
-                                <p style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
-                                    We will call you within 15 mins to confirm your exact time slot.
-                                </p>
+                                {formData.slotTime ? (
+                                    <p style={{ color: 'var(--color-success, #10b981)', fontSize: '17px', fontWeight: 700, margin: '14px 0', animation: 'fadeIn 0.2s ease-out' }}>
+                                        Technician will arrive between {formatSlotRange(formData.slotTime)}
+                                    </p>
+                                ) : (
+                                    <p style={{ color: 'var(--color-primary)', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>
+                                        We will call you within 15 mins to confirm your exact time slot.
+                                    </p>
+                                )}
                             </div>
 
                             {formData.slotTime && (

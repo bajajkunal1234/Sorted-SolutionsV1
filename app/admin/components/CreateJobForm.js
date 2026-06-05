@@ -521,7 +521,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
         const fetchSlots = async () => {
             setFetchingSlots(true);
             try {
-                const res = await fetch(`/api/booking/available-slots?days=1&startDate=${formData.dueDate}`);
+                const res = await fetch(`/api/booking/available-slots?days=1&startDate=${formData.dueDate}&bypassFilter=true`);
                 const data = await res.json();
                 if (data.success && data.data[formData.dueDate]) {
                     setAvailableSlots(data.data[formData.dueDate]);
