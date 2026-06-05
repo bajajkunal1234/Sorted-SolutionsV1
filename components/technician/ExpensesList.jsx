@@ -17,6 +17,11 @@ export default function ExpensesList({ technicianId }) {
     });
     const [submitting, setSubmitting] = useState(false);
 
+    // Segment Toggle state
+    const [viewSegment, setViewSegment] = useState('claims'); // 'claims' or 'ledger'
+    const [ledgerData, setLedgerData] = useState({ summary: { total_expenses: 0, total_payments: 0, balance: 0 }, ledger: [] });
+    const [ledgerLoading, setLedgerLoading] = useState(false);
+
     // Photo/Receipt states
     const fileInputRef = useRef(null);
     const [receiptPhoto, setReceiptPhoto] = useState(null);
@@ -37,8 +42,12 @@ export default function ExpensesList({ technicianId }) {
 
     useEffect(() => {
         if (!technicianId) return;
-        fetchExpenses();
-    }, [technicianId]);
+        if (viewSegment === 'ledger') {
+            fetchLedger();
+        } else {
+            fetchExpenses();
+        }
+    }, [technicianId, viewSegment]);
 
     const fetchExpenses = async () => {
         try {
@@ -52,6 +61,24 @@ export default function ExpensesList({ technicianId }) {
             setError('Failed to load expenses');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchLedger = async () => {
+        try {
+            setLedgerLoading(true);
+            const response = await fetch(`/api/technician/expenses/ledger?technicianId=${technicianId}`);
+            if (!response.ok) throw new Error('Failed to fetch ledger');
+            const data = await response.json();
+            setLedgerData({
+                summary: data.summary || { total_expenses: 0, total_payments: 0, balance: 0 },
+                ledger: data.ledger || []
+            });
+            setError(null);
+        } catch (err) {
+            setError('Failed to load ledger statement');
+        } finally {
+            setLedgerLoading(false);
         }
     };
 
@@ -209,8 +236,28 @@ export default function ExpensesList({ technicianId }) {
                         {pendingCount > 0 && <span style={{ color: '#d97706' }}>· {pendingCount} pending approval</span>}
                     </div>
                 </div>
-                <button onClick={() => setShowAddForm(!showAddForm)} className="btn btn-primary" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', display:'flex', alignItems:'center', gap:'4px' }}>
-                    <Plus size={18} /> Add
+                {viewSegment === 'claims' && (
+                    <button onClick={() => setShowAddForm(!showAddForm)} className="btn btn-primary" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', display:'flex', alignItems:'center', gap:'4px' }}>
+                        <Plus size={18} /> Add
+                    </button>
+                )}
+            </div>
+
+            {/* Segment Selector */}
+            <div style={{ padding: 'var(--spacing-sm) var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: 'var(--spacing-xs)' }}>
+                <button 
+                    onClick={() => setViewSegment('claims')} 
+                    className={`btn ${viewSegment === 'claims' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                >
+                    <FileText size={14} /> Claims List
+                </button>
+                <button 
+                    onClick={() => setViewSegment('ledger')} 
+                    className={`btn ${viewSegment === 'ledger' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ flex: 1, padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                >
+                    <DollarSign size={14} /> Ledger Statement
                 </button>
             </div>
 
@@ -221,208 +268,316 @@ export default function ExpensesList({ technicianId }) {
                 </div>
             )}
 
-            {/* Add Form */}
-            {showAddForm && (
-                <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
-                    <form onSubmit={handleSubmit}>
-                        <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Date</label>
-                                <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} className="form-input" style={{ width: '100%' }} required />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Category</label>
-                                {categories.length > 0 ? (
-                                    <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="form-input" style={{ width: '100%' }} required>
-                                        {categories.map(cat => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                    </select>
-                                ) : (
-                                    <div style={{ padding: 'var(--spacing-sm)', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-xs)', color: '#d97706' }}>
-                                        No categories defined yet. Ask your admin to configure expense categories.
+            {/* Claims View */}
+            {viewSegment === 'claims' && (
+                <>
+                    {/* Add Form */}
+                    {showAddForm && (
+                        <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
+                            <form onSubmit={handleSubmit}>
+                                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Date</label>
+                                        <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} className="form-input" style={{ width: '100%' }} required />
                                     </div>
-                                )}
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Amount (₹)</label>
-                                <input type="number" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} className="form-input" style={{ width: '100%' }} placeholder="0" step="0.01" min="0" required />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Description (Optional)</label>
-                                <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="form-input" style={{ width: '100%' }} rows={2} placeholder="Add details..." />
-                            </div>
-                            <div>
-                                <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
-                                    Receipt Photo (Mandatory)
-                                </label>
-                                
-                                {!receiptPhoto ? (
-                                    <div
-                                        onClick={() => !uploading && fileInputRef.current?.click()}
-                                        style={{
-                                            border: '2px dashed var(--border-primary)',
-                                            borderRadius: 'var(--radius-md)',
-                                            padding: 'var(--spacing-md)',
-                                            textAlign: 'center',
-                                            backgroundColor: 'var(--bg-secondary)',
-                                            cursor: uploading ? 'not-allowed' : 'pointer',
-                                            transition: 'border-color var(--transition-normal)',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            gap: 'var(--spacing-xs)'
-                                        }}
-                                        onMouseEnter={(e) => !uploading && (e.currentTarget.style.borderColor = '#3b82f6')}
-                                        onMouseLeave={(e) => !uploading && (e.currentTarget.style.borderColor = 'var(--border-primary)')}
-                                    >
-                                        <Camera size={24} color="var(--text-secondary)" />
-                                        <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500 }}>
-                                            Tap to capture or upload receipt
-                                        </div>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
-                                            (Petrol bill, tools bill, etc.)
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', padding: 'var(--spacing-sm)' }}>
-                                        <img src={receiptPhoto} alt="Receipt Preview" style={{ maxHeight: '180px', objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
-                                        
-                                        {uploading ? (
-                                            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#fff' }}>
-                                                <Loader2 className="animate-spin" size={24} />
-                                                <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Uploading to media store...</span>
-                                            </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Category</label>
+                                        {categories.length > 0 ? (
+                                            <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="form-input" style={{ width: '100%' }} required>
+                                                {categories.map(cat => (
+                                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                                ))}
+                                            </select>
                                         ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setReceiptPhoto(null);
-                                                    setReceiptUrl(null);
-                                                }}
-                                                className="btn"
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '8px',
-                                                    right: '8px',
-                                                    padding: '4px 8px',
-                                                    backgroundColor: '#ef4444',
-                                                    color: '#fff',
-                                                    minWidth: 'auto',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    border: 'none',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                <X size={14} />
-                                            </button>
+                                            <div style={{ padding: 'var(--spacing-sm)', backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 'var(--radius-md)', fontSize: 'var(--font-size-xs)', color: '#d97706' }}>
+                                                No categories defined yet. Ask your admin to configure expense categories.
+                                            </div>
                                         )}
                                     </div>
-                                )}
-
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/*"
-                                    capture="environment"
-                                    onChange={handlePhotoUpload}
-                                    style={{ display: 'none' }}
-                                />
-                            </div>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
-                                <button type="submit" disabled={submitting || uploading || categories.length === 0} className="btn btn-primary" style={{ flex: 1 }}>
-                                    {submitting ? 'Submitting...' : uploading ? 'Uploading Receipt...' : 'Submit Expense'}
-                                </button>
-                                <button type="button" onClick={() => {
-                                    setShowAddForm(false);
-                                    setReceiptPhoto(null);
-                                    setReceiptUrl(null);
-                                }} className="btn btn-secondary">Cancel</button>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            )}
-
-            {/* Expenses List */}
-            <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                {loading ? (
-                    <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>Loading expenses...</div>
-                ) : expenses.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
-                        <FileText size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.3 }} />
-                        <div>No expenses recorded yet</div>
-                        <div style={{ fontSize: 'var(--font-size-sm)', marginTop: 'var(--spacing-xs)' }}>Click "Add" to submit your first expense</div>
-                    </div>
-                ) : (
-                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
-                        {expenses.map(expense => {
-                            const cat = getCatInfo(expense.category);
-                            return (
-                                <div key={expense.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `1px solid ${expense.status === 'rejected' ? 'rgba(239,68,68,0.3)' : expense.status === 'approved' ? 'rgba(16,185,129,0.3)' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-sm)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                                <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-md)', fontSize: '11px', fontWeight: 600, backgroundColor: cat.color + '20', color: cat.color }}>{cat.name}</span>
-                                                {getStatusBadge(expense.status || 'pending')}
-                                                {expense.status === 'pending' && (
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Amount (₹)</label>
+                                        <input type="number" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} className="form-input" style={{ width: '100%' }} placeholder="0" step="0.01" min="0" required />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Description (Optional)</label>
+                                        <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="form-input" style={{ width: '100%' }} rows={2} placeholder="Add details..." />
+                                    </div>
+                                    <div>
+                                        <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>
+                                            Receipt Photo (Mandatory)
+                                        </label>
+                                        
+                                        {!receiptPhoto ? (
+                                            <div
+                                                onClick={() => !uploading && fileInputRef.current?.click()}
+                                                style={{
+                                                    border: '2px dashed var(--border-primary)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    padding: 'var(--spacing-md)',
+                                                    textAlign: 'center',
+                                                    backgroundColor: 'var(--bg-secondary)',
+                                                    cursor: uploading ? 'not-allowed' : 'pointer',
+                                                    transition: 'border-color var(--transition-normal)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: 'var(--spacing-xs)'
+                                                }}
+                                                onMouseEnter={(e) => !uploading && (e.currentTarget.style.borderColor = '#3b82f6')}
+                                                onMouseLeave={(e) => !uploading && (e.currentTarget.style.borderColor = 'var(--border-primary)')}
+                                            >
+                                                <Camera size={24} color="var(--text-secondary)" />
+                                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                                                    Tap to capture or upload receipt
+                                                </div>
+                                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+                                                    (Petrol bill, tools bill, etc.)
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div style={{ position: 'relative', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'center', backgroundColor: 'var(--bg-secondary)', padding: 'var(--spacing-sm)' }}>
+                                                <img src={receiptPhoto} alt="Receipt Preview" style={{ maxHeight: '180px', objectFit: 'contain', borderRadius: 'var(--radius-md)' }} />
+                                                
+                                                {uploading ? (
+                                                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#fff' }}>
+                                                        <Loader2 className="animate-spin" size={24} />
+                                                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Uploading to media store...</span>
+                                                    </div>
+                                                ) : (
                                                     <button
                                                         type="button"
-                                                        onClick={() => handleDeleteExpense(expense.id)}
-                                                        style={{
-                                                            background: 'none',
-                                                            border: 'none',
-                                                            color: 'var(--text-tertiary)',
-                                                            cursor: 'pointer',
-                                                            padding: '2px',
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            marginLeft: '4px'
+                                                        onClick={() => {
+                                                            setReceiptPhoto(null);
+                                                            setReceiptUrl(null);
                                                         }}
-                                                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                                                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
-                                                        title="Delete expense request"
+                                                        className="btn"
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '8px',
+                                                            right: '8px',
+                                                            padding: '4px 8px',
+                                                            backgroundColor: '#ef4444',
+                                                            color: '#fff',
+                                                            minWidth: 'auto',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            border: 'none',
+                                                            cursor: 'pointer'
+                                                        }}
                                                     >
-                                                        <Trash2 size={12} />
+                                                        <X size={14} />
                                                     </button>
                                                 )}
                                             </div>
-                                            {expense.description && <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: 'var(--spacing-xs)' }}>{expense.description}</div>}
-                                            {expense.receipt && (
-                                                <div style={{ marginTop: 'var(--spacing-xs)' }}>
-                                                    <a href={expense.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
-                                                        <img 
-                                                            src={expense.receipt} 
-                                                            alt="Receipt Thumbnail" 
-                                                            style={{ 
-                                                                maxHeight: '50px', 
-                                                                borderRadius: 'var(--radius-md)', 
-                                                                border: '1px solid var(--border-primary)',
-                                                                backgroundColor: '#fff',
-                                                                padding: '2px',
-                                                                cursor: 'pointer'
-                                                            }} 
-                                                        />
-                                                    </a>
-                                                </div>
-                                            )}
-                                            {expense.admin_notes && expense.status === 'rejected' && (
-                                                <div style={{ fontSize: 'var(--font-size-xs)', color: '#dc2626', marginTop: '4px', fontStyle: 'italic' }}>Admin note: {expense.admin_notes}</div>
-                                            )}
-                                        </div>
-                                        <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-sm)' }}>
-                                            <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(expense.amount).toLocaleString('en-IN')}</div>
-                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{formatDate(expense.date)}</div>
-                                        </div>
+                                        )}
+
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            onChange={handlePhotoUpload}
+                                            style={{ display: 'none' }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                        <button type="submit" disabled={submitting || uploading || categories.length === 0} className="btn btn-primary" style={{ flex: 1 }}>
+                                            {submitting ? 'Submitting...' : uploading ? 'Uploading Receipt...' : 'Submit Expense'}
+                                        </button>
+                                        <button type="button" onClick={() => {
+                                            setShowAddForm(false);
+                                            setReceiptPhoto(null);
+                                            setReceiptUrl(null);
+                                        }} className="btn btn-secondary">Cancel</button>
                                     </div>
                                 </div>
-                            );
-                        })}
+                            </form>
+                        </div>
+                    )}
+
+                    {/* Expenses List */}
+                    <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>Loading expenses...</div>
+                        ) : expenses.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
+                                <FileText size={48} style={{ margin: '0 auto var(--spacing-md)', opacity: 0.3 }} />
+                                <div>No expenses recorded yet</div>
+                                <div style={{ fontSize: 'var(--font-size-sm)', marginTop: 'var(--spacing-xs)' }}>Click "Add" to submit your first expense</div>
+                            </div>
+                        ) : (
+                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
+                                {expenses.map(expense => {
+                                    const cat = getCatInfo(expense.category);
+                                    return (
+                                        <div key={expense.id} style={{ backgroundColor: 'var(--bg-elevated)', border: `1px solid ${expense.status === 'rejected' ? 'rgba(239,68,68,0.3)' : expense.status === 'approved' ? 'rgba(16,185,129,0.3)' : 'var(--border-primary)'}`, borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-sm)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                                        <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-md)', fontSize: '11px', fontWeight: 600, backgroundColor: cat.color + '20', color: cat.color }}>{cat.name}</span>
+                                                        {getStatusBadge(expense.status || 'pending')}
+                                                        {expense.status === 'pending' && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleDeleteExpense(expense.id)}
+                                                                style={{
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    color: 'var(--text-tertiary)',
+                                                                    cursor: 'pointer',
+                                                                    padding: '2px',
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    marginLeft: '4px'
+                                                                }}
+                                                                onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-tertiary)'}
+                                                                title="Delete expense request"
+                                                            >
+                                                                <Trash2 size={12} />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    {expense.description && <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: 'var(--spacing-xs)' }}>{expense.description}</div>}
+                                                    {expense.receipt && (
+                                                        <div style={{ marginTop: 'var(--spacing-xs)' }}>
+                                                            <a href={expense.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                                                <img 
+                                                                    src={expense.receipt} 
+                                                                    alt="Receipt Thumbnail" 
+                                                                    style={{ 
+                                                                        maxHeight: '50px', 
+                                                                        borderRadius: 'var(--radius-md)', 
+                                                                        border: '1px solid var(--border-primary)',
+                                                                        backgroundColor: '#fff',
+                                                                        padding: '2px',
+                                                                        cursor: 'pointer'
+                                                                    }} 
+                                                                />
+                                                            </a>
+                                                        </div>
+                                                    )}
+                                                    {expense.admin_notes && expense.status === 'rejected' && (
+                                                        <div style={{ fontSize: 'var(--font-size-xs)', color: '#dc2626', marginTop: '4px', fontStyle: 'italic' }}>Admin note: {expense.admin_notes}</div>
+                                                    )}
+                                                </div>
+                                                <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-sm)' }}>
+                                                    <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(expense.amount).toLocaleString('en-IN')}</div>
+                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{formatDate(expense.date)}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </>
+            )}
+
+            {/* Ledger View */}
+            {viewSegment === 'ledger' && (
+                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
+                    {ledgerLoading ? (
+                        <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>Loading ledger statement...</div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
+                            {/* Balance Cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+                                <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Approved Claims</div>
+                                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#10b981', marginTop: '4px' }}>₹{ledgerData.summary.total_expenses.toLocaleString('en-IN')}</div>
+                                </div>
+                                <div style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Received Payments</div>
+                                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#3b82f6', marginTop: '4px' }}>₹{ledgerData.summary.total_payments.toLocaleString('en-IN')}</div>
+                                </div>
+                            </div>
+
+                            {/* Net Balance Card */}
+                            <div style={{ 
+                                backgroundColor: 'var(--bg-elevated)', 
+                                border: '1px solid var(--border-primary)', 
+                                borderRadius: 'var(--radius-lg)', 
+                                padding: 'var(--spacing-md)', 
+                                display: 'flex', 
+                                justifyContent: 'space-between', 
+                                alignItems: 'center',
+                                borderLeft: `4px solid ${ledgerData.summary.balance > 0 ? '#10b981' : ledgerData.summary.balance < 0 ? '#ef4444' : 'var(--border-primary)'}`
+                            }}>
+                                <div>
+                                    <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 700 }}>
+                                        {ledgerData.summary.balance > 0 ? 'Company owes you' : ledgerData.summary.balance < 0 ? 'You owe company' : 'Settled balance'}
+                                    </div>
+                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                        {ledgerData.summary.balance > 0 ? 'Pending reimbursement' : ledgerData.summary.balance < 0 ? 'Company cash advance / balance' : 'No outstanding amount'}
+                                    </div>
+                                </div>
+                                <div style={{ fontSize: '18px', fontWeight: 800, color: ledgerData.summary.balance > 0 ? '#10b981' : ledgerData.summary.balance < 0 ? '#ef4444' : 'var(--text-primary)' }}>
+                                    ₹{Math.abs(ledgerData.summary.balance).toLocaleString('en-IN')}
+                                </div>
+                            </div>
+
+                            {/* Ledger List */}
+                            <div>
+                                <h3 style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>Chronological Statement</h3>
+                                {ledgerData.ledger.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>
+                                        No transactions posted to your ledger yet.
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xs)' }}>
+                                        {ledgerData.ledger.map(entry => (
+                                            <div key={entry.id} style={{ 
+                                                backgroundColor: 'var(--bg-elevated)', 
+                                                border: '1px solid var(--border-primary)', 
+                                                borderRadius: 'var(--radius-md)', 
+                                                padding: 'var(--spacing-sm)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: '6px'
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{formatDate(entry.date)}</span>
+                                                    <span style={{ 
+                                                        padding: '2px 6px', 
+                                                        borderRadius: 'var(--radius-sm)', 
+                                                        fontSize: '9px', 
+                                                        fontWeight: 700,
+                                                        backgroundColor: entry.type === 'Expense' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
+                                                        color: entry.type === 'Expense' ? '#10b981' : '#3b82f6',
+                                                        textTransform: 'uppercase'
+                                                    }}>
+                                                        {entry.type}
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                                                            {entry.reference}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                                            {entry.description}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-sm)', flexShrink: 0 }}>
+                                                        <div style={{ fontSize: '14px', fontWeight: 700, color: entry.type === 'Expense' ? '#10b981' : '#3b82f6' }}>
+                                                            {entry.type === 'Expense' ? `+ ₹${entry.credit}` : `- ₹${entry.debit}`}
+                                                        </div>
+                                                        <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '2px' }}>
+                                                            Bal: ₹{entry.balance.toLocaleString('en-IN')}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
-

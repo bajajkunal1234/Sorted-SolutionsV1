@@ -55,6 +55,10 @@ function TechnicianManagement() {
     const [reviewNotes, setReviewNotes] = useState({});
     const [payingExpense, setPayingExpense] = useState(null);
     const [expenseAccounts, setExpenseAccounts] = useState([]);
+    const [selectedTechFilter, setSelectedTechFilter] = useState('');
+    const [adminExpenseViewMode, setAdminExpenseViewMode] = useState('claims');
+    const [adminLedgerData, setAdminLedgerData] = useState({ summary: { total_expenses: 0, total_payments: 0, balance: 0 }, ledger: [] });
+    const [adminLedgerLoading, setAdminLedgerLoading] = useState(false);
 
     // ─── Spares Purchases state ───────────────────────────────────────────────
     const [spares, setSpares] = useState([]);
@@ -72,7 +76,13 @@ function TechnicianManagement() {
         } else if (activeTab === 'spares') {
             fetchSpares();
         }
-    }, [activeTab, expenseFilter, sparesFilter]);
+    }, [activeTab, expenseFilter, sparesFilter, selectedTechFilter]);
+
+    useEffect(() => {
+        if (activeTab === 'expenses' && selectedTechFilter && adminExpenseViewMode === 'ledger') {
+            fetchAdminLedger(selectedTechFilter);
+        }
+    }, [activeTab, selectedTechFilter, adminExpenseViewMode]);
     useEffect(() => { if (activeTab === 'livefleet') fetchActiveJobs(); }, [activeTab]);
 
     const fetchSpares = async () => {
@@ -249,11 +259,31 @@ function TechnicianManagement() {
     const fetchExpenses = async () => {
         setExpensesLoading(true);
         try {
-            const res = await fetch(`/api/admin/expenses?status=${expenseFilter}`);
+            const techQuery = selectedTechFilter ? `&technician_id=${selectedTechFilter}` : '';
+            const res = await fetch(`/api/admin/expenses?status=${expenseFilter}${techQuery}`);
             const data = await res.json();
             setExpenses(data.expenses || []);
         } catch (err) { console.error(err); }
         finally { setExpensesLoading(false); }
+    };
+
+    const fetchAdminLedger = async (techId) => {
+        if (!techId) return;
+        setAdminLedgerLoading(true);
+        try {
+            const res = await fetch(`/api/technician/expenses/ledger?technicianId=${techId}`);
+            const data = await res.json();
+            if (data.success) {
+                setAdminLedgerData({
+                    summary: data.summary || { total_expenses: 0, total_payments: 0, balance: 0 },
+                    ledger: data.ledger || []
+                });
+            }
+        } catch (err) {
+            console.error('Error fetching admin ledger:', err);
+        } finally {
+            setAdminLedgerLoading(false);
+        }
     };
 
     const fetchExpenseAccounts = async () => {
@@ -663,91 +693,256 @@ function TechnicianManagement() {
                     </div>
 
                     <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                        <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
+                        <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
                             <div>
-                                <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', margin: 0 }}>Expense Requests</h3>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Review and approve technician expense claims</p>
+                                <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', margin: 0 }}>Expense Requests &amp; Ledger</h3>
+                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Review technician claims and audit dynamic balance sheets</p>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                <select value={expenseFilter} onChange={e => setExpenseFilter(e.target.value)} className="form-select" style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)' }}>
-                                    <option value="pending">Pending</option>
-                                    <option value="approved">Approved</option>
-                                    <option value="rejected">Rejected</option>
-                                    <option value="all">All</option>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+                                {/* Technician filter dropdown */}
+                                <select 
+                                    value={selectedTechFilter} 
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        setSelectedTechFilter(val);
+                                        if (!val) {
+                                            setAdminExpenseViewMode('claims');
+                                        }
+                                    }} 
+                                    className="form-select" 
+                                    style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)', minWidth: '160px' }}
+                                >
+                                    <option value="">All Technicians</option>
+                                    {technicians.map(tech => (
+                                        <option key={tech.id} value={tech.id}>{tech.name}</option>
+                                    ))}
                                 </select>
-                                <button className="btn-icon" onClick={fetchExpenses} title="Refresh"><RefreshCcw size={16} /></button>
+
+                                {/* Claims / Ledger Segment Toggle */}
+                                {selectedTechFilter && (
+                                    <div style={{ display: 'flex', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAdminExpenseViewMode('claims')}
+                                            style={{
+                                                padding: '6px 12px',
+                                                fontSize: '12px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                backgroundColor: adminExpenseViewMode === 'claims' ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                                color: adminExpenseViewMode === 'claims' ? '#fff' : 'var(--text-secondary)',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Claims List
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAdminExpenseViewMode('ledger')}
+                                            style={{
+                                                padding: '6px 12px',
+                                                fontSize: '12px',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                backgroundColor: adminExpenseViewMode === 'ledger' ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                                                color: adminExpenseViewMode === 'ledger' ? '#fff' : 'var(--text-secondary)',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            Ledger Statement
+                                        </button>
+                                    </div>
+                                )}
+
+                                {/* Status filter (only relevant for Claims View) */}
+                                {adminExpenseViewMode === 'claims' && (
+                                    <select value={expenseFilter} onChange={e => setExpenseFilter(e.target.value)} className="form-select" style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)' }}>
+                                        <option value="pending">Pending</option>
+                                        <option value="approved">Approved</option>
+                                        <option value="rejected">Rejected</option>
+                                        <option value="all">All</option>
+                                    </select>
+                                )}
+
+                                <button className="btn-icon" onClick={() => {
+                                    if (adminExpenseViewMode === 'ledger') {
+                                        fetchAdminLedger(selectedTechFilter);
+                                    } else {
+                                        fetchExpenses();
+                                    }
+                                }} title="Refresh">
+                                    <RefreshCcw size={16} />
+                                </button>
                             </div>
                         </div>
-                        {expensesLoading ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading expenses...</div>
-                        ) : expenses.length === 0 ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                <Receipt size={40} style={{ margin: '0 auto var(--spacing-sm)', opacity: 0.3 }} />
-                                <div>No {expenseFilter === 'all' ? '' : expenseFilter} expense requests</div>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'grid', gap: 0 }}>
-                                {expenses.map((exp, idx) => {
-                                    const cat = categories.find(c => c.id === exp.category);
-                                    return (
-                                        <div key={exp.id} style={{ padding: 'var(--spacing-md)', borderBottom: idx < expenses.length - 1 ? '1px solid var(--border-primary)' : 'none' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-sm)' }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
-                                                        <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>{cat?.name || exp.category}</span>
-                                                        {statusBadge(exp.status)}
-                                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{new Date(exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                                                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                                            By: {exp.technician?.name || 'Unknown Technician'}
-                                                        </span>
-                                                    </div>
-                                                    {exp.description && <div style={{ fontSize: 'var(--font-size-sm)', marginTop: '4px' }}>{exp.description}</div>}
-                                                    {exp.receipt && (
-                                                        <div style={{ marginTop: 'var(--spacing-sm)' }}>
-                                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                                <Camera size={12} /> Receipt Attachment:
-                                                            </div>
-                                                            <a href={exp.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
-                                                                <img 
-                                                                    src={exp.receipt} 
-                                                                    alt="Receipt Preview" 
-                                                                    style={{ 
-                                                                        maxHeight: '60px', 
-                                                                        borderRadius: 'var(--radius-md)', 
-                                                                        border: '1px solid var(--border-primary)', 
-                                                                        cursor: 'pointer',
-                                                                        backgroundColor: '#fff',
-                                                                        padding: '2px'
-                                                                    }} 
-                                                                />
-                                                            </a>
-                                                        </div>
-                                                    )}
-                                                    {exp.payment_voucher && (
-                                                        <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
-                                                            <span>💳 Paid via {exp.payment_voucher.payment_number} (₹{parseFloat(exp.payment_voucher.amount || 0).toLocaleString('en-IN')})</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-md)', flexShrink: 0 }}>
-                                                    <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(exp.amount).toLocaleString('en-IN')}</div>
-                                                </div>
-                                            </div>
-                                            {exp.status === 'pending' && (
-                                                <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)' }}>
-                                                    <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
-                                                    <button onClick={() => setPayingExpense(exp)} style={{ padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <Check size={14} /> Approve via Payment
-                                                    </button>
-                                                    <button onClick={() => handleReviewExpense(exp, 'rejected')} style={{ padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                        <X size={14} /> Reject
-                                                    </button>
-                                                </div>
-                                            )}
+
+                        {adminExpenseViewMode === 'ledger' && selectedTechFilter ? (
+                            adminLedgerLoading ? (
+                                <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading ledger statement...</div>
+                            ) : (
+                                <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                                    {/* Balance Cards */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                        <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-md)', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Approved Claims (Credit)</div>
+                                            <div style={{ fontSize: '18px', fontWeight: 700, color: '#10b981', marginTop: '4px' }}>₹{adminLedgerData.summary.total_expenses.toLocaleString('en-IN')}</div>
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                        <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-md)', textAlign: 'center' }}>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Received Payments (Debit)</div>
+                                            <div style={{ fontSize: '18px', fontWeight: 700, color: '#3b82f6', marginTop: '4px' }}>₹{adminLedgerData.summary.total_payments.toLocaleString('en-IN')}</div>
+                                        </div>
+                                        <div style={{ 
+                                            backgroundColor: 'var(--bg-secondary)', 
+                                            border: '1px solid var(--border-primary)', 
+                                            borderRadius: 'var(--radius-lg)', 
+                                            padding: 'var(--spacing-md)', 
+                                            textAlign: 'center',
+                                            borderTop: `4px solid ${adminLedgerData.summary.balance > 0 ? '#10b981' : adminLedgerData.summary.balance < 0 ? '#ef4444' : 'var(--border-primary)'}`
+                                        }}>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>
+                                                {adminLedgerData.summary.balance > 0 ? 'Company owes Tech' : adminLedgerData.summary.balance < 0 ? 'Tech owes Company' : 'Settled Balance'}
+                                            </div>
+                                            <div style={{ fontSize: '18px', fontWeight: 700, color: adminLedgerData.summary.balance > 0 ? '#10b981' : adminLedgerData.summary.balance < 0 ? '#ef4444' : 'var(--text-primary)', marginTop: '4px' }}>
+                                                ₹{Math.abs(adminLedgerData.summary.balance).toLocaleString('en-IN')}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Ledger Table */}
+                                    <div style={{ overflowX: 'auto', marginTop: 'var(--spacing-sm)' }}>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                            <thead>
+                                                <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
+                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Date</th>
+                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Type</th>
+                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Reference</th>
+                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Description</th>
+                                                    <th style={{ padding: '10px 14px', fontWeight: 600, textAlign: 'right' }}>Debit (Paid)</th>
+                                                    <th style={{ padding: '10px 14px', fontWeight: 600, textAlign: 'right' }}>Credit (Claimed)</th>
+                                                    <th style={{ padding: '10px 14px', fontWeight: 600, textAlign: 'right' }}>Running Balance</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {adminLedgerData.ledger.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="7" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                            No transactions posted to this technician's ledger yet.
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    adminLedgerData.ledger.map((entry) => (
+                                                        <tr key={entry.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                            <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
+                                                                {new Date(entry.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                            </td>
+                                                            <td style={{ padding: '10px 14px' }}>
+                                                                <span style={{ 
+                                                                    padding: '2px 6px', 
+                                                                    borderRadius: 'var(--radius-sm)', 
+                                                                    fontSize: '10px', 
+                                                                    fontWeight: 700,
+                                                                    backgroundColor: entry.type === 'Expense' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
+                                                                    color: entry.type === 'Expense' ? '#10b981' : '#3b82f6',
+                                                                    textTransform: 'uppercase'
+                                                                }}>
+                                                                    {entry.type}
+                                                                </span>
+                                                            </td>
+                                                            <td style={{ padding: '10px 14px', fontWeight: 600, textTransform: 'capitalize' }}>
+                                                                {entry.reference}
+                                                            </td>
+                                                            <td style={{ padding: '10px 14px', color: 'var(--text-secondary)' }}>
+                                                                {entry.description}
+                                                            </td>
+                                                            <td style={{ padding: '10px 14px', textAlign: 'right', color: '#3b82f6', fontWeight: 600 }}>
+                                                                {entry.debit > 0 ? `₹${entry.debit.toLocaleString('en-IN')}` : '—'}
+                                                            </td>
+                                                            <td style={{ padding: '10px 14px', textAlign: 'right', color: '#10b981', fontWeight: 600 }}>
+                                                                {entry.credit > 0 ? `₹${entry.credit.toLocaleString('en-IN')}` : '—'}
+                                                            </td>
+                                                            <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: entry.balance > 0 ? '#10b981' : entry.balance < 0 ? '#ef4444' : 'var(--text-primary)' }}>
+                                                                ₹{entry.balance.toLocaleString('en-IN')}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )
+                        ) : (
+                            expensesLoading ? (
+                                <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading expenses...</div>
+                            ) : expenses.length === 0 ? (
+                                <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                    <Receipt size={40} style={{ margin: '0 auto var(--spacing-sm)', opacity: 0.3 }} />
+                                    <div>No {expenseFilter === 'all' ? '' : expenseFilter} expense requests</div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gap: 0 }}>
+                                    {expenses.map((exp, idx) => {
+                                        const cat = categories.find(c => c.id === exp.category);
+                                        return (
+                                            <div key={exp.id} style={{ padding: 'var(--spacing-md)', borderBottom: idx < expenses.length - 1 ? '1px solid var(--border-primary)' : 'none' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-sm)' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', marginBottom: '4px', flexWrap: 'wrap' }}>
+                                                            <span style={{ padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600, backgroundColor: (cat?.color || '#6b7280') + '20', color: cat?.color || '#6b7280' }}>{cat?.name || exp.category}</span>
+                                                            {statusBadge(exp.status)}
+                                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{new Date(exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                                            <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                                                                By: {exp.technician?.name || 'Unknown Technician'}
+                                                            </span>
+                                                        </div>
+                                                        {exp.description && <div style={{ fontSize: 'var(--font-size-sm)', marginTop: '4px' }}>{exp.description}</div>}
+                                                        {exp.receipt && (
+                                                            <div style={{ marginTop: 'var(--spacing-sm)' }}>
+                                                                <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <Camera size={12} /> Receipt Attachment:
+                                                                </div>
+                                                                <a href={exp.receipt} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block' }}>
+                                                                    <img 
+                                                                        src={exp.receipt} 
+                                                                        alt="Receipt Preview" 
+                                                                        style={{ 
+                                                                            maxHeight: '60px', 
+                                                                            borderRadius: 'var(--radius-md)', 
+                                                                            border: '1px solid var(--border-primary)', 
+                                                                            cursor: 'pointer',
+                                                                            backgroundColor: '#fff',
+                                                                            padding: '2px'
+                                                                        }} 
+                                                                    />
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                        {exp.payment_voucher && (
+                                                            <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
+                                                                <span>💳 Paid via {exp.payment_voucher.payment_number} (₹{parseFloat(exp.payment_voucher.amount || 0).toLocaleString('en-IN')})</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-md)', flexShrink: 0 }}>
+                                                        <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(exp.amount).toLocaleString('en-IN')}</div>
+                                                    </div>
+                                                </div>
+                                                {exp.status === 'pending' && (
+                                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)' }}>
+                                                        <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
+                                                        <button onClick={() => setPayingExpense(exp)} style={{ padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <Check size={14} /> Approve via Payment
+                                                        </button>
+                                                        <button onClick={() => handleReviewExpense(exp, 'rejected')} style={{ padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <X size={14} /> Reject
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )
                         )}
                     </div>
                 </div>
