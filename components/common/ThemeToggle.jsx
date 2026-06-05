@@ -5,11 +5,11 @@ import { Sun, Moon } from 'lucide-react'
 import './ThemeToggle.css'
 
 export default function ThemeToggle() {
-    const [theme, setTheme] = useState('light') // Default matching RootLayout
+    const [theme, setTheme] = useState('dark') // Default matching RootLayout
 
     useEffect(() => {
         // Initialize from localStorage or document attribute
-        const storedTheme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'light'
+        const storedTheme = localStorage.getItem('theme') || document.documentElement.getAttribute('data-theme') || 'dark'
         setTheme(storedTheme)
         document.documentElement.setAttribute('data-theme', storedTheme)
     }, [])
