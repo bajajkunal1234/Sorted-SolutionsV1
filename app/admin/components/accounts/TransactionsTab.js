@@ -134,13 +134,13 @@ function TransactionsTab({ accountId, accountName, account }) {
                 { data: amcDirect },
                 { data: rentalDirect },
             ] = await Promise.all([
-                supabase.from('sales_invoices').select('id,invoice_number,reference,date,total_amount,paid_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name').eq('account_id', accountId).neq('status','archived'),
-                supabase.from('purchase_invoices').select('id,invoice_number,reference,date,total_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name').eq('account_id', accountId).neq('status','archived'),
-                supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name').eq('account_id', accountId),
-                supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id').eq('payment_account_id', accountId),
-                supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name').eq('account_id', accountId),
-                supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id').eq('payment_account_id', accountId),
-                supabase.from('quotations').select('id,quote_number,reference,date,total_amount,status,notes,job_id,account_id,account_name').eq('account_id', accountId),
+                supabase.from('sales_invoices').select('id,invoice_number,reference,date,total_amount,paid_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId).neq('status','archived'),
+                supabase.from('purchase_invoices').select('id,invoice_number,reference,date,total_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId).neq('status','archived'),
+                supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId),
+                supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id,jobs(job_number)').eq('payment_account_id', accountId),
+                supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId),
+                supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id,jobs(job_number)').eq('payment_account_id', accountId),
+                supabase.from('quotations').select('id,quote_number,reference,date,total_amount,status,notes,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId),
                 supabase.from('active_amcs').select('id,plan_name,amc_amount,start_date,end_date,status,payment_status,customer_id,amc_plans(name)').eq('customer_id', accountId).neq('status','archived'),
                 supabase.from('active_rentals').select('id,product_name,monthly_rent,rent_advance,start_date,end_date,status,customer_id,rental_plans(product_name)').eq('customer_id', accountId).neq('status','archived'),
             ]);
@@ -737,6 +737,11 @@ function TransactionsTab({ accountId, accountName, account }) {
                                                         <span style={{ fontSize: '10px', marginLeft: '6px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
                                                             (non-financial)
                                                         </span>
+                                                    )}
+                                                    {txn.rawData?.jobs?.job_number && (
+                                                        <div style={{ fontSize: '10px', color: '#6366f1', marginTop: '2px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                                            💼 Job: #{txn.rawData.jobs.job_number}
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td style={S.tdRight}>

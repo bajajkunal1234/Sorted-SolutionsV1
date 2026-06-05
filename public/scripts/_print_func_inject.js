@@ -1,6 +1,7 @@
 if (!window.generatePrintHtml) { // Guard: only execute once even if script is loaded multiple times
     const generatePrintHtml = (item, tab, settingsOverride) => {
         const ref       = item.invoice_number || item.quote_number || item.receipt_number || item.payment_number || item.id || '';
+        const jobNum    = item.job_number || item.jobs?.job_number || '';
         const acct      = item.account_name || item.accounts?.name || item.customer?.name || item.account?.name || '';
         const acctPhone = item.account_phone || item.accounts?.mobile || '';
         const acctGSTIN = item.account_gstin || item.accounts?.gstin || '';
@@ -215,12 +216,16 @@ ${body}
     </div>
     <div style="text-align:right">
       <div style="font-size:24px;font-weight:900;color:${gold};letter-spacing:2px">${docTitle}</div>
-      <div style="margin-top:8px;background:rgba(255,255,255,0.06);border-radius:8px;padding:10px 14px;border:1px solid rgba(245,158,11,0.25)">
-        <div style="color:rgba(255,255,255,0.45);font-size:9px;text-transform:uppercase;letter-spacing:1px">${tab === 'quotations' ? 'Quote No.' : tab === 'receipts' ? 'Receipt No.' : tab === 'payments' ? 'Payment No.' : 'Invoice No.'}</div>
-        <div style="color:#fff;font-size:13px;font-weight:700;margin-top:2px">${ref}</div>
-        <div style="color:rgba(255,255,255,0.45);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-top:5px">Date</div>
-        <div style="color:#fff;font-size:12px;font-weight:600;margin-top:2px">${date}</div>
-      </div>
+        <div style="margin-top:8px;background:rgba(255,255,255,0.06);border-radius:8px;padding:10px 14px;border:1px solid rgba(245,158,11,0.25)">
+          <div style="color:rgba(255,255,255,0.45);font-size:9px;text-transform:uppercase;letter-spacing:1px">${tab === 'quotations' ? 'Quote No.' : tab === 'receipts' ? 'Receipt No.' : tab === 'payments' ? 'Payment No.' : 'Invoice No.'}</div>
+          <div style="color:#fff;font-size:13px;font-weight:700;margin-top:2px">${ref}</div>
+          <div style="color:rgba(255,255,255,0.45);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-top:5px">Date</div>
+          <div style="color:#fff;font-size:12px;font-weight:600;margin-top:2px">${date}</div>
+          ${jobNum ? `
+          <div style="color:rgba(255,255,255,0.45);font-size:9px;text-transform:uppercase;letter-spacing:1px;margin-top:5px">Job Ref</div>
+          <div style="color:#fff;font-size:12px;font-weight:600;margin-top:2px">#${jobNum}</div>
+          ` : ''}
+        </div>
     </div>
   </div>
 </div>
@@ -253,7 +258,7 @@ ${body}
   </div>
   <div style="background:rgba(255,255,255,0.16);border-radius:6px;padding:6px 14px;border:1px solid rgba(255,255,255,0.3);text-align:right">
     <div style="font-size:17px;font-weight:900;color:#fff;letter-spacing:1.5px">${docTitle}</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px">${ref} &middot; ${date}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px">${ref} &middot; ${date}${jobNum ? ` &middot; Job #${jobNum}` : ''}</div>
   </div>
 </div>
 <div style="background:#fff8f0;border-top:3px solid ${L};padding:8px 32px;font-size:9.5px;color:#92400e;display:flex;gap:20px;flex-wrap:wrap">
@@ -293,6 +298,7 @@ ${body}
         <div style="font-size:11px;font-weight:700;color:${C};letter-spacing:2px;text-transform:uppercase">${docTitle}</div>
         <div style="font-size:16px;font-weight:800;color:#0f172a;margin-top:4px">${ref}</div>
         <div style="font-size:10px;color:#64748b;margin-top:3px">${date}</div>
+        ${jobNum ? `<div style="font-size:10px;color:#64748b;margin-top:3px;font-weight:600">Job: #${jobNum}</div>` : ''}
       </div>
     </div>
   </div>
@@ -330,6 +336,10 @@ ${body}
         <div style="font-size:13px;font-weight:700;color:${DR}">${ref}</div>
         <div class="gl" style="margin-top:5px">Date</div>
         <div style="font-size:12px;font-weight:600;color:${DR}">${date}</div>
+        ${jobNum ? `
+        <div class="gl" style="margin-top:5px">Job Ref</div>
+        <div style="font-size:12px;font-weight:600;color:${DR}">#${jobNum}</div>
+        ` : ''}
       </div>
     </div>
   </div>

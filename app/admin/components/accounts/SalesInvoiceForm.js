@@ -5,6 +5,7 @@ import { Plus, Trash2, X, Loader2 } from 'lucide-react';
 import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
+import JobSelector from './JobSelector';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, inventoryAPI, productLinksAPI, printSettingsAPI } from '@/lib/adminAPI';
 
@@ -72,7 +73,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
         terms: existingInvoice?.terms || 'Payment due within 30 days.\nLate payments subject to 2% monthly interest.',
         technician_id: existingInvoice?.technician_id || defaultAccount?.technician_id || null,
         technician_name: existingInvoice?.technician_name || defaultAccount?.technician_name || '',
-        showTax: existingInvoice?.showTax !== undefined ? existingInvoice.showTax : false
+        showTax: existingInvoice?.showTax !== undefined ? existingInvoice.showTax : false,
+        job_id: existingInvoice?.job_id || defaultAccount?.job_id || null
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
@@ -184,7 +186,8 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
             accountState: 'Maharashtra',
             property: null,
             billing_address: '',
-            shipping_address: ''
+            shipping_address: '',
+            job_id: null
         }));
 
         // Fetch linked properties for this account to get the billing address
@@ -387,6 +390,14 @@ function SalesInvoiceForm({ onClose, onSave, existingInvoice, defaultAccount, pr
                                 onCreateNew={() => setShowNewAccountForm(true)}
                                 accountType="customer"
                                 label="Account"
+                            />
+                        </div>
+                        <div>
+                            <JobSelector
+                                value={formData.job_id}
+                                onChange={(jobId) => setFormData(prev => ({ ...prev, job_id: jobId }))}
+                                accountId={formData.account_id}
+                                label="Link to Job (optional)"
                             />
                         </div>
                         <div>
