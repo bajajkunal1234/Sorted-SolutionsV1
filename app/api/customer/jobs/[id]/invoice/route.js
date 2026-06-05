@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
         // Fetch the most recent unpaid/partial sales invoice for this job
         const { data: invoice, error } = await supabase
             .from('sales_invoices')
-            .select('id, invoice_number, total_amount, paid_amount, status, account_id, date')
+            .select('*')
             .eq('job_id', jobId)
             .in('status', ['unpaid', 'partial'])
             .order('created_at', { ascending: false })
@@ -31,7 +31,7 @@ export async function GET(request, { params }) {
             // If no unpaid invoice, try fetching any invoice (even paid) so customer sees their receipt
             const { data: anyInvoice } = await supabase
                 .from('sales_invoices')
-                .select('id, invoice_number, total_amount, paid_amount, status, account_id, date')
+                .select('*')
                 .eq('job_id', jobId)
                 .order('created_at', { ascending: false })
                 .limit(1)

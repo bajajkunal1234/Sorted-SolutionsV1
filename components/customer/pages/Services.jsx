@@ -613,19 +613,9 @@ function QuotationSection({ jobId, status, onClose }) {
 }
 
 // ── Invoice Section ──────────────────────────────────────────────────────────
-function InvoiceSection({ jobId, jobStatus }) {
-    const [invoice, setInvoice] = useState(null)
-    const [loading, setLoading] = useState(true)
+function InvoiceSection({ jobId, jobStatus, invoice, setInvoice, loading }) {
     const [payLoading, setPayLoading] = useState(false)
     const [paid, setPaid] = useState(false)
-
-    useEffect(() => {
-        fetch(`/api/customer/jobs/${jobId}/invoice`)
-            .then(r => r.json())
-            .then(d => { if (d.success) setInvoice(d.invoice) })
-            .catch(() => {})
-            .finally(() => setLoading(false))
-    }, [jobId])
 
     if (loading || !invoice) return null
 
@@ -984,7 +974,7 @@ function AddDetailsPanel({ job }) {
 
 // ── Job Detail Sheet ─────────────────────────────────────────────────────────
 
-function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
+function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick, onReBook }) {
     const cfg = STATUS_CONFIG[job.status] || STATUS_CONFIG.new_job_request
     const Icon = cfg.icon
 
@@ -993,6 +983,22 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
 
     // Only show map during live tracking (work_in_progress + technician is on the way)
     const showMap = job.status === 'work_in_progress'
+
+    // Which financial sections to show
+    const showInvoice = ['work_in_progress', 'closed', 'completed'].includes(job.status)
+
+    // Fetch invoice details for print / share
+    const [invoice, setInvoice] = useState(null)
+    const [invoiceLoading, setInvoiceLoading] = useState(false)
+    useEffect(() => {
+        if (!showInvoice) return
+        setInvoiceLoading(true)
+        fetch(`/api/customer/jobs/${job.id}/invoice`)
+            .then(r => r.json())
+            .then(d => { if (d.success) setInvoice(d.invoice) })
+            .catch(() => {})
+            .finally(() => setInvoiceLoading(false))
+    }, [job.id, showInvoice])
 
     const storedLat = job?.property?.latitude || job?.latitude
     const storedLng = job?.property?.longitude || job?.longitude
@@ -1035,7 +1041,6 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
 
     // Which financial sections to show
     const showQuotation = ['quotation_sent', 'diagnosing_quoting', 'parts_ordered', 'work_in_progress', 'closed', 'completed'].includes(job.status)
-    const showInvoice = ['work_in_progress', 'closed', 'completed'].includes(job.status)
 
     const locked = !!job.on_way_at
     const isClosedOrCancelled = ['closed', 'cancelled', 'completed'].includes(job.status)
@@ -1212,7 +1217,13 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                     {showInvoice && (
                         <>
                             <SectionLabel>Invoice & Payment</SectionLabel>
-                            <InvoiceSection jobId={job.id} jobStatus={job.status} />
+                            <InvoiceSection 
+                                jobId={job.id} 
+                                jobStatus={job.status} 
+                                invoice={invoice} 
+                                setInvoice={setInvoice} 
+                                loading={invoiceLoading} 
+                            />
                         </>
                     )}
 
@@ -1328,15 +1339,29 @@ function JobDetailSheet({ job, onClose, onCancel, onRescheduleClick }) {
                         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
                             <button
                                 onClick={() => {
-                                    const msg = `Hi, I'd like to share my invoice for Job ${job.jobNumber || job.id?.slice(0,8)} — ${job.appliance_type || 'Appliance'} repair by Sorted Solutions. Please WhatsApp me the invoice.`
-                                    window.open(`https://wa.me/919082225163?text=${encodeURIComponent(msg)}`, '_blank')
+                                    const shareText = `Sorted Solutions Invoice for Job ${job.jobNumber || job.id?.slice(0,8)} (${applianceBrand ? applianceBrand + ' ' : ''}${applianceType} Repair) - Total: ₹${invoice?.total_amount || ''}. View status here: ${window.location.origin}/customer/dashboard`
+                                    if (navigator.share) {
+                                        navigator.share({
+                                            title: 'Sorted Solutions Invoice',
+                                            text: shareText,
+                                            url: `${window.location.origin}/customer/dashboard`
+                                        }).catch(() => {})
+                                    } else {
+                                        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`, '_blank')
+                                    }
                                 }}
                                 style={{ flex: 1, padding: '10px', borderRadius: 12, background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)', color: '#4ade80', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                             >
                                 <Share2 size={13} /> Share Invoice
                             </button>
                             <button
-                                onClick={() => window.print()}
+                                onClick={() => {
+                                    if (invoice && typeof window !== 'undefined' && window.handlePrintItem) {
+                                        window.handlePrintItem(invoice, 'sales');
+                                    } else {
+                                        window.print();
+                                    }
+                                }}
                                 style={{ flex: 1, padding: '10px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#64748b', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                             >
                                 <Printer size={13} /> Print / Save PDF
@@ -1715,7 +1740,9 @@ export default function ServicesPage() {
                     onCancel={handleCancel}
                     onRescheduleClick={() => setShowRescheduleModal(true)}
                     onReBook={(job) => {
-                        setReBookData({ applianceType: job.appliance_type, brand: job.brand || job.appliance_brand, issue: job.issue })
+                        const appType = job.product?.type || job.category || job.appliance || 'Service'
+                        const appBrand = job.product?.brand || job.brand || ''
+                        setReBookData({ type: appType, brand: appBrand })
                         setSelectedJob(null)
                         setShowServiceModal(true)
                     }}
@@ -1727,12 +1754,14 @@ export default function ServicesPage() {
                 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
             `}</style>
 
-            <BookServiceModal
-                isOpen={showServiceModal}
-                onClose={() => { setShowServiceModal(false); setReBookData(null) }}
-                onBook={() => { fetchJobs(); setShowServiceModal(false); setReBookData(null) }}
-                prefill={reBookData}
-            />
+            {showServiceModal && (
+                <BookServiceModal
+                    isOpen={showServiceModal}
+                    onClose={() => { setShowServiceModal(false); setReBookData(null) }}
+                    onBook={() => { fetchJobs(); setShowServiceModal(false); setReBookData(null) }}
+                    preSelectedAppliance={reBookData}
+                />
+            )}
 
             <RescheduleModal
                 isOpen={showRescheduleModal}
