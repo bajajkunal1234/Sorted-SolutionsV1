@@ -3,6 +3,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X } from 'lucide-react';
 
+const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 export default function ExpensesList({ technicianId }) {
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -10,7 +18,7 @@ export default function ExpensesList({ technicianId }) {
     const [showAddForm, setShowAddForm] = useState(false);
     const [categories, setCategories] = useState([]);
     const [formData, setFormData] = useState({
-        date: new Date().toISOString().split('T')[0],
+        date: getLocalDateString(),
         category: '',
         amount: '',
         description: ''
@@ -162,6 +170,12 @@ export default function ExpensesList({ technicianId }) {
             return;
         }
 
+        const todayStr = getLocalDateString();
+        if (formData.date < todayStr) {
+            setError('Back-dated expenses are not allowed. Please select today or a future date.');
+            return;
+        }
+
         setSubmitting(true);
         setError(null);
 
@@ -191,7 +205,7 @@ export default function ExpensesList({ technicianId }) {
             if (!response.ok) throw new Error(data.error || 'Failed to submit expense');
 
             setExpenses([data.expense, ...expenses]);
-            setFormData({ date: new Date().toISOString().split('T')[0], category: categories[0]?.id || '', amount: '', description: '' });
+            setFormData({ date: getLocalDateString(), category: categories[0]?.id || '', amount: '', description: '' });
             setReceiptPhoto(null);
             setReceiptUrl(null);
             setShowAddForm(false);
@@ -278,7 +292,15 @@ export default function ExpensesList({ technicianId }) {
                                 <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Date</label>
-                                        <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} className="form-input" style={{ width: '100%' }} required />
+                                        <input 
+                                            type="date" 
+                                            value={formData.date} 
+                                            min={getLocalDateString()}
+                                            onChange={e => setFormData({ ...formData, date: e.target.value })} 
+                                            className="form-input" 
+                                            style={{ width: '100%' }} 
+                                            required 
+                                        />
                                     </div>
                                     <div>
                                         <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Category</label>

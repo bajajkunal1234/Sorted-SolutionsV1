@@ -67,6 +67,20 @@ export async function POST(request) {
             )
         }
 
+        // Validate date is not past-dated (in local India timezone UTC+5:30)
+        const expenseDate = expenseData.date || new Date().toISOString().split('T')[0];
+        const d = new Date();
+        const utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+        const nd = new Date(utc + (3600000 * 5.5));
+        const todayStr = nd.toISOString().split('T')[0];
+
+        if (expenseDate < todayStr) {
+            return NextResponse.json(
+                { error: 'Back-dated expenses are not allowed. Please select today or a future date.' },
+                { status: 400 }
+            )
+        }
+
         // Insert expense
         const { data: expense, error } = await supabase
             .from('expenses')
