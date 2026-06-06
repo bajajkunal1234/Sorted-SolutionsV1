@@ -949,26 +949,12 @@ function TechnicianApp() {
                 <TrendingUp size={24} color="#10b981" />
                 My Performance
             </h2>
-
-            {/* This Month Summary */}
-            <div style={{
-                padding: 'var(--spacing-lg)',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                borderRadius: 'var(--radius-lg)',
-                border: '2px solid #10b981',
-                marginBottom: 'var(--spacing-md)',
-                textAlign: 'center'
-            }}>
-                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-xs)' }}>
-                    TOTAL INCENTIVE FOR {incentiveData.period.toUpperCase()}
-                </div>
-                <div style={{ fontSize: '2.5rem', fontWeight: 700, color: '#10b981' }}>
-                    ₹{incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                </div>
-            </div>
+            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '-8px', marginBottom: 'var(--spacing-md)' }}>
+                Overview of jobs and revenue generated during {incentiveData.period}
+            </p>
 
             {/* Performance Metrics */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-md)' }}>
                 <div style={{
                     padding: 'var(--spacing-md)',
                     backgroundColor: 'var(--bg-elevated)',
@@ -993,7 +979,7 @@ function TechnicianApp() {
                         REVENUE GENERATED
                     </div>
                     <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#10b981' }}>
-                        ₹{(incentiveData.metrics.revenueGenerated / 1000).toFixed(1)}K
+                        ₹{incentiveData.metrics.revenueGenerated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                     </div>
                 </div>
 
@@ -1010,41 +996,6 @@ function TechnicianApp() {
                         ⭐ {incentiveData.metrics.rating}
                     </div>
                 </div>
-            </div>
-
-            {/* Incentive Parameters */}
-            <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-sm)' }}>
-                Incentive Breakdown
-            </h3>
-            <div style={{
-                backgroundColor: 'var(--bg-elevated)',
-                borderRadius: 'var(--radius-md)',
-                border: '1px solid var(--border-primary)',
-                overflow: 'hidden'
-            }}>
-                {incentiveData.incentive.breakdown.length > 0 ? (
-                    incentiveData.incentive.breakdown.map((item, index) => (
-                        <div key={index} style={{
-                            padding: 'var(--spacing-md)',
-                            borderBottom: index < incentiveData.incentive.breakdown.length - 1 ? '1px solid var(--border-primary)' : 'none',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center'
-                        }}>
-                            <div>
-                                <div style={{ fontSize: 'var(--font-size-sm)', fontWeight: 600 }}>{item.category}</div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{item.description}</div>
-                            </div>
-                            <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700, color: '#10b981' }}>
-                                ₹{item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <div style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                        No incentives earned yet this month.
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -1499,9 +1450,6 @@ function TechnicianApp() {
                         <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
                             <TrendingUp size={20} color="#10b981" /> Performance
                         </h3>
-                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            Total Earned: <strong>₹{incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
-                        </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>

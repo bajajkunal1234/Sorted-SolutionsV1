@@ -275,54 +275,9 @@ export async function GET(request) {
             paidVouchers
         )
 
-        // Compute incentives
-        let total = 0
+        // Compute incentives (Disabled for technician portal view)
+        const totalIncentive = 0
         const breakdown = []
-
-        mergedParams.forEach(param => {
-            if (!param.enabled) return
-
-            let val = 0
-            let qualifies = false
-
-            switch (param.id) {
-                case 'p1': val = metrics.onTimeVisits; qualifies = val >= param.threshold; break;
-                case 'p2': val = metrics.feedbackAbove4; qualifies = val >= param.threshold; break;
-                case 'p3': val = metrics.revenuePerCustomer; qualifies = val >= param.threshold; break;
-                case 'p4': val = metrics.revenuePerDay; qualifies = val >= param.threshold; break;
-                case 'p5': val = metrics.monthlyRevenue; qualifies = val >= param.threshold; break;
-                case 'p6': val = metrics.quoteConversionRate; qualifies = val >= param.threshold; break;
-                case 'p7': val = metrics.avgJobDuration; qualifies = val > 0 && val <= param.threshold; break;
-                case 'p8': val = metrics.avgRating; qualifies = val >= param.threshold; break;
-                case 'n1': val = metrics.feedbackBelow4; qualifies = val > param.threshold; break;
-                case 'n2': val = metrics.repeatCallPercent; qualifies = val > param.threshold; break;
-                case 'n3': val = metrics.lateArrivals; qualifies = val > param.threshold; break;
-            }
-
-            if (qualifies) {
-                let amount = 0
-                if (param.rewardType === 'fixed') {
-                    amount = param.rewardValue
-                } else {
-                    amount = (val * param.rewardValue) / 100
-                }
-
-                if (param.type === 'negative') {
-                    amount = -amount
-                }
-
-                total += amount
-                breakdown.push({
-                    category: param.name,
-                    amount,
-                    description: param.type === 'negative' 
-                        ? `Penalty: ${param.name} (${val}%)` 
-                        : `Reward: ${param.name} (${param.rewardType === 'fixed' ? 'Fixed' : param.rewardValue + '%'})`
-                })
-            }
-        })
-
-        const totalIncentive = Math.max(0, total)
 
         return NextResponse.json({
             success: true,
