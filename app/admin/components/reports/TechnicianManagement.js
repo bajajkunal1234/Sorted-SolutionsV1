@@ -158,6 +158,16 @@ function TechnicianManagement() {
         }
     };
 
+    const handleToggleHandover = async (item, checked) => {
+        try {
+            await transactionsAPI.update(item.id, { handed_to_service_center: checked }, 'purchase');
+            setSpares(prev => prev.map(s => s.id === item.id ? { ...s, handed_to_service_center: checked } : s));
+        } catch (err) {
+            console.error('Error updating handover status:', err);
+            alert('Failed to update handover status: ' + err.message);
+        }
+    };
+
     const handleSaveSparesPaymentVoucher = async (voucherData) => {
         if (!payingSparesInvoice) return;
         try {
@@ -1070,6 +1080,7 @@ function TechnicianManagement() {
                                             <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Total Amount</th>
                                             <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Paid / Balance</th>
                                             <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'center' }}>Status</th>
+                                            <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'center' }}>Handed to SC</th>
                                             <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'center' }}>Actions</th>
                                         </tr>
                                     </thead>
@@ -1107,7 +1118,7 @@ function TechnicianManagement() {
                                                                     <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                                                                         • <strong>{it.description}</strong> (Qty: {it.qty} × ₹{parseFloat(it.rate || 0).toLocaleString('en-IN')})
                                                                     </div>
-                                                                ))}
+                                                                 ))}
                                                             </div>
                                                         ) : (
                                                             <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>No items</span>
@@ -1130,6 +1141,14 @@ function TechnicianManagement() {
                                                         }}>
                                                             {isPending ? 'Pending Audit' : 'Posted'}
                                                         </span>
+                                                    </td>
+                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'center' }}>
+                                                        <input 
+                                                            type="checkbox"
+                                                            checked={!!item.handed_to_service_center}
+                                                            onChange={(e) => handleToggleHandover(item, e.target.checked)}
+                                                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                        />
                                                     </td>
                                                     <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'center' }}>
                                                         {isPending ? (

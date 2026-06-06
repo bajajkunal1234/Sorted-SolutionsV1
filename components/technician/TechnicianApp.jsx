@@ -57,6 +57,19 @@ function TechnicianApp() {
     const [purchaseVendorName, setPurchaseVendorName] = useState('');
     const [purchaseNotes, setPurchaseNotes] = useState('');
 
+    const [dashboardView, setDashboardView] = useState(() => {
+        if (typeof window !== 'undefined') return localStorage.getItem('techDashboardView') || 'grid';
+        return 'grid';
+    });
+    useEffect(() => {
+        if (typeof window !== 'undefined') localStorage.setItem('techDashboardView', dashboardView);
+    }, [dashboardView]);
+
+    const [repeatCallsCount, setRepeatCallsCount] = useState(0);
+    const [showPurchaseRequestsList, setShowPurchaseRequestsList] = useState(false);
+    const [purchaseRequests, setPurchaseRequests] = useState([]);
+    const [purchaseRequestsLoading, setPurchaseRequestsLoading] = useState(false);
+
     // Apply dark mode theme class initially and on change
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -181,6 +194,73 @@ function TechnicianApp() {
         if (config.activeTags) setActiveTags(config.activeTags);
     };
 
+    const fetchRepeatCalls = async () => {
+        if (!technicianId) return;
+        try {
+            const { data: allJobs, error } = await supabase
+                .from('jobs')
+                .select('id, customer_id, status, created_at, completed_at')
+                .eq('technician_id', technicianId);
+            
+            if (error) throw error;
+            
+            if (allJobs && allJobs.length > 0) {
+                const sorted = [...allJobs].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                let repeatCount = 0;
+                
+                for (let i = 0; i < sorted.length; i++) {
+                    const currentJob = sorted[i];
+                    if (!currentJob.customer_id) continue;
+                    
+                    const currentCreated = new Date(currentJob.created_at);
+                    
+                    const isRepeat = sorted.slice(0, i).some(priorJob => {
+                        if (priorJob.customer_id !== currentJob.customer_id) return false;
+                        
+                        const isCompleted = priorJob.status === 'completed' || priorJob.status === 'closed';
+                        if (!isCompleted) return false;
+                        
+                        const completionDate = priorJob.completed_at ? new Date(priorJob.completed_at) : new Date(priorJob.created_at);
+                        
+                        if (completionDate >= currentCreated) return false;
+                        
+                        const diffTime = Math.abs(currentCreated - completionDate);
+                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                        return diffDays <= 14;
+                    });
+                    
+                    if (isRepeat) {
+                        repeatCount++;
+                    }
+                }
+                setRepeatCallsCount(repeatCount);
+            } else {
+                setRepeatCallsCount(0);
+            }
+        } catch (err) {
+            console.error('Error fetching repeat calls count:', err);
+        }
+    };
+
+    const fetchPurchaseRequests = async () => {
+        if (!technicianId) return;
+        try {
+            setPurchaseRequestsLoading(true);
+            const { data, error } = await supabase
+                .from('purchase_invoices')
+                .select('*')
+                .eq('po_reference', technicianId)
+                .order('date', { ascending: false });
+            
+            if (error) throw error;
+            setPurchaseRequests(data || []);
+        } catch (err) {
+            console.error('Error fetching purchase requests:', err);
+        } finally {
+            setPurchaseRequestsLoading(false);
+        }
+    };
+
     // Fetch jobs and incentives when technician ID is available
     useEffect(() => {
         if (!technicianId) return;
@@ -238,10 +318,15 @@ function TechnicianApp() {
         fetchJobs();
         fetchIncentives();
         fetchProfile();
+        fetchRepeatCalls();
+        fetchPurchaseRequests();
 
         // 5-minute polling — fallback in case Supabase realtime misses an event
         // Realtime handles instant updates; polling is just a safety net
-        const pollInterval = setInterval(fetchJobs, 300000);
+        const pollInterval = setInterval(() => {
+            fetchJobs();
+            fetchRepeatCalls();
+        }, 300000);
 
         // Setup real-time listener (best-effort; polling handles missed events)
         const channel = supabase
@@ -254,7 +339,10 @@ function TechnicianApp() {
                     table: 'jobs',
                     filter: `technician_id=eq.${technicianId}`
                 },
-                () => { fetchJobs(); }
+                () => { 
+                    fetchJobs(); 
+                    fetchRepeatCalls();
+                }
             )
             .subscribe();
 
@@ -595,6 +683,7 @@ function TechnicianApp() {
             const result = await response.json();
             if (result.success) {
                 alert('✅ Purchase invoice draft created successfully! Admin will review and post it.');
+                fetchPurchaseRequests();
                 
                 // Send Supabase realtime broadcast
                 const channel = supabase.channel('realtime:technician_updates');
@@ -890,7 +979,7 @@ function TechnicianApp() {
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}>
             <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-md)', display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)' }}>
                 <TrendingUp size={24} color="#10b981" />
-                My Incentives
+                My Performance
             </h2>
 
             {/* This Month Summary */}
@@ -1170,10 +1259,213 @@ function TechnicianApp() {
         </div>
     );
 
+    // Purchase Requests List Content
+    const renderPurchaseRequestsList = () => {
+        return (
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-primary)', paddingBottom: 'var(--spacing-sm)' }}>
+                    <button 
+                        onClick={() => setShowPurchaseRequestsList(false)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#f59e0b', fontWeight: 600, fontSize: '14px', padding: 0 }}
+                    >
+                        <ChevronLeft size={20} /> Back
+                    </button>
+                    <h2 style={{ fontSize: '18px', fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Package size={22} color="#f59e0b" /> Purchase Requests
+                    </h2>
+                    <button 
+                        onClick={fetchPurchaseRequests}
+                        title="Refresh list"
+                        style={{
+                            padding: '4px 8px', fontSize: '12px', cursor: 'pointer',
+                            border: '1px solid var(--border-primary)', borderRadius: '5px',
+                            backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                        }}
+                    >
+                        ↻
+                    </button>
+                </div>
+
+                {/* Create New Request Button */}
+                <button
+                    onClick={() => setShowPurchaseJobSelectorModal(true)}
+                    className="btn"
+                    style={{
+                        padding: '12px',
+                        backgroundColor: '#f59e0b',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md)',
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        boxShadow: 'var(--shadow-sm)',
+                        transition: 'background-color 0.2s'
+                    }}
+                >
+                    + Create New Purchase Request
+                </button>
+
+                {/* Requests List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {purchaseRequestsLoading ? (
+                        <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>
+                            Loading requests...
+                        </div>
+                    ) : purchaseRequests.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: 'var(--spacing-xl)',
+                            backgroundColor: 'var(--bg-elevated)',
+                            borderRadius: 'var(--radius-lg)',
+                            border: '1px solid var(--border-primary)',
+                            color: 'var(--text-secondary)'
+                        }}>
+                            <Package size={48} style={{ opacity: 0.3, marginBottom: '12px' }} />
+                            <p style={{ margin: 0, fontSize: '14px' }}>No purchase requests found.</p>
+                            <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-tertiary)' }}>Create a new request above to log spares purchases.</p>
+                        </div>
+                    ) : (
+                        purchaseRequests.map(req => {
+                            const isPending = req.status === 'draft';
+                            const isHandedOver = !!req.handed_to_service_center;
+                            return (
+                                <div 
+                                    key={req.id}
+                                    style={{
+                                        padding: 'var(--spacing-md)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        border: '1px solid var(--border-primary)',
+                                        boxShadow: 'var(--shadow-sm)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '10px'
+                                    }}
+                                >
+                                    {/* Date & Vendor */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)' }}>{req.account_name}</div>
+                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                                                {new Date(req.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
+                                            {/* Status Badge */}
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '9999px',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                backgroundColor: isPending ? '#fef3c7' : '#d1fae5',
+                                                color: isPending ? '#d97706' : '#059669',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {isPending ? 'Pending Audit' : 'Approved'}
+                                            </span>
+                                            {/* Handover Badge */}
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '9999px',
+                                                fontSize: '11px',
+                                                fontWeight: 600,
+                                                backgroundColor: isHandedOver ? '#d1fae5' : '#f3f4f6',
+                                                color: isHandedOver ? '#059669' : '#6b7280',
+                                                whiteSpace: 'nowrap'
+                                            }}>
+                                                {isHandedOver ? '✓ Handed to SC' : 'Pending SC Handover'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Items list */}
+                                    {req.items && req.items.length > 0 && (
+                                        <div style={{ borderTop: '1px solid var(--border-primary)', borderBottom: '1px solid var(--border-primary)', padding: '8px 0', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            {req.items.map((it, idx) => (
+                                                <div key={idx} style={{ fontSize: '13px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between' }}>
+                                                    <span>• {it.description} <span style={{ color: 'var(--text-tertiary)' }}>x{it.qty}</span></span>
+                                                    <span>₹{parseFloat(it.rate || 0).toLocaleString('en-IN')}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Total amount */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 600 }}>
+                                        <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Amount</span>
+                                        <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>₹{parseFloat(req.total_amount || 0).toLocaleString('en-IN')}</span>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     // Dashboard Tab Content
     const renderDashboardTab = () => {
+        if (showPurchaseRequestsList) {
+            return renderPurchaseRequestsList();
+        }
+
         const openJobsCount = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled').length;
-        const completedJobsCount = jobs.filter(j => j.status === 'completed').length;
+
+        const cardsData = [
+            {
+                title: 'Estimate Calculator',
+                description: 'Create an invoice or quotation for a job',
+                icon: <Calculator size={20} color="#8b5cf6" />,
+                color: '#8b5cf6',
+                onClick: () => setShowJobSelectorModal(true)
+            },
+            {
+                title: 'Collect Payment',
+                description: 'Log cash, company UPI, or send Razorpay link',
+                icon: <DollarSign size={20} color="#10b981" />,
+                color: '#10b981',
+                onClick: () => setShowCollectPayment(true)
+            },
+            {
+                title: 'Purchase Spare Parts',
+                description: 'Log parts purchased from local vendors / suppliers',
+                icon: <Package size={20} color="#f59e0b" />,
+                color: '#f59e0b',
+                onClick: () => {
+                    setShowPurchaseRequestsList(true);
+                    fetchPurchaseRequests();
+                }
+            },
+            {
+                title: 'Calendar & Leaves',
+                description: 'View assigned jobs timeline and apply for leaves',
+                icon: <Calendar size={20} color="#ec4899" />,
+                color: '#ec4899',
+                onClick: () => setActiveTab('calendar')
+            },
+            {
+                title: 'Expenses',
+                description: 'Log and track out-of-pocket expenses',
+                icon: <DollarSign size={20} color="#ef4444" />,
+                color: '#ef4444',
+                onClick: () => setActiveTab('expenses')
+            },
+            {
+                title: 'Performance',
+                description: `Total Earned: ₹${incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                icon: <TrendingUp size={20} color="#10b981" />,
+                color: '#10b981',
+                onClick: () => setActiveTab('incentives')
+            }
+        ];
         
         return (
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
@@ -1182,87 +1474,79 @@ function TechnicianApp() {
                         <LayoutDashboard size={24} color="#3b82f6" />
                         {firstName}'s Dashboard
                     </h2>
-                    {technicianId && (
-                        <div style={{ transform: 'scale(1.1)', transformOrigin: 'right center' }}>
-                            <NotificationBell recipientId={technicianId} recipientType="technician" theme={darkMode ? 'dark' : 'light'} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                        <div style={{ display: 'flex', backgroundColor: 'var(--bg-secondary)', borderRadius: '6px', padding: '2px', border: '1px solid var(--border-primary)' }}>
+                            <button 
+                                onClick={() => setDashboardView('grid')} 
+                                title="Grid View" 
+                                style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: dashboardView === 'grid' ? 'var(--bg-primary)' : 'transparent', color: dashboardView === 'grid' ? '#3b82f6' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            >
+                                <LayoutGrid size={16} />
+                            </button>
+                            <button 
+                                onClick={() => setDashboardView('list')} 
+                                title="List View" 
+                                style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: dashboardView === 'list' ? 'var(--bg-primary)' : 'transparent', color: dashboardView === 'list' ? '#3b82f6' : 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                            >
+                                <List size={16} />
+                            </button>
                         </div>
-                    )}
-                </div>
-
-                {/* Estimate Calculator Card */}
-                <div 
-                    className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #8b5cf6', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
-                    onClick={() => setShowJobSelectorModal(true)}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
-                                <Calculator size={20} color="#8b5cf6" /> Estimate Calculator
-                            </h3>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                                Create an invoice or quotation for a job
-                            </p>
-                        </div>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                        {technicianId && (
+                            <div style={{ transform: 'scale(1.1)', transformOrigin: 'right center' }}>
+                                <NotificationBell recipientId={technicianId} recipientType="technician" theme={darkMode ? 'dark' : 'light'} />
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Collect Payment Card */}
-                <div 
-                    className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #10b981', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
-                    onClick={() => setShowCollectPayment(true)}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
-                                <DollarSign size={20} color="#10b981" /> Collect Payment
-                            </h3>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                                Log cash, company UPI, or send Razorypay link
-                            </p>
+                {/* Grid / List Cards Wrapper */}
+                <div style={{ 
+                    display: dashboardView === 'grid' ? 'grid' : 'flex',
+                    gridTemplateColumns: dashboardView === 'grid' ? '1fr 1fr' : 'none',
+                    flexDirection: dashboardView === 'grid' ? 'none' : 'column',
+                    gap: '12px',
+                    marginBottom: '8px'
+                }}>
+                    {cardsData.map((card, index) => (
+                        <div 
+                            key={index}
+                            className="card"
+                            style={{ 
+                                padding: 'var(--spacing-md) var(--spacing-lg)', 
+                                cursor: 'pointer', 
+                                borderLeft: `4px solid ${card.color}`, 
+                                backgroundColor: 'var(--bg-elevated)', 
+                                borderRadius: 'var(--radius-lg)', 
+                                boxShadow: 'var(--shadow-sm)', 
+                                transition: 'all 0.2s',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'center',
+                                minHeight: dashboardView === 'grid' ? '90px' : 'auto'
+                            }}
+                            onClick={card.onClick}
+                            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}>
+                                    <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {card.icon} {card.title}
+                                    </h3>
+                                    {card.title === 'Performance' ? (
+                                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
+                                            Total Earned: <strong style={{ color: '#10b981', fontSize: '13px' }}>{card.description.replace('Total Earned: ', '')}</strong>
+                                        </p>
+                                    ) : (
+                                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                                            {card.description}
+                                        </p>
+                                    )}
+                                </div>
+                                <ChevronRight size={18} color="var(--text-tertiary)" style={{ flexShrink: 0 }} />
+                            </div>
                         </div>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
-                    </div>
-                </div>
-
-                {/* Purchase Spare Parts Card */}
-                <div 
-                    className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #f59e0b', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
-                    onClick={() => setShowPurchaseJobSelectorModal(true)}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
-                                <Package size={20} color="#f59e0b" /> Purchase Spare Parts
-                            </h3>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                                Log parts purchased from local vendors / suppliers
-                            </p>
-                        </div>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
-                    </div>
-                </div>
-
-                {/* Calendar Card */}
-                <div 
-                    className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #ec4899', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s', marginBottom: '8px' }}
-                    onClick={() => setActiveTab('calendar')}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
-                                <Calendar size={20} color="#ec4899" /> Calendar &amp; Leaves
-                            </h3>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                                View assigned jobs timeline and apply for leaves
-                            </p>
-                        </div>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
-                    </div>
+                    ))}
                 </div>
 
                 {/* Jobs Summary Card */}
@@ -1270,6 +1554,8 @@ function TechnicianApp() {
                     className="card"
                     style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #3b82f6', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
                     onClick={() => setActiveTab('jobs')}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
@@ -1283,47 +1569,9 @@ function TechnicianApp() {
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Open Jobs</div>
                         </div>
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#10b981' }}>{completedJobsCount}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Completed</div>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#10b981' }}>{repeatCallsCount}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Repeat Calls</div>
                         </div>
-                    </div>
-                </div>
-
-                {/* Expenses Card */}
-                <div 
-                    className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #ef4444', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}
-                    onClick={() => setActiveTab('expenses')}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
-                                <DollarSign size={20} color="#ef4444" /> Expenses
-                            </h3>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                                Log and track out-of-pocket expenses
-                            </p>
-                        </div>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
-                    </div>
-                </div>
-
-                {/* Incentives Card */}
-                <div 
-                    className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #10b981', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)' }}
-                    onClick={() => setActiveTab('incentives')}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                            <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', margin: 0 }}>
-                                <TrendingUp size={20} color="#10b981" /> Incentives
-                            </h3>
-                            <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                                Total Earned: <strong style={{ color: '#10b981', fontSize: '15px' }}>₹{incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
-                            </p>
-                        </div>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
                     </div>
                 </div>
             </div>
