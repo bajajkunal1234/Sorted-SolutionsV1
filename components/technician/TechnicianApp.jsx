@@ -197,46 +197,14 @@ function TechnicianApp() {
     const fetchRepeatCalls = async () => {
         if (!technicianId) return;
         try {
-            const { data: allJobs, error } = await supabase
+            const { data, error } = await supabase
                 .from('jobs')
-                .select('id, customer_id, status, created_at, completed_at')
-                .eq('technician_id', technicianId);
+                .select('id')
+                .eq('technician_id', technicianId)
+                .eq('warranty', true);
             
             if (error) throw error;
-            
-            if (allJobs && allJobs.length > 0) {
-                const sorted = [...allJobs].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-                let repeatCount = 0;
-                
-                for (let i = 0; i < sorted.length; i++) {
-                    const currentJob = sorted[i];
-                    if (!currentJob.customer_id) continue;
-                    
-                    const currentCreated = new Date(currentJob.created_at);
-                    
-                    const isRepeat = sorted.slice(0, i).some(priorJob => {
-                        if (priorJob.customer_id !== currentJob.customer_id) return false;
-                        
-                        const isCompleted = priorJob.status === 'completed' || priorJob.status === 'closed';
-                        if (!isCompleted) return false;
-                        
-                        const completionDate = priorJob.completed_at ? new Date(priorJob.completed_at) : new Date(priorJob.created_at);
-                        
-                        if (completionDate >= currentCreated) return false;
-                        
-                        const diffTime = Math.abs(currentCreated - completionDate);
-                        const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                        return diffDays <= 14;
-                    });
-                    
-                    if (isRepeat) {
-                        repeatCount++;
-                    }
-                }
-                setRepeatCallsCount(repeatCount);
-            } else {
-                setRepeatCallsCount(0);
-            }
+            setRepeatCallsCount(data ? data.length : 0);
         } catch (err) {
             console.error('Error fetching repeat calls count:', err);
         }
@@ -1457,18 +1425,12 @@ function TechnicianApp() {
                 icon: <DollarSign size={20} color="#ef4444" />,
                 color: '#ef4444',
                 onClick: () => setActiveTab('expenses')
-            },
-            {
-                title: 'Performance',
-                description: `Total Earned: ₹${incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
-                icon: <TrendingUp size={20} color="#10b981" />,
-                color: '#10b981',
-                onClick: () => setActiveTab('incentives')
             }
         ];
         
         return (
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                {/* Dashboard Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', margin: 0 }}>
                         <LayoutDashboard size={24} color="#3b82f6" />
@@ -1496,6 +1458,32 @@ function TechnicianApp() {
                                 <NotificationBell recipientId={technicianId} recipientType="technician" theme={darkMode ? 'dark' : 'light'} />
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Jobs Summary Card (On Top) */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #3b82f6', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
+                    onClick={() => setActiveTab('jobs')}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                            <Briefcase size={20} color="#3b82f6" /> Jobs Overview
+                        </h3>
+                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#f59e0b' }}>{openJobsCount}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Open Jobs</div>
+                        </div>
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#10b981' }}>{repeatCallsCount}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Repeat Calls</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1533,15 +1521,9 @@ function TechnicianApp() {
                                     <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {card.icon} {card.title}
                                     </h3>
-                                    {card.title === 'Performance' ? (
-                                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0 }}>
-                                            Total Earned: <strong style={{ color: '#10b981', fontSize: '13px' }}>{card.description.replace('Total Earned: ', '')}</strong>
-                                        </p>
-                                    ) : (
-                                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
-                                            {card.description}
-                                        </p>
-                                    )}
+                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                                        {card.description}
+                                    </p>
                                 </div>
                                 <ChevronRight size={18} color="var(--text-tertiary)" style={{ flexShrink: 0 }} />
                             </div>
@@ -1549,28 +1531,34 @@ function TechnicianApp() {
                     ))}
                 </div>
 
-                {/* Jobs Summary Card */}
+                {/* Performance Summary Card (At Bottom) */}
                 <div 
                     className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #3b82f6', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
-                    onClick={() => setActiveTab('jobs')}
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #10b981', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
+                    onClick={() => setActiveTab('incentives')}
                     onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                     onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                         <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                            <Briefcase size={20} color="#3b82f6" /> Jobs Overview
+                            <TrendingUp size={20} color="#10b981" /> Performance
                         </h3>
-                        <ChevronRight size={20} color="var(--text-tertiary)" />
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            Total Earned: <strong>₹{incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                        </span>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#f59e0b' }}>{openJobsCount}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Open Jobs</div>
+                            <div style={{ fontSize: '24px', fontWeight: 700, color: '#10b981' }}>
+                                ₹{incentiveData.metrics.revenueGenerated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Revenue Generated</div>
                         </div>
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#10b981' }}>{repeatCallsCount}</div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Repeat Calls</div>
+                            <div style={{ fontSize: '24px', fontWeight: 700, color: '#3b82f6' }}>
+                                {incentiveData.metrics.jobsCompleted}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Jobs Completed</div>
                         </div>
                     </div>
                 </div>
