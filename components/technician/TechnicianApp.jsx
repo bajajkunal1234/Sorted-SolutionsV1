@@ -1487,6 +1487,38 @@ function TechnicianApp() {
                     </div>
                 </div>
 
+                {/* Performance Summary Card (Second) */}
+                <div 
+                    className="card"
+                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #10b981', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
+                    onClick={() => setActiveTab('incentives')}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                            <TrendingUp size={20} color="#10b981" /> Performance
+                        </h3>
+                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                            Total Earned: <strong>₹{incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
+                        </span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ fontSize: '24px', fontWeight: 700, color: '#10b981' }}>
+                                ₹{incentiveData.metrics.revenueGenerated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Revenue Generated</div>
+                        </div>
+                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ fontSize: '24px', fontWeight: 700, color: '#3b82f6' }}>
+                                {incentiveData.metrics.jobsCompleted}
+                            </div>
+                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Jobs Completed</div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Grid / List Cards Wrapper */}
                 <div style={{ 
                     display: dashboardView === 'grid' ? 'grid' : 'flex',
@@ -1529,38 +1561,6 @@ function TechnicianApp() {
                             </div>
                         </div>
                     ))}
-                </div>
-
-                {/* Performance Summary Card (At Bottom) */}
-                <div 
-                    className="card"
-                    style={{ padding: 'var(--spacing-lg)', cursor: 'pointer', borderLeft: '4px solid #10b981', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}
-                    onClick={() => setActiveTab('incentives')}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                        <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                            <TrendingUp size={20} color="#10b981" /> Performance
-                        </h3>
-                        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                            Total Earned: <strong>₹{incentiveData.incentive.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</strong>
-                        </span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ fontSize: '24px', fontWeight: 700, color: '#10b981' }}>
-                                ₹{incentiveData.metrics.revenueGenerated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Revenue Generated</div>
-                        </div>
-                        <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
-                            <div style={{ fontSize: '24px', fontWeight: 700, color: '#3b82f6' }}>
-                                {incentiveData.metrics.jobsCompleted}
-                            </div>
-                            <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Jobs Completed</div>
-                        </div>
-                    </div>
                 </div>
             </div>
         );

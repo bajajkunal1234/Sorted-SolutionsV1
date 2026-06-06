@@ -18,6 +18,7 @@ import {
 } from '@/lib/utils/accountHelpers';
 import { validateMobileNumber, validateEmail, validateGSTIN, validatePAN, validateIFSC } from '@/lib/utils/validation';
 import dynamic from 'next/dynamic';
+import LocalityCombobox from '@/components/common/LocalityCombobox';
 
 const ClientPinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
     ssr: false,
@@ -235,7 +236,7 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     // Customer Properties (for Sundry Debtors/Creditors)
     const [properties, setProperties] = useState(initialData?.properties?.length > 0
         ? initialData.properties
-        : [{ id: Date.now(), name: '', flat_number: '', building_name: '', address: '', locality: '', pincode: '', contactPerson: '', contactPhone: '' }]);
+        : []);
 
     // Form dirty state tracking
     const [isFormDirty, setIsFormDirty] = useState(false);
@@ -343,24 +344,12 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     };
 
     const deleteProperty = (index) => {
-        if (properties.length > 1) {
-            setProperties(properties.filter((_, i) => i !== index));
-        }
+        setProperties(properties.filter((_, i) => i !== index));
     };
 
     const updateProperty = (index, field, value) => {
         const updated = [...properties];
         updated[index][field] = value;
-        setProperties(updated);
-    };
-
-    const handlePropertyLocalityChange = (index, localityName) => {
-        const found = MUMBAI_LOCALITIES.find(l => l.name === localityName);
-        const updated = [...properties];
-        updated[index].locality = localityName;
-        if (found) {
-            updated[index].pincode = found.pincode;
-        }
         setProperties(updated);
     };
 
@@ -1086,27 +1075,25 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                         <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500 }}>
                                                             Property {index + 1}
                                                         </span>
-                                                        {properties.length > 1 && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => deleteProperty(index)}
-                                                                style={{
-                                                                    backgroundColor: '#ef4444',
-                                                                    color: 'white',
-                                                                    border: 'none',
-                                                                    borderRadius: '4px',
-                                                                    padding: '4px 8px',
-                                                                    cursor: 'pointer',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '4px',
-                                                                    fontSize: 'var(--font-size-xs)'
-                                                                }}
-                                                            >
-                                                                <Trash2 size={12} />
-                                                                Delete
-                                                            </button>
-                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => deleteProperty(index)}
+                                                            style={{
+                                                                backgroundColor: '#ef4444',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '4px',
+                                                                padding: '4px 8px',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                fontSize: 'var(--font-size-xs)'
+                                                            }}
+                                                        >
+                                                            <Trash2 size={12} />
+                                                            Delete
+                                                        </button>
                                                     </div>
 
                                                     <div className="form-group" style={{ marginBottom: 'var(--spacing-sm)' }}>
@@ -1177,18 +1164,21 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-sm)' }}>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
                                                             <label className="form-label">Locality *</label>
-                                                            <select
-                                                                className="form-select"
+                                                            <LocalityCombobox
                                                                 value={property.locality}
-                                                                onChange={(e) => handlePropertyLocalityChange(index, e.target.value)}
-                                                            >
-                                                                <option value="">Select Locality</option>
-                                                                {MUMBAI_LOCALITIES.map((loc) => (
-                                                                    <option key={loc.name} value={loc.name}>
-                                                                        {loc.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
+                                                                pincode={property.pincode}
+                                                                showPincode={false}
+                                                                onChange={(loc, pin) => {
+                                                                    const updated = [...properties];
+                                                                    updated[index].locality = loc;
+                                                                    if (pin) {
+                                                                        updated[index].pincode = pin;
+                                                                    }
+                                                                    setProperties(updated);
+                                                                }}
+                                                                inputClassName="form-input"
+                                                                dropdownZIndex={1100}
+                                                            />
                                                         </div>
                                                         <div className="form-group" style={{ marginBottom: 0 }}>
                                                             <label className="form-label">Pincode *</label>
