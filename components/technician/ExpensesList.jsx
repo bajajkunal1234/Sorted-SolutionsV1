@@ -294,8 +294,19 @@ export default function ExpensesList({ technicianId }) {
                     </div>
                 </div>
                 {viewSegment === 'claims' && (
-                    <button onClick={() => setShowAddForm(!showAddForm)} className="btn btn-primary" style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', display:'flex', alignItems:'center', gap:'4px' }}>
-                        <Plus size={18} /> Add
+                    <button 
+                        onClick={() => {
+                            if (showAddForm) {
+                                setReceiptPhoto(null);
+                                setReceiptUrl(null);
+                            }
+                            setShowAddForm(!showAddForm);
+                        }} 
+                        className={`btn ${showAddForm ? 'btn-secondary' : 'btn-primary'}`} 
+                        style={{ padding: 'var(--spacing-xs) var(--spacing-sm)', display:'flex', alignItems:'center', gap:'4px' }}
+                    >
+                        {showAddForm ? <X size={18} /> : <Plus size={18} />}
+                        {showAddForm ? 'Close' : 'Add'}
                     </button>
                 )}
             </div>
@@ -329,9 +340,9 @@ export default function ExpensesList({ technicianId }) {
             {viewSegment === 'claims' && (
                 <>
                     {/* Add Form */}
-                    {showAddForm && (
-                        <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
-                            <form onSubmit={handleSubmit}>
+                    {showAddForm ? (
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--spacing-md)' }}>
+                            <form onSubmit={handleSubmit} style={{ paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' }}>
                                 <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
                                     <div>
                                         <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 600, marginBottom: 'var(--spacing-xs)' }}>Date</label>
@@ -454,7 +465,7 @@ export default function ExpensesList({ technicianId }) {
                                             style={{ display: 'none' }}
                                         />
                                     </div>
-                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
+                                    <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginTop: 'var(--spacing-xs)' }}>
                                         <button type="submit" disabled={submitting || uploading || categories.length === 0} className="btn btn-primary" style={{ flex: 1 }}>
                                             {submitting ? 'Submitting...' : uploading ? 'Uploading Receipt...' : 'Submit Expense'}
                                         </button>
@@ -467,10 +478,9 @@ export default function ExpensesList({ technicianId }) {
                                 </div>
                             </form>
                         </div>
-                    )}
-
-                    {/* Expenses List */}
-                    <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
+                    ) : (
+                        /* Expenses List */
+                        <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
                         {loading ? (
                             <div style={{ textAlign: 'center', padding: 'var(--spacing-xl)', color: 'var(--text-secondary)' }}>Loading expenses...</div>
                         ) : expenses.length === 0 ? (
@@ -561,6 +571,7 @@ export default function ExpensesList({ technicianId }) {
                             </div>
                         )}
                     </div>
+                )}
                 </>
             )}
 
