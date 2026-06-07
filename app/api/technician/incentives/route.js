@@ -26,7 +26,7 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
         (j.assigned_to === techId || j.technician_id === techId) &&
         j.scheduled_date >= mStart && j.scheduled_date <= mEnd
     );
-    const completedJobs = techJobs.filter(j => j.status === 'completed');
+    const completedJobs = techJobs.filter(j => j.status === 'completed' || j.status === 'closed');
     const totalJobs = techJobs.length;
 
     const techInvoices = invoicesList.filter(inv =>

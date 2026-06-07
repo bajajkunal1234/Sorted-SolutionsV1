@@ -1336,7 +1336,7 @@ function TechnicianApp() {
             return renderPurchaseRequestsList();
         }
 
-        const openJobsCount = jobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled').length;
+        const openJobsCount = jobs.filter(j => j.status !== 'completed' && j.status !== 'closed' && j.status !== 'cancelled').length;
 
         const cardsData = [
             {
@@ -1380,7 +1380,7 @@ function TechnicianApp() {
         ];
         
         return (
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowX: 'hidden', overflowY: 'auto', padding: 'var(--spacing-md)', paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                 {/* Dashboard Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                     <h2 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', margin: 0 }}>
@@ -1426,7 +1426,7 @@ function TechnicianApp() {
                         </h3>
                         <ChevronRight size={20} color="var(--text-tertiary)" />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '16px' }}>
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
                             <div style={{ fontSize: '28px', fontWeight: 700, color: '#f59e0b' }}>{openJobsCount}</div>
                             <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500, marginTop: '4px' }}>Open Jobs</div>
@@ -1451,7 +1451,7 @@ function TechnicianApp() {
                             <TrendingUp size={20} color="#10b981" /> Performance
                         </h3>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '16px' }}>
                         <div style={{ backgroundColor: 'var(--bg-secondary)', padding: '12px', borderRadius: '8px', textAlign: 'center', border: '1px solid var(--border-primary)' }}>
                             <div style={{ fontSize: '24px', fontWeight: 700, color: '#10b981' }}>
                                 ₹{incentiveData.metrics.revenueGenerated.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -1470,7 +1470,7 @@ function TechnicianApp() {
                 {/* Grid / List Cards Wrapper */}
                 <div style={{ 
                     display: dashboardView === 'grid' ? 'grid' : 'flex',
-                    gridTemplateColumns: dashboardView === 'grid' ? '1fr 1fr' : 'none',
+                    gridTemplateColumns: dashboardView === 'grid' ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'none',
                     flexDirection: dashboardView === 'grid' ? 'none' : 'column',
                     gap: '12px',
                     marginBottom: '8px'
