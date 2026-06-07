@@ -96,16 +96,20 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         job?.warranty_status === 'in-warranty';
 
     useEffect(() => {
+        const isPurchase = invoiceLabel && invoiceLabel.toLowerCase().includes('purchase');
+        if (isPurchase) {
+            setShowTax(false);
+        }
         Promise.all([inventoryAPI.getAll(), productLinksAPI.getAll().catch(() => []), printSettingsAPI.get().catch(() => null)])
             .then(([inv, links, printData]) => {
                 setInventory(inv || []);
                 setProductLinks(links || []);
-                if (printData) {
+                if (printData && !isPurchase) {
                     setShowTax(printData.quotation_show_gst ?? printData.show_gst ?? true);
                 }
             })
             .finally(() => setLoading(false));
-    }, []);
+    }, [invoiceLabel]);
 
     // ── Basket helpers ────────────────────────────────────────────────────────
     const addToBasket = (item) => {
@@ -163,7 +167,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
             sale_price: rate,
             dealer_price: null,
             retail_price: null,
-            tax_rate: 18,
+            tax_rate: (invoiceLabel && invoiceLabel.toLowerCase().includes('purchase')) ? 0 : 18,
             itemType: manualItem.type,
             qty: 1,
             priceType: 'sale',
@@ -196,7 +200,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         type:             (b.itemType === 'service' || b.type === 'service' || b.product_type === 'service') ? 'service' : 'product',
         qty:              b.qty,
         rate:             getPrice(b),      // ← uses the user-selected price type
-        taxRate:          b.tax_rate || 18,
+        taxRate:          (invoiceLabel && invoiceLabel.toLowerCase().includes('purchase')) ? 0 : (b.tax_rate || 18),
         terms_conditions: b.terms_conditions || [],  // ← carry item-specific T&C through
     }));
 

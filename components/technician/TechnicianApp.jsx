@@ -604,19 +604,19 @@ function TechnicianApp() {
         try {
             const itemsList = pendingPurchaseItems.map(item => {
                 const itemSubtotal = item.qty * item.rate;
-                const taxAmount = itemSubtotal * (item.taxRate || 18) / 100;
                 return {
                     ...item,
-                    total: itemSubtotal + taxAmount
+                    taxRate: 0,
+                    total: itemSubtotal
                 };
             });
 
             const subtotal = itemsList.reduce((sum, item) => sum + (item.qty * item.rate), 0);
-            const totalTax = itemsList.reduce((sum, item) => sum + (item.qty * item.rate * (item.taxRate || 18) / 100), 0);
-            const cgst = totalTax / 2;
-            const sgst = totalTax / 2;
+            const totalTax = 0;
+            const cgst = 0;
+            const sgst = 0;
             const igst = 0;
-            const totalAmount = subtotal + totalTax;
+            const totalAmount = subtotal;
 
             const nameOfTech = technicianData?.name || 'Technician';
             const techNotes = purchaseNotes.trim();
