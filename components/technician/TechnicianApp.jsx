@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package } from 'lucide-react';
@@ -15,6 +15,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import PWAPrompt from '@/components/common/PWAPrompt';
 import TechSupportTab from '@/components/technician/TechSupportTab';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
+import LocalityCombobox from '@/components/common/LocalityCombobox';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -56,6 +57,64 @@ function TechnicianApp() {
     const [showPurchaseNotesModal, setShowPurchaseNotesModal] = useState(false);
     const [purchaseVendorName, setPurchaseVendorName] = useState('');
     const [purchaseNotes, setPurchaseNotes] = useState('');
+
+    // Spare part supplier search & create states
+    const [suppliers, setSuppliers] = useState([]);
+    const [suppliersLoading, setSuppliersLoading] = useState(false);
+    const [selectedSupplier, setSelectedSupplier] = useState(null);
+    const [isNewSupplier, setIsNewSupplier] = useState(false);
+    const [newSupplierName, setNewSupplierName] = useState('');
+    const [newSupplierPhone, setNewSupplierPhone] = useState('');
+    const [newSupplierLocality, setNewSupplierLocality] = useState('');
+    const [newSupplierPincode, setNewSupplierPincode] = useState('');
+    const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
+    const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+    
+    const supplierContainerRef = useRef(null);
+
+    const fetchSuppliers = async () => {
+        try {
+            setSuppliersLoading(true);
+            const { data, error } = await supabase
+                .from('accounts')
+                .select('id, name, mobile, phone, address')
+                .eq('under', 'spare-parts-suppliers')
+                .neq('status', 'archived')
+                .order('name', { ascending: true });
+            
+            if (error) throw error;
+            setSuppliers(data || []);
+        } catch (err) {
+            console.error('Error fetching suppliers:', err);
+        } finally {
+            setSuppliersLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showPurchaseNotesModal) {
+            fetchSuppliers();
+            setSelectedSupplier(null);
+            setIsNewSupplier(false);
+            setNewSupplierName('');
+            setNewSupplierPhone('');
+            setNewSupplierLocality('');
+            setNewSupplierPincode('');
+            setSupplierSearchQuery('');
+            setShowSupplierDropdown(false);
+            setPurchaseVendorName('');
+        }
+    }, [showPurchaseNotesModal]);
+
+    useEffect(() => {
+        const handleOutsideClick = (e) => {
+            if (supplierContainerRef.current && !supplierContainerRef.current.contains(e.target)) {
+                setShowSupplierDropdown(false);
+            }
+        };
+        document.addEventListener('mousedown', handleOutsideClick);
+        return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, []);
 
     const [dashboardView, setDashboardView] = useState(() => {
         if (typeof window !== 'undefined') return localStorage.getItem('techDashboardView') || 'grid';
@@ -595,9 +654,20 @@ function TechnicianApp() {
     };
 
     const submitPurchaseInvoice = async () => {
-        if (!purchaseVendorName.trim()) {
-            alert('Please enter Vendor / Shop Name');
-            return;
+        if (isNewSupplier) {
+            if (!newSupplierName.trim()) {
+                alert('Please enter Supplier / Shop Name');
+                return;
+            }
+            if (!newSupplierLocality || newSupplierLocality === '') {
+                alert('Please select Supplier Locality');
+                return;
+            }
+        } else {
+            if (!selectedSupplier) {
+                alert('Please select an existing Supplier or choose Add New Supplier');
+                return;
+            }
         }
         if (!pendingPurchaseItems || pendingPurchaseItems.length === 0) return;
         
@@ -622,11 +692,45 @@ function TechnicianApp() {
             const techNotes = purchaseNotes.trim();
             const formattedNotes = `Technician: ${nameOfTech}${techNotes ? ` | Notes: ${techNotes}` : ''}`;
 
+            let accountId = null;
+            let vendorName = '';
+            
+            if (isNewSupplier) {
+                // Call POST /api/admin/accounts to create a new vendor account
+                const accRes = await fetch('/api/admin/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: newSupplierName.trim(),
+                        type: 'vendor',
+                        under: 'spare-parts-suppliers',
+                        mobile: newSupplierPhone.trim(),
+                        mailing_address: {
+                            text: '',
+                            locality: newSupplierLocality,
+                            city: 'Mumbai',
+                            pincode: newSupplierPincode
+                        }
+                    })
+                });
+                
+                const accData = await accRes.json();
+                if (!accRes.ok || !accData.success) {
+                    throw new Error(accData.error || 'Failed to create new supplier account');
+                }
+                
+                accountId = accData.data.id;
+                vendorName = accData.data.name;
+            } else {
+                accountId = selectedSupplier.id;
+                vendorName = selectedSupplier.name;
+            }
+
             const purchaseData = {
                 reference: 'Technician Purchase',
                 status: 'draft',
-                account_id: null,
-                account_name: purchaseVendorName.trim() || `Spare Purchase (${nameOfTech})`,
+                account_id: accountId,
+                account_name: vendorName,
                 po_reference: technicianId || '',
                 notes: formattedNotes,
                 job_id: purchaseJob?.id || null,
@@ -652,7 +756,7 @@ function TechnicianApp() {
             if (result.success) {
                 alert('✅ Purchase invoice draft created successfully! Admin will review and post it.');
                 fetchPurchaseRequests();
-                
+
                 // Send Supabase realtime broadcast
                 const channel = supabase.channel('realtime:technician_updates');
                 channel.subscribe(async (status) => {
@@ -666,7 +770,6 @@ function TechnicianApp() {
                     }
                 });
 
-                // Track interaction
                 if (purchaseJob?.id) {
                     fetch(`/api/technician/jobs/${purchaseJob.id}/interactions`, {
                         method: 'POST',
@@ -692,6 +795,14 @@ function TechnicianApp() {
             setPurchaseVendorName('');
             setPurchaseNotes('');
             setPurchaseJob(null);
+            setSelectedSupplier(null);
+            setIsNewSupplier(false);
+            setNewSupplierName('');
+            setNewSupplierPhone('');
+            setNewSupplierLocality('');
+            setNewSupplierPincode('');
+            setSupplierSearchQuery('');
+            setShowSupplierDropdown(false);
         }
     };
 
@@ -1927,6 +2038,14 @@ function TechnicianApp() {
                         setPurchaseVendorName('');
                         setPurchaseNotes('');
                         setPurchaseJob(null);
+                        setSelectedSupplier(null);
+                        setIsNewSupplier(false);
+                        setNewSupplierName('');
+                        setNewSupplierPhone('');
+                        setNewSupplierLocality('');
+                        setNewSupplierPincode('');
+                        setSupplierSearchQuery('');
+                        setShowSupplierDropdown(false);
                     }}
                 >
                     <div
@@ -1944,18 +2063,180 @@ function TechnicianApp() {
                             Confirm Spare Parts Purchase
                         </h3>
 
-                        <div style={{ marginBottom: 'var(--spacing-md)' }}>
-                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
-                                Vendor / Shop Name *
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="e.g. National Spares, local market, etc."
-                                value={purchaseVendorName}
-                                onChange={(e) => setPurchaseVendorName(e.target.value)}
-                                className="form-input"
-                                style={{ width: '100%' }}
-                            />
+                        <div ref={supplierContainerRef} style={{ marginBottom: 'var(--spacing-md)', position: 'relative' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
+                                <label style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, margin: 0 }}>
+                                    Vendor / Shop Name *
+                                </label>
+                                <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', fontWeight: 400 }}>
+                                    sundry creditors &gt; Spare Parts Suppliers
+                                </span>
+                            </div>
+                            
+                            {!isNewSupplier ? (
+                                <>
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search existing (sundry creditors > Spare Parts Suppliers) or type to add new..."
+                                            value={supplierSearchQuery}
+                                            onChange={(e) => {
+                                                setSupplierSearchQuery(e.target.value);
+                                                setShowSupplierDropdown(true);
+                                                setSelectedSupplier(null);
+                                            }}
+                                            onFocus={() => setShowSupplierDropdown(true)}
+                                            className="form-input"
+                                            style={{ width: '100%' }}
+                                        />
+                                        {supplierSearchQuery && (
+                                            <button 
+                                                onClick={() => {
+                                                    setSupplierSearchQuery('');
+                                                    setSelectedSupplier(null);
+                                                }}
+                                                style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}
+                                            >
+                                                <X size={16} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    {showSupplierDropdown && (
+                                        <div 
+                                            style={{
+                                                position: 'absolute',
+                                                top: '100%',
+                                                left: 0,
+                                                right: 0,
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: 'var(--radius-md)',
+                                                maxHeight: '200px',
+                                                overflowY: 'auto',
+                                                zIndex: 1010,
+                                                marginTop: '4px',
+                                                boxShadow: 'var(--shadow-lg)'
+                                            }}
+                                        >
+                                            {suppliersLoading ? (
+                                                <div style={{ padding: 'var(--spacing-sm)', color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)' }}>Loading suppliers...</div>
+                                            ) : (
+                                                <>
+                                                    {suppliers
+                                                        .filter(s => s.name.toLowerCase().includes(supplierSearchQuery.toLowerCase()))
+                                                        .map(s => (
+                                                            <div 
+                                                                key={s.id}
+                                                                onClick={() => {
+                                                                    setSelectedSupplier(s);
+                                                                    setSupplierSearchQuery(s.name);
+                                                                    setPurchaseVendorName(s.name);
+                                                                    setShowSupplierDropdown(false);
+                                                                }}
+                                                                style={{
+                                                                    padding: 'var(--spacing-sm)',
+                                                                    cursor: 'pointer',
+                                                                    borderBottom: '1px solid var(--border-primary)',
+                                                                    fontSize: 'var(--font-size-sm)',
+                                                                    color: 'var(--text-primary)',
+                                                                    display: 'flex',
+                                                                    justifyContent: 'space-between'
+                                                                }}
+                                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-hover)'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                            >
+                                                                <span>{s.name}</span>
+                                                                {s.mobile && <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>📞 {s.mobile}</span>}
+                                                            </div>
+                                                        ))
+                                                    }
+                                                    
+                                                    <div
+                                                        onClick={() => {
+                                                            setIsNewSupplier(true);
+                                                            setNewSupplierName(supplierSearchQuery);
+                                                            setPurchaseVendorName(supplierSearchQuery);
+                                                            setShowSupplierDropdown(false);
+                                                        }}
+                                                        style={{
+                                                            padding: 'var(--spacing-sm)',
+                                                            cursor: 'pointer',
+                                                            fontSize: 'var(--font-size-sm)',
+                                                            color: 'var(--color-primary-light)',
+                                                            fontWeight: 600,
+                                                            backgroundColor: 'rgba(99,102,241,0.05)',
+                                                            borderTop: '1px solid var(--border-primary)'
+                                                        }}
+                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(99,102,241,0.1)'}
+                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(99,102,241,0.05)'}
+                                                    >
+                                                        ➕ Add &ldquo;{supplierSearchQuery || 'New Supplier'}&rdquo; as new supplier
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div style={{ border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
+                                        <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 700, color: 'var(--color-primary-light)', textTransform: 'uppercase' }}>New Supplier Details</span>
+                                        <button 
+                                            type="button"
+                                            onClick={() => {
+                                                setIsNewSupplier(false);
+                                                setSupplierSearchQuery('');
+                                                setPurchaseVendorName('');
+                                            }}
+                                            style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: 'var(--font-size-xs)', fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' }}
+                                        >
+                                            Select Existing
+                                        </button>
+                                    </div>
+                                    
+                                    <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Supplier / Shop Name *</label>
+                                            <input
+                                                type="text"
+                                                value={newSupplierName}
+                                                onChange={(e) => {
+                                                    setNewSupplierName(e.target.value);
+                                                    setPurchaseVendorName(e.target.value);
+                                                }}
+                                                className="form-input"
+                                                style={{ width: '100%' }}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Mobile / Phone Number</label>
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. 9876543210"
+                                                value={newSupplierPhone}
+                                                onChange={(e) => setNewSupplierPhone(e.target.value)}
+                                                className="form-input"
+                                                style={{ width: '100%' }}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Supplier Locality *</label>
+                                            <LocalityCombobox
+                                                value={newSupplierLocality}
+                                                pincode={newSupplierPincode}
+                                                onChange={(loc, pin) => {
+                                                    setNewSupplierLocality(loc);
+                                                    setNewSupplierPincode(pin);
+                                                }}
+                                                inputClassName="form-input"
+                                                showPincode={true}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -1980,6 +2261,14 @@ function TechnicianApp() {
                                     setPurchaseVendorName('');
                                     setPurchaseNotes('');
                                     setPurchaseJob(null);
+                                    setSelectedSupplier(null);
+                                    setIsNewSupplier(false);
+                                    setNewSupplierName('');
+                                    setNewSupplierPhone('');
+                                    setNewSupplierLocality('');
+                                    setNewSupplierPincode('');
+                                    setSupplierSearchQuery('');
+                                    setShowSupplierDropdown(false);
                                 }}
                                 className="btn btn-secondary"
                                 style={{ flex: 1, padding: '10px' }}
