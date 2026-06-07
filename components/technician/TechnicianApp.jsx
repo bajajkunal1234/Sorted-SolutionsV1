@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2 } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import CalendarView from '@/components/technician/CalendarView';
@@ -69,6 +69,7 @@ function TechnicianApp() {
     const [newSupplierPincode, setNewSupplierPincode] = useState('');
     const [supplierSearchQuery, setSupplierSearchQuery] = useState('');
     const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
+    const [purchasePaidBy, setPurchasePaidBy] = useState('company'); // company or technician
     
     const supplierContainerRef = useRef(null);
 
@@ -103,6 +104,7 @@ function TechnicianApp() {
             setSupplierSearchQuery('');
             setShowSupplierDropdown(false);
             setPurchaseVendorName('');
+            setPurchasePaidBy('company');
         }
     }, [showPurchaseNotesModal]);
 
@@ -743,7 +745,8 @@ function TechnicianApp() {
                 total_tax: totalTax,
                 total_amount: totalAmount,
                 date: new Date().toISOString().split('T')[0],
-                vendor_invoice_number: ''
+                vendor_invoice_number: '',
+                paid_by: purchasePaidBy
             };
 
             const response = await fetch('/api/admin/transactions?type=purchase', {
@@ -803,6 +806,28 @@ function TechnicianApp() {
             setNewSupplierPincode('');
             setSupplierSearchQuery('');
             setShowSupplierDropdown(false);
+            setPurchasePaidBy('company');
+        }
+    };
+
+    const handleDeletePurchaseRequest = async (id) => {
+        if (!confirm('Are you sure you want to delete this purchase request? This action cannot be undone.')) {
+            return;
+        }
+        try {
+            const response = await fetch(`/api/admin/transactions?type=purchase&id=${id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('✅ Purchase request deleted successfully!');
+                fetchPurchaseRequests();
+            } else {
+                throw new Error(data.error || 'Failed to delete purchase request');
+            }
+        } catch (err) {
+            console.error('Error deleting purchase request:', err);
+            alert('Error deleting purchase request: ' + err.message);
         }
     };
 
@@ -1412,6 +1437,23 @@ function TechnicianApp() {
                                             }}>
                                                 {isHandedOver ? '✓ Handed to SC' : 'Pending SC Handover'}
                                             </span>
+                                            {/* Payment Badge */}
+                                            {req.paid_by === 'technician' && (() => {
+                                                const isPaid = parseFloat(req.paid_amount || 0) >= parseFloat(req.total_amount || 0);
+                                                return (
+                                                    <span style={{
+                                                        padding: '2px 8px',
+                                                        borderRadius: '9999px',
+                                                        fontSize: '11px',
+                                                        fontWeight: 600,
+                                                        backgroundColor: isPaid ? '#d1fae5' : '#fee2e2',
+                                                        color: isPaid ? '#059669' : '#dc2626',
+                                                        whiteSpace: 'nowrap'
+                                                    }}>
+                                                        {isPaid ? 'Paid' : 'Pending Payment'}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
 
@@ -1432,6 +1474,28 @@ function TechnicianApp() {
                                         <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total Amount</span>
                                         <span style={{ fontSize: '16px', color: 'var(--text-primary)' }}>₹{parseFloat(req.total_amount || 0).toLocaleString('en-IN')}</span>
                                     </div>
+
+                                    {isPending && (
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px dashed var(--border-primary)', paddingTop: '8px', marginTop: '4px' }}>
+                                            <button
+                                                onClick={() => handleDeletePurchaseRequest(req.id)}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '4px',
+                                                    color: '#ef4444',
+                                                    background: 'none',
+                                                    border: 'none',
+                                                    cursor: 'pointer',
+                                                    fontSize: '12px',
+                                                    fontWeight: 600,
+                                                    padding: 0
+                                                }}
+                                            >
+                                                <Trash2 size={14} /> Delete Request
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })
@@ -2046,6 +2110,7 @@ function TechnicianApp() {
                         setNewSupplierPincode('');
                         setSupplierSearchQuery('');
                         setShowSupplierDropdown(false);
+                        setPurchasePaidBy('company');
                     }}
                 >
                     <div
@@ -2241,6 +2306,66 @@ function TechnicianApp() {
 
                         <div style={{ marginBottom: 'var(--spacing-md)' }}>
                             <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
+                                Who is paying for this purchase? *
+                            </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-sm)' }}>
+                                <div 
+                                    onClick={() => setPurchasePaidBy('company')}
+                                    style={{
+                                        border: '1px solid ' + (purchasePaidBy === 'company' ? 'var(--color-primary-light)' : 'var(--border-primary)'),
+                                        borderRadius: 'var(--radius-md)',
+                                        padding: 'var(--spacing-sm)',
+                                        cursor: 'pointer',
+                                        backgroundColor: purchasePaidBy === 'company' ? 'rgba(99,102,241,0.05)' : 'transparent',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 'var(--spacing-xs)',
+                                        fontSize: 'var(--font-size-sm)',
+                                        color: 'var(--text-primary)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <input 
+                                        type="radio" 
+                                        name="purchase_paid_by" 
+                                        value="company"
+                                        checked={purchasePaidBy === 'company'}
+                                        onChange={() => {}} 
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                    <span>Paid by Company</span>
+                                </div>
+                                <div 
+                                    onClick={() => setPurchasePaidBy('technician')}
+                                    style={{
+                                        border: '1px solid ' + (purchasePaidBy === 'technician' ? 'var(--color-primary-light)' : 'var(--border-primary)'),
+                                        borderRadius: 'var(--radius-md)',
+                                        padding: 'var(--spacing-sm)',
+                                        cursor: 'pointer',
+                                        backgroundColor: purchasePaidBy === 'technician' ? 'rgba(99,102,241,0.05)' : 'transparent',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 'var(--spacing-xs)',
+                                        fontSize: 'var(--font-size-sm)',
+                                        color: 'var(--text-primary)',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    <input 
+                                        type="radio" 
+                                        name="purchase_paid_by" 
+                                        value="technician"
+                                        checked={purchasePaidBy === 'technician'}
+                                        onChange={() => {}}
+                                        style={{ cursor: 'pointer' }}
+                                    />
+                                    <span>Paid by Technician</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                            <label style={{ display: 'block', fontSize: 'var(--font-size-sm)', fontWeight: 500, marginBottom: 'var(--spacing-xs)' }}>
                                 Additional Purchase Notes / Remarks (Optional)
                             </label>
                             <textarea
@@ -2269,6 +2394,7 @@ function TechnicianApp() {
                                     setNewSupplierPincode('');
                                     setSupplierSearchQuery('');
                                     setShowSupplierDropdown(false);
+                                    setPurchasePaidBy('company');
                                 }}
                                 className="btn btn-secondary"
                                 style={{ flex: 1, padding: '10px' }}
