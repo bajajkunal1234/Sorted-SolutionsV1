@@ -1610,6 +1610,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                                 {item.status === 'pending_verification' && (
                                                                     <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#eab30820', color: '#eab308', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</span>
                                                                 )}
+                                                                {activeTab === 'purchases' && item.paid_by === 'technician' && (
+                                                                    <span style={{ padding: '2px 6px', borderRadius: '4px', backgroundColor: '#f59e0b20', color: '#f59e0b', fontSize: '10px', fontWeight: 600 }}>Paid by Tech</span>
+                                                                )}
                                                             </div>
                                                         </td>
                                                     );

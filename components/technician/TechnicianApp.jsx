@@ -696,36 +696,21 @@ function TechnicianApp() {
 
             let accountId = null;
             let vendorName = '';
+            let billingAddress = '';
             
             if (isNewSupplier) {
-                // Call POST /api/admin/accounts to create a new vendor account
-                const accRes = await fetch('/api/admin/accounts', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: newSupplierName.trim(),
-                        type: 'vendor',
-                        under: 'spare-parts-suppliers',
-                        mobile: newSupplierPhone.trim(),
-                        mailing_address: {
-                            text: '',
-                            locality: newSupplierLocality,
-                            city: 'Mumbai',
-                            pincode: newSupplierPincode
-                        }
-                    })
+                vendorName = newSupplierName.trim();
+                billingAddress = JSON.stringify({
+                    name: newSupplierName.trim(),
+                    phone: newSupplierPhone.trim(),
+                    locality: newSupplierLocality,
+                    pincode: newSupplierPincode,
+                    isSuggested: true
                 });
-                
-                const accData = await accRes.json();
-                if (!accRes.ok || !accData.success) {
-                    throw new Error(accData.error || 'Failed to create new supplier account');
-                }
-                
-                accountId = accData.data.id;
-                vendorName = accData.data.name;
             } else {
                 accountId = selectedSupplier.id;
                 vendorName = selectedSupplier.name;
+                billingAddress = selectedSupplier.billing_address || '';
             }
 
             const purchaseData = {
@@ -746,7 +731,8 @@ function TechnicianApp() {
                 total_amount: totalAmount,
                 date: new Date().toISOString().split('T')[0],
                 vendor_invoice_number: '',
-                paid_by: purchasePaidBy
+                paid_by: purchasePaidBy,
+                billing_address: billingAddress
             };
 
             const response = await fetch('/api/admin/transactions?type=purchase', {

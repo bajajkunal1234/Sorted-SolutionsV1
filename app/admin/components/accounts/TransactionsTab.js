@@ -135,7 +135,7 @@ function TransactionsTab({ accountId, accountName, account }) {
                 { data: rentalDirect },
             ] = await Promise.all([
                 supabase.from('sales_invoices').select('id,invoice_number,reference,date,total_amount,paid_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId).neq('status','archived'),
-                supabase.from('purchase_invoices').select('id,invoice_number,reference,date,total_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId).neq('status','archived'),
+                supabase.from('purchase_invoices').select('id,invoice_number,reference,date,total_amount,cgst,sgst,igst,status,notes,job_id,account_id,account_name,paid_by,billing_address,jobs(job_number)').eq('account_id', accountId).neq('status','archived'),
                 supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId),
                 supabase.from('receipt_vouchers').select('id,receipt_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,payment_account_id,jobs(job_number)').eq('payment_account_id', accountId),
                 supabase.from('payment_vouchers').select('id,payment_number,reference,reference_number,date,amount,payment_mode,narration,status,job_id,account_id,account_name,jobs(job_number)').eq('account_id', accountId),
@@ -736,6 +736,19 @@ function TransactionsTab({ accountId, accountName, account }) {
                                                     {isQuote && (
                                                         <span style={{ fontSize: '10px', marginLeft: '6px', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
                                                             (non-financial)
+                                                        </span>
+                                                    )}
+                                                    {txn.type === 'purchase_invoice' && txn.rawData?.paid_by === 'technician' && (
+                                                        <span style={{
+                                                            fontSize: '10px',
+                                                            marginLeft: '6px',
+                                                            padding: '2px 4px',
+                                                            backgroundColor: '#f59e0b20',
+                                                            color: '#f59e0b',
+                                                            borderRadius: '4px',
+                                                            fontWeight: 600
+                                                        }}>
+                                                            Paid by Tech
                                                         </span>
                                                     )}
                                                     {txn.rawData?.jobs?.job_number && (

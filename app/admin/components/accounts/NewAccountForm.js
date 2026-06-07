@@ -1224,13 +1224,15 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
 
                                             {showField('customerDescription') && (
                                                 <div className="form-group">
-                                                    <label className="form-label">Customer Description</label>
+                                                    <label className="form-label">
+                                                        {formData.under?.includes('creditor') || formData.under?.includes('supplier') ? 'Supplier Address / Notes' : 'Customer Description'}
+                                                    </label>
                                                     <textarea
                                                         className="form-input"
                                                         value={formData.customerDescription || ''}
                                                         onChange={(e) => setFormData({ ...formData, customerDescription: e.target.value })}
                                                         rows="3"
-                                                        placeholder="Add any specific notes or context deeply specific to this customer..."
+                                                        placeholder={formData.under?.includes('creditor') || formData.under?.includes('supplier') ? "Add supplier address or specific notes..." : "Add any specific notes or context deeply specific to this customer..."}
                                                     />
                                                 </div>
                                             )}
@@ -1286,14 +1288,16 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
                                     {/* Customer Description */}
                                     {showField('customerDescription') && (
                                         <div className="form-group" style={{ marginTop: 'var(--spacing-md)' }}>
-                                            <label className="form-label">Customer Description *</label>
+                                            <label className="form-label">
+                                                {formData.under?.includes('creditor') || formData.under?.includes('supplier') ? 'Supplier Address / Notes *' : 'Customer Description *'}
+                                            </label>
                                             <textarea
                                                 className="form-input"
                                                 value={formData.customerDescription || ''}
                                                 onChange={(e) => setFormData({ ...formData, customerDescription: e.target.value })}
-                                                onBlur={() => { if (!formData.customerDescription?.trim()) setErrors(prev => ({ ...prev, customerDescription: 'Customer Description is required' })); else setErrors(prev => { const e = {...prev}; delete e.customerDescription; return e; }); }}
+                                                onBlur={() => { if (!formData.customerDescription?.trim()) setErrors(prev => ({ ...prev, customerDescription: (formData.under?.includes('creditor') || formData.under?.includes('supplier') ? 'Supplier Address / Notes is required' : 'Customer Description is required') })); else setErrors(prev => { const e = {...prev}; delete e.customerDescription; return e; }); }}
                                                 rows="3"
-                                                placeholder="Specific notes or context about this customer..."
+                                                placeholder={formData.under?.includes('creditor') || formData.under?.includes('supplier') ? "Specific notes or address details about this supplier..." : "Specific notes or context about this customer..."}
                                                 style={{ resize: 'vertical', borderColor: errors.customerDescription ? '#ef4444' : undefined }}
                                             />
                                             {errors.customerDescription && (

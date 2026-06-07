@@ -23,14 +23,26 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
             { id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }
         ],
         notes: existingInvoice?.notes || '',
-        category: existingInvoice?.category || 'spare-parts'
+        category: existingInvoice?.category || 'spare-parts',
+        paid_by: existingInvoice?.paid_by || 'company'
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
+    const [suggestedInitialData, setSuggestedInitialData] = useState(null);
     const [showCalculator, setShowCalculator] = useState(false);
     const [loadingAccount, setLoadingAccount] = useState(false);
     const [invoiceMode, setInvoiceMode] = useState('item');
     const [expenseAccounts, setExpenseAccounts] = useState([]);
+
+    const handleCreateSuggestedAccount = (suggested) => {
+        setSuggestedInitialData({
+            name: suggested.name,
+            mobile: suggested.phone || '',
+            under: 'spare-parts-suppliers',
+            customerDescription: `${suggested.locality || ''}${suggested.pincode ? `, Mumbai - ${suggested.pincode}` : ''}`
+        });
+        setShowNewAccountForm(true);
+    };
 
     useEffect(() => {
         const fetchExpenseAccounts = async () => {
@@ -264,9 +276,24 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                             {existingInvoice ? 'Edit Purchase Invoice' : 'Create Purchase Invoice'}
                         </h3>
                         {existingInvoice && (
-                            <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', marginTop: '4px', margin: 0 }}>
-                                Invoice: {existingInvoice.vendor_invoice_number}
-                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                                <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
+                                    Invoice: {existingInvoice.vendor_invoice_number || 'DRAFT'}
+                                </p>
+                                {existingInvoice.paid_by && (
+                                    <span style={{
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        backgroundColor: existingInvoice.paid_by === 'technician' ? '#f59e0b20' : '#10b98120',
+                                        color: existingInvoice.paid_by === 'technician' ? '#f59e0b' : '#10b981',
+                                        border: `1px solid ${existingInvoice.paid_by === 'technician' ? '#f59e0b40' : '#10b98140'}`
+                                    }}>
+                                        {existingInvoice.paid_by === 'technician' ? 'Paid by Technician' : 'Paid by Company'}
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
                     <button
@@ -285,6 +312,61 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
 
                 {/* Content */}
                 <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-lg)' }}>
+                    {/* Suggested Supplier Card */}
+                    {(() => {
+                        let suggestedSupplier = null;
+                        if (formData.billing_address) {
+                            try {
+                                const parsed = JSON.parse(formData.billing_address);
+                                if (parsed && parsed.isSuggested) {
+                                    suggestedSupplier = parsed;
+                                }
+                            } catch (e) {}
+                        }
+                        if (!suggestedSupplier) return null;
+                        return (
+                            <div style={{
+                                padding: '12px 16px',
+                                backgroundColor: 'rgba(245, 158, 11, 0.08)',
+                                border: '1px solid rgba(245, 158, 11, 0.3)',
+                                borderRadius: '8px',
+                                marginBottom: '16px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '12px'
+                            }}>
+                                <div>
+                                    <div style={{ fontWeight: 600, color: '#d97706', fontSize: '13px', marginBottom: '2px' }}>
+                                        Technician Suggested New Supplier
+                                    </div>
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                        <strong>Name:</strong> {suggestedSupplier.name} &nbsp;|&nbsp; 
+                                        <strong> Phone:</strong> {suggestedSupplier.phone || 'N/A'} &nbsp;|&nbsp; 
+                                        <strong> Locality:</strong> {suggestedSupplier.locality} {suggestedSupplier.pincode ? `(${suggestedSupplier.pincode})` : ''}
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => handleCreateSuggestedAccount(suggestedSupplier)}
+                                    style={{
+                                        backgroundColor: '#f59e0b',
+                                        color: '#fff',
+                                        fontSize: '12px',
+                                        padding: '8px 16px',
+                                        borderRadius: '6px',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    Create Supplier Account
+                                </button>
+                            </div>
+                        );
+                    })()}
+
                     {/* Account & Invoice Details */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', marginBottom: 'var(--spacing-lg)' }}>
                         <div>
@@ -755,10 +837,27 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1100, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: '90%', maxWidth: '1000px', maxHeight: '90vh', overflow: 'hidden' }}>
                         <NewAccountForm
-                            onClose={() => setShowNewAccountForm(false)}
-                            onSave={async (acc) => {
-                                handleAccountChange(acc);
+                            onClose={() => {
                                 setShowNewAccountForm(false);
+                                setSuggestedInitialData(null);
+                            }}
+                            initialData={suggestedInitialData}
+                            onSave={async (acc) => {
+                                try {
+                                    setLoadingAccount(true);
+                                    const savedAcc = await accountsAPI.create(acc);
+                                    if (savedAcc && savedAcc.id) {
+                                        handleAccountChange(savedAcc);
+                                        setShowNewAccountForm(false);
+                                        setSuggestedInitialData(null);
+                                    } else {
+                                        throw new Error("Failed to create account");
+                                    }
+                                } catch (e) {
+                                    alert("Error creating account: " + e.message);
+                                } finally {
+                                    setLoadingAccount(false);
+                                }
                             }}
                         />
                     </div>
