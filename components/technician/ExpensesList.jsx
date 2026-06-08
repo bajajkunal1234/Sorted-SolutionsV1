@@ -278,7 +278,14 @@ export default function ExpensesList({ technicianId }) {
         );
     };
 
-    const formatDate = (dateString) => new Date(dateString).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const formatDate = (dateString) => {
+        if (!dateString) return '—';
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return dateString;
+        const datePart = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        return `${datePart}, ${timePart}`;
+    };
     const getTotalExpenses = () => expenses.reduce((sum, exp) => sum + parseFloat(exp.amount || 0), 0);
     const pendingCount = expenses.filter(e => e.status === 'pending').length;
 
@@ -562,7 +569,7 @@ export default function ExpensesList({ technicianId }) {
                                                 </div>
                                                 <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-sm)' }}>
                                                     <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(expense.amount).toLocaleString('en-IN')}</div>
-                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{formatDate(expense.date)}</div>
+                                                    <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>{formatDate(expense.created_at || expense.date)}</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -638,7 +645,7 @@ export default function ExpensesList({ technicianId }) {
                                                 gap: '6px'
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{formatDate(entry.date)}</span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>{formatDate(entry.raw?.created_at || entry.date)}</span>
                                                     <span style={{ 
                                                         padding: '2px 6px', 
                                                         borderRadius: 'var(--radius-sm)', 

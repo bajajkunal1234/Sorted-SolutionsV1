@@ -985,7 +985,9 @@ function TechnicianManagement() {
                                                                 </a>
                                                             )}
                                                             {statusBadge(exp.status)}
-                                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{new Date(exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                                {new Date(exp.created_at || exp.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(exp.created_at || exp.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                            </span>
                                                             <span style={{ fontSize: 'var(--font-size-xs)', fontWeight: 600, color: 'var(--text-secondary)' }}>
                                                                 By: {exp.technician?.name || 'Unknown Technician'}
                                                             </span>
@@ -1093,7 +1095,7 @@ function TechnicianManagement() {
                                             return (
                                                 <tr key={item.id} style={{ borderBottom: '1px solid var(--border-primary)', transition: 'background-color 0.15s' }}>
                                                     <td style={{ padding: '12px 16px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                                                        {new Date(item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                         <div>{new Date(item.created_at || item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{new Date(item.created_at || item.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                                                     </td>
                                                     <td style={{ padding: '12px 16px', verticalAlign: 'top', fontWeight: 600 }}>
                                                         {techName}

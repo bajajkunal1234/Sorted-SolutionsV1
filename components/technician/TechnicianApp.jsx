@@ -1395,7 +1395,7 @@ function TechnicianApp() {
                                         <div>
                                             <div style={{ fontWeight: 600, fontSize: '15px', color: 'var(--text-primary)' }}>{req.account_name}</div>
                                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                                                {new Date(req.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                                {new Date(req.created_at || req.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(req.created_at || req.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
