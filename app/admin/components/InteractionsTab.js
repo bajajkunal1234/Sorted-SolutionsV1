@@ -166,6 +166,32 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
     const [showColPicker, setShowColPicker] = useState(false);
     const colPickerRef = useRef(null);
 
+    const [colOrder, setColOrder] = useState(() => {
+        try {
+            const saved = localStorage.getItem('interactions_col_order');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length === ALL_COLUMNS.length) {
+                    return parsed;
+                }
+            }
+        } catch (e) {}
+        return ALL_COLUMNS.map(c => c.id);
+    });
+
+    const moveCol = (index, direction) => {
+        const newOrder = [...colOrder];
+        const nextIndex = index + direction;
+        if (nextIndex < 0 || nextIndex >= newOrder.length) return;
+        const temp = newOrder[index];
+        newOrder[index] = newOrder[nextIndex];
+        newOrder[nextIndex] = temp;
+        setColOrder(newOrder);
+        try {
+            localStorage.setItem('interactions_col_order', JSON.stringify(newOrder));
+        } catch (e) {}
+    };
+
     useEffect(() => {
         const handler = (e) => {
             if (colPickerRef.current && !colPickerRef.current.contains(e.target)) {
@@ -178,6 +204,91 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
 
     const toggleCol = (id) => setVisibleCols(prev => ({ ...prev, [id]: !prev[id] }));
     const col = (id) => visibleCols[id]; // shorthand
+
+    const renderHeaderCell = (colId) => {
+        switch (colId) {
+            case 'timestamp':
+                return <th key="timestamp" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '150px', minWidth: '150px' }}>Timestamp</th>;
+            case 'icon':
+                return <th key="icon" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '50px', minWidth: '50px' }}>Icon</th>;
+            case 'type':
+                return <th key="type" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '160px' }}>Type</th>;
+            case 'category':
+                return <th key="category" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Category</th>;
+            case 'customer':
+                return <th key="customer" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Customer</th>;
+            case 'jobInvoice':
+                return <th key="jobInvoice" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '140px' }}>Job/Invoice</th>;
+            case 'performedBy':
+                return <th key="performedBy" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Performed By</th>;
+            case 'description':
+                return <th key="description" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '220px' }}>Description</th>;
+            case 'source':
+                return <th key="source" style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '110px' }}>Source</th>;
+            case 'actions':
+                return <th key="actions" style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '80px', minWidth: '80px' }}>Actions</th>;
+            default:
+                return null;
+        }
+    };
+
+    const renderBodyCell = (colId, interaction, typeInfo, categoryInfo) => {
+        switch (colId) {
+            case 'timestamp':
+                return <td key="timestamp" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontFamily: 'monospace', width: '150px', minWidth: '150px' }}>{formatTimestamp(interaction.timestamp)}</td>;
+            case 'icon':
+                return <td key="icon" style={{ padding: 'var(--spacing-sm)', fontSize: '20px', textAlign: 'center', width: '50px', minWidth: '50px' }}>{typeInfo.icon}</td>;
+            case 'type':
+                return (
+                    <td key="type" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, minWidth: '160px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {typeInfo.label}
+                            {interaction.isLive && (
+                                <span title="Live Database Entry" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '1px 4px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                    <Activity size={8} /> Live
+                                </span>
+                            )}
+                        </div>
+                    </td>
+                );
+            case 'category':
+                return (
+                    <td key="category" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '130px' }}>
+                        <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: categoryInfo.color + '20', color: categoryInfo.color, fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
+                            {categoryInfo.label}
+                        </span>
+                    </td>
+                );
+            case 'customer':
+                return <td key="customer" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '130px' }}>{interaction.customerName || '-'}</td>;
+            case 'jobInvoice':
+                return <td key="jobInvoice" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontFamily: 'monospace', minWidth: '140px' }}>{interaction.jobId || interaction.invoiceId || '-'}</td>;
+            case 'performedBy':
+                return <td key="performedBy" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', minWidth: '130px' }}>{interaction.performedByName}</td>;
+            case 'description':
+                return <td key="description" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '220px' }}>{interaction.description}</td>;
+            case 'source':
+                return (
+                    <td key="source" style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '110px' }}>
+                        <span style={{ padding: '2px 6px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', fontSize: 'var(--font-size-xs)' }}>
+                            {interaction.source}
+                        </span>
+                    </td>
+                );
+            case 'actions':
+                return (
+                    <td key="actions" style={{ padding: 'var(--spacing-sm)', textAlign: 'right', width: '80px', minWidth: '80px' }}>
+                        {isEditable(interaction) && (
+                            <button onClick={() => handleEditTransaction(interaction)} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: 'var(--font-size-xs)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <Edit2 size={14} /> Edit
+                            </button>
+                        )}
+                    </td>
+                );
+            default:
+                return null;
+        }
+    };
 
     // Get unique users
     const uniqueUsers = [...new Set(interactions.map(i => i.performedByName))].sort();
@@ -560,7 +671,6 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
                 flexWrap: 'wrap',
                 flexShrink: 0
             }}>
-                <span className="tab-title" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Interactions</span>
                 {activeView === 'feed' && (
                     <>
                         {/* Odoo Search Panel */}
@@ -606,32 +716,68 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
                                     border: '1px solid var(--border-primary)',
                                     borderRadius: 'var(--radius-md)',
                                     boxShadow: 'var(--shadow-lg)',
-                                    zIndex: 200, minWidth: 190, padding: '8px 0',
+                                    zIndex: 200, minWidth: 220, padding: '8px 0',
                                 }}>
                                     <div style={{ padding: '4px 12px 8px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--border-primary)', marginBottom: 4 }}>
-                                        Toggle Columns
+                                        Toggle & Rearrange
                                     </div>
-                                    {ALL_COLUMNS.map(c => (
-                                        <label key={c.id} style={{
-                                            display: 'flex', alignItems: 'center', gap: 8,
-                                            padding: '7px 14px', cursor: 'pointer',
-                                            fontSize: 'var(--font-size-xs)', fontWeight: 500,
-                                            color: visibleCols[c.id] ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                                            transition: 'background 0.15s',
-                                        }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={!!visibleCols[c.id]}
-                                                onChange={() => toggleCol(c.id)}
-                                                style={{ accentColor: 'var(--color-primary)', width: 14, height: 14 }}
-                                            />
-                                            {c.label}
-                                        </label>
-                                    ))}
-                                    <div style={{ borderTop: '1px solid var(--border-primary)', margin: '6px 0 4px', padding: '4px 14px 0', display: 'flex', gap: 8 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        {colOrder.map((colId, index) => {
+                                            const c = ALL_COLUMNS.find(x => x.id === colId);
+                                            if (!c) return null;
+                                            return (
+                                                <div key={c.id} style={{
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    padding: '5px 12px',
+                                                    transition: 'background 0.15s',
+                                                    gap: 8
+                                                }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                                >
+                                                    <label style={{
+                                                        display: 'flex', alignItems: 'center', gap: 8,
+                                                        cursor: 'pointer', flex: 1, margin: 0,
+                                                        fontSize: 'var(--font-size-xs)', fontWeight: 500,
+                                                        color: visibleCols[c.id] ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                                    }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!visibleCols[c.id]}
+                                                            onChange={() => toggleCol(c.id)}
+                                                            style={{ accentColor: 'var(--color-primary)', width: 14, height: 14 }}
+                                                        />
+                                                        {c.label}
+                                                    </label>
+                                                    <div style={{ display: 'flex', gap: 2 }}>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); moveCol(index, -1); }}
+                                                            disabled={index === 0}
+                                                            style={{
+                                                                background: 'none', border: 'none', color: index === 0 ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                                                                cursor: index === 0 ? 'default' : 'pointer', padding: 2, display: 'flex', alignItems: 'center', opacity: index === 0 ? 0.3 : 1
+                                                            }}
+                                                            title="Move Up"
+                                                        >
+                                                            <ChevronDown size={14} style={{ transform: 'rotate(180deg)' }} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); moveCol(index, 1); }}
+                                                            disabled={index === colOrder.length - 1}
+                                                            style={{
+                                                                background: 'none', border: 'none', color: index === colOrder.length - 1 ? 'var(--text-tertiary)' : 'var(--text-secondary)',
+                                                                cursor: index === colOrder.length - 1 ? 'default' : 'pointer', padding: 2, display: 'flex', alignItems: 'center', opacity: index === colOrder.length - 1 ? 0.3 : 1
+                                                            }}
+                                                            title="Move Down"
+                                                        >
+                                                            <ChevronDown size={14} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    <div style={{ borderTop: '1px solid var(--border-primary)', margin: '6px 0 4px', padding: '6px 14px 0', display: 'flex', gap: 8 }}>
                                         <button onClick={() => setVisibleCols(Object.fromEntries(ALL_COLUMNS.map(c => [c.id, true])))} style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '4px 0', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600 }}>Show All</button>
                                     </div>
                                 </div>
@@ -686,16 +832,7 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
                             <table className="data-table" style={{ width: '1100px', minWidth: '1100px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
                                 <thead>
                                     <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                        {col('timestamp') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '150px', minWidth: '150px' }}>Timestamp</th>}
-                                        {col('icon') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '50px', minWidth: '50px' }}>Icon</th>}
-                                        {col('type') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '160px' }}>Type</th>}
-                                        {col('category') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Category</th>}
-                                        {col('customer') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Customer</th>}
-                                        {col('jobInvoice') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '140px' }}>Job/Invoice</th>}
-                                        {col('performedBy') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Performed By</th>}
-                                        {col('description') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '220px' }}>Description</th>}
-                                        {col('source') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '110px' }}>Source</th>}
-                                        {col('actions') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '80px', minWidth: '80px' }}>Actions</th>}
+                                        {colOrder.map(colId => visibleCols[colId] && renderHeaderCell(colId))}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -713,47 +850,7 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
                                                 onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
                                                 onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                             >
-                                                {col('timestamp') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontFamily: 'monospace', width: '150px', minWidth: '150px' }}>{formatTimestamp(interaction.timestamp)}</td>}
-                                                {col('icon') && <td style={{ padding: 'var(--spacing-sm)', fontSize: '20px', textAlign: 'center', width: '50px', minWidth: '50px' }}>{typeInfo.icon}</td>}
-                                                {col('type') && (
-                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, minWidth: '160px' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            {typeInfo.label}
-                                                            {interaction.isLive && (
-                                                                <span title="Live Database Entry" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '1px 4px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                                                    <Activity size={8} /> Live
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                )}
-                                                {col('category') && (
-                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '130px' }}>
-                                                        <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: categoryInfo.color + '20', color: categoryInfo.color, fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
-                                                            {categoryInfo.label}
-                                                        </span>
-                                                    </td>
-                                                )}
-                                                {col('customer') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '130px' }}>{interaction.customerName || '-'}</td>}
-                                                {col('jobInvoice') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontFamily: 'monospace', minWidth: '140px' }}>{interaction.jobId || interaction.invoiceId || '-'}</td>}
-                                                {col('performedBy') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', minWidth: '130px' }}>{interaction.performedByName}</td>}
-                                                {col('description') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '220px' }}>{interaction.description}</td>}
-                                                {col('source') && (
-                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '110px' }}>
-                                                        <span style={{ padding: '2px 6px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', fontSize: 'var(--font-size-xs)' }}>
-                                                            {interaction.source}
-                                                        </span>
-                                                    </td>
-                                                )}
-                                                {col('actions') && (
-                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', width: '80px', minWidth: '80px' }}>
-                                                        {isEditable(interaction) && (
-                                                            <button onClick={() => handleEditTransaction(interaction)} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: 'var(--font-size-xs)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                <Edit2 size={14} /> Edit
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                )}
+                                                {colOrder.map(colId => visibleCols[colId] && renderBodyCell(colId, interaction, typeInfo, categoryInfo))}
                                             </tr>
                                         );
                                     })}
