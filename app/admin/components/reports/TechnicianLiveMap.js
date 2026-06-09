@@ -64,10 +64,11 @@ function formatAge(secondsAgo) {
  * Idle = grey dot, On-job = blue icon.
  * Refreshes every 60s automatically.
  */
-export default function TechnicianLiveMap({ activeTechnicians = [] }) {
+export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, height = 480, showRoster = true }) {
     const [allLocations, setAllLocations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
+    const [localActiveJobs, setLocalActiveJobs] = useState([]);
 
     // Job-specific real-time positions (for on-job technicians via Supabase Realtime)
     const [livePositions, setLivePositions] = useState({});
@@ -76,6 +77,15 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
     // Fetch all online technicians from fleet-locations API
     const fetchLocations = async () => {
         try {
+            // Auto-fetch active jobs locally if not supplied as props
+            if (!activeJobs && activeTechnicians.length === 0) {
+                const jobRes = await fetch('/api/admin/jobs?status=in-progress&limit=50').catch(() => null);
+                if (jobRes) {
+                    const jobData = await jobRes.json();
+                    setLocalActiveJobs(jobData.jobs || jobData.data || []);
+                }
+            }
+
             const res = await fetch('/api/admin/fleet-locations');
             const data = await res.json();
             if (data.success) {
@@ -93,7 +103,11 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
         fetchLocations();
         const interval = setInterval(fetchLocations, 60_000); // auto-refresh every 60s
         return () => clearInterval(interval);
-    }, []);
+    }, [activeJobs, activeTechnicians]);
+
+    const trackingList = activeTechnicians.length > 0 
+        ? activeTechnicians 
+        : (activeJobs || localActiveJobs);
 
     // Also subscribe to real-time Supabase broadcasts for in-progress jobs
     // (higher frequency updates for active tracking)
@@ -101,9 +115,9 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
         channelsRef.current.forEach(ch => supabase.removeChannel(ch));
         channelsRef.current = [];
 
-        if (!activeTechnicians || activeTechnicians.length === 0) return;
+        if (!trackingList || trackingList.length === 0) return;
 
-        activeTechnicians.forEach(tech => {
+        trackingList.forEach(tech => {
             if (!tech.job_id) return;
             const ch = supabase.channel(`tracking:job_${tech.job_id}`);
             ch.on('broadcast', { event: 'location_update' }, ({ payload }) => {
@@ -120,7 +134,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
         });
 
         return () => channelsRef.current.forEach(ch => supabase.removeChannel(ch));
-    }, [activeTechnicians]);
+    }, [trackingList]);
 
     // Merge: use real-time position if available, otherwise use last-known from DB
     const mergedLocations = allLocations.map(loc => {
@@ -167,7 +181,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
             </div>
 
             {/* Map */}
-            <div style={{ height: 480, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+            <div style={{ height: height, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
                 <MapContainer center={MUMBAI} zoom={12} style={{ height: '100%', width: '100%' }}>
                     <TileLayer
                         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -223,7 +237,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [] }) {
             )}
 
             {/* Technician roster */}
-            {mergedLocations.length > 0 && (
+            {showRoster && mergedLocations.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8 }}>
                     {mergedLocations.map(loc => {
                         const isOffline = loc.seconds_ago > 900;

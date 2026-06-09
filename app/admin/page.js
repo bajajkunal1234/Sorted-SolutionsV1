@@ -12,6 +12,12 @@ import './modal-improvements.css'
 import NotificationBell from '@/components/common/NotificationBell'
 import { usePushNotifications } from '@/hooks/usePushNotifications'
 import DashboardFollowups from './components/DashboardFollowups'
+import dynamic from 'next/dynamic'
+
+const TechnicianLiveMap = dynamic(() => import('./components/reports/TechnicianLiveMap'), {
+    ssr: false,
+    loading: () => <div style={{ height: 325, borderRadius: 14, background: 'rgba(255,255,255,0.03)', border: '1px dashed rgba(56,189,248,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 14 }}>🗺️ Loading fleet map...</div>
+})
 
 export default function AdminApp() {
     const router = useRouter()
@@ -106,17 +112,15 @@ export default function AdminApp() {
                             )}
                         </div>
                         
-                        <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%' }}>
+                        <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
                             <DashboardFollowups />
-                        </div>
-
-                        <div className="portal-links" style={{ marginTop: 'var(--spacing-xl)' }}>
-                            <a href="/technician" className="portal-link">
-                                → Go to Technician Portal
-                            </a>
-                            <a href="/customer" className="portal-link">
-                                → Go to Customer Portal
-                            </a>
+                            
+                            <div>
+                                <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    📍 Technician Locations
+                                </h3>
+                                <TechnicianLiveMap height={325} showRoster={false} />
+                            </div>
                         </div>
                     </div>
                 )
