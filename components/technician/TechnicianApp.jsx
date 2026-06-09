@@ -661,6 +661,15 @@ function TechnicianApp() {
                 alert('Please enter Supplier / Shop Name');
                 return;
             }
+            const phoneClean = newSupplierPhone.trim().replace(/\D/g, '');
+            if (!phoneClean) {
+                alert('Please enter Mobile / Phone Number');
+                return;
+            }
+            if (phoneClean.length !== 10) {
+                alert('Please enter a valid 10-digit mobile number');
+                return;
+            }
             if (!newSupplierLocality || newSupplierLocality === '') {
                 alert('Please select Supplier Locality');
                 return;
@@ -2262,10 +2271,10 @@ function TechnicianApp() {
                                             />
                                         </div>
                                         <div>
-                                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Mobile / Phone Number</label>
+                                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Mobile / Phone Number *</label>
                                             <input
                                                 type="text"
-                                                placeholder="e.g. 9876543210"
+                                                placeholder="10-digit mobile number, e.g. 9876543210"
                                                 value={newSupplierPhone}
                                                 onChange={(e) => setNewSupplierPhone(e.target.value)}
                                                 className="form-input"
