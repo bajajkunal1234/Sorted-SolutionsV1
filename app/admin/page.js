@@ -113,14 +113,14 @@ export default function AdminApp() {
                         </div>
                         
                         <div style={{ maxWidth: '600px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-xl)' }}>
-                            <DashboardFollowups />
-                            
                             <div>
                                 <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     📍 Technician Locations
                                 </h3>
                                 <TechnicianLiveMap height={325} showRoster={false} />
                             </div>
+
+                            <DashboardFollowups />
                         </div>
                     </div>
                 )
