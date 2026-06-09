@@ -13,6 +13,7 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
     const [showDropdown, setShowDropdown] = useState(false);
     const [dropdownSearch, setDropdownSearch] = useState('');
     const dropdownRef = useRef(null);
+    const fetchedForValueRef = useRef(null);
 
     useEffect(() => {
         const fetchAccounts = async () => {
@@ -31,6 +32,26 @@ function AccountSelector({ value, onChange, onCreateNew, accountType = 'all', la
 
         fetchAccounts();
     }, [accountType]);
+
+    // Automatically re-fetch accounts if value is defined but not present in our loaded list
+    useEffect(() => {
+        if (value && fetchedForValueRef.current !== value && accounts.length > 0 && !accounts.some(acc => acc.id === value)) {
+            fetchedForValueRef.current = value;
+            const fetchAccounts = async () => {
+                try {
+                    setLoading(true);
+                    const typeParam = accountType === 'all' ? '' : accountType;
+                    const data = await accountsAPI.getAll(typeParam);
+                    setAccounts(data || []);
+                } catch (err) {
+                    console.error('Error re-fetching accounts for selector:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+            fetchAccounts();
+        }
+    }, [value, accounts, accountType]);
 
     // Close dropdown on outside click
     useEffect(() => {
