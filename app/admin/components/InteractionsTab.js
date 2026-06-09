@@ -166,18 +166,7 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
     const [showColPicker, setShowColPicker] = useState(false);
     const colPickerRef = useRef(null);
 
-    const [colOrder, setColOrder] = useState(() => {
-        try {
-            const saved = localStorage.getItem('interactions_col_order');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length === ALL_COLUMNS.length) {
-                    return parsed;
-                }
-            }
-        } catch (e) {}
-        return ALL_COLUMNS.map(c => c.id);
-    });
+    const [colOrder, setColOrder] = useState(() => ALL_COLUMNS.map(c => c.id));
 
     const moveCol = (index, direction) => {
         const newOrder = [...colOrder];
@@ -193,6 +182,29 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
     };
 
     useEffect(() => {
+        // Load settings from localStorage client-side
+        try {
+            const savedOrder = localStorage.getItem('interactions_col_order');
+            if (savedOrder) {
+                const parsed = JSON.parse(savedOrder);
+                if (Array.isArray(parsed) && parsed.length === ALL_COLUMNS.length) {
+                    setColOrder(parsed);
+                }
+            }
+        } catch (e) {}
+
+        try {
+            const savedVisible = localStorage.getItem('interactions_visible_cols');
+            if (savedVisible) {
+                const parsed = JSON.parse(savedVisible);
+                if (typeof parsed === 'object' && parsed !== null) {
+                    setVisibleCols(prev => ({ ...prev, ...parsed }));
+                }
+            }
+        } catch (e) {}
+    }, []);
+
+    useEffect(() => {
         const handler = (e) => {
             if (colPickerRef.current && !colPickerRef.current.contains(e.target)) {
                 setShowColPicker(false);
@@ -202,7 +214,13 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    const toggleCol = (id) => setVisibleCols(prev => ({ ...prev, [id]: !prev[id] }));
+    const toggleCol = (id) => setVisibleCols(prev => {
+        const next = { ...prev, [id]: !prev[id] };
+        try {
+            localStorage.setItem('interactions_visible_cols', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+    });
     const col = (id) => visibleCols[id]; // shorthand
 
     const renderHeaderCell = (colId) => {
@@ -778,7 +796,13 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
                                         })}
                                     </div>
                                     <div style={{ borderTop: '1px solid var(--border-primary)', margin: '6px 0 4px', padding: '6px 14px 0', display: 'flex', gap: 8 }}>
-                                        <button onClick={() => setVisibleCols(Object.fromEntries(ALL_COLUMNS.map(c => [c.id, true])))} style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '4px 0', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600 }}>Show All</button>
+                                        <button onClick={() => {
+                                            const allVisible = Object.fromEntries(ALL_COLUMNS.map(c => [c.id, true]));
+                                            setVisibleCols(allVisible);
+                                            try {
+                                                localStorage.setItem('interactions_visible_cols', JSON.stringify(allVisible));
+                                            } catch (e) {}
+                                        }} style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '4px 0', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600 }}>Show All</button>
                                     </div>
                                 </div>
                             )}
