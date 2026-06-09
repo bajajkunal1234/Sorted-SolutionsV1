@@ -1633,11 +1633,16 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
                                                     }
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{renderStatusBadge(item.status)}</td>;
                                                 }
-                                                case 'created_by':
-                                                    const srcText = item.created_by || 'Admin';
+                                                case 'created_by': {
+                                                    const isTech = item.technician_name || item.jobs?.technician_name;
+                                                    const srcText = isTech || item.created_by || 'Admin';
+                                                    const badgeColor = isTech ? '#10b981' : '#6366f1';
+                                                    const badgeBg = isTech ? '#10b98115' : '#6366f115';
+                                                    const emoji = isTech ? '👤' : '🛡️';
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: '#6366f115', color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>🛡️ {srcText}</span>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 999, fontSize: 11, backgroundColor: badgeBg, color: badgeColor, fontWeight: 600, whiteSpace: 'nowrap' }}>{emoji} {srcText}</span>
                                                     </td>;
+                                                }
                                                 case 'created_at': {
                                                     const d = item.created_at ? new Date(item.created_at) : null;
                                                     return <td key={col.id} onClick={() => handleTransactionClick(item)} style={{ ...tdBase, textAlign: col.align }}>{d ? `${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-US', {hour: '2-digit', minute:'2-digit'})}` : '—'}</td>;

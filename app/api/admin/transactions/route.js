@@ -142,7 +142,7 @@ export async function GET(request) {
             const tables = ['sales_invoices', 'purchase_invoices', 'receipt_vouchers', 'payment_vouchers'];
             const results = await Promise.all(tables.map(async (table) => {
                 const fkAlias = table === 'receipt_vouchers' ? 'accounts:accounts!receipt_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : (table === 'payment_vouchers' ? 'accounts:accounts!payment_vouchers_account_id_fkey(name, mobile, email, address, gstin)' : 'accounts(name, mobile, email, address, gstin)');
-                let query = supabase.from(table).select(`*, ${fkAlias}, jobs(job_number)`)
+                let query = supabase.from(table).select(`*, ${fkAlias}, jobs(job_number, technician_name)`)
                 if (accountId) query = query.eq('account_id', accountId)
                 if (startDate) query = query.gte('date', startDate)
                 if (endDate) query = query.lte('date', endDate)
@@ -163,7 +163,7 @@ export async function GET(request) {
 
         let query = supabase
             .from(tableName)
-            .select(`*, ${fkAlias}, jobs(job_number)`)
+            .select(`*, ${fkAlias}, jobs(job_number, technician_name)`)
             .order('date', { ascending: false })
             .limit(100)
 
