@@ -24,7 +24,7 @@ const CUSTOMER_CARD_FIELDS = [
     { id: 'bio', label: 'Bio / Tagline', icon: '💬' },
 ];
 
-function TechnicianManagement() {
+function TechnicianManagement({ initialSubTab }) {
     const [activeTab, setActiveTab] = useState('profile');
 
     // ─── Fleet map state ──────────────────────────────────────────────────────
@@ -72,6 +72,25 @@ function TechnicianManagement() {
     const [leaves, setLeaves] = useState([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
     const [leavesFilter, setLeavesFilter] = useState('all');
+
+    useEffect(() => {
+        if (initialSubTab) {
+            if (initialSubTab === 'spares-post') {
+                setActiveTab('spares');
+                setSparesFilter('pending');
+            } else if (initialSubTab === 'spares-pay') {
+                setActiveTab('spares');
+                setSparesFilter('posted');
+            } else if (initialSubTab === 'expenses') {
+                setActiveTab('expenses');
+                setExpenseFilter('pending');
+                setAdminExpenseViewMode('claims');
+            } else if (initialSubTab === 'leaves') {
+                setActiveTab('leaves');
+                setLeavesFilter('pending');
+            }
+        }
+    }, [initialSubTab]);
 
     useEffect(() => { fetchTechnicians(); fetchGeocodeCount(); }, []);
     useEffect(() => { 

@@ -18,6 +18,8 @@ export default function AdminApp() {
     const [activeTab, setActiveTab] = useState('dashboard')
     const [customerToOpen, setCustomerToOpen] = useState(null)
     const [jobToOpen, setJobToOpen] = useState(null)
+    const [reportsSectionToOpen, setReportsSectionToOpen] = useState(null)
+    const [techSubTabToOpen, setTechSubTabToOpen] = useState(null)
     const [authChecked, setAuthChecked] = useState(false)
     const [adminId, setAdminId] = useState(null)
 
@@ -58,9 +60,15 @@ export default function AdminApp() {
             setActiveTab('jobs')
             setJobToOpen(job)
         }
+        window.openTechnicianManagement = (subTab) => {
+            setReportsSectionToOpen('technicians')
+            setTechSubTabToOpen(subTab)
+            setActiveTab('reports')
+        }
         return () => {
             delete window.openCustomerAccount
             delete window.openJobInJobsTab
+            delete window.openTechnicianManagement
         }
     }, [])
 
@@ -117,7 +125,16 @@ export default function AdminApp() {
             case 'inventory':
                 return <InventoryTab />
             case 'reports':
-                return <ReportsTab />
+                return (
+                    <ReportsTab 
+                        initialSection={reportsSectionToOpen}
+                        initialTechSubTab={techSubTabToOpen}
+                        onClearInitial={() => {
+                            setReportsSectionToOpen(null);
+                            setTechSubTabToOpen(null);
+                        }}
+                    />
+                )
             default:
                 return null
         }

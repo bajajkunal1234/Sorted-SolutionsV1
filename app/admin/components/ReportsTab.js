@@ -29,12 +29,19 @@ import { settingsByCategory } from '@/lib/data/websiteSettingsData';
 
 import SQLRunnerPage from '../system/sql/page';
 
-function ReportsTab() {
+function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
     const [activeSection, setActiveSection] = useState(null); // null = homepage
     const [subSection, setSubSection] = useState(null);
     const [showCompanyDetails, setShowCompanyDetails] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+
+    useEffect(() => {
+        if (initialSection) {
+            setActiveSection(initialSection);
+            if (onClearInitial) onClearInitial();
+        }
+    }, [initialSection, onClearInitial]);
 
     // Synchronize toggle state with actual document theme attribute upon mounting
     useEffect(() => {
@@ -426,6 +433,7 @@ function ReportsTab() {
                         setSubSection={setSubSection}
                         searchTerm={searchTerm}
                         setSearchTerm={setSearchTerm}
+                        initialSubTab={activeSection === 'technicians' ? initialTechSubTab : null}
                     />
                 ) : (
                     <div style={{
