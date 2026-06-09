@@ -172,9 +172,10 @@ function TechnicianManagement() {
         if (!payingSparesInvoice) return;
         try {
             await transactionsAPI.create(voucherData, 'payment');
+            const isTech = payingSparesInvoice.paid_by === 'technician';
             setPayingSparesInvoice(null);
             fetchSpares();
-            alert('✅ Supplier payment recorded and allocated successfully!');
+            alert(isTech ? '✅ Technician reimbursement recorded and allocated successfully!' : '✅ Supplier payment recorded and allocated successfully!');
         } catch (err) {
             console.error('Error recording supplier payment:', err);
             alert('Error: ' + err.message);
@@ -1167,7 +1168,7 @@ function TechnicianManagement() {
                                                                 className="btn btn-primary"
                                                                 style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
                                                             >
-                                                                Pay Supplier
+                                                                {item.paid_by === 'technician' ? 'Pay Technician' : 'Pay Supplier'}
                                                             </button>
                                                         ) : (
                                                             <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>✓ Settled</span>
@@ -1356,12 +1357,18 @@ function TechnicianManagement() {
                 <PaymentVoucherForm
                     onClose={() => setPayingSparesInvoice(null)}
                     onSave={handleSaveSparesPaymentVoucher}
-                    accountType="vendor"
+                    accountType={payingSparesInvoice.paid_by === 'technician' ? 'technician' : 'vendor'}
                     existingPayment={{
-                        account_id: payingSparesInvoice.account_id || '',
-                        account_name: payingSparesInvoice.account_name || '',
+                        account_id: payingSparesInvoice.paid_by === 'technician'
+                            ? (technicians.find(t => t.id === payingSparesInvoice.po_reference)?.ledger_id || '')
+                            : (payingSparesInvoice.account_id || ''),
+                        account_name: payingSparesInvoice.paid_by === 'technician'
+                            ? (technicians.find(t => t.id === payingSparesInvoice.po_reference)?.name || '')
+                            : (payingSparesInvoice.account_name || ''),
                         amount: (parseFloat(payingSparesInvoice.total_amount || 0) - parseFloat(payingSparesInvoice.paid_amount || 0)).toString(),
-                        notes: `Payment for spares purchase invoice ${payingSparesInvoice.invoice_number || payingSparesInvoice.vendor_invoice_number || payingSparesInvoice.id}`,
+                        notes: payingSparesInvoice.paid_by === 'technician'
+                            ? `Reimbursement to technician for spares purchase ${payingSparesInvoice.invoice_number || payingSparesInvoice.vendor_invoice_number || payingSparesInvoice.id}`
+                            : `Payment to supplier for spares purchase invoice ${payingSparesInvoice.invoice_number || payingSparesInvoice.vendor_invoice_number || payingSparesInvoice.id}`,
                         date: new Date().toISOString().split('T')[0],
                         allocations: [
                             {
