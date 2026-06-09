@@ -44,7 +44,8 @@ export async function POST(request, { params }) {
             type: body.type || 'note-added',
             category: body.category || 'communication',
             description: body.description,
-            performed_by_name: body.user_name || 'Technician',
+            performed_by_name: body.user_name || body.performedByName || body.performed_by_name || 'Technician',
+            performed_by: body.performedBy || body.performed_by || null,
             source: 'Technician App',
             metadata: body.metadata || {},
             timestamp: new Date().toISOString()

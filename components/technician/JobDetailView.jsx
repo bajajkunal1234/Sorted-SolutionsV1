@@ -1107,7 +1107,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                     setSavedInvoice(data.data);
                                                                     fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                        body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: 'Technician' })
+                                                                        body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: techName })
                                                                     }).catch(() => {});
                                                                     setShowWhatsappPopup({ type: 'invoice', doc: data.data });
                                                                 } else throw new Error(data.error);
@@ -1545,7 +1545,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             // Status stays — tech will explicitly choose Approved / Denied / Needs Time
                             fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                                body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: techName, customer_id: editedJob.customerId || null })
                             }).catch(() => {});
                             setActiveForm(null); setCalculatorItems(null);
                             setShowWhatsappPopup({ type: 'quotation', doc: savedData });
@@ -1579,7 +1579,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             setSavedInvoice(savedData);
                             fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: 'Technician', customer_id: editedJob.customerId || null })
+                                body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: techName, customer_id: editedJob.customerId || null })
                             }).catch(() => {});
                             setActiveForm(null);
                         }}

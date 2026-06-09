@@ -26,16 +26,24 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
             const result = await res.json();
             if (!result.success) throw new Error(result.error);
             // Normalize DB fields to what the UI expects
-            const mapped = (result.data || []).map(item => ({
-                ...item,
-                isLive: true,
-                customerId: item.customer_id,
-                customerName: item.customer_name || 'System',
-                jobId: item.job_id,
-                invoiceId: item.invoice_id,
-                performedBy: item.performed_by,
-                performedByName: item.performed_by_name || 'System',
-            }));
+            const mapped = (result.data || []).map(item => {
+                let name = item.performed_by_name;
+                if (!name) {
+                    name = 'System';
+                } else if (name === 'Technician') {
+                    name = item.jobs?.technician_name || 'Technician';
+                }
+                return {
+                    ...item,
+                    isLive: true,
+                    customerId: item.customer_id,
+                    customerName: item.customer_name || 'System',
+                    jobId: item.job_id,
+                    invoiceId: item.invoice_id,
+                    performedBy: item.performed_by,
+                    performedByName: name,
+                };
+            });
             setInteractions(mapped);
         } catch (err) {
             console.error('Failed to fetch interactions:', err);
@@ -541,6 +549,109 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Odoo-style Search & Action Row */}
+            <div className="tab-header-row" style={{
+                padding: '8px 16px',
+                backgroundColor: 'var(--bg-elevated)',
+                borderBottom: '1px solid var(--border-primary)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap',
+                flexShrink: 0
+            }}>
+                <span className="tab-title" style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, color: 'var(--text-primary)', flexShrink: 0 }}>Interactions</span>
+                {activeView === 'feed' && (
+                    <>
+                        {/* Odoo Search Panel */}
+                        <InteractionsSearchPanel
+                            searchTerm={searchTerm}
+                            onSearchChange={setSearchTerm}
+                            groupBy={groupBy}
+                            onGroupByChange={setGroupBy}
+                            sortBy={sortBy}
+                            onSortByChange={setSortBy}
+                            activeTags={activeTags}
+                            onAddTag={handleAddTag}
+                            onRemoveTag={handleRemoveTag}
+                            savedViews={savedViews}
+                            onSaveNamedView={handleSaveNamedView}
+                            onApplyView={applyView}
+                            onDeleteView={deleteView}
+                            onSetDefaultView={setDefaultView}
+                            saveStatus={saveStatus}
+                            onResetView={handleResetView}
+                        />
+
+                        {/* Column Picker */}
+                        <div ref={colPickerRef} style={{ position: 'relative' }}>
+                            <button
+                                onClick={() => setShowColPicker(v => !v)}
+                                className="btn btn-secondary"
+                                style={{
+                                    padding: '6px 12px',
+                                    fontSize: 'var(--font-size-xs)',
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    borderColor: showColPicker ? 'var(--color-primary)' : 'var(--border-primary)',
+                                }}
+                            >
+                                <Columns size={14} /> Columns
+                                <ChevronDown size={12} style={{ transition: 'transform 0.2s', transform: showColPicker ? 'rotate(180deg)' : 'none' }} />
+                            </button>
+
+                            {showColPicker && (
+                                <div style={{
+                                    position: 'absolute', top: 'calc(100% + 6px)', right: 0,
+                                    background: 'var(--bg-elevated)',
+                                    border: '1px solid var(--border-primary)',
+                                    borderRadius: 'var(--radius-md)',
+                                    boxShadow: 'var(--shadow-lg)',
+                                    zIndex: 200, minWidth: 190, padding: '8px 0',
+                                }}>
+                                    <div style={{ padding: '4px 12px 8px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--border-primary)', marginBottom: 4 }}>
+                                        Toggle Columns
+                                    </div>
+                                    {ALL_COLUMNS.map(c => (
+                                        <label key={c.id} style={{
+                                            display: 'flex', alignItems: 'center', gap: 8,
+                                            padding: '7px 14px', cursor: 'pointer',
+                                            fontSize: 'var(--font-size-xs)', fontWeight: 500,
+                                            color: visibleCols[c.id] ? 'var(--text-primary)' : 'var(--text-tertiary)',
+                                            transition: 'background 0.15s',
+                                        }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={!!visibleCols[c.id]}
+                                                onChange={() => toggleCol(c.id)}
+                                                style={{ accentColor: 'var(--color-primary)', width: 14, height: 14 }}
+                                            />
+                                            {c.label}
+                                        </label>
+                                    ))}
+                                    <div style={{ borderTop: '1px solid var(--border-primary)', margin: '6px 0 4px', padding: '4px 14px 0', display: 'flex', gap: 8 }}>
+                                        <button onClick={() => setVisibleCols(Object.fromEntries(ALL_COLUMNS.map(c => [c.id, true])))} style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '4px 0', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600 }}>Show All</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Actions: Refresh */}
+                        <button
+                            type="button"
+                            onClick={fetchInteractions}
+                            className="btn btn-secondary"
+                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: 4 }}
+                        >
+                            <RefreshCcw size={14} />
+                            Refresh
+                        </button>
+                    </>
+                )}
+            </div>
+
             {/* Sub-tab Navigation */}
             <div style={{ display: 'flex', borderBottom: '2px solid var(--border-primary)', padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', gap: 4, flexShrink: 0 }}>
                 {[{ id: 'feed', label: 'Interaction Feed', icon: Activity }, { id: 'triggers', label: '⚡ Triggers', icon: Zap }].map(tab => (
@@ -554,113 +665,6 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
             {activeView === 'triggers' && <InteractionTriggersTab />}
 
             {activeView === 'feed' && <>
-            {/* Odoo-style Search & Action Row */}
-            <div style={{
-                padding: '8px 16px',
-                backgroundColor: 'var(--bg-elevated)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                flexWrap: 'wrap'
-            }}>
-                {/* Odoo Search Panel */}
-                <InteractionsSearchPanel
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    groupBy={groupBy}
-                    onGroupByChange={setGroupBy}
-                    sortBy={sortBy}
-                    onSortByChange={setSortBy}
-                    activeTags={activeTags}
-                    onAddTag={handleAddTag}
-                    onRemoveTag={handleRemoveTag}
-                    savedViews={savedViews}
-                    onSaveNamedView={handleSaveNamedView}
-                    onApplyView={applyView}
-                    onDeleteView={deleteView}
-                    onSetDefaultView={setDefaultView}
-                    saveStatus={saveStatus}
-                    onResetView={handleResetView}
-                />
-
-                {/* Column Picker */}
-                <div ref={colPickerRef} style={{ position: 'relative' }}>
-                    <button
-                        onClick={() => setShowColPicker(v => !v)}
-                        className="btn btn-secondary"
-                        style={{
-                            padding: '6px 12px',
-                            fontSize: 'var(--font-size-xs)',
-                            display: 'flex', alignItems: 'center', gap: '6px',
-                            borderColor: showColPicker ? 'var(--color-primary)' : 'var(--border-primary)',
-                        }}
-                    >
-                        <Columns size={14} /> Columns
-                        <ChevronDown size={12} style={{ transition: 'transform 0.2s', transform: showColPicker ? 'rotate(180deg)' : 'none' }} />
-                    </button>
-
-                    {showColPicker && (
-                        <div style={{
-                            position: 'absolute', top: 'calc(100% + 6px)', right: 0,
-                            background: 'var(--bg-elevated)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-md)',
-                            boxShadow: 'var(--shadow-lg)',
-                            zIndex: 200, minWidth: 190, padding: '8px 0',
-                        }}>
-                            <div style={{ padding: '4px 12px 8px', fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', borderBottom: '1px solid var(--border-primary)', marginBottom: 4 }}>
-                                Toggle Columns
-                            </div>
-                            {ALL_COLUMNS.map(c => (
-                                <label key={c.id} style={{
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                    padding: '7px 14px', cursor: 'pointer',
-                                    fontSize: 'var(--font-size-xs)', fontWeight: 500,
-                                    color: visibleCols[c.id] ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                                    transition: 'background 0.15s',
-                                }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-secondary)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    <input
-                                        type="checkbox"
-                                        checked={!!visibleCols[c.id]}
-                                        onChange={() => toggleCol(c.id)}
-                                        style={{ accentColor: 'var(--color-primary)', width: 14, height: 14 }}
-                                    />
-                                    {c.label}
-                                </label>
-                            ))}
-                            <div style={{ borderTop: '1px solid var(--border-primary)', margin: '6px 0 4px', padding: '4px 14px 0', display: 'flex', gap: 8 }}>
-                                <button onClick={() => setVisibleCols(Object.fromEntries(ALL_COLUMNS.map(c => [c.id, true])))} style={{ flex: 1, fontSize: 'var(--font-size-xs)', padding: '4px 0', background: 'var(--color-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', cursor: 'pointer', fontWeight: 600 }}>Show All</button>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* Actions: Refresh & Export */}
-                <button
-                    type="button"
-                    onClick={fetchInteractions}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                    <RefreshCcw size={14} />
-                    Refresh
-                </button>
-
-                <button
-                    type="button"
-                    onClick={handleExport}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                    <Download size={14} />
-                    Export CSV
-                </button>
-            </div>
-
             {/* Content Area */}
             <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
                 {Object.entries(groupedData).map(([groupName, groupInteractions]) => (
@@ -678,8 +682,8 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
                             </h3>
                         )}
 
-                        <div style={{ width: '100%', overflowX: 'auto' }}>
-                            <table className="data-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse' }}>
+                        <div className="table-responsive" style={{ width: '100%', overflowX: 'auto', display: 'block', WebkitOverflowScrolling: 'touch' }}>
+                            <table className="data-table" style={{ width: '1100px', minWidth: '1100px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
                                 <thead>
                                     <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                         {col('timestamp') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '150px', minWidth: '150px' }}>Timestamp</th>}

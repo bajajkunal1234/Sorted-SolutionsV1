@@ -1,0 +1,1171 @@
+[
+  {
+    "id": "6ceb6509-64ec-4549-aeea-1c8739dd80d3",
+    "timestamp": "2026-06-09T21:23:52.959+00:00",
+    "type": "feedback-received",
+    "category": "feedback",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "db032f50-f617-4ae5-9e66-f7c8ab99cfc5",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Customer gave feedback: NO",
+    "metadata": {
+      "feedback_given": "No"
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:23:53.098825+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "0afe33e9-74e5-4cb4-82b7-dfce153a6540",
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "2fa21b5a-e62f-4a42-8d54-c53ab8f506b4",
+    "timestamp": "2026-06-09T21:23:51.234+00:00",
+    "type": "job-status-closed",
+    "category": "job",
+    "customer_id": "0b5d3948-9350-4ccf-89b7-fc187da4c7ac",
+    "customer_name": "Madhukar Mhatre ",
+    "job_id": "db032f50-f617-4ae5-9e66-f7c8ab99cfc5",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job #JOB-1201 — Job closed by Admin with call closure notes",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:23:53.10762+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "0afe33e9-74e5-4cb4-82b7-dfce153a6540",
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "84d4e44d-7d1e-4a73-8321-90f7af257014",
+    "timestamp": "2026-06-09T21:23:49.851+00:00",
+    "type": "job-closed",
+    "category": "job",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "db032f50-f617-4ae5-9e66-f7c8ab99cfc5",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Mandatory Notes Closed: POC: Customer | Repair: Repair Done",
+    "metadata": {
+      "poc": "Customer",
+      "notes": "=== MANDATORY CLOSE CALL NOTES ===\nPoint of Contact: Customer\nRepair Outcome: Repair Done\nUsage & Warranty Explained: Yes ✓\nCustomer Tested: Yes ✓",
+      "custom_reason": null,
+      "tested_reason": null,
+      "repair_outcome": "Repair Done",
+      "customer_tested": "Yes",
+      "warranty_reason": null,
+      "warranty_explained": "Yes"
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:23:50.026926+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "0afe33e9-74e5-4cb4-82b7-dfce153a6540",
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "24d44511-5b80-4a1c-97d3-cb684d1492e7",
+    "timestamp": "2026-06-09T21:23:40.074+00:00",
+    "type": "payment-received",
+    "category": "payment",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "db032f50-f617-4ae5-9e66-f7c8ab99cfc5",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Payment of ₹2699 collected via CASH marking for Admin Verification.",
+    "metadata": {
+      "amount": 2699,
+      "method": "cash",
+      "receipt_id": "6d69cd2d-0b53-4776-bd9b-de839fee90b4",
+      "attachments": []
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:23:40.208537+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "0afe33e9-74e5-4cb4-82b7-dfce153a6540",
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "6f826f13-cfba-4b6a-ab10-681608285c89",
+    "timestamp": "2026-06-09T21:21:59.423+00:00",
+    "type": "job-status-closed",
+    "category": "job",
+    "customer_id": "5423ca01-f24a-4739-9155-fdd3f86a4be4",
+    "customer_name": "Mrs.Ritu Patil",
+    "job_id": "57d2a65f-54a7-4f0a-8ad2-8b179c17b574",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job #JOB-1200 — Status changed: diagnosing_quoting → closed by Admin",
+    "metadata": {},
+    "source": "Admin",
+    "status": "completed",
+    "created_at": "2026-06-09T21:21:59.895902+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "0afe33e9-74e5-4cb4-82b7-dfce153a6540",
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "5989f5a1-2000-44f3-9354-cbfd805fca2d",
+    "timestamp": "2026-06-09T21:21:08.535+00:00",
+    "type": "job-created-admin",
+    "category": "job",
+    "customer_id": "52de7804-1685-4837-9cba-6a02ab3f7807",
+    "customer_name": "Chetan Jasrani Ji",
+    "job_id": "7bbf2d5d-183f-46b4-ac92-463b47c94a13",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job JOB-1234 created by admin — Oven Microwave Oven",
+    "metadata": {},
+    "source": "Admin",
+    "status": "completed",
+    "created_at": "2026-06-09T21:21:08.912626+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "2380a473-9445-460f-87f6-ae41017917db",
+    "timestamp": "2026-06-09T21:19:50.300007+00:00",
+    "type": "account-viewed",
+    "category": "account",
+    "customer_id": "52de7804-1685-4837-9cba-6a02ab3f7807",
+    "customer_name": "Chetan Jasrani Ji",
+    "job_id": null,
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Admin opened account record — Chetan Jasrani Ji (SKU: C100559)",
+    "metadata": {},
+    "source": "Admin App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:19:50.300007+00:00",
+    "property_id": null,
+    "jobs": null
+  },
+  {
+    "id": "b05c1c40-d947-4529-b2d6-ff404fb946c3",
+    "timestamp": "2026-06-09T21:14:36.538+00:00",
+    "type": "job-edited",
+    "category": "job",
+    "customer_id": "b0abbd34-f383-498c-a622-99d89b523f14",
+    "customer_name": "Sameer Patole Andheri",
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job #JOB-1214 updated by Admin: Scheduled date updated to none; Scheduled time updated to none; Notes updated",
+    "metadata": {
+      "changes": [
+        "Scheduled date updated to none",
+        "Scheduled time updated to none",
+        "Notes updated"
+      ]
+    },
+    "source": "Admin",
+    "status": "completed",
+    "created_at": "2026-06-09T21:14:36.673109+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "5ff20701-8874-4261-983e-2d7f21757eda",
+    "timestamp": "2026-06-09T21:14:32.909+00:00",
+    "type": "feedback-received",
+    "category": "feedback",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Customer gave feedback: NO",
+    "metadata": {
+      "feedback_given": "No"
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:14:33.166702+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "7d580509-736b-45c2-aaf0-a635c3323073",
+    "timestamp": "2026-06-09T21:14:29.978+00:00",
+    "type": "job-status-closed",
+    "category": "job",
+    "customer_id": "b0abbd34-f383-498c-a622-99d89b523f14",
+    "customer_name": "Sameer Patole Andheri",
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job #JOB-1214 — Job closed by Admin with call closure notes",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:14:33.158137+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "a877639c-45d2-4945-b307-a09cda7fadc7",
+    "timestamp": "2026-06-09T21:14:28.278+00:00",
+    "type": "job-closed",
+    "category": "job",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Mandatory Notes Closed: POC: Customer | Repair: Repair Done",
+    "metadata": {
+      "poc": "Customer",
+      "notes": "=== MANDATORY CLOSE CALL NOTES ===\nPoint of Contact: Customer\nRepair Outcome: Repair Done\nUsage & Warranty Explained: Yes ✓\nCustomer Tested: Yes ✓",
+      "custom_reason": null,
+      "tested_reason": null,
+      "repair_outcome": "Repair Done",
+      "customer_tested": "Yes",
+      "warranty_reason": null,
+      "warranty_explained": "Yes"
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:14:28.569931+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "2533e0b0-8345-4770-8ce2-c8273292845d",
+    "timestamp": "2026-06-09T21:14:17.103+00:00",
+    "type": "payment-received",
+    "category": "payment",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Payment of ₹6924 collected via CASH marking for Admin Verification.",
+    "metadata": {
+      "amount": 6924,
+      "method": "cash",
+      "receipt_id": "69a0ef07-dfba-4730-8360-e2a43f39c9c1",
+      "attachments": []
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:14:17.232002+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "340a5b53-d9a7-44cd-a10c-bb083282fa5f",
+    "timestamp": "2026-06-09T21:13:51.447+00:00",
+    "type": "invoice-created",
+    "category": "billing",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Final invoice created from quotation QUO-2026-5263",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:13:51.622139+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "8a157ed4-ba82-4c6e-8d62-a6e37ab34a00",
+    "timestamp": "2026-06-09T21:13:44.959+00:00",
+    "type": "approve_quotation",
+    "category": "billing",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Quotation QUO-2026-5263 manually approved by customer",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:13:45.100457+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "89cb6cb5-6d08-4be4-82f6-ad53b9dc4585",
+    "timestamp": "2026-06-09T21:13:44.619+00:00",
+    "type": "job-status-work_in_progress",
+    "category": "job",
+    "customer_id": "b0abbd34-f383-498c-a622-99d89b523f14",
+    "customer_name": "Sameer Patole Andheri",
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job #JOB-1214 — Status changed: diagnosing_quoting → work_in_progress by Admin",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:13:45.11517+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "758e5c7a-ba95-48d3-815d-9ea2e55664fb",
+    "timestamp": "2026-06-09T21:13:40.284+00:00",
+    "type": "quotation-created",
+    "category": "billing",
+    "customer_id": "b0abbd34-f383-498c-a622-99d89b523f14",
+    "customer_name": null,
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Quotation QUO-2026-5263 created for job #JOB-1214",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:13:40.430585+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "16a131f0-b717-4148-85f0-debb00bb582c",
+    "timestamp": "2026-06-09T21:03:44.015+00:00",
+    "type": "note-added",
+    "category": "communication",
+    "customer_id": "b0abbd34-f383-498c-a622-99d89b523f14",
+    "customer_name": null,
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Kunal Visited along with Umesh to install acc 13ft pipe setup installation done",
+    "metadata": {
+      "attachments": []
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:03:44.327675+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "2f721902-6e7c-4f1f-a5da-06e70e52449a",
+    "timestamp": "2026-06-09T21:02:53.129+00:00",
+    "type": "job-status-closed",
+    "category": "job",
+    "customer_id": "f1ba3550-d9b8-4aab-96d0-22e4ba07ffc0",
+    "customer_name": "Hemant Ji",
+    "job_id": "d74a3a6d-1d6b-4358-b701-6e419df32ef5",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job #JOB-1004 — Status changed: scheduled → closed by Admin",
+    "metadata": {},
+    "source": "Admin",
+    "status": "completed",
+    "created_at": "2026-06-09T21:02:53.289414+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "0afe33e9-74e5-4cb4-82b7-dfce153a6540",
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "45f36283-9273-4906-9af8-3cc3ceed04e1",
+    "timestamp": "2026-06-09T21:02:35.232+00:00",
+    "type": "note-added",
+    "category": "communication",
+    "customer_id": "f1ba3550-d9b8-4aab-96d0-22e4ba07ffc0",
+    "customer_name": null,
+    "job_id": "d74a3a6d-1d6b-4358-b701-6e419df32ef5",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Collected from shaad with a timer pcb fit and delivered to cx also tested at cx place",
+    "metadata": {
+      "attachments": []
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T21:02:35.404323+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "0afe33e9-74e5-4cb4-82b7-dfce153a6540",
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "db28cdae-d185-4ffd-b6e6-1480685bb8e3",
+    "timestamp": "2026-06-09T20:23:05.683+00:00",
+    "type": "account-created",
+    "category": "account",
+    "customer_id": "dc68cc2d-c057-4841-b488-48aa46f3ca88",
+    "customer_name": "Royal Cool Goregaon West",
+    "job_id": null,
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Account created — Royal Cool Goregaon West · SKU: S103 · Type: supplier · Phone: 8433856229 · Status: active",
+    "metadata": {},
+    "source": "Admin App",
+    "status": "completed",
+    "created_at": "2026-06-09T20:23:05.796467+00:00",
+    "property_id": null,
+    "jobs": null
+  },
+  {
+    "id": "882c12d0-76e0-41e0-a058-31a78761692a",
+    "timestamp": "2026-06-09T20:18:47.874+00:00",
+    "type": "job-reassigned",
+    "category": "job",
+    "customer_id": "b0abbd34-f383-498c-a622-99d89b523f14",
+    "customer_name": "Sameer Patole Andheri",
+    "job_id": "35d882ce-19b0-407e-9ed1-676399edd797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job #JOB-1214 reassigned: Vinod Gupta → Kunal Bajaj",
+    "metadata": {
+      "to_technician": "Kunal Bajaj",
+      "from_technician": "Vinod Gupta"
+    },
+    "source": "Admin",
+    "status": "completed",
+    "created_at": "2026-06-09T20:18:48.276283+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": "Kunal Bajaj"
+    }
+  },
+  {
+    "id": "4e856849-a142-4a1d-b261-492c6e3e5d48",
+    "timestamp": "2026-06-09T18:04:28.95+00:00",
+    "type": "admin-login",
+    "category": "account",
+    "customer_id": null,
+    "customer_name": "Admin",
+    "job_id": null,
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "System",
+    "description": "Admin logged in (8928895590)",
+    "metadata": {},
+    "source": "Admin Portal",
+    "status": "completed",
+    "created_at": "2026-06-09T18:04:29.151405+00:00",
+    "property_id": null,
+    "jobs": null
+  },
+  {
+    "id": "53e3d6a1-7b93-42cf-9d66-ff562f8f6de2",
+    "timestamp": "2026-06-09T17:05:22.623+00:00",
+    "type": "job-opened",
+    "category": "job",
+    "customer_id": "f6dc4ead-fe0e-454e-afb4-83ee6fd0b146",
+    "customer_name": "Hemali Kapadia Colaba",
+    "job_id": "f9529e5f-962e-47ee-98c4-222e71c81797",
+    "invoice_id": null,
+    "performed_by": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+    "performed_by_name": "Vinod Gupta Tech",
+    "description": "Technician opened job: Hemali Kapadia Colaba — Refrigerator",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T17:05:24.217904+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta"
+    }
+  },
+  {
+    "id": "a71cba20-8873-45e0-b310-f6856d8240ac",
+    "timestamp": "2026-06-09T11:57:07.891+00:00",
+    "type": "job-status-closed",
+    "category": "job",
+    "customer_id": "54d4036e-32df-4ef7-8f18-a9b082e6bfa9",
+    "customer_name": "Manoj Fulani",
+    "job_id": "a9837c07-7f38-418e-a2fc-efd22fd63f07",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Job #JOB-1231 — Job closed by Technician with call closure notes",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:57:09.343112+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "e83d5019-75fc-48f3-b82e-d80064766801",
+    "timestamp": "2026-06-09T11:57:06.338+00:00",
+    "type": "close-call-no-service",
+    "category": "job",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "a9837c07-7f38-418e-a2fc-efd22fd63f07",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Close Call — No Service. POC: Customer. Reason: Eating problems",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:57:06.480172+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "c409c21b-4042-4c2b-acc0-0b7cb6a4ef8c",
+    "timestamp": "2026-06-09T11:56:51.033+00:00",
+    "type": "booking-enquiry-captured",
+    "category": "job",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "e160a87c-b9e5-4f4a-9c19-43fd5ff4cc7b",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "System",
+    "description": "Website Enquiry: Washing Machine — Semi-Automatic",
+    "metadata": {
+      "phone": "8169759646",
+      "pincode": "421102",
+      "categoryId": "5",
+      "subcategoryId": "15"
+    },
+    "source": "Website",
+    "status": "completed",
+    "created_at": "2026-06-09T11:56:51.147876+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": null
+    }
+  },
+  {
+    "id": "2bf11d06-b2e3-4ab7-85ce-53945df493b3",
+    "timestamp": "2026-06-09T11:56:49.366+00:00",
+    "type": "property-edited",
+    "category": "property",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": null,
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "System",
+    "description": "Property updated by admin: location_verified_by, location_verified_at",
+    "metadata": {
+      "property_id": "4729545d-f522-4290-8ecb-8a8d19e85542",
+      "changed_fields": [
+        "location_verified_by",
+        "location_verified_at"
+      ]
+    },
+    "source": "Admin App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:56:49.479008+00:00",
+    "property_id": "4729545d-f522-4290-8ecb-8a8d19e85542",
+    "jobs": null
+  },
+  {
+    "id": "dbbaeee2-36d4-4f7b-b3f6-45086925aeac",
+    "timestamp": "2026-06-09T11:56:49.011+00:00",
+    "type": "location-verified",
+    "category": "property",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "a9837c07-7f38-418e-a2fc-efd22fd63f07",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Customer pin location confirmed accurate by Technician",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:56:49.152856+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "1d8e876f-7933-483e-8755-a2de7a34db2d",
+    "timestamp": "2026-06-09T11:56:47.075+00:00",
+    "type": "job-status-diagnosing_quoting",
+    "category": "job",
+    "customer_id": "54d4036e-32df-4ef7-8f18-a9b082e6bfa9",
+    "customer_name": "Manoj Fulani",
+    "job_id": "a9837c07-7f38-418e-a2fc-efd22fd63f07",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Job #JOB-1231 — Status changed: scheduled → diagnosing_quoting by Technician (arrived)",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:56:49.170404+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "0448ad0c-b6e9-4056-95f5-b6504b518949",
+    "timestamp": "2026-06-09T11:56:00.098+00:00",
+    "type": "job-opened",
+    "category": "job",
+    "customer_id": "54d4036e-32df-4ef7-8f18-a9b082e6bfa9",
+    "customer_name": "Manoj Fulani",
+    "job_id": "a9837c07-7f38-418e-a2fc-efd22fd63f07",
+    "invoice_id": null,
+    "performed_by": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+    "performed_by_name": "Vinod Gupta Tech",
+    "description": "Technician opened job: Manoj Fulani — Refrigerator",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:56:01.956908+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "9baafaa8-b732-480b-89b5-988f76c7fe5c",
+    "timestamp": "2026-06-09T11:32:02.677+00:00",
+    "type": "booking-created-website",
+    "category": "job",
+    "customer_id": "697f9e69-d932-4844-bdcd-3bc4415126b9",
+    "customer_name": "Rinku goad",
+    "job_id": "2349a38f-cfdd-487c-a706-f66c14010d2a",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "System",
+    "description": "Website booking: Refrigerator — Single Door (JOB-1232)",
+    "metadata": {
+      "pincode": "400101",
+      "categoryId": "1",
+      "customerId": "697f9e69-d932-4844-bdcd-3bc4415126b9",
+      "bookingNumber": "JOB-1232",
+      "subcategoryId": "1"
+    },
+    "source": "Website",
+    "status": "completed",
+    "created_at": "2026-06-09T11:32:02.799363+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": null
+    }
+  },
+  {
+    "id": "de389be8-976a-48b5-a6d6-8f29e37900ce",
+    "timestamp": "2026-06-09T11:29:47.851+00:00",
+    "type": "booking-enquiry-captured",
+    "category": "job",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "2349a38f-cfdd-487c-a706-f66c14010d2a",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "System",
+    "description": "Website Enquiry: Refrigerator — Single Door",
+    "metadata": {
+      "phone": "9819947515",
+      "pincode": "400101",
+      "categoryId": "1",
+      "subcategoryId": "1"
+    },
+    "source": "Website",
+    "status": "completed",
+    "created_at": "2026-06-09T11:29:47.975926+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": null,
+      "technician_name": null
+    }
+  },
+  {
+    "id": "006d56c4-52c7-450b-b50d-1ae41d1ae31e",
+    "timestamp": "2026-06-09T11:13:19.281+00:00",
+    "type": "job-created-admin",
+    "category": "job",
+    "customer_id": "54d4036e-32df-4ef7-8f18-a9b082e6bfa9",
+    "customer_name": "Manoj Fulani",
+    "job_id": "a9837c07-7f38-418e-a2fc-efd22fd63f07",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Job JOB-1231 created by admin — Refrigerator Double Door",
+    "metadata": {},
+    "source": "Admin",
+    "status": "completed",
+    "created_at": "2026-06-09T11:13:19.873099+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "c948bd9b-a416-4cc3-aacc-8d1a91dca288",
+    "timestamp": "2026-06-09T11:11:45.663+00:00",
+    "type": "account-created",
+    "category": "account",
+    "customer_id": "54d4036e-32df-4ef7-8f18-a9b082e6bfa9",
+    "customer_name": "Manoj Fulani",
+    "job_id": null,
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Admin",
+    "description": "Account created — Manoj Fulani · SKU: C100597 · Type: customer · Phone: 9867940363 · Status: active",
+    "metadata": {},
+    "source": "Admin App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:11:45.778877+00:00",
+    "property_id": null,
+    "jobs": null
+  },
+  {
+    "id": "e79a024a-7f48-4608-9ee2-c000001ee379",
+    "timestamp": "2026-06-09T11:11:42.934+00:00",
+    "type": "nav-tab-switch",
+    "category": "navigation",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": null,
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": null,
+    "description": "Technician switched to Dashboard tab",
+    "metadata": {
+      "target": "Dashboard"
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T11:11:44.309823+00:00",
+    "property_id": null,
+    "jobs": null
+  },
+  {
+    "id": "17223069-977e-4d86-97b3-6374f395a5a2",
+    "timestamp": "2026-06-09T10:35:18.368+00:00",
+    "type": "job-opened",
+    "category": "job",
+    "customer_id": "0f458f3d-7d6b-429c-8f30-4620a2d95b6e",
+    "customer_name": "Joseph Chakramakkil",
+    "job_id": "3d5ccc8e-1cf4-47a0-b2b2-65b671214900",
+    "invoice_id": null,
+    "performed_by": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+    "performed_by_name": "Vinod Gupta Tech",
+    "description": "Technician opened job: Joseph Chakramakkil — Oven",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:35:19.807833+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta"
+    }
+  },
+  {
+    "id": "a0c962df-4ea3-45fb-90ac-f0c1bcc08750",
+    "timestamp": "2026-06-09T10:30:22.237+00:00",
+    "type": "map-navigation-opened",
+    "category": "job",
+    "customer_id": "f6dc4ead-fe0e-454e-afb4-83ee6fd0b146",
+    "customer_name": "Hemali Kapadia Colaba",
+    "job_id": "f9529e5f-962e-47ee-98c4-222e71c81797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": null,
+    "description": "Technician opened maps navigation for job at: A 15/687, Mahavir Estate, N.M.Joshi Marg, Near Byculla station, Byculla west Opp. Arihant Heights, Byculla, Mumbai",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:30:24.688077+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta"
+    }
+  },
+  {
+    "id": "11460e77-3b31-41b5-8813-51927ba7f8a5",
+    "timestamp": "2026-06-09T10:29:41.036+00:00",
+    "type": "job-opened",
+    "category": "job",
+    "customer_id": "f6dc4ead-fe0e-454e-afb4-83ee6fd0b146",
+    "customer_name": "Hemali Kapadia Colaba",
+    "job_id": "f9529e5f-962e-47ee-98c4-222e71c81797",
+    "invoice_id": null,
+    "performed_by": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+    "performed_by_name": "Vinod Gupta Tech",
+    "description": "Technician opened job: Hemali Kapadia Colaba — Refrigerator",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:29:42.991981+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta"
+    }
+  },
+  {
+    "id": "1ecd7685-be59-495a-b56a-6f975173b270",
+    "timestamp": "2026-06-09T10:25:06.454+00:00",
+    "type": "map-navigation-opened",
+    "category": "job",
+    "customer_id": "f6dc4ead-fe0e-454e-afb4-83ee6fd0b146",
+    "customer_name": "Hemali Kapadia Colaba",
+    "job_id": "f9529e5f-962e-47ee-98c4-222e71c81797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": null,
+    "description": "Technician opened maps navigation for job at: A 15/687, Mahavir Estate, N.M.Joshi Marg, Near Byculla station, Byculla west Opp. Arihant Heights, Byculla, Mumbai",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:25:07.960343+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta"
+    }
+  },
+  {
+    "id": "b837d7d6-9e4e-4524-aaa0-5375128c1350",
+    "timestamp": "2026-06-09T10:12:18.416+00:00",
+    "type": "map-navigation-opened",
+    "category": "job",
+    "customer_id": "f6dc4ead-fe0e-454e-afb4-83ee6fd0b146",
+    "customer_name": "Hemali Kapadia Colaba",
+    "job_id": "f9529e5f-962e-47ee-98c4-222e71c81797",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": null,
+    "description": "Technician opened maps navigation for job at: A 15/687, Mahavir Estate, N.M.Joshi Marg, Near Byculla station, Byculla west Opp. Arihant Heights",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:12:19.739265+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta"
+    }
+  },
+  {
+    "id": "814dab42-5e46-4556-81ad-4a28d6668f00",
+    "timestamp": "2026-06-09T10:12:16.622+00:00",
+    "type": "job-opened",
+    "category": "job",
+    "customer_id": "f6dc4ead-fe0e-454e-afb4-83ee6fd0b146",
+    "customer_name": "Hemali Kapadia Colaba",
+    "job_id": "f9529e5f-962e-47ee-98c4-222e71c81797",
+    "invoice_id": null,
+    "performed_by": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+    "performed_by_name": "Vinod Gupta Tech",
+    "description": "Technician opened job: Hemali Kapadia Colaba — Refrigerator",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:12:18.217783+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta"
+    }
+  },
+  {
+    "id": "dfeccf09-0c16-45ce-8b0e-564f57567cae",
+    "timestamp": "2026-06-09T10:09:47.572+00:00",
+    "type": "invoice-created",
+    "category": "billing",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Final invoice created from quotation QUO-2026-8401",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:09:47.68266+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "cbd51113-93d3-4db2-b6d1-718d36c39ad2",
+    "timestamp": "2026-06-09T10:09:41.304+00:00",
+    "type": "feedback-received",
+    "category": "feedback",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Customer gave feedback: YES",
+    "metadata": {
+      "feedback_given": "Yes"
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:09:41.415893+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "6553ebfa-541c-4cf7-add6-bba3c504dfa4",
+    "timestamp": "2026-06-09T10:09:36.63+00:00",
+    "type": "job-status-closed",
+    "category": "job",
+    "customer_id": "bb7e5089-d0dc-4438-a9dd-a1992dcd6d29",
+    "customer_name": "MUSTANG ENTERPRISES - RASHMI",
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Vinod Gupta Tech",
+    "description": "Job #JOB-1228 — Job closed by Vinod Gupta Tech with call closure notes",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:09:36.74688+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "949f53b6-93d4-4a1b-b9a0-7968ce5ac383",
+    "timestamp": "2026-06-09T10:09:32.494+00:00",
+    "type": "payment-received",
+    "category": "payment",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Payment of ₹199 collected via QR marking for Admin Verification.",
+    "metadata": {
+      "amount": 199,
+      "method": "qr",
+      "receipt_id": "6ec28c65-2ad8-4fdb-8dc5-428da00160dc",
+      "attachments": [
+        "https://oqwvbwaqcdbggcqvzswv.supabase.co/storage/v1/object/public/media/uploads/1780999769046-sftpoq05nw.webp"
+      ]
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:09:32.611899+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "2674e072-7b2a-49b6-b357-1f602a7dad93",
+    "timestamp": "2026-06-09T10:08:47.314+00:00",
+    "type": "job-closed",
+    "category": "job",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Mandatory Notes Closed: POC: MUSTANG ENTERPRISES - RASHMI | Repair: Closed on service charge",
+    "metadata": {
+      "poc": "MUSTANG ENTERPRISES - RASHMI",
+      "notes": "=== MANDATORY CLOSE CALL NOTES ===\nPoint of Contact: MUSTANG ENTERPRISES - RASHMI\nRepair Outcome: Closed on service charge",
+      "custom_reason": null,
+      "tested_reason": null,
+      "repair_outcome": "Closed on service charge",
+      "customer_tested": null,
+      "warranty_reason": null,
+      "warranty_explained": null
+    },
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:08:47.446353+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "cb894d35-3100-4898-bcd2-446306463d54",
+    "timestamp": "2026-06-09T10:08:35.607+00:00",
+    "type": "job-opened",
+    "category": "job",
+    "customer_id": "bb7e5089-d0dc-4438-a9dd-a1992dcd6d29",
+    "customer_name": "MUSTANG ENTERPRISES - RASHMI",
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+    "performed_by_name": "Vinod Gupta Tech",
+    "description": "Technician opened job: MUSTANG ENTERPRISES - RASHMI — Oven",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:08:36.899546+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "8df4b90b-ed94-41ec-89cc-1225a11647bd",
+    "timestamp": "2026-06-09T10:06:14.975+00:00",
+    "type": "quotation-created",
+    "category": "billing",
+    "customer_id": "bb7e5089-d0dc-4438-a9dd-a1992dcd6d29",
+    "customer_name": null,
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Quotation QUO-2026-8401 created for job #JOB-1228",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:06:15.085498+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "e3de0d78-dc4b-4b86-a137-bd24540defd9",
+    "timestamp": "2026-06-09T10:04:57.82+00:00",
+    "type": "location-verified",
+    "category": "property",
+    "customer_id": null,
+    "customer_name": null,
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Customer pin location confirmed accurate by Technician",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:04:57.947977+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  },
+  {
+    "id": "4c307dac-2327-4824-acbd-3699dd77718e",
+    "timestamp": "2026-06-09T10:04:56.395+00:00",
+    "type": "job-status-diagnosing_quoting",
+    "category": "job",
+    "customer_id": "bb7e5089-d0dc-4438-a9dd-a1992dcd6d29",
+    "customer_name": "MUSTANG ENTERPRISES - RASHMI",
+    "job_id": "d6ffa65a-efb2-4585-9d08-3b38c6fdc781",
+    "invoice_id": null,
+    "performed_by": null,
+    "performed_by_name": "Technician",
+    "description": "Job #JOB-1228 — Status changed: scheduled → diagnosing_quoting by Technician (arrived)",
+    "metadata": {},
+    "source": "Technician App",
+    "status": "completed",
+    "created_at": "2026-06-09T10:04:57.032335+00:00",
+    "property_id": null,
+    "jobs": {
+      "technician_id": "3c593991-902e-42a6-b0f3-5b74ea22691d",
+      "technician_name": "Vinod Gupta Tech"
+    }
+  }
+]

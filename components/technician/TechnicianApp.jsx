@@ -743,7 +743,7 @@ function TechnicianApp() {
                             type: 'purchase-invoice-created',
                             category: 'billing',
                             description: `Technician spare purchase draft of ₹${totalAmount.toLocaleString('en-IN')} created`,
-                            user_name: 'Technician',
+                            user_name: nameOfTech,
                             customer_id: purchaseJob.customerId || null
                         })
                     }).catch(() => {});
