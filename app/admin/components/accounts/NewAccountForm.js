@@ -156,7 +156,7 @@ const MUMBAI_LOCALITIES = [
     { name: 'Worli Sea Face', pincode: '400030' },
 ];
 
-function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], onGroupCreated, initialData = null, ledgers = [] }) {
+function NewAccountForm({ onClose, onSave, preselectedType = null, groups: propGroups = [], onGroupCreated, initialData = null, ledgers = [] }) {
     // Common fields
     const [formData, setFormData] = useState({
         sku: initialData?.sku || '',
@@ -237,6 +237,25 @@ function NewAccountForm({ onClose, onSave, preselectedType = null, groups = [], 
     const [properties, setProperties] = useState(initialData?.properties?.length > 0
         ? initialData.properties
         : []);
+
+    // Sync and fetch groups
+    const [groups, setGroups] = useState(propGroups);
+
+    useEffect(() => {
+        if (propGroups && propGroups.length > 0) {
+            setGroups(propGroups);
+        }
+    }, [propGroups]);
+
+    useEffect(() => {
+        if (!propGroups || propGroups.length === 0) {
+            accountGroupsAPI.getAll().then(data => {
+                if (data && data.length > 0) {
+                    setGroups(data);
+                }
+            }).catch(err => console.error('Failed to pre-fetch account groups in NewAccountForm:', err));
+        }
+    }, [propGroups]);
 
     // Form dirty state tracking
     const [isFormDirty, setIsFormDirty] = useState(false);
