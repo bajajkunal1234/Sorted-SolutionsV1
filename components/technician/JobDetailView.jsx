@@ -545,17 +545,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         }
     };
 
-    const handleMapClick = () => {
-        logInteraction({
-            type: 'map-navigation-opened',
-            category: 'job',
-            jobId: String(job.id),
-            customerId: editedJob.customerId ? String(editedJob.customerId) : undefined,
-            customerName: editedJob.customerName || editedJob.customer_name,
-            description: `Technician opened maps navigation for job at: ${editedJob.address || editedJob.locality || 'customer location'}`,
-            source: 'Technician App',
-        });
-    };
+
 
     return (
         <>
@@ -875,7 +865,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                         : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
                                                 }
                                                 target="_blank" rel="noreferrer"
-                                                onClick={handleMapClick}
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
                                             >
                                                 {storedLat && storedLng ? 'Navigate (Precise)' : 'Open in Maps →'}

@@ -489,23 +489,9 @@ function AccountsTab({ customerToOpen, onCustomerOpened }) {
     const handleCreateClick = () => { setSelectedTransaction(null); setActiveForm(tabConfig[activeTab].formType); };
     const handleTransactionClick = (transaction) => { setSelectedTransaction(transaction); setActiveForm(tabConfig[activeTab].formType); };
 
-    // Opens an account detail modal and logs the view interaction
+    // Opens an account detail modal
     const handleOpenAccount = (account) => {
         setSelectedAccount(account);
-        // Fire-and-forget view log
-        fetch('/api/admin/interactions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'account-viewed',
-                category: 'account',
-                customer_id: account.id,
-                customer_name: account.name,
-                performed_by_name: 'Admin',
-                description: `Admin opened account record — ${account.name} (SKU: ${account.sku || 'N/A'})`,
-                source: 'Admin App',
-            }),
-        }).catch(() => {}); // silent — never block the UI for a log call
     };
 
     // Multi-select helpers

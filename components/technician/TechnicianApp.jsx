@@ -9,7 +9,7 @@ import ExpensesList from '@/components/technician/ExpensesList';
 import CalendarView from '@/components/technician/CalendarView';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import NotificationBell from '@/components/common/NotificationBell';
-import { logInteraction, logNavigation } from '@/lib/interactions';
+import { logInteraction } from '@/lib/interactions';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import PWAPrompt from '@/components/common/PWAPrompt';
@@ -610,47 +610,14 @@ function TechnicianApp() {
     };
 
     const handleCallCustomer = (mobile, customerName = 'Customer', jobId = null, customerId = null) => {
-        logInteraction({
-            type: 'call-customer',
-            category: 'action',
-            jobId: jobId ? String(jobId) : undefined,
-            customerId: customerId ? String(customerId) : undefined,
-            customerName: customerName,
-            description: `Technician called customer: ${customerName} for job`,
-            source: 'Technician App',
-            performedBy: technicianId,
-            performedByName: technicianData?.name
-        });
         window.location.href = `tel:${mobile}`;
     };
 
     const handleOpenJob = (job) => {
-        logInteraction({
-            type: 'job-opened',
-            category: 'job',
-            jobId: String(job.id),
-            customerId: job.customerId ? String(job.customerId) : undefined,
-            customerName: job.customerName,
-            description: `Technician opened job: ${job.customerName} — ${job.category || job.product?.type || 'Service'}`,
-            source: 'Technician App',
-            performedBy: technicianId,
-            performedByName: technicianData?.name
-        });
         setSelectedJob(job);
     };
 
     const handleViewLocation = (job) => {
-        logInteraction({
-            type: 'map-navigation-opened',
-            category: 'job',
-            jobId: String(job.id),
-            customerId: job.customerId ? String(job.customerId) : undefined,
-            customerName: job.customerName,
-            description: `Technician opened maps navigation for: ${job.customerName} (${job.locality || job.address || ''})`,
-            source: 'Technician App',
-            performedBy: technicianId,
-            performedByName: technicianData?.name
-        });
         const addr = encodeURIComponent(job.address || job.locality || job.customerName);
         window.open(`https://www.google.com/maps/search/?api=1&query=${addr}`, '_blank');
     };
@@ -1744,7 +1711,6 @@ function TechnicianApp() {
                     className={`tab-item ${activeTab === 'dashboard' ? 'active' : ''}`}
                     onClick={() => {
                         setActiveTab('dashboard');
-                        logNavigation('Dashboard', 'Technician', 'Technician App');
                     }}
                 >
                     <LayoutDashboard size={20} />
@@ -1754,7 +1720,6 @@ function TechnicianApp() {
                     className={`tab-item ${activeTab === 'jobs' ? 'active' : ''}`}
                     onClick={() => {
                         setActiveTab('jobs');
-                        logNavigation('Jobs', 'Technician', 'Technician App');
                     }}
                 >
                     <Briefcase size={20} />
@@ -1764,7 +1729,6 @@ function TechnicianApp() {
                     className={`tab-item ${activeTab === 'settings' ? 'active' : ''}`}
                     onClick={() => {
                         setActiveTab('settings');
-                        logNavigation('Settings', 'Technician', 'Technician App');
                     }}
                 >
                     <Settings size={20} />

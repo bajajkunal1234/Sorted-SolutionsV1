@@ -134,37 +134,7 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
                         ) : activeLabel || 'Reports & Settings'}
                     </h2>
 
-                    {/* Dynamic Search Bar for Interactions */}
-                    {activeSection === 'interactions' && (
-                        <div style={{ position: 'relative', flex: 1, maxWidth: '500px', marginLeft: '20px' }}>
-                            <Search
-                                size={16}
-                                style={{
-                                    position: 'absolute',
-                                    left: '12px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    color: 'var(--text-tertiary)'
-                                }}
-                            />
-                            <input
-                                type="text"
-                                className="form-input"
-                                placeholder="Search interactions, customers, jobs..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{
-                                    paddingLeft: '2.5rem',
-                                    paddingTop: '8px',
-                                    paddingBottom: '8px',
-                                    fontSize: 'var(--font-size-sm)',
-                                    borderRadius: 'var(--radius-md)',
-                                    width: '100%',
-                                    backgroundColor: 'var(--bg-secondary)'
-                                }}
-                            />
-                        </div>
-                    )}
+
                 </div>
 
                 {/* Search Bar */}

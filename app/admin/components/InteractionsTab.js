@@ -9,9 +9,10 @@ import QuotationForm from './accounts/QuotationForm';
 import ReceiptVoucherForm from './accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from './accounts/PaymentVoucherForm';
 import InteractionTriggersTab from './reports/InteractionTriggersTab';
+import InteractionsSearchPanel from '@/components/shared/InteractionsSearchPanel';
 
 
-function InteractionsTab({ searchTerm, setSearchTerm }) {
+function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSearchTerm }) {
     const [interactions, setInteractions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [loadError, setLoadError] = useState(null);
@@ -47,14 +48,91 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
     useEffect(() => { fetchInteractions(); }, []);
 
 
-    // Local search props are now passed from parent
-    const [searchField, setSearchField] = useState('all'); // all, customer, job, invoice, description
-    const [groupBy, setGroupBy] = useState('none'); // none, customer, date, type, category, performedBy
-    const [filterUser, setFilterUser] = useState('all');
-    const [filterType, setFilterType] = useState('all');
-    const [filterCategory, setFilterCategory] = useState('all');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
+    // Local search & filter states
+    const [searchTerm, setSearchTerm] = useState('');
+    const [groupBy, setGroupBy] = useState('none');
+    const [sortBy, setSortBy] = useState('timestamp_desc');
+    const [activeTags, setActiveTags] = useState([]);
+    const [savedViews, setSavedViews] = useState([]);
+    const [saveStatus, setSaveStatus] = useState(null);
+
+    // Fetch saved views
+    useEffect(() => {
+        fetch('/api/admin/interaction-views')
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    const views = d.data || [];
+                    setSavedViews(views);
+                    const defaultView = views.find(v => v.isDefault);
+                    if (defaultView) applyView(defaultView);
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    const persistViews = async (views) => {
+        setSavedViews(views);
+        try {
+            await fetch('/api/admin/interaction-views', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ views })
+            });
+        } catch (e) {}
+    };
+
+    const handleSaveNamedView = async (name) => {
+        setSaveStatus('saving');
+        const config = { searchTerm, sortBy, groupBy, activeTags };
+        const existing = savedViews.find(v => v.name.toLowerCase() === name.toLowerCase());
+        let updated;
+        if (existing) {
+            updated = savedViews.map(v => v.name.toLowerCase() === name.toLowerCase() ? { ...v, config } : v);
+        } else {
+            const isFirst = savedViews.length === 0;
+            updated = [...savedViews, { id: Math.random().toString(36).slice(2, 9), name, isDefault: isFirst, config }];
+        }
+        await persistViews(updated);
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(null), 2000);
+    };
+
+    const deleteView = async (id) => {
+        const updated = savedViews.filter(v => v.id !== id);
+        await persistViews(updated);
+    };
+
+    const setDefaultView = async (id) => {
+        const updated = savedViews.map(v => ({ ...v, isDefault: v.id === id }));
+        await persistViews(updated);
+    };
+
+    const applyView = (view) => {
+        const c = view.config || {};
+        if (c.searchTerm !== undefined) setSearchTerm(c.searchTerm);
+        if (c.sortBy !== undefined) setSortBy(c.sortBy);
+        if (c.groupBy !== undefined) setGroupBy(c.groupBy);
+        if (c.activeTags !== undefined) setActiveTags(c.activeTags);
+    };
+
+    const handleResetView = () => {
+        setSearchTerm('');
+        setSortBy('timestamp_desc');
+        setGroupBy('none');
+        setActiveTags([]);
+    };
+
+    const handleAddTag = (tag) => {
+        setActiveTags(prev => {
+            const filtered = prev.filter(t => t.id !== tag.id);
+            return [...filtered, tag];
+        });
+    };
+
+    const handleRemoveTag = (id) => {
+        setActiveTags(prev => prev.filter(t => t.id !== id));
+    };
 
     // Edit transaction state
     const [showForm, setShowForm] = useState(false);
@@ -96,52 +174,104 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
     // Get unique users
     const uniqueUsers = [...new Set(interactions.map(i => i.performedByName))].sort();
 
+    const evaluateCondition = (interaction, condition) => {
+        const { field, operator, value } = condition;
+        let itemVal = '';
+        if (field === 'customer') itemVal = interaction.customerName || '';
+        else if (field === 'performedBy') itemVal = interaction.performedByName || '';
+        else if (field === 'jobId') itemVal = interaction.jobId || '';
+        else if (field === 'invoiceId') itemVal = interaction.invoiceId || '';
+        else if (field === 'type') itemVal = interaction.type || '';
+        else if (field === 'category') itemVal = interaction.category || '';
+        else if (field === 'description') itemVal = interaction.description || '';
+        else if (field === 'timestamp') itemVal = interaction.timestamp || '';
+
+        const itemStr = String(itemVal).toLowerCase();
+        const compStr = String(value).toLowerCase();
+
+        switch (operator) {
+            case 'contains':
+                return itemStr.includes(compStr);
+            case 'not_contains':
+                return !itemStr.includes(compStr);
+            case 'is':
+                if (field === 'timestamp') {
+                    if (!value) return true;
+                    const d1 = new Date(itemVal).toDateString();
+                    const d2 = new Date(value).toDateString();
+                    return d1 === d2;
+                }
+                return itemStr === compStr;
+            case 'is_not':
+                return itemStr !== compStr;
+            case 'before':
+                if (field === 'timestamp') {
+                    if (!value) return true;
+                    return new Date(itemVal) < new Date(value);
+                }
+                return itemStr < compStr;
+            case 'after':
+                if (field === 'timestamp') {
+                    if (!value) return true;
+                    const d = new Date(value);
+                    d.setHours(23, 59, 59, 999);
+                    return new Date(itemVal) > d;
+                }
+                return itemStr > compStr;
+            default:
+                return true;
+        }
+    };
+
     // Filter interactions
     const getFilteredInteractions = () => {
-        return interactions.filter(interaction => {
-            // Search filter
-            if (searchTerm) {
-                const term = searchTerm.toLowerCase();
-                const matchesSearch =
-                    (searchField === 'all' || searchField === 'customer') && interaction.customerName?.toLowerCase().includes(term) ||
-                    (searchField === 'all' || searchField === 'job') && interaction.jobId?.toLowerCase().includes(term) ||
-                    (searchField === 'all' || searchField === 'invoice') && interaction.invoiceId?.toLowerCase().includes(term) ||
-                    (searchField === 'all' || searchField === 'description') && interaction.description?.toLowerCase().includes(term);
+        let result = [...interactions];
 
-                if (!matchesSearch) return false;
+        // 1. Search term (matches customerName, performedByName, jobId, invoiceId, description)
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            result = result.filter(interaction => 
+                (interaction.customerName || '').toLowerCase().includes(term) ||
+                (interaction.performedByName || '').toLowerCase().includes(term) ||
+                (interaction.jobId || '').toLowerCase().includes(term) ||
+                (interaction.invoiceId || '').toLowerCase().includes(term) ||
+                (interaction.description || '').toLowerCase().includes(term)
+            );
+        }
+
+        // 2. Active tags
+        if (activeTags.length > 0) {
+            result = result.filter(interaction => {
+                return activeTags.every(tag => {
+                    if (tag.type === 'preset') {
+                        return Object.entries(tag.filter).every(([key, val]) => {
+                            return interaction[key] === val;
+                        });
+                    } else if (tag.type === 'custom') {
+                        return tag.conditions.every(cond => evaluateCondition(interaction, cond));
+                    }
+                    return true;
+                });
+            });
+        }
+
+        // 3. Sort
+        result.sort((a, b) => {
+            if (sortBy === 'timestamp_desc') {
+                return new Date(b.timestamp) - new Date(a.timestamp);
+            } else if (sortBy === 'timestamp_asc') {
+                return new Date(a.timestamp) - new Date(b.timestamp);
+            } else if (sortBy === 'customer_asc') {
+                return (a.customerName || '').localeCompare(b.customerName || '');
+            } else if (sortBy === 'customer_desc') {
+                return (b.customerName || '').localeCompare(a.customerName || '');
+            } else if (sortBy === 'type_asc') {
+                return (a.type || '').localeCompare(b.type || '');
             }
+            return new Date(b.timestamp) - new Date(a.timestamp);
+        });
 
-            // User filter
-            if (filterUser !== 'all' && interaction.performedByName !== filterUser) {
-                return false;
-            }
-
-            // Type filter
-            if (filterType !== 'all' && interaction.type !== filterType) {
-                return false;
-            }
-
-            // Category filter
-            if (filterCategory !== 'all' && interaction.category !== filterCategory) {
-                return false;
-            }
-
-            // Date range filter
-            if (dateFrom) {
-                const interactionDate = new Date(interaction.timestamp);
-                const fromDate = new Date(dateFrom);
-                if (interactionDate < fromDate) return false;
-            }
-
-            if (dateTo) {
-                const interactionDate = new Date(interaction.timestamp);
-                const toDate = new Date(dateTo);
-                toDate.setHours(23, 59, 59, 999); // End of day
-                if (interactionDate > toDate) return false;
-            }
-
-            return true;
-        }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        return result;
     };
 
     // Group interactions
@@ -424,226 +554,38 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
             {activeView === 'triggers' && <InteractionTriggersTab />}
 
             {activeView === 'feed' && <>
-            {/* Row 1: Date Range & Actions */}
+            {/* Odoo-style Search & Action Row */}
             <div style={{
-                padding: 'var(--spacing-sm) var(--spacing-md)',
+                padding: '8px 16px',
                 backgroundColor: 'var(--bg-elevated)',
                 borderBottom: '1px solid var(--border-primary)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 'var(--spacing-md)',
+                gap: '12px',
                 flexWrap: 'wrap'
             }}>
-                {/* Date Range */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <Calendar size={16} style={{ color: 'var(--text-tertiary)' }} />
-                    <input
-                        type="date"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        placeholder="From"
-                        style={{
-                            padding: '6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)'
-                        }}
-                    />
-                    <span style={{ color: 'var(--text-tertiary)' }}>to</span>
-                    <input
-                        type="date"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        placeholder="To"
-                        style={{
-                            padding: '6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)'
-                        }}
-                    />
-                </div>
+                {/* Odoo Search Panel */}
+                <InteractionsSearchPanel
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    groupBy={groupBy}
+                    onGroupByChange={setGroupBy}
+                    sortBy={sortBy}
+                    onSortByChange={setSortBy}
+                    activeTags={activeTags}
+                    onAddTag={handleAddTag}
+                    onRemoveTag={handleRemoveTag}
+                    savedViews={savedViews}
+                    onSaveNamedView={handleSaveNamedView}
+                    onApplyView={applyView}
+                    onDeleteView={deleteView}
+                    onSetDefaultView={setDefaultView}
+                    saveStatus={saveStatus}
+                    onResetView={handleResetView}
+                />
 
-                <div style={{ flex: 1 }} />
-
-                <button
-                    type="button"
-                    onClick={fetchInteractions}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: 4 }}
-                >
-                    <RefreshCcw size={14} />
-                    Refresh
-                </button>
-
-                <button
-                    type="button"
-                    onClick={handleExport}
-                    className="btn btn-secondary"
-                    style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)' }}
-                >
-                    <Download size={16} />
-                    Export CSV
-                </button>
-            </div>
-
-            {/* Filter Section Row 1 */}
-            <div style={{
-                padding: 'var(--spacing-xs) var(--spacing-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                gap: '12px',
-                flexWrap: 'wrap',
-                alignItems: 'center'
-            }}>
-                {/* Search Field selector */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={searchField}
-                        onChange={(e) => setSearchField(e.target.value)}
-                        style={{
-                            appearance: 'none',
-                            padding: '6px 24px 6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            minWidth: '100px'
-                        }}
-                    >
-                        <option value="all">Search All</option>
-                        <option value="customer">In Customers</option>
-                        <option value="job">In Job IDs</option>
-                        <option value="invoice">In Invoices</option>
-                        <option value="description">In Descriptions</option>
-                    </select>
-                    <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                </div>
-
-                {/* Group By */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={groupBy}
-                        onChange={(e) => setGroupBy(e.target.value)}
-                        style={{
-                            appearance: 'none',
-                            padding: '6px 24px 6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            fontWeight: 500
-                        }}
-                    >
-                        <option value="none">No Grouping</option>
-                        <option value="customer">Group by Customer</option>
-                        <option value="date">Group by Date</option>
-                        <option value="type">Group by Type</option>
-                        <option value="category">Group by Category</option>
-                        <option value="performedBy">Group by User</option>
-                    </select>
-                    <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                </div>
-
-                {/* Filter by User */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={filterUser}
-                        onChange={(e) => setFilterUser(e.target.value)}
-                        style={{
-                            appearance: 'none',
-                            padding: '6px 24px 6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            fontWeight: 500
-                        }}
-                    >
-                        <option value="all">All Users</option>
-                        {uniqueUsers.map(user => (
-                            <option key={user} value={user}>{user}</option>
-                        ))}
-                    </select>
-                    <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                </div>
-
-                {/* Filter by Type */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
-                        style={{
-                            appearance: 'none',
-                            padding: '6px 24px 6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            fontWeight: 500
-                        }}
-                    >
-                        <option value="all">All Types</option>
-                        {Object.entries(interactionTypes).map(([key, type]) => (
-                            <option key={key} value={key}>{type.label}</option>
-                        ))}
-                    </select>
-                    <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                </div>
-            </div>
-
-            {/* Filter Section Row 2 */}
-            <div style={{
-                padding: 'var(--spacing-xs) var(--spacing-md)',
-                backgroundColor: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border-primary)',
-                display: 'flex',
-                gap: '12px',
-                flexWrap: 'wrap',
-                alignItems: 'center'
-            }}>
-                {/* Filter by Category */}
-                <div style={{ position: 'relative' }}>
-                    <select
-                        value={filterCategory}
-                        onChange={(e) => setFilterCategory(e.target.value)}
-                        style={{
-                            appearance: 'none',
-                            padding: '6px 24px 6px 8px',
-                            fontSize: 'var(--font-size-xs)',
-                            border: '1px solid var(--border-primary)',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: 'var(--bg-elevated)',
-                            color: 'var(--text-primary)',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            minWidth: '150px'
-                        }}
-                    >
-                        <option value="all">All Categories</option>
-                        {interactionCategories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.label}</option>
-                        ))}
-                    </select>
-                    <ChevronDown size={12} style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-tertiary)' }} />
-                </div>
-
-                {/* ── Column Picker ── */}
-                <div ref={colPickerRef} style={{ position: 'relative', marginLeft: 'auto' }}>
+                {/* Column Picker */}
+                <div ref={colPickerRef} style={{ position: 'relative' }}>
                     <button
                         onClick={() => setShowColPicker(v => !v)}
                         className="btn btn-secondary"
@@ -696,6 +638,27 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
                         </div>
                     )}
                 </div>
+
+                {/* Actions: Refresh & Export */}
+                <button
+                    type="button"
+                    onClick={fetchInteractions}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                    <RefreshCcw size={14} />
+                    Refresh
+                </button>
+
+                <button
+                    type="button"
+                    onClick={handleExport}
+                    className="btn btn-secondary"
+                    style={{ padding: '6px 12px', fontSize: 'var(--font-size-xs)', display: 'flex', alignItems: 'center', gap: 4 }}
+                >
+                    <Download size={14} />
+                    Export CSV
+                </button>
             </div>
 
             {/* Content Area */}
@@ -715,82 +678,84 @@ function InteractionsTab({ searchTerm, setSearchTerm }) {
                             </h3>
                         )}
 
-                        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
-                                    {col('timestamp') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '140px' }}>Timestamp</th>}
-                                    {col('icon') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '50px' }}>Icon</th>}
-                                    {col('type') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Type</th>}
-                                    {col('category') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Category</th>}
-                                    {col('customer') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Customer</th>}
-                                    {col('jobInvoice') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Job/Invoice</th>}
-                                    {col('performedBy') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Performed By</th>}
-                                    {col('description') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Description</th>}
-                                    {col('source') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600 }}>Source</th>}
-                                    {col('actions') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '80px' }}>Actions</th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {groupInteractions.map(interaction => {
-                                    const typeInfo = getInteractionType(interaction.type);
-                                    const categoryInfo = getCategory(interaction.category);
+                        <div style={{ width: '100%', overflowX: 'auto' }}>
+                            <table className="data-table" style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                        {col('timestamp') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '150px', minWidth: '150px' }}>Timestamp</th>}
+                                        {col('icon') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '50px', minWidth: '50px' }}>Icon</th>}
+                                        {col('type') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '160px' }}>Type</th>}
+                                        {col('category') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Category</th>}
+                                        {col('customer') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Customer</th>}
+                                        {col('jobInvoice') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '140px' }}>Job/Invoice</th>}
+                                        {col('performedBy') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '130px' }}>Performed By</th>}
+                                        {col('description') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '220px' }}>Description</th>}
+                                        {col('source') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left', fontSize: 'var(--font-size-xs)', fontWeight: 600, minWidth: '110px' }}>Source</th>}
+                                        {col('actions') && <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontSize: 'var(--font-size-xs)', fontWeight: 600, width: '80px', minWidth: '80px' }}>Actions</th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {groupInteractions.map(interaction => {
+                                        const typeInfo = getInteractionType(interaction.type);
+                                        const categoryInfo = getCategory(interaction.category);
 
-                                    return (
-                                        <tr
-                                            key={interaction.id}
-                                            style={{
-                                                borderBottom: '1px solid var(--border-primary)',
-                                                transition: 'background-color var(--transition-fast)'
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
-                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                                        >
-                                            {col('timestamp') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{formatTimestamp(interaction.timestamp)}</td>}
-                                            {col('icon') && <td style={{ padding: 'var(--spacing-sm)', fontSize: '20px', textAlign: 'center' }}>{typeInfo.icon}</td>}
-                                            {col('type') && (
-                                                <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                        {typeInfo.label}
-                                                        {interaction.isLive && (
-                                                            <span title="Live Database Entry" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '1px 4px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-                                                                <Activity size={8} /> Live
-                                                            </span>
+                                        return (
+                                            <tr
+                                                key={interaction.id}
+                                                style={{
+                                                    borderBottom: '1px solid var(--border-primary)',
+                                                    transition: 'background-color var(--transition-fast)'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            >
+                                                {col('timestamp') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', fontFamily: 'monospace', width: '150px', minWidth: '150px' }}>{formatTimestamp(interaction.timestamp)}</td>}
+                                                {col('icon') && <td style={{ padding: 'var(--spacing-sm)', fontSize: '20px', textAlign: 'center', width: '50px', minWidth: '50px' }}>{typeInfo.icon}</td>}
+                                                {col('type') && (
+                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontWeight: 500, minWidth: '160px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                            {typeInfo.label}
+                                                            {interaction.isLive && (
+                                                                <span title="Live Database Entry" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', padding: '1px 4px', borderRadius: '4px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', fontSize: '8px', fontWeight: 'bold', textTransform: 'uppercase', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                                                                    <Activity size={8} /> Live
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                )}
+                                                {col('category') && (
+                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '130px' }}>
+                                                        <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: categoryInfo.color + '20', color: categoryInfo.color, fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
+                                                            {categoryInfo.label}
+                                                        </span>
+                                                    </td>
+                                                )}
+                                                {col('customer') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '130px' }}>{interaction.customerName || '-'}</td>}
+                                                {col('jobInvoice') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontFamily: 'monospace', minWidth: '140px' }}>{interaction.jobId || interaction.invoiceId || '-'}</td>}
+                                                {col('performedBy') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', minWidth: '130px' }}>{interaction.performedByName}</td>}
+                                                {col('description') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '220px' }}>{interaction.description}</td>}
+                                                {col('source') && (
+                                                    <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', minWidth: '110px' }}>
+                                                        <span style={{ padding: '2px 6px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', fontSize: 'var(--font-size-xs)' }}>
+                                                            {interaction.source}
+                                                        </span>
+                                                    </td>
+                                                )}
+                                                {col('actions') && (
+                                                    <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', width: '80px', minWidth: '80px' }}>
+                                                        {isEditable(interaction) && (
+                                                            <button onClick={() => handleEditTransaction(interaction)} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: 'var(--font-size-xs)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                                                <Edit2 size={14} /> Edit
+                                                            </button>
                                                         )}
-                                                    </div>
-                                                </td>
-                                            )}
-                                            {col('category') && (
-                                                <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>
-                                                    <span style={{ padding: '2px 8px', borderRadius: 'var(--radius-sm)', backgroundColor: categoryInfo.color + '20', color: categoryInfo.color, fontSize: 'var(--font-size-xs)', fontWeight: 500 }}>
-                                                        {categoryInfo.label}
-                                                    </span>
-                                                </td>
-                                            )}
-                                            {col('customer') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{interaction.customerName || '-'}</td>}
-                                            {col('jobInvoice') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', fontFamily: 'monospace' }}>{interaction.jobId || interaction.invoiceId || '-'}</td>}
-                                            {col('performedBy') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>{interaction.performedByName}</td>}
-                                            {col('description') && <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>{interaction.description}</td>}
-                                            {col('source') && (
-                                                <td style={{ padding: 'var(--spacing-sm)', fontSize: 'var(--font-size-xs)' }}>
-                                                    <span style={{ padding: '2px 6px', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-secondary)', fontSize: 'var(--font-size-xs)' }}>
-                                                        {interaction.source}
-                                                    </span>
-                                                </td>
-                                            )}
-                                            {col('actions') && (
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>
-                                                    {isEditable(interaction) && (
-                                                        <button onClick={() => handleEditTransaction(interaction)} className="btn btn-secondary" style={{ padding: '4px 12px', fontSize: 'var(--font-size-xs)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                            <Edit2 size={14} /> Edit
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            )}
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 ))}
 
