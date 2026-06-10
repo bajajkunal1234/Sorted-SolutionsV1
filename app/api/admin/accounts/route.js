@@ -142,6 +142,23 @@ export async function POST(request) {
             (body.under_name || '').toLowerCase().includes('customer') ||
             (body.under_name || '').toLowerCase().includes('debtor');
 
+        // ── Prevent Duplicate Account Names (Case-Insensitive & Trimmed) ──────────
+        if (body.name) {
+            const trimmedName = body.name.trim();
+            const { data: existingName } = await supabase
+                .from('accounts')
+                .select('id, name')
+                .ilike('name', trimmedName)
+                .maybeSingle();
+
+            if (existingName) {
+                return NextResponse.json({
+                    success: false,
+                    error: `An account/ledger with the name "${trimmedName}" already exists. Please choose a unique name.`
+                }, { status: 409 });
+            }
+        }
+
         // ── Prevent Duplicate Mobile Numbers for Customers ──────────────────────
         if (isCustomer && body.mobile) {
             const { data: existing } = await supabase
@@ -284,6 +301,24 @@ export async function PUT(request) {
     try {
         const body = await request.json()
         const { id, ...updates } = body
+
+        // ── Prevent Duplicate Account Names on Update (Case-Insensitive & Trimmed) ──
+        if (updates.name) {
+            const trimmedName = updates.name.trim();
+            const { data: existingName } = await supabase
+                .from('accounts')
+                .select('id, name')
+                .ilike('name', trimmedName)
+                .neq('id', id)
+                .maybeSingle();
+
+            if (existingName) {
+                return NextResponse.json({
+                    success: false,
+                    error: `Another account/ledger with the name "${trimmedName}" already exists. Please choose a unique name.`
+                }, { status: 409 });
+            }
+        }
 
         // Normalize mobile phone number to raw 10 digits
         if (updates.mobile) {
