@@ -512,11 +512,13 @@ function TechnicianManagement({ initialSubTab }) {
                 notes: formattedNotes,
                 job_id: expense.job_id || null,
                 items: [{
-                    name: `Expense: ${cleanCategoryLabel}${descriptionText ? ` (${descriptionText})` : ''}`,
+                    productId: debitAccount.id,
+                    description: `Expense: ${cleanCategoryLabel}${descriptionText ? ` (${descriptionText})` : ''}`,
                     qty: 1,
                     rate: parseFloat(expense.amount),
-                    total: parseFloat(expense.amount),
-                    taxRate: 0
+                    discount: 0,
+                    taxRate: 0,
+                    total: parseFloat(expense.amount)
                 }],
                 subtotal: parseFloat(expense.amount),
                 discount: 0,
