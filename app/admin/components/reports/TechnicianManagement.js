@@ -482,6 +482,80 @@ function TechnicianManagement({ initialSubTab }) {
         } catch (err) { alert('Failed to update expense'); }
     };
 
+    const handleApproveExpenseDirectly = async (expense) => {
+        try {
+            const techId = expense.technician_id || expense.technician?.id;
+            if (!techId) throw new Error('Technician ID not found on expense');
+            
+            const tech = technicians.find(t => t.id === techId);
+            if (!tech) throw new Error('Technician details not found in state');
+            if (!tech.ledger_id) throw new Error('Technician does not have a ledger/account mapped');
+
+            const debitAccount = getPrefilledAccount(expense);
+            if (!debitAccount) throw new Error('Debit account (Travel Expenses) not found');
+
+            const categoryLabel = expense.category || 'Travel';
+            const cleanCategoryLabel = categoryLabel.charAt(0).toUpperCase() + categoryLabel.slice(1);
+            const notesText = reviewNotes[expense.id]?.trim() || '';
+            const descriptionText = expense.description?.trim() || '';
+            const formattedNotes = `Technician Expense: ${tech.name}${notesText ? ` | Admin Note: ${notesText}` : ''}`;
+
+            const invoice_number = `EXP-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+            const purchaseData = {
+                invoice_number,
+                reference: 'Technician Purchase',
+                status: 'finalized',
+                account_id: tech.ledger_id,
+                account_name: tech.name,
+                po_reference: tech.id,
+                notes: formattedNotes,
+                job_id: expense.job_id || null,
+                items: [{
+                    name: `Expense: ${cleanCategoryLabel}${descriptionText ? ` (${descriptionText})` : ''}`,
+                    qty: 1,
+                    rate: parseFloat(expense.amount),
+                    total: parseFloat(expense.amount),
+                    taxRate: 0
+                }],
+                subtotal: parseFloat(expense.amount),
+                discount: 0,
+                cgst: 0,
+                sgst: 0,
+                igst: 0,
+                total_tax: 0,
+                total_amount: parseFloat(expense.amount),
+                date: expense.date ? expense.date.split('T')[0] : new Date().toISOString().split('T')[0],
+                paid_by: 'technician',
+                category: debitAccount.id
+            };
+
+            const response = await transactionsAPI.create(purchaseData, 'purchase');
+            if (!response || !response.id) throw new Error('Failed to create purchase invoice for expense');
+
+            const patchRes = await fetch('/api/admin/expenses', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: expense.id,
+                    status: 'approved',
+                    purchase_invoice_id: response.id,
+                    admin_notes: reviewNotes[expense.id] || ''
+                })
+            });
+
+            const patchData = await patchRes.json();
+            if (!patchData.success) throw new Error(patchData.error || 'Failed to update expense status');
+
+            setReviewNotes(prev => { const n = {...prev}; delete n[expense.id]; return n; });
+            fetchExpenses();
+            alert(`✅ Expense approved and posted to ${tech.name}'s account ledger successfully!`);
+        } catch (err) {
+            console.error('Error approving expense:', err);
+            alert('Failed to approve expense: ' + err.message);
+        }
+    };
+
     const statusBadge = (status) => {
         const map = { pending: { label: 'Pending', bg: '#fef3c7', color: '#d97706' }, approved: { label: 'Approved', bg: '#d1fae5', color: '#059669' }, rejected: { label: 'Rejected', bg: '#fee2e2', color: '#dc2626' } };
         const s = map[status] || map.pending;
@@ -1039,6 +1113,11 @@ function TechnicianManagement({ initialSubTab }) {
                                                                 <span>💳 Paid via {exp.payment_voucher.payment_number} (₹{parseFloat(exp.payment_voucher.amount || 0).toLocaleString('en-IN')})</span>
                                                             </div>
                                                         )}
+                                                        {exp.purchase_invoice && (
+                                                            <div style={{ marginTop: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#6366f1', fontWeight: 600 }}>
+                                                                <span>📄 Posted via purchase invoice {exp.purchase_invoice.invoice_number || `PUR-${exp.purchase_invoice.id.slice(0,8)}`} (₹{parseFloat(exp.purchase_invoice.total_amount || 0).toLocaleString('en-IN')})</span>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                     <div style={{ textAlign: 'right', marginLeft: 'var(--spacing-md)', flexShrink: 0 }}>
                                                         <div style={{ fontSize: 'var(--font-size-lg)', fontWeight: 700 }}>₹{parseFloat(exp.amount).toLocaleString('en-IN')}</div>
@@ -1047,8 +1126,8 @@ function TechnicianManagement({ initialSubTab }) {
                                                 {exp.status === 'pending' && (
                                                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)' }}>
                                                         <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
-                                                        <button onClick={() => setPayingExpense(exp)} style={{ padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            <Check size={14} /> Approve via Payment
+                                                        <button onClick={() => handleApproveExpenseDirectly(exp)} style={{ padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <Check size={14} /> Approve & Post to Ledger
                                                         </button>
                                                         <button onClick={() => handleReviewExpense(exp, 'rejected')} style={{ padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                                                             <X size={14} /> Reject

@@ -10,7 +10,7 @@ export async function GET(request) {
 
         let query = supabase
             .from('expenses')
-            .select('*, payment_voucher:payment_vouchers(*), technician:technicians(*)')
+            .select('*, payment_voucher:payment_vouchers(*), purchase_invoice:purchase_invoices(*), technician:technicians(*)')
             .order('created_at', { ascending: false })
 
         if (technicianId) query = query.eq('technician_id', technicianId)
@@ -27,7 +27,7 @@ export async function GET(request) {
 
 export async function PATCH(request) {
     try {
-        const { id, status, admin_notes, payment_voucher_id } = await request.json()
+        const { id, status, admin_notes, payment_voucher_id, purchase_invoice_id } = await request.json()
         if (!id || !status) {
             return NextResponse.json({ error: 'id and status required' }, { status: 400 })
         }
@@ -39,6 +39,9 @@ export async function PATCH(request) {
         }
         if (payment_voucher_id !== undefined) {
             updates.payment_voucher_id = payment_voucher_id;
+        }
+        if (purchase_invoice_id !== undefined) {
+            updates.purchase_invoice_id = purchase_invoice_id;
         }
 
         const { data, error } = await supabase

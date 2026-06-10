@@ -12,6 +12,8 @@ const tableMap = {
     'payment': 'payment_vouchers'
 };
 
+const isUUID = (val) => val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+
 /**
  * Syncs double-entry journal logs for a finalized transaction.
  * If status is 'draft' or 'cancelled', no journal is created (or existing is deleted).
@@ -60,11 +62,30 @@ async function syncJournalEntry(type, txData) {
         const igst = amt(txData.igst);
         const base = total - cgst - sgst - igst;
 
-        if (purchAcc) lines.push({ account_id: purchAcc.id, debit: base, credit: 0 });
+        let debitAcc = purchAcc;
+        if (txData.category) {
+            if (isUUID(txData.category)) {
+                const catAcc = findAcc(a => a.id === txData.category);
+                if (catAcc) debitAcc = catAcc;
+            } else {
+                const catAcc = findAcc(a => a.name?.toLowerCase().includes(txData.category.toLowerCase()) && (a.under?.toLowerCase().includes('expense') || a.under?.toLowerCase().includes('indirect')));
+                if (catAcc) debitAcc = catAcc;
+            }
+        }
+
+        let creditAccountId = txData.account_id;
+        if (txData.paid_by === 'technician' && txData.po_reference) {
+            const { data: tech } = await supabase.from('technicians').select('ledger_id').eq('id', txData.po_reference).maybeSingle();
+            if (tech && tech.ledger_id) {
+                creditAccountId = tech.ledger_id;
+            }
+        }
+
+        if (debitAcc) lines.push({ account_id: debitAcc.id, debit: base, credit: 0 });
         if (cgst > 0 && cgstAcc) lines.push({ account_id: cgstAcc.id, debit: cgst, credit: 0 });
         if (sgst > 0 && sgstAcc) lines.push({ account_id: sgstAcc.id, debit: sgst, credit: 0 });
         if (igst > 0 && igstAcc) lines.push({ account_id: igstAcc.id, debit: igst, credit: 0 });
-        lines.push({ account_id: txData.account_id, debit: 0, credit: total });
+        if (creditAccountId) lines.push({ account_id: creditAccountId, debit: 0, credit: total });
     } else if (type === 'receipt') {
         const total = amt(txData.amount);
         const explicitAcc = txData.payment_account_id ? { id: txData.payment_account_id } : null;
