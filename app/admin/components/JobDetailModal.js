@@ -1070,6 +1070,105 @@ function JobDetailModal({ job, onClose, onUpdate }) {
                                             <option value="low">⚪ Low</option>
                                         </select>
                                     </div>
+
+                                    {editedJob.status === 'closed' && (() => {
+                                        const getClosureDetails = () => {
+                                            const closeInt = (editedJob.interactions || []).find(i => i.type === 'job-closed' || i.type === 'close-call-no-service');
+                                            if (closeInt) {
+                                                return {
+                                                    type: closeInt.type,
+                                                    description: closeInt.description,
+                                                    performed_by_name: closeInt.performed_by_name,
+                                                    timestamp: closeInt.timestamp
+                                                };
+                                            }
+                                            if (typeof editedJob.notes === 'string') {
+                                                if (editedJob.notes.includes('Close Call — No Service') || editedJob.notes.includes('=== MANDATORY CLOSE CALL NOTES ===')) {
+                                                    return {
+                                                        type: editedJob.notes.includes('Close Call — No Service') ? 'close-call-no-service' : 'job-closed',
+                                                        description: editedJob.notes,
+                                                        performed_by_name: editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician',
+                                                        timestamp: editedJob.updated_at || editedJob.closed_at
+                                                    };
+                                                }
+                                            }
+                                            // Fallback 1: check if there's any payment collected info
+                                            const paymentInt = (editedJob.interactions || []).find(i => i.type === 'payment-received');
+                                            if (paymentInt) {
+                                                return {
+                                                    type: 'job-closed',
+                                                    description: paymentInt.description || `Payment of ₹${paymentInt.metadata?.amount || ''} collected.`,
+                                                    performed_by_name: paymentInt.performed_by_name || 'Technician',
+                                                    timestamp: paymentInt.timestamp
+                                                };
+                                            }
+                                            // Fallback 2: check if there is a saved invoice
+                                            if (savedInvoice) {
+                                                return {
+                                                    type: 'job-closed',
+                                                    description: `Invoice ${savedInvoice.invoice_number || ''} created for ₹${(savedInvoice.total_amount || 0).toLocaleString('en-IN')}. Status: ${savedInvoice.status || 'Paid'}.`,
+                                                    performed_by_name: savedInvoice.technician_name || 'Admin',
+                                                    timestamp: savedInvoice.created_at || editedJob.completed_at
+                                                };
+                                            }
+                                            // Fallback 3: generic notes or completed timestamp
+                                            const displayNotes = typeof editedJob.notes === 'string' && !editedJob.notes.startsWith('{') 
+                                                ? editedJob.notes 
+                                                : (editedJob.description_notes || '');
+                                            return {
+                                                type: 'job-closed',
+                                                description: displayNotes || "Job closed. No detailed closure logs found.",
+                                                performed_by_name: editedJob.assigned_technician?.name || editedJob.technician_name || 'System',
+                                                timestamp: editedJob.completed_at || editedJob.updated_at
+                                            };
+                                        };
+                                        const closure = getClosureDetails();
+                                        if (!closure) return null;
+                                        const isNoService = closure.type === 'close-call-no-service' || closure.description?.includes('No Service');
+                                        return (
+                                            <div style={{
+                                                gridColumn: '1 / -1',
+                                                marginTop: '4px',
+                                                padding: '12px 16px',
+                                                borderRadius: '12px',
+                                                backgroundColor: isNoService ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                                                border: `1px solid ${isNoService ? 'rgba(239, 68, 68, 0.25)' : 'rgba(16, 185, 129, 0.25)'}`,
+                                            }}>
+                                                <div style={{
+                                                    fontSize: '13px',
+                                                    fontWeight: 700,
+                                                    color: isNoService ? '#f87171' : '#34d399',
+                                                    marginBottom: '6px',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}>
+                                                    <span>{isNoService ? '❌' : '✅'}</span>
+                                                    <span>Closure Method: {isNoService ? 'Close Call — No Service' : 'Closed Call with Service'}</span>
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '12px',
+                                                    color: 'var(--text-secondary)',
+                                                    whiteSpace: 'pre-wrap',
+                                                    lineHeight: 1.5
+                                                }}>
+                                                    {closure.description}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: '11px',
+                                                    color: 'var(--text-tertiary)',
+                                                    marginTop: '8px',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between'
+                                                }}>
+                                                    <span>Closed by: {closure.performed_by_name || 'N/A'}</span>
+                                                    {closure.timestamp && (
+                                                        <span>{new Date(closure.timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px' }}>Status changes will be logged in the timeline when you Save Changes.</p>
                             </div>

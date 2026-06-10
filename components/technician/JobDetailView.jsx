@@ -78,6 +78,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [noServicePOC, setNoServicePOC] = useState('');
     const [noServiceReason, setNoServiceReason] = useState('');
     const [noServiceLoading, setNoServiceLoading] = useState(false);
+    const [noChargeChecked, setNoChargeChecked] = useState(false);
 
     // Live Location Broadcaster — broadcasts GPS to customer app when job is in-progress
     useEffect(() => {
@@ -976,8 +977,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
                             </div>
 
-                            {/* Close Call — No Service (shown on diagnosing_quoting) */}
-                            {editedJob.status === 'diagnosing_quoting' && (
+                            {/* Close Call — No Service (shown on diagnosing_quoting or scheduled) */}
+                            {(editedJob.status === 'diagnosing_quoting' || editedJob.status === 'scheduled') && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.03)' }}>
                                     <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171' }}>
                                         <X size={16} color="#f87171" /> Close Call — No Service
@@ -988,7 +989,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     <button
                                         className="btn"
                                         style={{ width: '100%', padding: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-                                        onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setShowNoServiceModal(true); }}
+                                        onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
                                     >
                                         <X size={15} /> Close Call Without Service
                                     </button>
@@ -1265,6 +1266,20 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                             />
                         </div>
 
+                        {/* Mandatory No Service Charge Checkbox */}
+                        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                            <input
+                                type="checkbox"
+                                id="noChargeChecked"
+                                checked={noChargeChecked}
+                                onChange={e => setNoChargeChecked(e.target.checked)}
+                                style={{ width: 18, height: 18, borderRadius: 4, accentColor: '#ef4444', cursor: 'pointer', marginTop: 1 }}
+                            />
+                            <label htmlFor="noChargeChecked" style={{ fontSize: 13, color: '#cbd5e1', cursor: 'pointer', userSelect: 'none', lineHeight: 1.4 }}>
+                                I confirm no service charge was taken <span style={{ color: '#ef4444' }}>*</span>
+                            </label>
+                        </div>
+
                         {/* Action buttons */}
                         <div style={{ display: 'flex', gap: 10 }}>
                             <button
@@ -1274,9 +1289,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 Cancel
                             </button>
                             <button
-                                disabled={!noServicePOC.trim() || !noServiceReason.trim() || noServiceLoading}
+                                disabled={!noServicePOC.trim() || !noServiceReason.trim() || !noChargeChecked || noServiceLoading}
                                 onClick={async () => {
-                                    if (!noServicePOC.trim() || !noServiceReason.trim()) return;
+                                    if (!noServicePOC.trim() || !noServiceReason.trim() || !noChargeChecked) return;
                                     setNoServiceLoading(true);
                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                     try {
@@ -1303,7 +1318,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         setNoServiceLoading(false);
                                     }
                                 }}
-                                style={{ flex: 2, padding: '14px', borderRadius: 14, background: noServicePOC.trim() && noServiceReason.trim() ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'rgba(239,68,68,0.2)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 14, cursor: noServicePOC.trim() && noServiceReason.trim() && !noServiceLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                style={{ flex: 2, padding: '14px', borderRadius: 14, background: noServicePOC.trim() && noServiceReason.trim() && noChargeChecked ? 'linear-gradient(135deg,#ef4444,#dc2626)' : 'rgba(239,68,68,0.2)', border: 'none', color: '#fff', fontWeight: 700, fontSize: 14, cursor: noServicePOC.trim() && noServiceReason.trim() && noChargeChecked && !noServiceLoading ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                             >
                                 {noServiceLoading
                                     ? <><Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> Closing...</>
