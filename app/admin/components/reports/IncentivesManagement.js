@@ -22,6 +22,15 @@ const parseSlotStartTime = (slotStr) => {
     return { hours, minutes };
 };
 
+const isServiceChargeOnlyInvoice = (inv) => {
+    const items = inv.items || [];
+    if (items.length === 0) return true;
+    return items.every(item => {
+        const desc = (item.description || item.name || '').toLowerCase();
+        return desc.includes('service charge') || desc.includes('visiting charge') || desc.includes('visiting fee') || desc.includes('diagnostic charge');
+    });
+};
+
 const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, interactionsList) => {
     // 1. Filter jobs for this technician in this month
     const techJobs = jobsList.filter(j =>
@@ -36,8 +45,9 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
         inv.date >= mStart && inv.date <= mEnd
     );
 
-    // 3. Revenue total
-    const totalRevenue = techInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+    // 3. Revenue total (excluding service-charge-only invoices)
+    const repairInvoices = techInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv));
+    const totalRevenue = repairInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
     // 4. Visits Done (arrived_at is set, or status is post-arrival/closed)
     const visitedJobs = techJobs.filter(j =>
@@ -60,26 +70,35 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
             i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
         );
 
+        let isRepair = false;
+        
+        // Find invoices for this job
+        const jobInvoices = techInvoices.filter(inv => inv.job_id === job.id);
+        const hasInvoice = jobInvoices.length > 0;
+        
+        if (hasInvoice) {
+            // Check if any invoice is NOT "only service charge"
+            const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
+            if (hasRealRepairInvoice) {
+                isRepair = true;
+            }
+        }
+        
         if (closureInt) {
             if (closureInt.type === 'close-call-no-service') {
-                closedWithoutRepairCount++;
+                isRepair = false;
             } else {
                 const outcome = closureInt.metadata?.repair_outcome;
-                if (outcome === 'Repair Done') {
-                    repairDoneCount++;
-                } else {
-                    closedWithoutRepairCount++;
+                if (outcome !== 'Repair Done') {
+                    isRepair = false;
                 }
             }
+        }
+
+        if (isRepair) {
+            repairDoneCount++;
         } else {
-            // Fallback: check if the job has a non-cancelled invoice with amount > 0
-            const jobInvoices = techInvoices.filter(inv => inv.job_id === job.id);
-            const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-            if (jobRev > 0) {
-                repairDoneCount++;
-            } else {
-                closedWithoutRepairCount++;
-            }
+            closedWithoutRepairCount++;
         }
     });
 
@@ -193,18 +212,24 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
                 );
 
                 let isRepair = false;
-                if (closureInt) {
-                    if (closureInt.type !== 'close-call-no-service') {
-                        const outcome = closureInt.metadata?.repair_outcome;
-                        if (outcome === 'Repair Done') {
-                            isRepair = true;
-                        }
-                    }
-                } else {
-                    const jobInvoices = (techInvoices || []).filter(inv => inv.job_id === job.id);
-                    const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-                    if (jobRev > 0) {
+                const jobInvoices = (techInvoices || []).filter(inv => inv.job_id === job.id);
+                const hasInvoice = jobInvoices.length > 0;
+                
+                if (hasInvoice) {
+                    const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
+                    if (hasRealRepairInvoice) {
                         isRepair = true;
+                    }
+                }
+
+                if (closureInt) {
+                    if (closureInt.type === 'close-call-no-service') {
+                        isRepair = false;
+                    } else {
+                        const outcome = closureInt.metadata?.repair_outcome;
+                        if (outcome !== 'Repair Done') {
+                            isRepair = false;
+                        }
                     }
                 }
 
@@ -219,7 +244,7 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
 
     (techInvoices || []).forEach(inv => {
         const dayStr = inv.date;
-        if (dailyMap[dayStr]) {
+        if (dailyMap[dayStr] && !isServiceChargeOnlyInvoice(inv)) {
             dailyMap[dayStr].revenue += (inv.total_amount || 0);
         }
     });
@@ -294,7 +319,7 @@ function IncentivesManagement() {
 
                 const { data: allInvoices } = await supabase
                     .from('sales_invoices')
-                    .select('id, total_amount, date, job_id, technician_id, technician_name, status, account_id')
+                    .select('id, total_amount, date, job_id, technician_id, technician_name, status, account_id, items')
                     .gte('date', historyStart)
                     .lte('date', monthEnd)
                     .neq('status', 'cancelled');
@@ -830,7 +855,8 @@ function IncentivesManagement() {
                                                     .map((job) => {
                                                         const isVisited = job.arrived_at || ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(job.status);
                                                         const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
-                                                        const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+                                                        const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
+                                                        const jobRev = jobInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv)).reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
                                                         let closureOutcome = 'In Progress';
                                                         let isRepair = false;
@@ -849,7 +875,7 @@ function IncentivesManagement() {
                                                                     }
                                                                 }
                                                             } else {
-                                                                if (jobRev > 0) {
+                                                                if (hasRealRepairInvoice) {
                                                                     closureOutcome = 'Repair Done';
                                                                     isRepair = true;
                                                                 } else {
