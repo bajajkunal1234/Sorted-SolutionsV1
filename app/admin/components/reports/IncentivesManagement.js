@@ -34,7 +34,7 @@ const isServiceChargeOnlyInvoice = (inv) => {
 const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, interactionsList) => {
     // 1. Filter jobs for this technician in this month
     const techJobs = jobsList.filter(j =>
-        (j.assigned_to === techId || j.technician_id === techId) &&
+        (j.technician_id === techId) &&
         j.scheduled_date >= mStart && j.scheduled_date <= mEnd
     );
     const totalJobs = techJobs.length;
@@ -185,7 +185,10 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
     const dailyMap = {};
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dayStr = new Date(d).toISOString().split('T')[0];
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dayStr = `${year}-${month}-${day}`;
         dailyMap[dayStr] = {
             date: dayStr,
             visits: 0,
@@ -306,14 +309,14 @@ function IncentivesManagement() {
             if (techsData && techsData.length > 0) {
                 const [yr, mo] = activeMonth.split('-').map(Number);
                 const monthStart = `${activeMonth}-01`;
-                const monthEnd = new Date(yr, mo, 0).toISOString().split('T')[0];
+                const monthEnd = `${activeMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}`;
 
                 const historyStartObj = new Date(yr, mo - 4, 1);
                 const historyStart = `${historyStartObj.getFullYear()}-${String(historyStartObj.getMonth() + 1).padStart(2, '0')}-01`;
 
                 const { data: allJobs } = await supabase
                     .from('jobs')
-                    .select('id, job_number, assigned_to, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name, appliance_type, brand')
+                    .select('id, job_number, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name, appliance, brand')
                     .gte('scheduled_date', historyStart)
                     .lte('scheduled_date', monthEnd);
 
@@ -347,7 +350,7 @@ function IncentivesManagement() {
                         const d = new Date(yr, mo - 1 + offset, 1);
                         const mStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                         const histStart = `${mStr}-01`;
-                        const histEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
+                        const histEnd = `${mStr}-${String(new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
 
                         const metrics = calculateMetricsForMonth(
                             tech.id,
@@ -425,7 +428,7 @@ function IncentivesManagement() {
     const selectedTech = technicians.find(t => t.id === selectedTechId) || technicians[0];
     const [yr, mo] = activeMonth.split('-').map(Number);
     const monthStart = `${activeMonth}-01`;
-    const monthEnd = selectedTech ? new Date(yr, mo, 0).toISOString().split('T')[0] : '';
+    const monthEnd = selectedTech ? `${activeMonth}-${String(new Date(yr, mo, 0).getDate()).padStart(2, '0')}` : '';
     
     const dailyPerformanceData = selectedTech 
         ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs, selectedTech.currentMetrics.techInvoices, allInteractions, monthStart, monthEnd)
@@ -605,7 +608,7 @@ function IncentivesManagement() {
                                             }}
                                         >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', color: 'var(--text-primary)' }}>
                                                     {tech.name}
                                                 </div>
                                                 <div style={{
@@ -631,6 +634,7 @@ function IncentivesManagement() {
                                                             backgroundColor: item.achieved ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                                             color: item.achieved ? 'var(--color-success)' : 'var(--color-danger)',
                                                             whiteSpace: 'nowrap',
+                                                            flexShrink: 0,
                                                             border: `1px solid ${item.achieved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
                                                         }}
                                                     >
@@ -656,7 +660,8 @@ function IncentivesManagement() {
                         gap: 'var(--spacing-sm)',
                         overflowX: 'auto',
                         paddingBottom: 'var(--spacing-xs)',
-                        borderBottom: '1px solid var(--border-primary)'
+                        borderBottom: '1px solid var(--border-primary)',
+                        flexShrink: 0
                     }}>
                         {technicians.map(tech => (
                             <button
@@ -670,13 +675,15 @@ function IncentivesManagement() {
                                     cursor: 'pointer',
                                     textAlign: 'left',
                                     minWidth: '180px',
+                                    flexShrink: 0,
+                                    color: selectedTechId === tech.id ? 'var(--color-primary)' : 'var(--text-primary)',
                                     transition: 'all 0.2s',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     gap: '4px'
                                 }}
                             >
-                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px', color: 'inherit' }}>
                                     <User size={16} color={selectedTechId === tech.id ? 'var(--color-primary)' : 'var(--text-secondary)'} />
                                     {tech.name}
                                 </div>
@@ -890,7 +897,7 @@ function IncentivesManagement() {
                                                                     #{job.job_number || job.id.slice(0, 8)}
                                                                 </td>
                                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
-                                                                    {job.brand ? `${job.brand} ` : ''}{job.appliance_type || 'Unknown'}
+                                                                    {job.brand ? `${job.brand} ` : ''}{job.appliance || 'Unknown'}
                                                                 </td>
                                                                 <td style={{ padding: 'var(--spacing-sm)' }}>
                                                                     {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}

@@ -24,7 +24,7 @@ const parseSlotStartTime = (slotStr) => {
 
 const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, quotationsList, vouchersList) => {
     const techJobs = jobsList.filter(j =>
-        (j.assigned_to === techId || j.technician_id === techId) &&
+        (j.technician_id === techId) &&
         j.scheduled_date >= mStart && j.scheduled_date <= mEnd
     );
     const completedJobs = techJobs.filter(j => j.status === 'completed');
@@ -332,7 +332,7 @@ function IncentivesManagement() {
 
                 const { data: allJobs } = await supabase
                     .from('jobs')
-                    .select('id, assigned_to, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name')
+                    .select('id, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name')
                     .gte('scheduled_date', historyStart)
                     .lte('scheduled_date', monthEnd);
 
