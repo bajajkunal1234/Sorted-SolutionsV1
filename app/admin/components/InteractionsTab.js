@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { Search, ChevronDown, Download, Calendar, Edit2, Activity, Database, Eye, EyeOff, Columns, RefreshCcw, Zap } from 'lucide-react';
+import { Search, ChevronDown, Download, Calendar, Edit2, Activity, Database, Eye, EyeOff, Columns, RefreshCcw, Zap, Users } from 'lucide-react';
 import { interactionTypes, interactionCategories, getInteractionType, getCategory } from '@/lib/data/interactionTypes';
 import SalesInvoiceForm from './accounts/SalesInvoiceForm';
 import PurchaseInvoiceForm from './accounts/PurchaseInvoiceForm';
@@ -10,6 +10,7 @@ import ReceiptVoucherForm from './accounts/ReceiptVoucherForm';
 import PaymentVoucherForm from './accounts/PaymentVoucherForm';
 import InteractionTriggersTab from './reports/InteractionTriggersTab';
 import InteractionsSearchPanel from '@/components/shared/InteractionsSearchPanel';
+import TechnicianViewTab from './reports/TechnicianViewTab';
 
 
 function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSearchTerm }) {
@@ -824,15 +825,21 @@ function InteractionsTab({ searchTerm: propSearchTerm, setSearchTerm: propSetSea
 
             {/* Sub-tab Navigation */}
             <div style={{ display: 'flex', borderBottom: '2px solid var(--border-primary)', padding: '0 var(--spacing-md)', backgroundColor: 'var(--bg-elevated)', gap: 4, flexShrink: 0 }}>
-                {[{ id: 'feed', label: 'Interaction Feed', icon: Activity }, { id: 'triggers', label: '⚡ Triggers', icon: Zap }].map(tab => (
+                {[
+                    { id: 'feed', label: 'Interaction Feed', icon: Activity },
+                    { id: 'triggers', label: '⚡ Triggers', icon: Zap },
+                    { id: 'technician-view', label: 'Technician View', icon: Users }
+                ].map(tab => (
                     <button key={tab.id} type="button" onClick={() => setActiveView(tab.id)}
                         style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 13, fontWeight: activeView === tab.id ? 700 : 500, color: activeView === tab.id ? 'var(--color-primary)' : 'var(--text-secondary)', borderBottom: activeView === tab.id ? '2px solid var(--color-primary)' : '2px solid transparent', marginBottom: -2, transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <tab.icon size={14} />
                         {tab.label}
                     </button>
                 ))}
             </div>
 
             {activeView === 'triggers' && <InteractionTriggersTab />}
+            {activeView === 'technician-view' && <TechnicianViewTab />}
 
             {activeView === 'feed' && <>
             {/* Content Area */}
