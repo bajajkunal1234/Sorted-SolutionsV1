@@ -60,7 +60,7 @@ function ReportsTab({ initialSection, initialTechSubTab, onClearInitial }) {
         { id: 'slots', label: 'Website Settings', icon: Clock, component: WebsiteSettings, color: '#f97316', description: 'Manage website content & forms' },
         { id: 'print', label: 'Print Setup', icon: Printer, component: PrintSetup, color: '#84cc16', description: 'Configure print templates' },
         { id: 'technicians', label: 'Technician Management', icon: Users, component: TechnicianManagement, color: '#3b82f6', description: 'Manage technician accounts, credentials and permissions' },
-        { id: 'incentives', label: 'Incentives', icon: Award, component: IncentivesManagement, color: '#0ea5e9', description: 'Configure incentive programs' },
+        { id: 'incentives', label: 'Performance Tracking', icon: Award, component: IncentivesManagement, color: '#0ea5e9', description: 'Track technician daily metrics and target achievements' },
         { id: 'financial', label: 'Financial Reports', icon: TrendingUp, component: FinancialReports, color: '#a855f7', description: 'View financial analytics' },
         { id: 'inventory-reports', label: 'Inventory Reports', icon: Package, component: InventoryReports, color: '#10b981', description: 'Analyse stock, valuation and product performance by category and brand' },
         { id: 'customer-app', label: 'Customer App', icon: Smartphone, component: CustomerAppSettings, color: '#ec4899', description: 'Manage customer app homepage banners' },

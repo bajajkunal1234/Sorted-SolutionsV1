@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { TrendingUp, Award, DollarSign, Calendar, Settings, Save, Plus, Trash2, Lock, Unlock, FileText, Download, X, Eye, BarChart3, Loader2, RefreshCcw, CreditCard } from 'lucide-react';
-import { techniciansAPI, websiteSettingsAPI, transactionsAPI } from '@/lib/adminAPI';
+import { TrendingUp, Settings, Save, BarChart3, Calendar, Users, CheckCircle, AlertCircle, Award, Star, User, ChevronRight, DollarSign, Briefcase, RefreshCcw, Loader2 } from 'lucide-react';
+import { techniciansAPI, websiteSettingsAPI } from '@/lib/adminAPI';
 
 const parseSlotStartTime = (slotStr) => {
     if (!slotStr) return null;
@@ -22,130 +22,104 @@ const parseSlotStartTime = (slotStr) => {
     return { hours, minutes };
 };
 
-const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, quotationsList, vouchersList) => {
+const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invoicesList, interactionsList) => {
+    // 1. Filter jobs for this technician in this month
     const techJobs = jobsList.filter(j =>
         (j.assigned_to === techId || j.technician_id === techId) &&
         j.scheduled_date >= mStart && j.scheduled_date <= mEnd
     );
-    const completedJobs = techJobs.filter(j => j.status === 'completed' || j.status === 'closed');
     const totalJobs = techJobs.length;
 
+    // 2. Filter invoices for this technician in this month
     const techInvoices = invoicesList.filter(inv =>
         (inv.technician_id === techId) &&
         inv.date >= mStart && inv.date <= mEnd
     );
-    const monthlyRevenue = techInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-    const uniqueCustomers = new Set(techInvoices.map(inv => inv.account_id).filter(Boolean)).size;
-    const revenuePerCustomer = uniqueCustomers > 0 ? Math.round(monthlyRevenue / uniqueCustomers) : 0;
-    const workDays = new Set(completedJobs.map(j => j.scheduled_date)).size || 1;
-    const revenuePerDay = Math.round(monthlyRevenue / workDays);
 
-    let onTimeCount = 0, lateCount = 0, arrivedCount = 0;
-    completedJobs.forEach(j => {
-        const arrivedAt = j.arrived_at;
-        if (!arrivedAt || !j.scheduled_time) return;
-        arrivedCount++;
-        const arrivedDate = new Date(arrivedAt);
-        const timeParsed = parseSlotStartTime(j.scheduled_time);
-        if (timeParsed) {
-            const scheduledDt = new Date(j.scheduled_date);
-            scheduledDt.setHours(timeParsed.hours, timeParsed.minutes, 0, 0);
-            if (arrivedDate <= new Date(scheduledDt.getTime() + 15 * 60 * 1000)) {
-                onTimeCount++;
+    // 3. Revenue total
+    const totalRevenue = techInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+
+    // 4. Visits Done (arrived_at is set, or status is post-arrival/closed)
+    const visitedJobs = techJobs.filter(j =>
+        j.arrived_at ||
+        ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(j.status)
+    );
+    const visitsCount = visitedJobs.length;
+
+    // 5. Jobs Closed
+    const closedJobs = techJobs.filter(j => j.status === 'closed');
+    const closedCount = closedJobs.length;
+
+    // 6. Outcomes: Repair Done vs Closed without Repair
+    let repairDoneCount = 0;
+    let closedWithoutRepairCount = 0;
+
+    closedJobs.forEach(job => {
+        // Find closure interaction
+        const closureInt = (interactionsList || []).find(i => 
+            i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+        );
+
+        if (closureInt) {
+            if (closureInt.type === 'close-call-no-service') {
+                closedWithoutRepairCount++;
             } else {
-                lateCount++;
+                const outcome = closureInt.metadata?.repair_outcome;
+                if (outcome === 'Repair Done') {
+                    repairDoneCount++;
+                } else {
+                    closedWithoutRepairCount++;
+                }
             }
         } else {
-            const [hrs, mins] = j.scheduled_time.split(':').map(Number);
-            if (!isNaN(hrs)) {
-                const scheduledDt = new Date(j.scheduled_date);
-                scheduledDt.setHours(hrs || 0, mins || 0, 0, 0);
-                if (arrivedDate <= new Date(scheduledDt.getTime() + 15 * 60 * 1000)) {
-                    onTimeCount++;
-                } else {
-                    lateCount++;
-                }
+            // Fallback: check if the job has a non-cancelled invoice with amount > 0
+            const jobInvoices = techInvoices.filter(inv => inv.job_id === job.id);
+            const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+            if (jobRev > 0) {
+                repairDoneCount++;
             } else {
-                onTimeCount++;
+                closedWithoutRepairCount++;
             }
         }
     });
-    const onTimeVisits = arrivedCount > 0 ? Math.round((onTimeCount / arrivedCount) * 100) : 0;
-    const lateArrivals = arrivedCount > 0 ? Math.round((lateCount / arrivedCount) * 100) : 0;
 
-    const ratedJobs = completedJobs.filter(j => j.customer_rating > 0);
-    const goodRatings = ratedJobs.filter(j => j.customer_rating >= 4).length;
-    const badRatings = ratedJobs.filter(j => j.customer_rating < 4).length;
-    const feedbackAbove4 = ratedJobs.length > 0 ? Math.round((goodRatings / ratedJobs.length) * 100) : 0;
-    const feedbackBelow4 = ratedJobs.length > 0 ? Math.round((badRatings / ratedJobs.length) * 100) : 0;
+    // 7. Conversion Ratio
+    const conversionRatio = closedCount > 0 ? Math.round((repairDoneCount / closedCount) * 100) : 0;
 
-    const totalRating = ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0);
-    const avgRating = ratedJobs.length > 0 ? parseFloat((totalRating / ratedJobs.length).toFixed(1)) : 0;
+    // 8. Avg Revenue per Job (among closed jobs)
+    const avgRevenuePerJob = closedCount > 0 ? Math.round(totalRevenue / closedCount) : 0;
 
-    let repeatCalls = 0;
-    completedJobs.forEach(job => {
-        const jobDate = new Date(job.scheduled_date);
-        const cutoff = new Date(jobDate.getTime() - 14 * 24 * 60 * 60 * 1000);
-        const priorJob = completedJobs.find(other =>
-            other.id !== job.id &&
-            other.customer_id === job.customer_id &&
-            new Date(other.scheduled_date) >= cutoff &&
-            new Date(other.scheduled_date) < jobDate
-        );
-        if (priorJob) repeatCalls++;
-    });
-    const repeatCallPercent = completedJobs.length > 0 ? Math.round((repeatCalls / completedJobs.length) * 100) : 0;
+    // 9. Feedback rate
+    const feedbackCount = techJobs.filter(j => j.customer_rating > 0).length;
+    const feedbackRate = closedCount > 0 ? Math.round((feedbackCount / closedCount) * 100) : 0;
 
-    const techQuotes = quotationsList.filter(q =>
-        q.technician_id === techId &&
-        q.date >= mStart && q.date <= mEnd
-    );
-    const approvedQuotes = techQuotes.filter(q => q.status === 'approved' || q.status === 'finalized').length;
-    const quoteConversionRate = techQuotes.length > 0 ? Math.round((approvedQuotes / techQuotes.length) * 100) : 0;
-
-    let totalMinutes = 0, timedJobsCount = 0;
-    completedJobs.forEach(j => {
-        if (j.arrived_at && j.completed_at) {
-            const durationMs = new Date(j.completed_at) - new Date(j.arrived_at);
-            const durationMins = Math.round(durationMs / (60 * 1000));
-            if (durationMins > 0 && durationMins < 480) {
-                totalMinutes += durationMins;
-                timedJobsCount++;
-            }
-        }
-    });
-    const avgJobDuration = timedJobsCount > 0 ? Math.round(totalMinutes / timedJobsCount) : 0;
-
-    const monthPart = mStart.substring(0, 7);
-    const alreadyPaid = (vouchersList || [])
-        .filter(v => v.account_id === ledgerId && (v.notes || '').includes(monthPart))
-        .reduce((sum, v) => sum + (v.amount || 0), 0);
+    // 10. Avg rating
+    const ratedJobs = techJobs.filter(j => j.customer_rating > 0);
+    const avgRating = ratedJobs.length > 0
+        ? parseFloat((ratedJobs.reduce((sum, j) => sum + j.customer_rating, 0) / ratedJobs.length).toFixed(1))
+        : 0;
 
     return {
-        onTimeVisits,
-        feedbackAbove4,
-        revenuePerCustomer,
-        revenuePerDay,
-        monthlyRevenue,
-        feedbackBelow4,
-        repeatCallPercent,
-        lateArrivals,
-        totalJobs,
-        completedJobs: completedJobs.length,
-        uniqueCustomers,
-        ratedJobs: ratedJobs.length,
-        arrivedJobs: arrivedCount,
-        quoteConversionRate,
-        avgJobDuration,
+        visitsCount,
+        closedCount,
+        repairDoneCount,
+        closedWithoutRepairCount,
+        conversionRatio,
+        totalRevenue,
+        avgRevenuePerJob,
+        feedbackCount,
+        feedbackRate,
         avgRating,
-        alreadyPaid
+        totalJobs,
+        techJobs,
+        techInvoices
     };
 };
 
-const computeIncentivesForTechsList = (techsList, paramsList) => {
+const evaluatePerformanceTargets = (techsList, paramsList) => {
     return techsList.map(tech => {
-        let total = 0;
         const breakdown = [];
+        const metrics = tech.currentMetrics;
 
         paramsList.forEach(param => {
             if (!param.enabled) return;
@@ -153,141 +127,120 @@ const computeIncentivesForTechsList = (techsList, paramsList) => {
             let metricValue = 0;
             let qualifies = false;
 
-            const metrics = tech.currentMetrics;
             switch (param.id) {
-                case 'p1': metricValue = metrics.onTimeVisits; qualifies = metricValue >= param.threshold; break;
-                case 'p2': metricValue = metrics.feedbackAbove4; qualifies = metricValue >= param.threshold; break;
-                case 'p3': metricValue = metrics.revenuePerCustomer; qualifies = metricValue >= param.threshold; break;
-                case 'p4': metricValue = metrics.revenuePerDay; qualifies = metricValue >= param.threshold; break;
-                case 'p5': metricValue = metrics.monthlyRevenue; qualifies = metricValue >= param.threshold; break;
-                case 'p6': metricValue = metrics.quoteConversionRate; qualifies = metricValue >= param.threshold; break;
-                case 'p7': metricValue = metrics.avgJobDuration; qualifies = metricValue > 0 && metricValue <= param.threshold; break;
-                case 'p8': metricValue = metrics.avgRating; qualifies = metricValue >= param.threshold; break;
-                case 'n1': metricValue = metrics.feedbackBelow4; qualifies = metricValue > param.threshold; break;
-                case 'n2': metricValue = metrics.repeatCallPercent; qualifies = metricValue > param.threshold; break;
-                case 'n3': metricValue = metrics.lateArrivals; qualifies = metricValue > param.threshold; break;
+                case 't1': metricValue = metrics.visitsCount; qualifies = metricValue >= param.threshold; break;
+                case 't2': metricValue = metrics.closedCount; qualifies = metricValue >= param.threshold; break;
+                case 't3': metricValue = metrics.conversionRatio; qualifies = metricValue >= param.threshold; break;
+                case 't4': metricValue = metrics.totalRevenue; qualifies = metricValue >= param.threshold; break;
+                case 't5': metricValue = metrics.avgRevenuePerJob; qualifies = metricValue >= param.threshold; break;
+                case 't6': metricValue = metrics.feedbackRate; qualifies = metricValue >= param.threshold; break;
+                case 't7': metricValue = metrics.avgRating; qualifies = metricValue >= param.threshold; break;
             }
 
-            if (qualifies) {
-                let amount = 0;
-                if (param.rewardType === 'fixed') {
-                    amount = param.rewardValue;
-                } else {
-                    amount = (metricValue * param.rewardValue) / 100;
-                }
-
-                if (param.type === 'negative') {
-                    amount = -amount;
-                }
-
-                total += amount;
-                breakdown.push({
-                    parameter: param.name,
-                    type: param.type,
-                    metricValue,
-                    threshold: param.threshold,
-                    amount
-                });
-            }
+            breakdown.push({
+                id: param.id,
+                name: param.name,
+                target: param.threshold,
+                actual: metricValue,
+                achieved: qualifies
+            });
         });
+
+        const achievedCount = breakdown.filter(b => b.achieved).length;
+        const totalTargets = breakdown.length;
+        const scorePercent = totalTargets > 0 ? Math.round((achievedCount / totalTargets) * 100) : 0;
 
         return {
             ...tech,
-            calculatedIncentive: Math.max(0, total),
+            scorePercent,
+            achievedCount,
+            totalTargets,
             breakdown
         };
     });
 };
 
+const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mStart, mEnd) => {
+    const start = new Date(mStart);
+    const end = new Date(mEnd);
+    const dailyMap = {};
+
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dayStr = new Date(d).toISOString().split('T')[0];
+        dailyMap[dayStr] = {
+            date: dayStr,
+            visits: 0,
+            closed: 0,
+            repairDone: 0,
+            closedWithoutRepair: 0,
+            revenue: 0,
+        };
+    }
+
+    (techJobs || []).forEach(job => {
+        const dayStr = job.scheduled_date;
+        if (dailyMap[dayStr]) {
+            const isVisited = job.arrived_at || ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(job.status);
+            if (isVisited) {
+                dailyMap[dayStr].visits++;
+            }
+
+            if (job.status === 'closed') {
+                dailyMap[dayStr].closed++;
+
+                const closureInt = (interactionsList || []).find(i => 
+                    i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                );
+
+                let isRepair = false;
+                if (closureInt) {
+                    if (closureInt.type !== 'close-call-no-service') {
+                        const outcome = closureInt.metadata?.repair_outcome;
+                        if (outcome === 'Repair Done') {
+                            isRepair = true;
+                        }
+                    }
+                } else {
+                    const jobInvoices = (techInvoices || []).filter(inv => inv.job_id === job.id);
+                    const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+                    if (jobRev > 0) {
+                        isRepair = true;
+                    }
+                }
+
+                if (isRepair) {
+                    dailyMap[dayStr].repairDone++;
+                } else {
+                    dailyMap[dayStr].closedWithoutRepair++;
+                }
+            }
+        }
+    });
+
+    (techInvoices || []).forEach(inv => {
+        const dayStr = inv.date;
+        if (dailyMap[dayStr]) {
+            dailyMap[dayStr].revenue += (inv.total_amount || 0);
+        }
+    });
+
+    return Object.values(dailyMap).sort((a, b) => b.date.localeCompare(a.date));
+};
+
 function IncentivesManagement() {
     const [activeView, setActiveView] = useState('configure'); // configure, performance, history
-    const [showPolicyPdf, setShowPolicyPdf] = useState(false);
-    const [showTechPdf, setShowTechPdf] = useState(false);
-    const [selectedTechForPdf, setSelectedTechForPdf] = useState(null);
     const now = new Date();
     const [activeMonth, setActiveMonth] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
-    const [isFinalized, setIsFinalized] = useState(false);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [payingTechId, setPayingTechId] = useState(null);
-
-    const handlePrintPdf = (divId, title) => {
-        const content = document.getElementById(divId);
-        if (!content) return;
-        const printWindow = window.open('', '_blank');
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>\${title}</title>
-                    <style>
-                        body {
-                            font-family: Arial, sans-serif;
-                            color: #000000;
-                            background: #ffffff;
-                            padding: 40px;
-                        }
-                        h1 { margin: 0; font-size: 28px; color: #1e293b; text-align: center; }
-                        h3 { font-size: 18px; font-weight: 600; margin-bottom: 15px; border-bottom: 2px solid #cbd5e1; padding-bottom: 8px; }
-                        p { margin: 5px 0; font-size: 14px; color: #64748b; text-align: center; }
-                        table {
-                            width: 100%;
-                            border-collapse: collapse;
-                            margin-top: 15px;
-                            font-size: 14px;
-                        }
-                        th, td {
-                            border: 1px solid #cbd5e1;
-                            padding: 10px;
-                            text-align: left;
-                        }
-                        th {
-                            background-color: #f1f5f9;
-                        }
-                        .text-right {
-                            text-align: right;
-                        }
-                        .text-center {
-                            text-align: center;
-                        }
-                        ul {
-                            font-size: 12px;
-                            color: #64748b;
-                            padding-left: 20px;
-                        }
-                        li {
-                            margin-bottom: 4px;
-                        }
-                        .footer {
-                            margin-top: 40px;
-                            padding-top: 20px;
-                            border-top: 2px solid #e2e8f0;
-                            font-size: 12px;
-                            color: #64748b;
-                            text-align: center;
-                        }
-                    </style>
-                </head>
-                <body>
-                    \${content.innerHTML}
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 300);
-    };
-
-    // Incentive Parameters Configuration
     const [parameters, setParameters] = useState([]);
-
-    // Technician Performance Data with 3-month history
     const [technicians, setTechnicians] = useState([]);
+    const [allInteractions, setAllInteractions] = useState([]);
+    const [selectedTechId, setSelectedTechId] = useState(null);
 
     useEffect(() => {
         fetchData();
-    }, [activeMonth]); // re-fetch whenever the month changes
+    }, [activeMonth]);
 
     const fetchData = async () => {
         try {
@@ -300,25 +253,28 @@ function IncentivesManagement() {
             ]);
 
             const defaultParams = [
-                { id: 'p1', name: 'On-Time Visits %', type: 'positive', threshold: 95, rewardType: 'fixed', rewardValue: 5000, enabled: true },
-                { id: 'p2', name: 'Customer Feedback (4+ stars)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 3000, enabled: true },
-                { id: 'p3', name: 'Revenue Per Customer', type: 'positive', threshold: 2000, rewardType: 'percentage', rewardValue: 5, enabled: true },
-                { id: 'p4', name: 'Revenue Per Day', type: 'positive', threshold: 5000, rewardType: 'percentage', rewardValue: 3, enabled: true },
-                { id: 'p5', name: 'Monthly Revenue', type: 'positive', threshold: 100000, rewardType: 'fixed', rewardValue: 10000, enabled: true },
-                { id: 'p6', name: 'Quotation Conversion %', type: 'positive', threshold: 70, rewardType: 'fixed', rewardValue: 3000, enabled: true },
-                { id: 'p7', name: 'Avg Job Duration (Mins)', type: 'positive', threshold: 90, rewardType: 'fixed', rewardValue: 2000, enabled: true },
-                { id: 'p8', name: 'Average Rating (out of 5)', type: 'positive', threshold: 4.5, rewardType: 'fixed', rewardValue: 3000, enabled: true },
-                { id: 'n1', name: 'Feedback Below 4 Stars', type: 'negative', threshold: 10, rewardType: 'fixed', rewardValue: 4000, enabled: true },
-                { id: 'n2', name: 'Repeat Call %', type: 'negative', threshold: 15, rewardType: 'fixed', rewardValue: 2000, enabled: true },
-                { id: 'n3', name: 'Late Arrivals %', type: 'negative', threshold: 10, rewardType: 'percentage', rewardValue: 10, enabled: true }
+                { id: 't1', name: 'Visits Done', threshold: 40, enabled: true },
+                { id: 't2', name: 'Jobs Closed', threshold: 30, enabled: true },
+                { id: 't3', name: 'Conversion Ratio (%)', threshold: 70, enabled: true },
+                { id: 't4', name: 'Total Revenue (₹)', threshold: 100000, enabled: true },
+                { id: 't5', name: 'Avg Revenue per Job (₹)', threshold: 2500, enabled: true },
+                { id: 't6', name: 'Feedback Rate (%)', threshold: 80, enabled: true },
+                { id: 't7', name: 'Average Rating (out of 5)', threshold: 4.5, enabled: true }
             ];
 
+            const allowedIds = ['t1', 't2', 't3', 't4', 't5', 't6', 't7'];
             let loadedParams = paramsData && paramsData.value ? paramsData.value : defaultParams;
-            const mergedParams = [...loadedParams];
-            defaultParams.forEach(dp => {
-                if (!mergedParams.some(mp => mp.id === dp.id)) {
-                    mergedParams.push(dp);
+            
+            const mergedParams = defaultParams.map(dp => {
+                const existing = loadedParams.find(lp => lp.id === dp.id);
+                if (existing) {
+                    return {
+                        ...dp,
+                        threshold: existing.threshold !== undefined ? existing.threshold : dp.threshold,
+                        enabled: existing.enabled !== undefined ? existing.enabled : dp.enabled
+                    };
                 }
+                return dp;
             });
             setParameters(mergedParams);
 
@@ -332,7 +288,7 @@ function IncentivesManagement() {
 
                 const { data: allJobs } = await supabase
                     .from('jobs')
-                    .select('id, assigned_to, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name')
+                    .select('id, job_number, assigned_to, technician_id, status, scheduled_date, scheduled_time, created_at, amount, customer_id, on_way_at, arrived_at, completed_at, customer_rating, rating_note, customer_name, technician_name, appliance_type, brand')
                     .gte('scheduled_date', historyStart)
                     .lte('scheduled_date', monthEnd);
 
@@ -343,24 +299,13 @@ function IncentivesManagement() {
                     .lte('date', monthEnd)
                     .neq('status', 'cancelled');
 
-                const { data: allQuotations } = await supabase
-                    .from('quotations')
-                    .select('id, status, date, technician_id, job_id')
-                    .gte('date', historyStart)
-                    .lte('date', monthEnd)
-                    .neq('status', 'cancelled');
+                const { data: allInteractionsData } = await supabase
+                    .from('interactions')
+                    .select('job_id, type, metadata, timestamp')
+                    .gte('timestamp', historyStart)
+                    .in('type', ['job-closed', 'close-call-no-service']);
 
-                const { data: paidVouchers } = await supabase
-                    .from('payment_vouchers')
-                    .select('account_id, amount, notes, date')
-                    .ilike('notes', '%Incentive%');
-
-                const { data: finalizedData } = await supabase
-                    .from('website_settings')
-                    .select('value')
-                    .eq('key', `incentives-finalized-${activeMonth}`)
-                    .single();
-                setIsFinalized(!!finalizedData?.value);
+                setAllInteractions(allInteractionsData || []);
 
                 const processedTechs = techsData.map(tech => {
                     const currentMetrics = calculateMetricsForMonth(
@@ -370,8 +315,7 @@ function IncentivesManagement() {
                         monthEnd,
                         allJobs || [],
                         allInvoices || [],
-                        allQuotations || [],
-                        paidVouchers || []
+                        allInteractionsData || []
                     );
 
                     const history = [-1, -2, -3].map(offset => {
@@ -387,175 +331,80 @@ function IncentivesManagement() {
                             histEnd,
                             allJobs || [],
                             allInvoices || [],
-                            allQuotations || [],
-                            paidVouchers || []
+                            allInteractionsData || []
                         );
 
-                        let incentiveTotal = 0;
-                        mergedParams.forEach(param => {
-                            if (!param.enabled) return;
-                            let val = 0;
-                            let qualifies = false;
-                            switch (param.id) {
-                                case 'p1': val = metrics.onTimeVisits; qualifies = val >= param.threshold; break;
-                                case 'p2': val = metrics.feedbackAbove4; qualifies = val >= param.threshold; break;
-                                case 'p3': val = metrics.revenuePerCustomer; qualifies = val >= param.threshold; break;
-                                case 'p4': val = metrics.revenuePerDay; qualifies = val >= param.threshold; break;
-                                case 'p5': val = metrics.monthlyRevenue; qualifies = val >= param.threshold; break;
-                                case 'p6': val = metrics.quoteConversionRate; qualifies = val >= param.threshold; break;
-                                case 'p7': val = metrics.avgJobDuration; qualifies = val > 0 && val <= param.threshold; break;
-                                case 'p8': val = metrics.avgRating; qualifies = val >= param.threshold; break;
-                                case 'n1': val = metrics.feedbackBelow4; qualifies = val > param.threshold; break;
-                                case 'n2': val = metrics.repeatCallPercent; qualifies = val > param.threshold; break;
-                                case 'n3': val = metrics.lateArrivals; qualifies = val > param.threshold; break;
-                            }
-                            if (qualifies) {
-                                let amt = param.rewardType === 'fixed' ? param.rewardValue : (val * param.rewardValue) / 100;
-                                if (param.type === 'negative') amt = -amt;
-                                incentiveTotal += amt;
-                            }
-                        });
+                        const historyTargets = evaluatePerformanceTargets([{ currentMetrics: metrics }], mergedParams)[0];
 
                         return {
                             month: mStr,
-                            onTimeVisits: metrics.onTimeVisits,
-                            feedbackAbove4: metrics.feedbackAbove4,
-                            monthlyRevenue: metrics.monthlyRevenue,
-                            incentive: Math.max(0, incentiveTotal)
+                            visitsCount: metrics.visitsCount,
+                            closedCount: metrics.closedCount,
+                            conversionRatio: metrics.conversionRatio,
+                            totalRevenue: metrics.totalRevenue,
+                            feedbackRate: metrics.feedbackRate,
+                            avgRating: metrics.avgRating,
+                            achievedCount: historyTargets.achievedCount,
+                            totalTargets: historyTargets.totalTargets,
+                            scorePercent: historyTargets.scorePercent
                         };
                     });
 
                     return {
                         id: tech.id,
-                        ledger_id: tech.ledger_id,
                         name: tech.name,
-                        alreadyPaid: currentMetrics.alreadyPaid,
                         currentMetrics,
                         history,
-                        calculatedIncentive: 0,
+                        achievedCount: 0,
+                        totalTargets: 0,
+                        scorePercent: 0,
                         breakdown: []
                     };
                 });
 
-                const calculatedTechs = computeIncentivesForTechsList(processedTechs, mergedParams);
+                const calculatedTechs = evaluatePerformanceTargets(processedTechs, mergedParams);
                 setTechnicians(calculatedTechs);
+                
+                if (calculatedTechs.length > 0) {
+                    setSelectedTechId(prev => {
+                        if (prev && calculatedTechs.some(t => t.id === prev)) return prev;
+                        return calculatedTechs[0].id;
+                    });
+                }
             }
         } catch (err) {
-            console.error('Failed to fetch incentives data:', err);
+            console.error('Failed to fetch performance data:', err);
         } finally {
             setLoading(false);
         }
-    };
-
-    const calculateIncentives = () => {
-        setTechnicians(prev => computeIncentivesForTechsList(prev, parameters));
-    };
-
-    const addParameter = () => {
-        const newParam = {
-            id: `custom_${Date.now()}`,
-            name: 'New Parameter',
-            type: 'positive',
-            threshold: 0,
-            rewardType: 'fixed',
-            rewardValue: 0,
-            enabled: true
-        };
-        setParameters([...parameters, newParam]);
     };
 
     const updateParameter = (id, field, value) => {
         setParameters(parameters.map(p => p.id === id ? { ...p, [field]: value } : p));
     };
 
-    const deleteParameter = (id) => {
-        if (window.confirm('Delete this parameter?')) {
-            setParameters(parameters.filter(p => p.id !== id));
-        }
-    };
-
-    const finalizeMonth = async () => {
-        const day = new Date().getDate();
-        if (day > 5) {
-            alert('Monthly incentives can only be finalized before the 5th of the month!');
-            return;
-        }
-        if (window.confirm('Finalize incentives for this month? This cannot be undone.')) {
-            try {
-                setSaving(true);
-                const finalizedTechs = computeIncentivesForTechsList(technicians, parameters);
-                setTechnicians(finalizedTechs);
-                setIsFinalized(true);
-
-                // Persist parameters when finalizing too
-                await websiteSettingsAPI.save('incentive-parameters', parameters, 'Technician incentive policy parameters');
-
-                // In a real app, we would also save the calculated incentives for this month to a dedicated table
-                // For now, we'll just save the finalized status to settings for demo
-                await websiteSettingsAPI.save(`incentives-finalized-${activeMonth}`, true, `Incentives finalized status for ${activeMonth}`);
-
-                alert('Incentives finalized successfully!');
-            } catch (err) {
-                console.error('Failed to finalize incentives:', err);
-                alert('Failed to finalize');
-            } finally {
-                setSaving(false);
-            }
-        }
-    };
-
     const handleSaveParameters = async () => {
         try {
             setSaving(true);
-            await websiteSettingsAPI.save('incentive-parameters', parameters, 'Technician incentive policy parameters');
+            await websiteSettingsAPI.save('incentive-parameters', parameters, 'Technician performance target parameters');
+            setTechnicians(prev => evaluatePerformanceTargets(prev, parameters));
             alert('Parameters saved successfully!');
         } catch (err) {
-            console.error('Failed to save incentive parameters:', err);
+            console.error('Failed to save performance parameters:', err);
             alert('Failed to save changes');
         } finally {
             setSaving(false);
         }
     };
 
-    const payIncentive = async (tech) => {
-        if (!tech.ledger_id) {
-            alert(`No ledger account linked to ${tech.name}. Please link a ledger account in Technician Management first.`);
-            return;
-        }
-        const amount = tech.calculatedIncentive;
-        if (amount <= 0) {
-            alert('Calculated incentive is ₹0 — nothing to pay.');
-            return;
-        }
-        if (!window.confirm(`Pay ₹${amount.toLocaleString()} incentive to ${tech.name} for ${activeMonth}?`)) return;
-        try {
-            setPayingTechId(tech.id);
-            await transactionsAPI.create({
-                type: 'payment',
-                date: new Date().toISOString().split('T')[0],
-                account_id: tech.ledger_id,
-                account_name: tech.name,
-                amount,
-                payment_mode: 'bank_transfer',
-                notes: `Incentive for ${activeMonth} — ${tech.currentMetrics.completedJobs} jobs, ₹${tech.currentMetrics.monthlyRevenue.toLocaleString()} revenue`,
-                status: 'finalized',
-            });
-            // Mark as paid in settings
-            await websiteSettingsAPI.save(
-                `incentive-paid-${activeMonth}-${tech.id}`,
-                { amount, paidOn: new Date().toISOString() },
-                `Incentive paid to ${tech.name} for ${activeMonth}`
-            );
-            // Update local state to reflect payment
-            setTechnicians(ts => ts.map(t => t.id === tech.id ? { ...t, alreadyPaid: (t.alreadyPaid || 0) + amount } : t));
-            alert(`✓ Payment voucher created for ₹${amount.toLocaleString()} — ${tech.name}`);
-        } catch (err) {
-            console.error('Pay incentive error:', err);
-            alert('Failed to create payment: ' + err.message);
-        } finally {
-            setPayingTechId(null);
-        }
-    };
+    const selectedTech = technicians.find(t => t.id === selectedTechId) || technicians[0];
+    const [yr, mo] = activeMonth.split('-').map(Number);
+    const monthStart = `${activeMonth}-01`;
+    const monthEnd = selectedTech ? new Date(yr, mo, 0).toISOString().split('T')[0] : '';
+    
+    const dailyPerformanceData = selectedTech 
+        ? calculateDailyPerformance(selectedTech.currentMetrics.techJobs, selectedTech.currentMetrics.techInvoices, allInteractions, monthStart, monthEnd)
+        : [];
 
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -568,55 +417,29 @@ function IncentivesManagement() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-sm)' }}>
                     <div>
                         <h3 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, margin: 0, marginBottom: '4px' }}>
-                            Incentives Management
+                            Performance Analytics
                         </h3>
                         <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)', margin: 0 }}>
-                            Configure parameters, track performance, and manage technician incentives
+                            Configure target parameters, track live daily metrics, and monitor technician achievements
                         </p>
                     </div>
                     <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-                        <button
-                            className="btn btn-secondary"
-                            onClick={() => setShowPolicyPdf(true)}
-                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)' }}
-                        >
-                            <FileText size={14} />
-                            View Policy Sheet
-                        </button>
                         <input
                             type="month"
                             value={activeMonth}
                             onChange={(e) => setActiveMonth(e.target.value)}
-                            disabled={isFinalized}
                             className="form-input"
                             style={{ fontSize: 'var(--font-size-sm)' }}
                         />
-                        {isFinalized ? (
-                            <div style={{
-                                padding: '6px 12px',
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                                color: 'var(--color-success)',
-                                borderRadius: 'var(--radius-md)',
-                                fontSize: 'var(--font-size-sm)',
-                                fontWeight: 600,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
-                            }}>
-                                <Lock size={14} />
-                                Finalized
-                            </div>
-                        ) : (
-                            <button
-                                className="btn btn-primary"
-                                onClick={finalizeMonth}
-                                disabled={saving || loading}
-                                style={{ padding: '6px 16px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '8px' }}
-                            >
-                                {saving ? <Loader2 size={16} className="spin" /> : <Lock size={16} />}
-                                Finalize Month
-                            </button>
-                        )}
+                        <button
+                            className="btn btn-secondary"
+                            onClick={fetchData}
+                            disabled={loading}
+                            style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <RefreshCcw size={14} className={loading ? "spin" : ""} />
+                            Refresh
+                        </button>
                     </div>
                 </div>
 
@@ -665,304 +488,442 @@ function IncentivesManagement() {
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
                                 <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                    Incentive Parameters
+                                    Performance Targets Configuration
                                 </h4>
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={addParameter}
-                                    disabled={isFinalized}
-                                    style={{ padding: '4px 10px', fontSize: 'var(--font-size-xs)' }}
-                                >
-                                    <Plus size={14} />
-                                    Add Parameter
-                                </button>
                             </div>
 
-                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', maxHeight: '500px', overflow: 'auto' }}>
+                            <div style={{ display: 'grid', gap: 'var(--spacing-sm)', overflow: 'auto' }}>
                                 {parameters.map(param => (
                                     <div
                                         key={param.id}
                                         style={{
                                             padding: 'var(--spacing-sm)',
-                                            backgroundColor: param.type === 'positive' ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
-                                            border: `1px solid ${param.type === 'positive' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                                            backgroundColor: 'var(--bg-secondary)',
+                                            border: '1px solid var(--border-primary)',
                                             borderRadius: 'var(--radius-md)',
                                             display: 'grid',
-                                            gridTemplateColumns: '2fr 1fr 1fr 1fr auto',
+                                            gridTemplateColumns: '2fr 1fr auto',
                                             gap: 'var(--spacing-xs)',
                                             alignItems: 'center',
                                             fontSize: 'var(--font-size-xs)'
                                         }}
                                     >
-                                        <input
-                                            type="text"
-                                            value={param.name}
-                                            onChange={(e) => updateParameter(param.id, 'name', e.target.value)}
-                                            disabled={isFinalized}
-                                            className="form-input"
-                                            style={{ fontSize: 'var(--font-size-xs)', padding: '4px 6px' }}
-                                        />
-                                        <input
-                                            type="number"
-                                            value={param.threshold}
-                                            onChange={(e) => updateParameter(param.id, 'threshold', parseFloat(e.target.value))}
-                                            disabled={isFinalized}
-                                            placeholder="Threshold"
-                                            className="form-input"
-                                            style={{ fontSize: 'var(--font-size-xs)', padding: '4px 6px' }}
-                                        />
-                                        <select
-                                            value={param.rewardType}
-                                            onChange={(e) => updateParameter(param.id, 'rewardType', e.target.value)}
-                                            disabled={isFinalized}
-                                            className="form-input"
-                                            style={{ fontSize: 'var(--font-size-xs)', padding: '4px 6px' }}
-                                        >
-                                            <option value="fixed">Fixed</option>
-                                            <option value="percentage">%</option>
-                                        </select>
-                                        <input
-                                            type="number"
-                                            value={param.rewardValue}
-                                            onChange={(e) => updateParameter(param.id, 'rewardValue', parseFloat(e.target.value))}
-                                            disabled={isFinalized}
-                                            placeholder="Amount"
-                                            className="form-input"
-                                            style={{ fontSize: 'var(--font-size-xs)', padding: '4px 6px' }}
-                                        />
-                                        <button
-                                            onClick={() => deleteParameter(param.id)}
-                                            disabled={isFinalized}
-                                            style={{
-                                                padding: '4px',
-                                                border: 'none',
-                                                background: 'none',
-                                                color: 'var(--color-danger)',
-                                                cursor: isFinalized ? 'not-allowed' : 'pointer',
-                                                opacity: isFinalized ? 0.5 : 1
-                                            }}
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
+                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                                            {param.name}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Target:</span>
+                                            <input
+                                                type="number"
+                                                step={param.id === 't7' ? '0.1' : '1'}
+                                                value={param.threshold}
+                                                onChange={(e) => updateParameter(param.id, 'threshold', parseFloat(e.target.value))}
+                                                className="form-input"
+                                                style={{ fontSize: 'var(--font-size-xs)', padding: '4px 6px', width: '80px' }}
+                                            />
+                                        </div>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={param.enabled}
+                                                onChange={(e) => updateParameter(param.id, 'enabled', e.target.checked)}
+                                            />
+                                            <span>Enabled</span>
+                                        </label>
                                     </div>
                                 ))}
                             </div>
 
                             <button
                                 className="btn btn-primary"
-                                onClick={calculateIncentives}
-                                disabled={isFinalized || loading}
-                                style={{ width: '100%', marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)' }}
+                                onClick={handleSaveParameters}
+                                disabled={saving || loading}
+                                style={{ width: '100%', marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                             >
-                                Calculate Incentives
+                                {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
+                                Save Config Parameters
                             </button>
-
-                            {!isFinalized && (
-                                <button
-                                    className="btn btn-secondary"
-                                    onClick={handleSaveParameters}
-                                    disabled={saving || loading}
-                                    style={{ width: '100%', marginTop: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                                >
-                                    {saving ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
-                                    Save Config Parameters
-                                </button>
-                            )}
                         </div>
                     </div>
 
-                    {/* Technician Results */}
+                    {/* Technician Summary Scorecard */}
                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
-                        {loading ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
-                                <Loader2 className="spin" size={40} style={{ margin: '0 auto' }} />
-                                <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--spacing-sm)' }}>Fetching technicians...</p>
-                            </div>
-                        ) : technicians.length === 0 ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+                        <div style={{
+                            backgroundColor: 'var(--bg-elevated)',
+                            border: '1px solid var(--border-primary)',
+                            borderRadius: 'var(--radius-lg)',
+                            padding: 'var(--spacing-md)',
+                            flex: 1,
+                            overflowY: 'auto'
+                        }}>
+                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                                Technician Target Completion
+                            </h4>
+                            {loading ? (
+                                <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+                                    <Loader2 className="spin" size={40} style={{ margin: '0 auto' }} />
+                                    <p style={{ color: 'var(--text-secondary)', marginTop: 'var(--spacing-sm)' }}>Loading...</p>
+                                </div>
+                            ) : technicians.length === 0 ? (
                                 <p style={{ color: 'var(--text-secondary)' }}>No technicians found.</p>
-                            </div>
-                        ) : (
-                            technicians.map(tech => (
-                                <div
-                                    key={tech.id}
-                                    style={{
-                                        backgroundColor: 'var(--bg-elevated)',
-                                        border: '1px solid var(--border-primary)',
-                                        borderRadius: 'var(--radius-lg)',
-                                        padding: 'var(--spacing-md)'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--spacing-sm)' }}>
-                                        <div>
-                                            <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, margin: 0 }}>
-                                                {tech.name}
-                                            </h4>
-                                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2, display: 'flex', gap: 12 }}>
-                                                <span>{tech.currentMetrics.completedJobs ?? 0} jobs completed</span>
-                                                <span>₹{(tech.currentMetrics.monthlyRevenue || 0).toLocaleString()} revenue</span>
-                                                {tech.alreadyPaid > 0 && (
-                                                    <span style={{ color: '#10b981', fontWeight: 600 }}>✓ ₹{tech.alreadyPaid.toLocaleString()} paid</span>
-                                                )}
+                            ) : (
+                                <div style={{ display: 'grid', gap: 'var(--spacing-md)' }}>
+                                    {technicians.map(tech => (
+                                        <div
+                                            key={tech.id}
+                                            style={{
+                                                padding: 'var(--spacing-md)',
+                                                border: '1px solid var(--border-primary)',
+                                                borderRadius: 'var(--radius-md)',
+                                                backgroundColor: 'var(--bg-secondary)',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)' }}>
+                                                    {tech.name}
+                                                </div>
+                                                <div style={{
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    fontWeight: 700,
+                                                    padding: '2px 8px',
+                                                    borderRadius: 'var(--radius-full)',
+                                                    backgroundColor: tech.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                    color: tech.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
+                                                }}>
+                                                    {tech.achievedCount} / {tech.totalTargets} Targets Met ({tech.scorePercent}%)
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-success)' }}>
-                                                ₹{tech.calculatedIncentive.toLocaleString()}
-                                            </div>
-                                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>calculated incentive</div>
-                                        </div>
-                                    </div>
-
-                                    {tech.breakdown.length > 0 && (
-                                        <>
-                                            <div style={{ fontSize: 'var(--font-size-xs)' }}>
-                                                <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>Breakdown:</div>
+                                            <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '4px' }}>
                                                 {tech.breakdown.map((item, idx) => (
-                                                    <div
+                                                    <span
                                                         key={idx}
+                                                        title={`${item.name}: Target ${item.target}, Actual ${item.actual}`}
                                                         style={{
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            padding: '4px 0',
-                                                            borderBottom: '1px solid var(--border-primary)'
+                                                            fontSize: '10px',
+                                                            padding: '2px 6px',
+                                                            borderRadius: '4px',
+                                                            backgroundColor: item.achieved ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                            color: item.achieved ? 'var(--color-success)' : 'var(--color-danger)',
+                                                            whiteSpace: 'nowrap',
+                                                            border: `1px solid ${item.achieved ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`
                                                         }}
                                                     >
-                                                        <span style={{ color: item.type === 'positive' ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                            {item.type === 'positive' ? '✓' : '✗'} {item.parameter}
-                                                        </span>
-                                                        <span style={{ fontWeight: 600, color: item.amount >= 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                            {item.amount >= 0 ? '+' : ''}₹{item.amount.toLocaleString()}
-                                                        </span>
-                                                    </div>
+                                                        {item.name.split(' ')[0]} {item.achieved ? '✓' : '✗'}
+                                                    </span>
                                                 ))}
                                             </div>
-
-                                            <button
-                                                className="btn btn-secondary"
-                                                onClick={() => {
-                                                    setSelectedTechForPdf(tech);
-                                                    setShowTechPdf(true);
-                                                }}
-                                                style={{ width: '100%', marginTop: 'var(--spacing-md)', padding: 'var(--spacing-sm)' }}
-                                            >
-                                                <FileText size={14} />
-                                                View Incentive Sheet (PDF)
-                                            </button>
-
-                                            {/* Pay Incentive Button */}
-                                            <button
-                                                className="btn btn-primary"
-                                                onClick={() => payIncentive(tech)}
-                                                disabled={payingTechId === tech.id || tech.calculatedIncentive <= 0 || (tech.alreadyPaid >= tech.calculatedIncentive)}
-                                                style={{
-                                                    width: '100%',
-                                                    marginTop: 'var(--spacing-xs)',
-                                                    padding: 'var(--spacing-sm)',
-                                                    backgroundColor: tech.alreadyPaid >= tech.calculatedIncentive && tech.calculatedIncentive > 0 ? '#10b981' : undefined,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                                                }}
-                                            >
-                                                {payingTechId === tech.id
-                                                    ? <><Loader2 size={14} className="spin" /> Processing...</>
-                                                    : tech.alreadyPaid >= tech.calculatedIncentive && tech.calculatedIncentive > 0
-                                                        ? <><CreditCard size={14} /> Already Paid</>
-                                                        : <><CreditCard size={14} /> Pay Incentive ₹{tech.calculatedIncentive.toLocaleString()}</>}
-                                            </button>
-                                        </>
-                                    )}
+                                        </div>
+                                    ))}
                                 </div>
-                            ))
-                        )}
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* Performance View */}
+            {/* Live Performance View */}
             {activeView === 'performance' && (
-                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)' }}>
-                    <div style={{ display: 'grid', gap: 'var(--spacing-lg)' }}>
+                <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                    {/* Technician Selector Header */}
+                    <div style={{
+                        display: 'flex',
+                        gap: 'var(--spacing-sm)',
+                        overflowX: 'auto',
+                        paddingBottom: 'var(--spacing-xs)',
+                        borderBottom: '1px solid var(--border-primary)'
+                    }}>
                         {technicians.map(tech => (
-                            <div
+                            <button
                                 key={tech.id}
+                                onClick={() => setSelectedTechId(tech.id)}
                                 style={{
-                                    backgroundColor: 'var(--bg-elevated)',
-                                    border: '1px solid var(--border-primary)',
+                                    padding: 'var(--spacing-sm) var(--spacing-md)',
                                     borderRadius: 'var(--radius-lg)',
-                                    padding: 'var(--spacing-lg)'
+                                    border: `2px solid ${selectedTechId === tech.id ? 'var(--color-primary)' : 'var(--border-primary)'}`,
+                                    backgroundColor: selectedTechId === tech.id ? 'rgba(59, 130, 246, 0.05)' : 'var(--bg-elevated)',
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    minWidth: '180px',
+                                    transition: 'all 0.2s',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '4px'
                                 }}
                             >
-                                <h4 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                    {tech.name} - Live Performance
-                                </h4>
-
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(16, 185, 129, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>On-Time Visits</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: tech.currentMetrics.onTimeVisits >= 95 ? 'var(--color-success)' : 'var(--color-warning)' }}>
-                                            {tech.currentMetrics.onTimeVisits}%
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Customer Feedback</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: 'var(--color-primary)' }}>
-                                            {tech.currentMetrics.feedbackAbove4}%
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Revenue/Customer</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700 }}>
-                                            ₹{tech.currentMetrics.revenuePerCustomer.toLocaleString()}
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Monthly Revenue</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700 }}>
-                                            ₹{tech.currentMetrics.monthlyRevenue.toLocaleString()}
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Repeat Calls</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: tech.currentMetrics.repeatCallPercent > 15 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                                            {tech.currentMetrics.repeatCallPercent}%
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Late Arrivals</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: tech.currentMetrics.lateArrivals > 10 ? 'var(--color-danger)' : 'var(--color-success)' }}>
-                                            {tech.currentMetrics.lateArrivals}%
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(20, 184, 166, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Quote Conversion</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#14b8a6' }}>
-                                            {tech.currentMetrics.quoteConversionRate || 0}%
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(249, 115, 22, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Avg Resolution Time</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700 }}>
-                                            {tech.currentMetrics.avgJobDuration || 0} mins
-                                        </div>
-                                    </div>
-
-                                    <div style={{ padding: 'var(--spacing-md)', backgroundColor: 'rgba(234, 179, 8, 0.1)', borderRadius: 'var(--radius-md)' }}>
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', marginBottom: '4px' }}>Average Rating</div>
-                                        <div style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: '#eab308' }}>
-                                            {tech.currentMetrics.avgRating || 0} ★
-                                        </div>
-                                    </div>
+                                <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <User size={16} color={selectedTechId === tech.id ? 'var(--color-primary)' : 'var(--text-secondary)'} />
+                                    {tech.name}
                                 </div>
-                            </div>
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                    {tech.achievedCount} of {tech.totalTargets} Targets Met ({tech.scorePercent}%)
+                                </div>
+                            </button>
                         ))}
                     </div>
+
+                    {selectedTech ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                            {/* KPI Metrics Cards */}
+                            <div>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)', color: 'var(--text-primary)' }}>
+                                    Month Performance Goals ({activeMonth})
+                                </h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--spacing-md)' }}>
+                                    {selectedTech.breakdown.map((item, idx) => {
+                                        const unit = item.id === 't3' || item.id === 't6' ? '%' : item.id === 't7' ? ' ★' : '';
+                                        const prefix = item.id === 't4' || item.id === 't5' ? '₹' : '';
+                                        return (
+                                            <div
+                                                key={idx}
+                                                style={{
+                                                    padding: 'var(--spacing-md)',
+                                                    backgroundColor: 'var(--bg-elevated)',
+                                                    border: `1px solid ${item.achieved ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-primary)'}`,
+                                                    borderRadius: 'var(--radius-lg)',
+                                                    boxShadow: 'var(--shadow-sm)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    justifyContent: 'space-between',
+                                                    minHeight: '110px'
+                                                }}
+                                            >
+                                                <div>
+                                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: 500, marginBottom: '4px', textTransform: 'uppercase' }}>
+                                                        {item.name}
+                                                    </div>
+                                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                                        <span style={{ fontSize: 'var(--font-size-2xl)', fontWeight: 700, color: item.achieved ? 'var(--color-success)' : 'var(--text-primary)' }}>
+                                                            {prefix}{item.actual.toLocaleString()}{unit}
+                                                        </span>
+                                                        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>
+                                                            / Target: {prefix}{item.target.toLocaleString()}{unit}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    {item.achieved ? (
+                                                        <span style={{
+                                                            fontSize: '11px',
+                                                            fontWeight: 600,
+                                                            padding: '2px 8px',
+                                                            borderRadius: 'var(--radius-full)',
+                                                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                                            color: 'var(--color-success)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '3px'
+                                                        }}>
+                                                            <CheckCircle size={12} /> Target Met
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{
+                                                            fontSize: '11px',
+                                                            fontWeight: 500,
+                                                            padding: '2px 8px',
+                                                            borderRadius: 'var(--radius-full)',
+                                                            backgroundColor: 'var(--bg-secondary)',
+                                                            color: 'var(--text-secondary)',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '3px'
+                                                        }}>
+                                                            <AlertCircle size={12} /> Target Pending
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Daily Performance Breakdown Table */}
+                            <div style={{
+                                backgroundColor: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-lg)',
+                                padding: 'var(--spacing-md)',
+                                overflow: 'hidden'
+                            }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                                    Daily Breakdown
+                                </h4>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Date</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits Done</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Closed</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Repair Done</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closed No Repair</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Daily Conversion %</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Daily Revenue</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {dailyPerformanceData.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="7" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                        No daily logs found for this period.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                dailyPerformanceData.map((day, idx) => {
+                                                    const conversion = day.closed > 0 ? Math.round((day.repairDone / day.closed) * 100) : 0;
+                                                    return (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                            <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
+                                                                {new Date(day.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            </td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{day.visits}</td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>{day.closed}</td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', color: 'var(--color-success)', fontWeight: 500 }}>{day.repairDone}</td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', color: 'var(--text-secondary)' }}>{day.closedWithoutRepair}</td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>{conversion}%</td>
+                                                            <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>₹{day.revenue.toLocaleString()}</td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Job-Level Performance Grid */}
+                            <div style={{
+                                backgroundColor: 'var(--bg-elevated)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-lg)',
+                                padding: 'var(--spacing-md)',
+                                overflow: 'hidden'
+                            }}>
+                                <h4 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
+                                    Job-Level Details
+                                </h4>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Job Number</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Appliance</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Scheduled Date</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visit Status</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Closure Outcome</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
+                                                <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {(!selectedTech.currentMetrics.techJobs || selectedTech.currentMetrics.techJobs.length === 0) ? (
+                                                <tr>
+                                                    <td colSpan="7" style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                                        No jobs logged for this period.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                selectedTech.currentMetrics.techJobs
+                                                    .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
+                                                    .map((job) => {
+                                                        const isVisited = job.arrived_at || ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(job.status);
+                                                        const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
+                                                        const jobRev = jobInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+
+                                                        let closureOutcome = 'In Progress';
+                                                        let isRepair = false;
+                                                        if (job.status === 'closed') {
+                                                            const closureInt = allInteractions.find(i => 
+                                                                i.job_id === job.id && (i.type === 'job-closed' || i.type === 'close-call-no-service')
+                                                            );
+                                                            if (closureInt) {
+                                                                if (closureInt.type === 'close-call-no-service') {
+                                                                    closureOutcome = 'Closed No Repair';
+                                                                } else {
+                                                                    const outcome = closureInt.metadata?.repair_outcome;
+                                                                    closureOutcome = outcome || 'Closed';
+                                                                    if (outcome === 'Repair Done') {
+                                                                        isRepair = true;
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                if (jobRev > 0) {
+                                                                    closureOutcome = 'Repair Done';
+                                                                    isRepair = true;
+                                                                } else {
+                                                                    closureOutcome = 'Closed No Repair';
+                                                                }
+                                                            }
+                                                        }
+
+                                                        return (
+                                                            <tr key={job.id} style={{ borderBottom: '1px solid var(--border-primary)' }}>
+                                                                <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
+                                                                    #{job.job_number || job.id.slice(0, 8)}
+                                                                </td>
+                                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                    {job.brand ? `${job.brand} ` : ''}{job.appliance_type || 'Unknown'}
+                                                                </td>
+                                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                                    {new Date(job.scheduled_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                                </td>
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                    <span style={{
+                                                                        fontSize: 'var(--font-size-xs)',
+                                                                        fontWeight: 600,
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: 'var(--radius-full)',
+                                                                        backgroundColor: isVisited ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                                                        color: isVisited ? 'var(--color-success)' : 'var(--color-danger)'
+                                                                    }}>
+                                                                        {isVisited ? 'Visited' : 'Not Visited'}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                    <span style={{
+                                                                        fontSize: 'var(--font-size-xs)',
+                                                                        fontWeight: 600,
+                                                                        padding: '2px 8px',
+                                                                        borderRadius: 'var(--radius-full)',
+                                                                        backgroundColor: job.status === 'closed'
+                                                                            ? (isRepair ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)')
+                                                                            : 'rgba(245, 158, 11, 0.15)',
+                                                                        color: job.status === 'closed'
+                                                                            ? (isRepair ? 'var(--color-success)' : 'var(--text-secondary)')
+                                                                            : 'var(--color-warning)'
+                                                                    }}>
+                                                                        {closureOutcome}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
+                                                                    ₹{jobRev.toLocaleString()}
+                                                                </td>
+                                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                                    {job.customer_rating > 0 ? (
+                                                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px', color: '#eab308', fontWeight: 600 }} title={job.rating_note}>
+                                                                            <Star size={14} fill="#eab308" />
+                                                                            {job.customer_rating}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '11px' }}>—</span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                            No technician selected.
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -981,36 +942,57 @@ function IncentivesManagement() {
                                 }}
                             >
                                 <h4 style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, marginBottom: 'var(--spacing-md)' }}>
-                                    {tech.name} - 3-Month History
+                                    {tech.name} - Performance History
                                 </h4>
 
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
                                     <thead>
                                         <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '2px solid var(--border-primary)' }}>
                                             <th style={{ padding: 'var(--spacing-sm)', textAlign: 'left' }}>Month</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>On-Time %</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback %</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Revenue</th>
-                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Incentive</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Visits Done</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Jobs Closed</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Conversion %</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'right' }}>Total Revenue</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Feedback Rate</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Average Rating</th>
+                                            <th style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>Goals Achieved</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {tech.history.map((record, idx) => (
                                             <tr key={idx} style={{ borderBottom: '1px solid var(--border-primary)' }}>
-                                                <td style={{ padding: 'var(--spacing-sm)' }}>
+                                                <td style={{ padding: 'var(--spacing-sm)', fontWeight: 500 }}>
                                                     {new Date(record.month + '-01').toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
                                                 </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
-                                                    {record.onTimeVisits}%
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                    {record.visitsCount}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                    {record.closedCount}
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600 }}>
-                                                    {record.feedbackAbove4}%
+                                                    {record.conversionRatio}%
                                                 </td>
                                                 <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 600 }}>
-                                                    ₹{record.monthlyRevenue.toLocaleString()}
+                                                    ₹{record.totalRevenue.toLocaleString()}
                                                 </td>
-                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'right', fontWeight: 700, color: 'var(--color-success)' }}>
-                                                    ₹{record.incentive.toLocaleString()}
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                    {record.feedbackRate}%
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center', fontWeight: 600, color: '#eab308' }}>
+                                                    {record.avgRating} ★
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-sm)', textAlign: 'center' }}>
+                                                    <span style={{
+                                                        fontSize: 'var(--font-size-xs)',
+                                                        fontWeight: 700,
+                                                        padding: '2px 8px',
+                                                        borderRadius: 'var(--radius-full)',
+                                                        backgroundColor: record.scorePercent >= 70 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                        color: record.scorePercent >= 70 ? 'var(--color-success)' : 'var(--color-warning)'
+                                                    }}>
+                                                        {record.achievedCount} / {record.totalTargets}
+                                                    </span>
                                                 </td>
                                             </tr>
                                         ))}
@@ -1018,321 +1000,6 @@ function IncentivesManagement() {
                                 </table>
                             </div>
                         ))}
-                    </div>
-                </div>
-            )}
-
-            {/* Policy PDF Modal */}
-            {showPolicyPdf && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                    padding: 'var(--spacing-md)'
-                }}>
-                    <div style={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: 'var(--radius-lg)',
-                        maxWidth: '900px',
-                        width: '100%',
-                        maxHeight: '90vh',
-                        overflow: 'auto',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-                    }}>
-                        {/* Modal Header */}
-                        <div style={{
-                            padding: 'var(--spacing-md)',
-                            backgroundColor: '#1e293b',
-                            color: '#ffffff',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            borderTopLeftRadius: 'var(--radius-lg)',
-                            borderTopRightRadius: 'var(--radius-lg)'
-                        }}>
-                            <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
-                                Incentives Policy Sheet - {new Date(activeMonth + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                            </h3>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                <button
-                                    className="btn"
-                                    onClick={() => handlePrintPdf('policy-pdf-content', `Incentives Policy Sheet - ${activeMonth}`)}
-                                    style={{
-                                        padding: '6px 12px',
-                                        backgroundColor: '#10b981',
-                                        color: '#ffffff',
-                                        border: 'none'
-                                    }}
-                                >
-                                    <Download size={16} />
-                                    Download PDF
-                                </button>
-                                <button
-                                    onClick={() => setShowPolicyPdf(false)}
-                                    style={{
-                                        padding: '6px',
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        color: '#ffffff',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* PDF Content */}
-                        <div id="policy-pdf-content" style={{
-                            padding: '40px',
-                            backgroundColor: '#ffffff',
-                            color: '#000000',
-                            fontFamily: 'Arial, sans-serif'
-                        }}>
-                            {/* Header */}
-                            <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '3px solid #1e293b', paddingBottom: '20px' }}>
-                                <h1 style={{ margin: 0, fontSize: '32px', color: '#1e293b' }}>AC Repair Services</h1>
-                                <p style={{ margin: '5px 0', fontSize: '16px', color: '#64748b', fontWeight: 600 }}>Technician Incentives Policy</p>
-                                <p style={{ margin: '5px 0', fontSize: '14px', color: '#64748b' }}>
-                                    Effective Period: {new Date(activeMonth + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                </p>
-                            </div>
-
-                            {/* Positive Parameters */}
-                            <div style={{ marginBottom: '30px' }}>
-                                <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '15px', color: '#10b981', borderBottom: '2px solid #10b981', paddingBottom: '8px' }}>
-                                    ✓ Positive Performance Parameters
-                                </h3>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #10b981' }}>Parameter</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #10b981' }}>Threshold</th>
-                                            <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #10b981' }}>Reward</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {parameters.filter(p => p.type === 'positive' && p.enabled).map((param, idx) => (
-                                            <tr key={idx}>
-                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>{param.name}</td>
-                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
-                                                    ≥ {param.threshold}{param.name.includes('%') ? '%' : ''}
-                                                </td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#10b981' }}>
-                                                    {param.rewardType === 'fixed' ? `₹${param.rewardValue.toLocaleString()}` : `${param.rewardValue}%`}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Negative Parameters */}
-                            <div style={{ marginBottom: '30px' }}>
-                                <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '15px', color: '#ef4444', borderBottom: '2px solid #ef4444', paddingBottom: '8px' }}>
-                                    ✗ Negative Performance Parameters (Penalties)
-                                </h3>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)' }}>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ef4444' }}>Parameter</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #ef4444' }}>Threshold</th>
-                                            <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ef4444' }}>Penalty</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {parameters.filter(p => p.type === 'negative' && p.enabled).map((param, idx) => (
-                                            <tr key={idx}>
-                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>{param.name}</td>
-                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
-                                                    &gt; {param.threshold}{param.name.includes('%') ? '%' : ''}
-                                                </td>
-                                                <td style={{ padding: '10px', textAlign: 'right', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#ef4444' }}>
-                                                    -{param.rewardType === 'fixed' ? `₹${param.rewardValue.toLocaleString()}` : `${param.rewardValue}%`}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Terms */}
-                            <div style={{ marginTop: '40px', padding: '20px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
-                                <h4 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '10px', color: '#1e293b' }}>Important Notes:</h4>
-                                <ul style={{ fontSize: '12px', color: '#64748b', margin: 0, paddingLeft: '20px' }}>
-                                    <li>Incentives are calculated monthly based on performance metrics</li>
-                                    <li>All parameters must be met for respective rewards/penalties to apply</li>
-                                    <li>Final incentive amount cannot be negative (minimum ₹0)</li>
-                                    <li>Incentives must be finalized before the 5th of each month</li>
-                                    <li>This policy is subject to review and modification</li>
-                                </ul>
-                            </div>
-
-                            {/* Footer */}
-                            <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '2px solid #e2e8f0', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
-                                <p style={{ margin: '5px 0' }}>This is an official company policy document</p>
-                                <p style={{ margin: '5px 0' }}>Generated on: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-                                <p style={{ margin: '5px 0' }}>For queries, contact: hr@acrepair.com</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Technician PDF Modal - (Same as before, keeping existing) */}
-            {showTechPdf && selectedTechForPdf && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000,
-                    padding: 'var(--spacing-md)'
-                }}>
-                    <div style={{
-                        backgroundColor: '#ffffff',
-                        borderRadius: 'var(--radius-lg)',
-                        maxWidth: '800px',
-                        width: '100%',
-                        maxHeight: '90vh',
-                        overflow: 'auto',
-                        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-                    }}>
-                        <div style={{
-                            padding: 'var(--spacing-md)',
-                            backgroundColor: '#1e293b',
-                            color: '#ffffff',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            borderTopLeftRadius: 'var(--radius-lg)',
-                            borderTopRightRadius: 'var(--radius-lg)'
-                        }}>
-                            <h3 style={{ margin: 0, fontSize: 'var(--font-size-lg)' }}>
-                                Incentive Sheet - {selectedTechForPdf.name}
-                            </h3>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
-                                <button
-                                    className="btn"
-                                    onClick={() => handlePrintPdf('tech-pdf-content', `Incentive Sheet - ${selectedTechForPdf.name}`)}
-                                    style={{
-                                        padding: '6px 12px',
-                                        backgroundColor: '#10b981',
-                                        color: '#ffffff',
-                                        border: 'none'
-                                    }}
-                                >
-                                    <Download size={16} />
-                                    Download
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowTechPdf(false);
-                                        setSelectedTechForPdf(null);
-                                    }}
-                                    style={{
-                                        padding: '6px',
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        color: '#ffffff',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    <X size={20} />
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="tech-pdf-content" style={{
-                            padding: '40px',
-                            backgroundColor: '#ffffff',
-                            color: '#000000',
-                            fontFamily: 'Arial, sans-serif'
-                        }}>
-                            <div style={{ textAlign: 'center', marginBottom: '30px', borderBottom: '3px solid #1e293b', paddingBottom: '20px' }}>
-                                <h1 style={{ margin: 0, fontSize: '28px', color: '#1e293b' }}>AC Repair Services</h1>
-                                <p style={{ margin: '5px 0', fontSize: '14px', color: '#64748b' }}>Monthly Incentive Statement</p>
-                            </div>
-
-                            <div style={{ marginBottom: '30px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                                <div>
-                                    <strong style={{ color: '#64748b', fontSize: '12px' }}>Technician:</strong>
-                                    <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>{selectedTechForPdf.name}</div>
-                                </div>
-                                <div>
-                                    <strong style={{ color: '#64748b', fontSize: '12px' }}>Period:</strong>
-                                    <div style={{ fontSize: '18px', fontWeight: 600, color: '#1e293b' }}>
-                                        {new Date(activeMonth + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div style={{ marginBottom: '30px' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '15px', color: '#1e293b', borderBottom: '2px solid #e2e8f0', paddingBottom: '8px' }}>
-                                    Incentive Breakdown
-                                </h3>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: '#f1f5f9' }}>
-                                            <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #cbd5e1' }}>Parameter</th>
-                                            <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #cbd5e1' }}>Achieved</th>
-                                            <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #cbd5e1' }}>Amount</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {selectedTechForPdf.breakdown.map((item, idx) => (
-                                            <tr key={idx}>
-                                                <td style={{ padding: '10px', borderBottom: '1px solid #e2e8f0' }}>
-                                                    <span style={{ color: item.type === 'positive' ? '#10b981' : '#ef4444', marginRight: '8px' }}>
-                                                        {item.type === 'positive' ? '✓' : '✗'}
-                                                    </span>
-                                                    {item.parameter}
-                                                </td>
-                                                <td style={{ padding: '10px', textAlign: 'center', borderBottom: '1px solid #e2e8f0' }}>
-                                                    {item.metricValue}{item.parameter.includes('%') ? '%' : ''}
-                                                </td>
-                                                <td style={{
-                                                    padding: '10px',
-                                                    textAlign: 'right',
-                                                    borderBottom: '1px solid #e2e8f0',
-                                                    fontWeight: 600,
-                                                    color: item.amount >= 0 ? '#10b981' : '#ef4444'
-                                                }}>
-                                                    {item.amount >= 0 ? '+' : ''}₹{item.amount.toLocaleString()}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                    <tfoot>
-                                        <tr style={{ backgroundColor: '#1e293b', color: '#ffffff' }}>
-                                            <td colSpan="2" style={{ padding: '15px', fontSize: '16px', fontWeight: 600 }}>
-                                                Total Incentive
-                                            </td>
-                                            <td style={{ padding: '15px', textAlign: 'right', fontSize: '20px', fontWeight: 700 }}>
-                                                ₹{selectedTechForPdf.calculatedIncentive.toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    </tfoot>
-                                </table>
-                            </div>
-
-                            <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '2px solid #e2e8f0', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
-                                <p style={{ margin: '5px 0' }}>This is a system-generated document</p>
-                                <p style={{ margin: '5px 0' }}>Generated on: {new Date().toLocaleDateString('en-GB')}</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
             )}
