@@ -148,6 +148,271 @@ export default function TechnicianViewTab() {
         }
     };
 
+    // Timeline formatting helpers
+    const statusLabels = {
+        new_job_request: 'New Request',
+        scheduled: 'Scheduled',
+        diagnosing_quoting: 'Diagnosing / Quoting',
+        work_in_progress: 'Work in Progress',
+        quotation_sent: 'Quotation Sent',
+        parts_ordered: 'Parts Ordered',
+        closed: 'Closed',
+        cancelled: 'Cancelled',
+        job_scheduled: 'Scheduled',
+        job_assigned: 'Assigned',
+        arrived: 'Arrived',
+        start_job: 'Started Job',
+        on_way: 'On Way',
+        close_call_no_service: 'Closed (No Service)'
+    };
+
+    const formatStatus = (status) => {
+        if (!status) return '';
+        const clean = status.trim().toLowerCase();
+        return statusLabels[clean] || status.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    };
+
+    const getStatusChangeDetails = (desc) => {
+        const match = desc.match(/Status changed:\s*([a-zA-Z0-9_]+)\s*(?:->|→)\s*([a-zA-Z0-9_]+)/i) ||
+                      desc.match(/status changed:\s*([a-zA-Z0-9_]+)\s*(?:->|→)\s*([a-zA-Z0-9_]+)/i);
+        if (match) {
+            return {
+                oldStatus: formatStatus(match[1]),
+                newStatus: formatStatus(match[2])
+            };
+        }
+        return null;
+    };
+
+    const cleanChangeValue = (val) => {
+        if (!val) return 'none';
+        val = String(val).trim();
+        // Remove wrapping quotes if they exist
+        if (val.startsWith('"') && val.endsWith('"') && val.length > 1) {
+            val = val.slice(1, -1);
+        }
+        // Check if it's a JSON string
+        if (val.startsWith('{') && val.endsWith('}')) {
+            try {
+                // Replace escaped quotes and backslashes
+                const normalized = val.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                const parsed = JSON.parse(normalized);
+                
+                let parts = [];
+                if (parsed.categoryName) parts.push(parsed.categoryName);
+                if (parsed.subcategoryName) parts.push(parsed.subcategoryName);
+                if (parsed.issueName) parts.push(parsed.issueName);
+                
+                const cust = parsed.customer || parsed;
+                if (cust.firstName || cust.name) {
+                    const name = cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim();
+                    const phone = cust.phone ? ` (Ph: ${cust.phone})` : '';
+                    parts.push(`Customer: ${name}${phone}`);
+                }
+                
+                if (parts.length > 0) {
+                    return parts.join(' - ');
+                }
+                return 'Updated Details';
+            } catch (e) {
+                return 'Custom Settings';
+            }
+        }
+        return val;
+    };
+
+    const parseChangeItem = (item) => {
+        if (!item) return { text: '', type: 'raw' };
+        // Case 1: "Label changed: 'Old' -> 'New'" or "Label changed: Old → New"
+        const match = item.match(/^(.*?)\s*changed:\s*"(.*?)"\s*(?:->|→)\s*"(.*?)"$/i) ||
+                      item.match(/^(.*?)\s*changed:\s*(.*?)\s*(?:->|→)\s*(.*?)$/i);
+        if (match) {
+            const label = match[1].trim();
+            const oldVal = cleanChangeValue(match[2]);
+            const newVal = cleanChangeValue(match[3]);
+            return { label, oldVal, newVal, type: 'change' };
+        }
+
+        // Case 2: "Label updated to Value"
+        const matchUpdate = item.match(/^(.*?)\s*updated\s*to\s*(.*?)$/i);
+        if (matchUpdate) {
+            const label = matchUpdate[1].trim();
+            const newVal = cleanChangeValue(matchUpdate[2]);
+            return { label, newVal, type: 'update' };
+        }
+
+        // Fallback
+        return { text: item, type: 'raw' };
+    };
+
+    const getCleanTimelineEventTitle = (event) => {
+        const desc = event.description || event.message || '';
+        const type = event.type || '';
+        
+        if (type === 'job-edited' || type === 'edited' || desc.includes('updated by') || desc.includes('edited by')) {
+            return `Job Details Updated`;
+        }
+        if (type === 'payment-received' || type === 'full-payment-collected') {
+            return `Payment Collected`;
+        }
+        if (type === 'close-call-no-service') {
+            return `Closed - No Service`;
+        }
+        if (type === 'job-closed' || type === 'job-status-closed') {
+            return `Closed - Repair Done`;
+        }
+        if (desc.includes('Status changed:')) {
+            return `Status Updated`;
+        }
+        return 'Activity Update';
+    };
+
+    const renderEventDescription = (event) => {
+        const desc = event.description || event.message || '';
+        const type = event.type || '';
+        
+        // Check if it's a status change
+        if (desc.includes('Status changed:') || desc.includes('status changed:')) {
+            const parsedStatus = getStatusChangeDetails(desc);
+            if (parsedStatus) {
+                return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Status updated:</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{parsedStatus.oldStatus}</span>
+                        <span style={{ color: '#ec4899', fontWeight: 700 }}>➔</span>
+                        <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{parsedStatus.newStatus}</span>
+                    </div>
+                );
+            }
+        }
+        
+        if (type === 'job-edited' || type === 'edited' || desc.includes('updated by') || desc.includes('edited by')) {
+            return <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Modified the job details:</div>;
+        }
+        
+        let cleanText = desc;
+        Object.keys(statusLabels).forEach(key => {
+            const regex = new RegExp(`\\b${key}\\b`, 'gi');
+            cleanText = cleanText.replace(regex, statusLabels[key]);
+        });
+        
+        return <div style={{ color: 'var(--text-primary)' }}>{cleanText}</div>;
+    };
+
+    const renderMetadataDetails = (event) => {
+        const meta = event.metadata;
+        if (!meta || typeof meta !== 'object' || Object.keys(meta).length === 0) return null;
+        
+        if (Array.isArray(meta.changes)) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, paddingLeft: 8, borderLeft: '2px solid var(--border-primary)' }}>
+                    {meta.changes.map((item, idx) => {
+                        const parsed = parseChangeItem(item);
+                        if (parsed.type === 'change') {
+                            return (
+                                <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                    🔹 <strong style={{ color: 'var(--text-primary)' }}>{parsed.label}</strong> changed: 
+                                    <span style={{ textDecoration: 'line-through', opacity: 0.6, marginLeft: 4 }}>"{parsed.oldVal}"</span>
+                                    <span style={{ marginLeft: 4, color: '#38bdf8', fontWeight: 600 }}>➔</span>
+                                    <span style={{ marginLeft: 4, fontWeight: 500, color: '#34d399' }}>"{parsed.newVal}"</span>
+                                </div>
+                            );
+                        } else if (parsed.type === 'update') {
+                            return (
+                                <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                    🔹 <strong style={{ color: 'var(--text-primary)' }}>{parsed.label}</strong> updated to <span style={{ fontWeight: 500, color: '#34d399' }}>"{parsed.newVal}"</span>
+                                </div>
+                            );
+                        } else {
+                            return (
+                                <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                    🔹 {parsed.text}
+                                </div>
+                            );
+                        }
+                    })}
+                </div>
+            );
+        }
+        
+        if (meta.amount !== undefined) {
+            return (
+                <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap', backgroundColor: 'rgba(52, 211, 153, 0.05)', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(52, 211, 153, 0.1)' }}>
+                    {meta.amount !== undefined && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Amount:</span> <strong style={{ color: '#34d399' }}>₹{meta.amount.toLocaleString('en-IN')}</strong>
+                        </div>
+                    )}
+                    {meta.paymentMethod && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Method:</span> <strong style={{ color: 'var(--text-primary)' }}>{meta.paymentMethod}</strong>
+                        </div>
+                    )}
+                    {meta.payment_method && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Method:</span> <strong style={{ color: 'var(--text-primary)' }}>{meta.payment_method}</strong>
+                        </div>
+                    )}
+                    {meta.reference && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Ref/Voucher:</span> <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{meta.reference}</strong>
+                        </div>
+                    )}
+                    {meta.notes && (
+                        <div style={{ fontSize: 12, width: '100%' }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Notes:</span> <span style={{ color: 'var(--text-primary)' }}>{meta.notes}</span>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        if (meta.closed_by || meta.closure_reason || meta.closure_option) {
+            const option = meta.closure_option || meta.closure_reason || 'repair_done';
+            const formattedOption = option.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, backgroundColor: 'rgba(52, 211, 153, 0.05)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(52, 211, 153, 0.1)' }}>
+                    <div style={{ fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Closure Type:</span> <strong style={{ color: '#34d399' }}>{formattedOption}</strong>
+                    </div>
+                    {meta.closure_notes && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Closure Notes:</span> <span style={{ color: 'var(--text-primary)' }}>{meta.closure_notes}</span>
+                        </div>
+                    )}
+                    {meta.no_service_charge_taken !== undefined && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Service Charge Collected:</span> <strong style={{ color: meta.no_service_charge_taken ? '#f87171' : '#34d399' }}>{meta.no_service_charge_taken ? 'No (Waived)' : 'Yes'}</strong>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        
+        if (meta.notes || meta.message) {
+            return (
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, fontStyle: 'italic' }}>
+                    "{meta.notes || meta.message}"
+                </div>
+            );
+        }
+
+        const keys = Object.keys(meta).filter(k => typeof meta[k] !== 'object' && typeof meta[k] !== 'function');
+        if (keys.length > 0) {
+            return (
+                <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
+                    {keys.map(k => (
+                        <div key={k} style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                            <span style={{ textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}:</span> <strong style={{ color: 'var(--text-primary)' }}>{String(meta[k])}</strong>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+        
+        return null;
+    };
+
     const selectedTech = technicians.find(t => t.id === selectedTechId);
 
     return (
@@ -401,6 +666,9 @@ export default function TechnicianViewTab() {
                                                     }}>
                                                         {style.label}
                                                     </span>
+                                                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                                                        {getCleanTimelineEventTitle(event)}
+                                                    </span>
                                                     {relatedJob && (
                                                         <span
                                                             onClick={() => setSelectedJob(relatedJob)}
@@ -412,26 +680,12 @@ export default function TechnicianViewTab() {
                                                 </div>
 
                                                 {/* Description */}
-                                                <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.4, wordBreak: 'break-word' }}>
-                                                    {event.description || event.message}
+                                                <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.4, wordBreak: 'break-word', marginTop: 2 }}>
+                                                    {renderEventDescription(event)}
                                                 </div>
 
-                                                {/* Metadata (like invoice details or feedback outcome) */}
-                                                {event.metadata && typeof event.metadata === 'object' && Object.keys(event.metadata).length > 0 && (
-                                                    <div style={{
-                                                        marginTop: 4,
-                                                        padding: '6px 10px',
-                                                        borderRadius: 6,
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                                                        border: '1px dashed var(--border-primary)',
-                                                        fontSize: 11,
-                                                        color: 'var(--text-secondary)',
-                                                        fontFamily: 'monospace',
-                                                        whiteSpace: 'pre-wrap'
-                                                    }}>
-                                                        {event.metadata.notes ? event.metadata.notes : JSON.stringify(event.metadata, null, 2)}
-                                                    </div>
-                                                )}
+                                                {/* Metadata */}
+                                                {renderMetadataDetails(event)}
 
                                                 {/* Performed by badge */}
                                                 <div style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
