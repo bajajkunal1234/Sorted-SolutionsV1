@@ -13,6 +13,7 @@ const ALLOWED_EVENT_TYPES = [
     'job_started',
     'job-status-diagnosing_quoting',
     'job-status-work_in_progress',
+    'job-status-work-in-progress',
     'job-status-parts_ordered',
     'job-status-cx_reschedule',
     'job-status-closed',
@@ -21,6 +22,7 @@ const ALLOWED_EVENT_TYPES = [
     'quotation-created',
     'quotation-sent',
     'quotation-approved',
+    'approve_quotation',
     'invoice-created',
     'sales-invoice-created',
     'sales-invoice-created-draft',
@@ -215,6 +217,7 @@ export default function TechnicianViewTab() {
             case 'job-status-diagnosing_quoting':
                 return { icon: <MapPin size={15} />, bg: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', label: 'Arrived' };
             case 'job-status-work_in_progress':
+            case 'job-status-work-in-progress':
                 return { icon: <Clock size={15} />, bg: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', label: 'Work In Progress' };
             case 'job-status-parts_ordered':
                 return { icon: <Clock size={15} />, bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316', label: 'Parts Ordered' };
@@ -243,6 +246,7 @@ export default function TechnicianViewTab() {
             case 'repair-note-added':
                 return { icon: <FilePlus size={15} />, bg: 'rgba(100, 116, 139, 0.15)', color: '#64748b', label: 'Repair Note' };
             case 'quotation-approved':
+            case 'approve_quotation':
                 return { icon: <CheckCircle2 size={15} />, bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Quotation Approved' };
             case 'payment-received':
             case 'payment-received-cash':
@@ -280,6 +284,7 @@ export default function TechnicianViewTab() {
             case 'job-status-diagnosing_quoting':
                 return 'Marked as Arrived';
             case 'job-status-work_in_progress':
+            case 'job-status-work-in-progress':
                 return 'Status set to Work In Progress';
             case 'job-status-parts_ordered':
                 return 'Status set to Parts Ordered';
@@ -309,6 +314,7 @@ export default function TechnicianViewTab() {
             case 'repair-note-added':
                 return 'Repair Note Added';
             case 'quotation-approved':
+            case 'approve_quotation':
                 return 'Quotation Approved';
             case 'payment-received':
             case 'payment-received-cash':
@@ -411,7 +417,7 @@ export default function TechnicianViewTab() {
             );
         }
 
-        if (type === 'quotation-approved') {
+        if (type === 'quotation-approved' || type === 'approve_quotation') {
             return <div style={{ color: 'var(--text-primary)' }}>Quotation approved by customer. Job moved to Work In Progress.</div>;
         }
  
