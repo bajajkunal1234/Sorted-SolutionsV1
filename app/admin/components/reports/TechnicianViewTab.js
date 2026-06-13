@@ -115,7 +115,18 @@ export default function TechnicianViewTab() {
             });
 
             // Filter by strictly technician activity whitelist
-            const filteredTechEvents = dayEvents.filter(e => ALLOWED_EVENT_TYPES.includes(e.type));
+            let filteredTechEvents = dayEvents.filter(e => ALLOWED_EVENT_TYPES.includes(e.type));
+
+            // De-duplicate: if there is a 'job-closed' event, remove the corresponding 'job-status-closed' for that job
+            const closedJobIds = new Set(
+                filteredTechEvents.filter(e => e.type === 'job-closed' && e.job_id).map(e => e.job_id)
+            );
+            filteredTechEvents = filteredTechEvents.filter(e => {
+                if (e.type === 'job-status-closed' && e.job_id && closedJobIds.has(e.job_id)) {
+                    return false;
+                }
+                return true;
+            });
 
             // Sort chronologically (oldest to newest)
             filteredTechEvents.sort((a, b) => new Date(a.timestamp || a.created_at) - new Date(b.timestamp || b.created_at));
@@ -474,7 +485,7 @@ export default function TechnicianViewTab() {
                             {meta.tested_reason && <span style={{ color: 'var(--text-secondary)', marginLeft: 6 }}>({meta.tested_reason})</span>}
                         </div>
                     )}
-                    {meta.notes && (
+                    {meta.notes && !meta.notes.includes('=== MANDATORY CLOSE CALL NOTES ===') && (
                         <div style={{ fontSize: 12, marginTop: 6, whiteSpace: 'pre-line', borderTop: '1px solid rgba(20, 184, 166, 0.1)', paddingTop: 6, color: 'var(--text-secondary)', fontFamily: 'monospace', lineHeight: 1.4 }}>
                             {meta.notes}
                         </div>
