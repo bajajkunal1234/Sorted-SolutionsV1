@@ -20,6 +20,7 @@ const ALLOWED_EVENT_TYPES = [
     'location-updated',
     'quotation-created',
     'quotation-sent',
+    'quotation-approved',
     'invoice-created',
     'sales-invoice-created',
     'sales-invoice-created-draft',
@@ -28,7 +29,11 @@ const ALLOWED_EVENT_TYPES = [
     'job-closed',
     'feedback-received',
     'feedback-given',
-    'repair-note-added'
+    'repair-note-added',
+    'payment-received',
+    'payment-received-cash',
+    'payment-received-online',
+    'full-payment-collected'
 ];
 
 export default function TechnicianViewTab() {
@@ -179,7 +184,7 @@ export default function TechnicianViewTab() {
     const closedJobsCount = jobs.filter(j => j.status === 'closed').length;
     
     const collectedPayments = timelineEvents
-        .filter(e => e.type === 'payment-received' || e.type === 'full-payment-collected')
+        .filter(e => e.type === 'payment-received' || e.type === 'payment-received-cash' || e.type === 'payment-received-online' || e.type === 'full-payment-collected')
         .reduce((sum, e) => sum + (e.metadata?.amount || 0), 0);
 
     // Timeline Icon/Color Helpers
@@ -226,6 +231,13 @@ export default function TechnicianViewTab() {
                 return { icon: <Award size={15} />, bg: 'rgba(236, 72, 153, 0.15)', color: '#ec4899', label: 'Feedback' };
             case 'repair-note-added':
                 return { icon: <FilePlus size={15} />, bg: 'rgba(100, 116, 139, 0.15)', color: '#64748b', label: 'Repair Note' };
+            case 'quotation-approved':
+                return { icon: <CheckCircle2 size={15} />, bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Quotation Approved' };
+            case 'payment-received':
+            case 'payment-received-cash':
+            case 'payment-received-online':
+            case 'full-payment-collected':
+                return { icon: <DollarSign size={15} />, bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Payment' };
             default:
                 return { icon: <Clock size={15} />, bg: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', label: 'Update' };
         }
@@ -285,6 +297,15 @@ export default function TechnicianViewTab() {
                 return 'Feedback Collected';
             case 'repair-note-added':
                 return 'Repair Note Added';
+            case 'quotation-approved':
+                return 'Quotation Approved';
+            case 'payment-received':
+            case 'payment-received-cash':
+                return 'Payment Collected (Cash/UPI)';
+            case 'payment-received-online':
+                return 'Payment Received Online';
+            case 'full-payment-collected':
+                return 'Full Payment Collected';
             default:
                 return 'Activity Update';
         }
@@ -364,6 +385,25 @@ export default function TechnicianViewTab() {
             );
         }
 
+        if (type === 'payment-received' || type === 'payment-received-cash' || type === 'payment-received-online' || type === 'full-payment-collected') {
+            const amountVal = meta.amount || event.amount || 0;
+            const methodVal = meta.method || event.method || 'cash';
+            return (
+                <div style={{ color: 'var(--text-primary)' }}>
+                    Payment of <strong>₹{amountVal.toLocaleString('en-IN')}</strong> collected via <strong>{methodVal.toUpperCase()}</strong>.
+                    {desc && desc.includes('Note:') && (
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                            {desc.substring(desc.indexOf('Note:'))}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        if (type === 'quotation-approved') {
+            return <div style={{ color: 'var(--text-primary)' }}>Quotation approved by customer. Job moved to Work In Progress.</div>;
+        }
+ 
         return <div style={{ color: 'var(--text-primary)' }}>{desc}</div>;
     };
 

@@ -171,74 +171,89 @@ export default function CollectPaymentFlow({
         }
 
         setIsSubmitting(true);
-        try {
-            let screenshotUrl = null;
-            if (screenshotFile) {
-                screenshotUrl = await uploadImage(screenshotFile);
-            }
 
-            // Prepare pending receipt payload
-            const receiptPayload = {
-                receipt_number: `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
-                date,
-                account_id: selectedCustomer.id,
-                account_name: selectedCustomer.name,
-                amount: parseFloat(amount),
-                payment_mode: paymentMethod === 'cash' ? 'Cash' : (paymentMethod === 'qr' ? 'UPI' : 'Payment Link'),
-                reference_number: selectedJob?.job_number || selectedJob?.id || '',
-                narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
-                status: 'pending_verification',
-                source: context === 'admin' ? 'Admin Panel' : 'Technician App',
-                created_by: currentUserName || 'Technician',
-                job_id: selectedJob?.id || null,
-            };
+        const performConfirm = async (lat = null, lng = null) => {
+            try {
+                let screenshotUrl = null;
+                if (screenshotFile) {
+                    screenshotUrl = await uploadImage(screenshotFile);
+                }
 
-            // Post the transaction (Status = pending_verification)
-            const txRes = await fetch('/api/admin/transactions?type=receipt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(receiptPayload)
-            });
-            const txData = await txRes.json();
-            
-            if (!txData.success) throw new Error(txData.error || "Failed to save verification tracking.");
-
-            // Post the interaction to the Job if there is a job selected
-            if (selectedJob?.id) {
-                const interactionPayload = {
-                    type: 'payment-received',
-                    category: 'payment',
-                    jobId: selectedJob.id,
-                    performedBy: currentUserId,
-                    performedByName: currentUserName,
-                    description: `Payment of ₹${amount} collected via ${paymentMethod.toUpperCase()} marking for Admin Verification.`,
-                    metadata: {
-                        amount: parseFloat(amount),
-                        method: paymentMethod,
-                        attachments: screenshotUrl ? [screenshotUrl] : [],
-                        receipt_id: txData.data?.id
-                    },
-                    status: 'completed',
-                    source: `${context} app`
+                // Prepare pending receipt payload
+                const receiptPayload = {
+                    receipt_number: `REC-${new Date().getFullYear().toString().slice(-2)}-${Math.floor(10000 + Math.random() * 90000)}`,
+                    date,
+                    account_id: selectedCustomer.id,
+                    account_name: selectedCustomer.name,
+                    amount: parseFloat(amount),
+                    payment_mode: paymentMethod === 'cash' ? 'Cash' : (paymentMethod === 'qr' ? 'UPI' : 'Payment Link'),
+                    reference_number: selectedJob?.job_number || selectedJob?.id || '',
+                    narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
+                    status: 'pending_verification',
+                    source: context === 'admin' ? 'Admin Panel' : 'Technician App',
+                    created_by: currentUserName || 'Technician',
+                    job_id: selectedJob?.id || null,
                 };
-                
-                await fetch(`/api/technician/jobs/${selectedJob.id}/interactions`, {
+
+                // Post the transaction (Status = pending_verification)
+                const txRes = await fetch('/api/admin/transactions?type=receipt', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(interactionPayload)
-                }).catch(e => console.error("Interaction logged failed (non-critical)", e));
+                    body: JSON.stringify(receiptPayload)
+                });
+                const txData = await txRes.json();
+                
+                if (!txData.success) throw new Error(txData.error || "Failed to save verification tracking.");
+
+                // Post the interaction to the Job if there is a job selected
+                if (selectedJob?.id) {
+                    const interactionPayload = {
+                        type: 'payment-received',
+                        category: 'payment',
+                        jobId: selectedJob.id,
+                        performedBy: currentUserId,
+                        performedByName: currentUserName,
+                        description: `Payment of ₹${amount} collected via ${paymentMethod.toUpperCase()} marking for Admin Verification.`,
+                        metadata: {
+                            amount: parseFloat(amount),
+                            method: paymentMethod,
+                            attachments: screenshotUrl ? [screenshotUrl] : [],
+                            receipt_id: txData.data?.id,
+                            latitude: lat,
+                            longitude: lng
+                        },
+                        status: 'completed',
+                        source: `${context} app`
+                    };
+                    
+                    await fetch(`/api/technician/jobs/${selectedJob.id}/interactions`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(interactionPayload)
+                    }).catch(e => console.error("Interaction logged failed (non-critical)", e));
+                }
+
+                setStep(4); // Success screen
+                setTimeout(() => {
+                    if(onSuccess) onSuccess();
+                    onClose();
+                }, 3000);
+
+            } catch (err) {
+                alert('Submission failed: ' + err.message);
+            } finally {
+                setIsSubmitting(false);
             }
+        };
 
-            setStep(4); // Success screen
-            setTimeout(() => {
-                if(onSuccess) onSuccess();
-                onClose();
-            }, 3000);
-
-        } catch (err) {
-            alert('Submission failed: ' + err.message);
-        } finally {
-            setIsSubmitting(false);
+        if (navigator.geolocation && context !== 'admin') {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => performConfirm(pos.coords.latitude, pos.coords.longitude),
+                () => performConfirm(),
+                { timeout: 5000, enableHighAccuracy: true }
+            );
+        } else {
+            performConfirm();
         }
     };
 
