@@ -193,7 +193,7 @@ export default function TechnicianViewTab() {
 
     // KPI Calculations
     const totalJobsCount = jobs.length;
-    const visitedJobsCount = jobs.filter(j => j.arrived_at || ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(j.status)).length;
+    const visitedJobsCount = jobs.filter(j => j.arrived_at).length;
     const closedJobsCount = jobs.filter(j => j.status === 'closed').length;
     
     const collectedPayments = timelineEvents

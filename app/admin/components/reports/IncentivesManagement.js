@@ -50,10 +50,7 @@ const calculateMetricsForMonth = (techId, ledgerId, mStart, mEnd, jobsList, invo
     const totalRevenue = repairInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
 
     // 4. Visits Done (arrived_at is set, or status is post-arrival/closed)
-    const visitedJobs = techJobs.filter(j =>
-        j.arrived_at ||
-        ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(j.status)
-    );
+    const visitedJobs = techJobs.filter(j => !!j.arrived_at);
     const visitsCount = visitedJobs.length;
 
     // 5. Jobs Closed
@@ -202,7 +199,7 @@ const calculateDailyPerformance = (techJobs, techInvoices, interactionsList, mSt
     (techJobs || []).forEach(job => {
         const dayStr = job.scheduled_date;
         if (dailyMap[dayStr]) {
-            const isVisited = job.arrived_at || ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(job.status);
+            const isVisited = !!job.arrived_at;
             if (isVisited) {
                 dailyMap[dayStr].visits++;
             }
@@ -860,7 +857,7 @@ function IncentivesManagement() {
                                                 selectedTech.currentMetrics.techJobs
                                                     .sort((a, b) => b.scheduled_date.localeCompare(a.scheduled_date))
                                                     .map((job) => {
-                                                        const isVisited = job.arrived_at || ['diagnosing_quoting', 'work_in_progress', 'quotation_sent', 'parts_ordered', 'closed'].includes(job.status);
+                                                        const isVisited = !!job.arrived_at;
                                                         const jobInvoices = selectedTech.currentMetrics.techInvoices.filter(inv => inv.job_id === job.id);
                                                         const hasRealRepairInvoice = jobInvoices.some(inv => !isServiceChargeOnlyInvoice(inv));
                                                         const jobRev = jobInvoices.filter(inv => !isServiceChargeOnlyInvoice(inv)).reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
