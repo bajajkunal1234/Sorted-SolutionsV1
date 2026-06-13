@@ -343,12 +343,16 @@ button[class*="cancel"]:hover,
         margin: 0 !important;
         display: flex !important;
         flex-direction: column !important;
+        overflow-x: hidden !important;
     }
 
     .modal-overlay {
         padding: 0 !important;
         align-items: flex-start !important;
         justify-content: flex-start !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
     }
 
     /* 3. Ensure modal body scroll takes the full remaining height without clipping or double-scrolling */
@@ -357,8 +361,11 @@ button[class*="cancel"]:hover,
         max-height: none !important;
         flex: 1 !important;
         overflow-y: auto !important;
+        overflow-x: hidden !important; /* prevent horizontal scroll/shift */
         -webkit-overflow-scrolling: touch;
         padding: var(--spacing-md) !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     /* 4. Let the top sub-tabs panel horizontal-scroll rather than overflow or wrap awkwardly */
