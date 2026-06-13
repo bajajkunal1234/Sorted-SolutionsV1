@@ -36,6 +36,7 @@ const normalizeAddress = (p) => {
 
 function CreateJobForm({ onClose, onCreate, existingJob }) {
     const [submitting, setSubmitting] = useState(false);
+    const isEdit = !!existingJob?.job_number;
 
     // Data States
     const [customers, setCustomers] = useState([]);
@@ -841,7 +842,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 description: formData.jobName,
                 // New jobs created by admin start as 'new_job_request';
                 // auto-advance to 'scheduled' when a technician is assigned
-                status: existingJob ? existingJob.status : 'new_job_request',
+                status: (existingJob && existingJob.status) ? existingJob.status : 'scheduled',
                 priority: 'normal',
 
                 category: formData.product?.name || 'General',
@@ -884,8 +885,8 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                 {/* Header */}
                 <div className="modal-header">
                     <div>
-                        <h2 className="modal-title">{existingJob ? 'Edit Job' : 'Create New Job'}</h2>
-                        {existingJob && (
+                        <h2 className="modal-title">{isEdit ? 'Edit Job' : 'Create New Job'}</h2>
+                        {isEdit && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
                                 <p style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
                                     Job #: {existingJob.job_number}
@@ -1113,7 +1114,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                     <div style={{ height: '1px', backgroundColor: 'var(--border-primary)', margin: 'var(--spacing-md) 0' }} />
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                    <div className="form-grid-2col" style={{ gap: 'var(--spacing-md)' }}>
                         {/* 4. Product/Appliance */}
                         <div className="form-group">
                             <label className="form-label">Appliance *</label>
@@ -1357,7 +1358,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                    <div className="form-grid-2col" style={{ gap: 'var(--spacing-md)' }}>
                         {/* 8. Warranty */}
                         <div className="form-group">
                             <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', cursor: 'pointer', height: '100%', paddingTop: '24px' }}>
@@ -1434,11 +1435,11 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
 
                     <div style={{ height: '1px', backgroundColor: 'var(--border-primary)', margin: 'var(--spacing-md) 0' }} />
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                    <div className="form-grid-2col" style={{ gap: 'var(--spacing-md)' }}>
                         {/* 10. Due Date & Time Slot */}
                         <div className="form-group">
                             <label className="form-label">Scheduled Date & Time *</label>
-                            <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                            <div className="datetime-flex-container" style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                                 <input
                                     type="date"
                                     className="form-input custom-date-picker"
@@ -1560,7 +1561,7 @@ function CreateJobForm({ onClose, onCreate, existingJob }) {
                         ) : (
                             <>
                                 <Save size={16} />
-                                {existingJob ? 'Update Job' : 'Create Job'}
+                                {isEdit ? 'Update Job' : 'Create Job'}
                             </>
                         )}
                     </button>

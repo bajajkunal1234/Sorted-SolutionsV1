@@ -313,6 +313,15 @@ button[class*="cancel"]:hover,
     color: var(--text-primary);
 }
 
+.form-grid-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.datetime-flex-container {
+    display: flex;
+}
+
 /* ==========================================================================
    MOBILE & RESPONSIVE UX OVERRIDES (Screens <= 768px)
    ========================================================================== */
@@ -560,5 +569,44 @@ button[class*="cancel"]:hover,
     .daybook-table th {
         padding: var(--spacing-xs) !important;
         font-size: var(--font-size-xs) !important;
+    }
+
+    /* 12. Two-column grids and datetime layouts stacked on mobile */
+    .form-grid-2col {
+        grid-template-columns: 1fr !important;
+    }
+
+    .datetime-flex-container {
+        flex-direction: column !important;
+        gap: var(--spacing-xs) !important;
+    }
+    .datetime-flex-container > input {
+        width: 100% !important;
+    }
+
+    /* 13. Booking Review Modal Footer Responsiveness */
+    .booking-review-footer {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: var(--spacing-sm) !important;
+    }
+    .booking-review-footer-left,
+    .booking-review-footer-right {
+        display: flex !important;
+        width: 100% !important;
+        gap: var(--spacing-sm) !important;
+    }
+    .booking-review-footer-left .btn,
+    .booking-review-footer-left button,
+    .booking-review-footer-right .btn,
+    .booking-review-footer-right button {
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+        padding: 8px 6px !important;
+        font-size: 12px !important;
+        justify-content: center !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
     }
 }

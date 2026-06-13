@@ -393,8 +393,8 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                 </div>
 
                 {/* Footer */}
-                <div className="modal-footer" style={{ justifyContent: 'space-between', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
+                <div className="modal-footer booking-review-footer" style={{ justifyContent: 'space-between', gap: 8 }}>
+                    <div className="booking-review-footer-left" style={{ display: 'flex', gap: 'var(--spacing-sm)' }}>
                         <button onClick={handleDelete} disabled={deleting || dismissing} className="btn btn-secondary" style={{ color: 'var(--color-danger)', borderColor: 'transparent', padding: '6px 12px' }}>
                             {deleting ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : 'Delete Request'}
                         </button>
@@ -403,7 +403,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
                         </button>
                     </div>
 
-                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
+                    <div className="booking-review-footer-right" style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
                         {renderAccountButton()}
 
                         <button
