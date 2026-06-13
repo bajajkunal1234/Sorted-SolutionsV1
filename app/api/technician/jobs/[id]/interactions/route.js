@@ -38,6 +38,26 @@ export async function POST(request, { params }) {
             );
         }
 
+        const metadata = body.metadata || {};
+        if (metadata.latitude && metadata.longitude && !metadata.locality) {
+            try {
+                const geoRes = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?lat=${metadata.latitude}&lon=${metadata.longitude}&format=json`,
+                    { headers: { 'Accept-Language': 'en', 'User-Agent': 'SortedSolutions/1.0' } }
+                );
+                if (geoRes.ok) {
+                    const geo = await geoRes.json();
+                    const addr = geo.address || {};
+                    const loc = addr.suburb || addr.neighbourhood || addr.quarter || addr.village || addr.subdivision || addr.locality || addr.city_district || null;
+                    if (loc) {
+                        metadata.locality = loc;
+                    }
+                }
+            } catch (geoErr) {
+                console.error('[interactions POST] Geocoding error:', geoErr);
+            }
+        }
+
         const interactionPayload = {
             job_id: jobId,
             customer_id: body.customer_id || null,
@@ -47,7 +67,7 @@ export async function POST(request, { params }) {
             performed_by_name: body.user_name || body.performedByName || body.performed_by_name || 'Technician',
             performed_by: body.performedBy || body.performed_by || null,
             source: 'Technician App',
-            metadata: body.metadata || {},
+            metadata: metadata,
             timestamp: new Date().toISOString()
         };
 

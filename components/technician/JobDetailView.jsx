@@ -235,28 +235,106 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const handleMarkArrived = async () => {
         setMarkingArrival(true);
         const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-        try {
-            // Calls mark_arrived action → sets arrived_at + auto-advances status to diagnosing_quoting
-            const res = await fetch(`/api/technician/jobs/${job.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'mark_arrived', updated_by_name: techName })
+        
+        const performMarkArrived = async (lat = null, lng = null) => {
+            try {
+                // Calls mark_arrived action → sets arrived_at + auto-advances status to diagnosing_quoting
+                const res = await fetch(`/api/technician/jobs/${job.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        action: 'mark_arrived', 
+                        updated_by_name: techName,
+                        latitude: lat,
+                        longitude: lng
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed to mark arrival');
+                pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
+                const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
+                const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
+                setVerifyLat(existingLat);
+                setVerifyLng(existingLng);
+                setLocationVerifyStep('ask');
+                setShowLocationVerifyModal(true);
+            } catch (err) {
+                alert('Could not mark arrival: ' + err.message);
+            } finally {
+                setMarkingArrival(false);
+            }
+        };
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => performMarkArrived(pos.coords.latitude, pos.coords.longitude),
+                () => performMarkArrived(),
+                { timeout: 5000, enableHighAccuracy: true }
+            );
+        } else {
+            performMarkArrived();
+        }
+    };
+
+    const handleCallCustomerClick = () => {
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        const techId = editedJob.assignedTo || job.technician_id || null;
+        
+        const sendLog = (lat = null, lng = null) => {
+            const metadata = lat && lng ? { latitude: lat, longitude: lng } : {};
+            logInteraction({
+                type: 'customer-called',
+                category: 'communication',
+                jobId: String(job.id),
+                customerId: editedJob.customerId ? String(editedJob.customerId) : undefined,
+                customerName: editedJob.customerName || editedJob.customer_name,
+                description: `Technician called the customer`,
+                performedBy: techId,
+                performedByName: techName,
+                metadata,
+                source: 'Technician App',
             });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Failed to mark arrival');
-            // Store the arrived data and show location verify modal before updating UI
-            pendingArrivedDataRef.current = { arrivedAt: data.job?.arrived_at || new Date().toISOString(), jobData: data.job };
-            // Pre-seed map with existing pin if available
-            const existingLat = editedJob._raw_property?.latitude || editedJob.location?.lat || null;
-            const existingLng = editedJob._raw_property?.longitude || editedJob.location?.lng || null;
-            setVerifyLat(existingLat);
-            setVerifyLng(existingLng);
-            setLocationVerifyStep('ask');
-            setShowLocationVerifyModal(true);
-        } catch (err) {
-            alert('Could not mark arrival: ' + err.message);
-        } finally {
-            setMarkingArrival(false);
+        };
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => sendLog(pos.coords.latitude, pos.coords.longitude),
+                () => sendLog(),
+                { timeout: 5000, enableHighAccuracy: true }
+            );
+        } else {
+            sendLog();
+        }
+    };
+
+    const handleMapsNavigateClick = () => {
+        const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+        const techId = editedJob.assignedTo || job.technician_id || null;
+        
+        const sendLog = (lat = null, lng = null) => {
+            const metadata = lat && lng ? { latitude: lat, longitude: lng } : {};
+            logInteraction({
+                type: 'map-navigation-opened',
+                category: 'navigation',
+                jobId: String(job.id),
+                customerId: editedJob.customerId ? String(editedJob.customerId) : undefined,
+                customerName: editedJob.customerName || editedJob.customer_name,
+                description: `Technician opened maps navigation for job at: ${[editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', ')}`,
+                performedBy: techId,
+                performedByName: techName,
+                metadata,
+                source: 'Technician App',
+            });
+        };
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => sendLog(pos.coords.latitude, pos.coords.longitude),
+                () => sendLog(),
+                { timeout: 5000, enableHighAccuracy: true }
+            );
+        } else {
+            sendLog();
         }
     };
 
@@ -843,7 +921,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Phone size={16} color="var(--text-secondary)" />
-                                        <a href={`tel:${editedJob.mobile}`} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
+                                        <a href={`tel:${editedJob.mobile}`} onClick={handleCallCustomerClick} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                         <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
@@ -865,6 +943,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                         ? `https://www.google.com/maps?q=${storedLat},${storedLng}`
                                                         : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([editedJob.address, editedJob.locality, editedJob.city].filter(Boolean).join(', '))}`
                                                 }
+                                                onClick={handleMapsNavigateClick}
                                                 target="_blank" rel="noreferrer"
                                                 style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: '6px', color: '#fff', fontSize: '12px', textDecoration: 'none', backgroundColor: '#3b82f6', padding: '5px 12px', borderRadius: 6, fontWeight: 600 }}
                                             >
@@ -889,13 +968,19 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)' }}
                                         onClick={async () => {
                                             if (!navigator.geolocation) return alert('GPS not supported on this device');
-                                            navigator.geolocation.getCurrentPosition(async () => {
-                                                // 1. Record on_way_at — locks cx from cancel/reschedule
+                                            navigator.geolocation.getCurrentPosition(async (pos) => {
+                                                const lat = pos.coords.latitude;
+                                                const lng = pos.coords.longitude;
                                                 const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                                 await fetch(`/api/technician/jobs/${job.id}`, {
                                                     method: 'PUT',
                                                     headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ action: 'mark_on_way', updated_by_name: techName })
+                                                    body: JSON.stringify({ 
+                                                        action: 'mark_on_way', 
+                                                        updated_by_name: techName,
+                                                        latitude: lat,
+                                                        longitude: lng
+                                                    })
                                                 });
                                                 setEditedJob(prev => ({ ...prev, on_way_at: new Date().toISOString() }));
                                             }, () => alert('Please enable GPS permissions.'));
@@ -1487,24 +1572,44 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     if (!partsNoteText.trim()) return;
                                     setPartsNoteLoading(true);
                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-                                    try {
-                                        // 1. Add repair note (sets repair_note_added_at on job)
-                                        const noteRes = await fetch(`/api/technician/jobs/${job.id}`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'add_repair_note', repair_note: partsNoteText.trim(), updated_by_name: techName })
-                                        });
-                                        const noteData = await noteRes.json();
-                                        if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
-                                        // 2. Now set status to parts_ordered
-                                        await handleSaveStatus('parts_ordered');
-                                        setEditedJob(prev => ({ ...prev, repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString() }));
-                                        setShowPartsNoteModal(false);
-                                        setPartsNoteText('');
-                                    } catch (err) {
-                                        alert('Could not save repair note: ' + err.message);
-                                    } finally {
-                                        setPartsNoteLoading(false);
+                                    
+                                    const saveRepairNote = async (lat = null, lng = null) => {
+                                        try {
+                                            // 1. Add repair note (sets repair_note_added_at on job)
+                                            const noteRes = await fetch(`/api/technician/jobs/${job.id}`, {
+                                                method: 'PUT',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ 
+                                                    action: 'add_repair_note', 
+                                                    repair_note: partsNoteText.trim(), 
+                                                    note_text: partsNoteText.trim(),
+                                                    updated_by_name: techName,
+                                                    latitude: lat,
+                                                    longitude: lng
+                                                })
+                                            });
+                                            const noteData = await noteRes.json();
+                                            if (!noteRes.ok) throw new Error(noteData.error || 'Failed to add repair note');
+                                            // 2. Now set status to parts_ordered
+                                            await handleSaveStatus('parts_ordered');
+                                            setEditedJob(prev => ({ ...prev, repair_note_added_at: noteData.job?.repair_note_added_at || new Date().toISOString() }));
+                                            setShowPartsNoteModal(false);
+                                            setPartsNoteText('');
+                                        } catch (err) {
+                                            alert('Could not save repair note: ' + err.message);
+                                        } finally {
+                                            setPartsNoteLoading(false);
+                                        }
+                                    };
+
+                                    if (navigator.geolocation) {
+                                        navigator.geolocation.getCurrentPosition(
+                                            (pos) => saveRepairNote(pos.coords.latitude, pos.coords.longitude),
+                                            () => saveRepairNote(),
+                                            { timeout: 5000, enableHighAccuracy: true }
+                                        );
+                                    } else {
+                                        saveRepairNote();
                                     }
                                 }}
                                 style={{

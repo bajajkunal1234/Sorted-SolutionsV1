@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { logInteractionServer } from '@/lib/log-interaction-server'
 
 export const dynamic = 'force-dynamic';
 
@@ -102,17 +103,21 @@ export async function POST(request) {
         }
 
         // Log interaction for expense submission
-        supabase.from('interactions').insert({
+        logInteractionServer({
             type: 'expense-submitted',
             category: 'expense',
-            performed_by: expenseData.technician_id,
-            performed_by_name: expenseData.technician_name || 'Technician',
+            performedBy: expenseData.technician_id,
+            performedByName: expenseData.technician_name || 'Technician',
             description: `Expense submitted: ${expenseData.category} — ₹${expenseData.amount}${expenseData.description ? ' (' + expenseData.description + ')' : ''}`,
-            metadata: { expense_id: expense.id, category: expenseData.category, amount: expenseData.amount },
+            metadata: { 
+                expense_id: expense.id, 
+                category: expenseData.category, 
+                amount: expenseData.amount,
+                latitude: expenseData.latitude || null,
+                longitude: expenseData.longitude || null
+            },
             source: 'Technician App',
-            status: 'completed',
-            timestamp: new Date().toISOString(),
-        }).then(() => {}).catch(() => {});
+        });
 
         // Insert in-app notification for admin
         supabase.from('app_notifications').insert({

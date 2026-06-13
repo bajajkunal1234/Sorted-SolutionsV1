@@ -1,8 +1,35 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { Users, Calendar, ArrowLeft, ArrowRight, ClipboardList, CheckCircle2, DollarSign, Clock, MapPin, FilePlus, ChevronRight, Activity, X, Loader2, Sparkles, Phone, Award } from 'lucide-react';
+import { Users, Calendar, ArrowLeft, ArrowRight, ClipboardList, CheckCircle2, DollarSign, Clock, MapPin, FilePlus, ChevronRight, Activity, X, Loader2, Phone, Award, Wrench } from 'lucide-react';
 import JobDetailModal from '../JobDetailModal';
+
+// Whitelist of allowed technician-specific events
+const ALLOWED_EVENT_TYPES = [
+    'job-reassigned',
+    'customer-called',
+    'map-navigation-opened',
+    'job-started',
+    'job_started',
+    'job-status-diagnosing_quoting',
+    'job-status-work_in_progress',
+    'job-status-parts_ordered',
+    'job-status-cx_reschedule',
+    'job-status-closed',
+    'location-verified',
+    'location-updated',
+    'quotation-created',
+    'quotation-sent',
+    'invoice-created',
+    'sales-invoice-created',
+    'sales-invoice-created-draft',
+    'expense-submitted',
+    'purchase-invoice-created',
+    'job-closed',
+    'feedback-received',
+    'feedback-given',
+    'repair-note-added'
+];
 
 export default function TechnicianViewTab() {
     const [technicians, setTechnicians] = useState([]);
@@ -13,8 +40,10 @@ export default function TechnicianViewTab() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     
-    // For job details modal
+    // For job details modal and interactive job filtering
     const [selectedJob, setSelectedJob] = useState(null);
+    const [selectedJobFilterId, setSelectedJobFilterId] = useState(null);
+    const [resolvedLocalities, setResolvedLocalities] = useState({});
 
     // Fetch technicians list on mount
     useEffect(() => {
@@ -80,9 +109,12 @@ export default function TechnicianViewTab() {
                 return isByTechId || isByTechName || isForDayJob;
             });
 
+            // Filter by strictly technician activity whitelist
+            const filteredTechEvents = dayEvents.filter(e => ALLOWED_EVENT_TYPES.includes(e.type));
+
             // Sort chronologically (oldest to newest)
-            dayEvents.sort((a, b) => new Date(a.timestamp || a.created_at) - new Date(b.timestamp || b.created_at));
-            setTimelineEvents(dayEvents);
+            filteredTechEvents.sort((a, b) => new Date(a.timestamp || a.created_at) - new Date(b.timestamp || b.created_at));
+            setTimelineEvents(filteredTechEvents);
 
         } catch (err) {
             console.error("Error loading technician day view:", err);
@@ -93,8 +125,46 @@ export default function TechnicianViewTab() {
     };
 
     useEffect(() => {
+        setSelectedJobFilterId(null);
         fetchDayData();
     }, [selectedTechId, selectedDate, technicians]);
+
+    // Client-side reverse geocoding fallback for events with coordinates but no locality
+    useEffect(() => {
+        const toResolve = timelineEvents.filter(e => {
+            const meta = e.metadata || {};
+            return meta.latitude && meta.longitude && !meta.locality;
+        });
+
+        if (toResolve.length === 0) return;
+
+        toResolve.forEach(async (event) => {
+            const meta = event.metadata;
+            const key = `${meta.latitude},${meta.longitude}`;
+            if (resolvedLocalities[key]) return; // Already resolved or resolving
+
+            // Set placeholder to prevent duplicate requests
+            setResolvedLocalities(prev => ({ ...prev, [key]: 'Resolving...' }));
+
+            try {
+                const geoRes = await fetch(
+                    `https://nominatim.openstreetmap.org/reverse?lat=${meta.latitude}&lon=${meta.longitude}&format=json`,
+                    { headers: { 'Accept-Language': 'en', 'User-Agent': 'SortedSolutions/1.0' } }
+                );
+                if (geoRes.ok) {
+                    const geo = await geoRes.json();
+                    const addr = geo.address || {};
+                    const loc = addr.suburb || addr.neighbourhood || addr.quarter || addr.village || addr.subdivision || addr.locality || addr.city_district || null;
+                    setResolvedLocalities(prev => ({ ...prev, [key]: loc || 'Location' }));
+                } else {
+                    setResolvedLocalities(prev => ({ ...prev, [key]: 'Location' }));
+                }
+            } catch (err) {
+                console.error("Client geocoding error:", err);
+                setResolvedLocalities(prev => ({ ...prev, [key]: 'Location' }));
+            }
+        });
+    }, [timelineEvents]);
 
     // Quick Date Shift Helper
     const adjustDate = (days) => {
@@ -115,27 +185,50 @@ export default function TechnicianViewTab() {
     // Timeline Icon/Color Helpers
     const getEventStyling = (event) => {
         const type = event.type || '';
-        const desc = (event.description || '').toLowerCase();
         
-        if (type === 'payment-received' || type === 'full-payment-collected' || desc.includes('payment') || desc.includes('paid')) {
-            return { icon: <DollarSign size={15} />, bg: 'rgba(16, 185, 129, 0.15)', color: '#34d399', label: 'Payment' };
+        switch (type) {
+            case 'job-reassigned':
+                return { icon: <Users size={15} />, bg: 'rgba(99, 102, 241, 0.15)', color: '#6366f1', label: 'Assignment' };
+            case 'customer-called':
+                return { icon: <Phone size={15} />, bg: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', label: 'Call' };
+            case 'map-navigation-opened':
+                return { icon: <MapPin size={15} />, bg: 'rgba(167, 139, 250, 0.15)', color: '#a78bfa', label: 'Maps Navigate' };
+            case 'job-started':
+            case 'job_started':
+                return { icon: <Clock size={15} />, bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Start Job' };
+            case 'job-status-diagnosing_quoting':
+                return { icon: <MapPin size={15} />, bg: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', label: 'Arrived' };
+            case 'job-status-work_in_progress':
+                return { icon: <Clock size={15} />, bg: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', label: 'Work In Progress' };
+            case 'job-status-parts_ordered':
+                return { icon: <Clock size={15} />, bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316', label: 'Parts Ordered' };
+            case 'job-status-cx_reschedule':
+                return { icon: <Calendar size={15} />, bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', label: 'Rescheduled' };
+            case 'location-verified':
+            case 'location-updated':
+                return { icon: <MapPin size={15} />, bg: 'rgba(16, 185, 129, 0.15)', color: '#10b981', label: 'Location Pin' };
+            case 'quotation-created':
+            case 'quotation-sent':
+                return { icon: <FilePlus size={15} />, bg: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6', label: 'Quotation' };
+            case 'invoice-created':
+            case 'sales-invoice-created':
+            case 'sales-invoice-created-draft':
+                return { icon: <FilePlus size={15} />, bg: 'rgba(52, 211, 153, 0.15)', color: '#34d399', label: 'Invoice' };
+            case 'expense-submitted':
+                return { icon: <DollarSign size={15} />, bg: 'rgba(250, 204, 21, 0.15)', color: '#facc15', label: 'Expense' };
+            case 'purchase-invoice-created':
+                return { icon: <Wrench size={15} />, bg: 'rgba(249, 115, 22, 0.15)', color: '#f97316', label: 'Spare Purchase' };
+            case 'job-closed':
+            case 'job-status-closed':
+                return { icon: <CheckCircle2 size={15} />, bg: 'rgba(20, 184, 166, 0.15)', color: '#14b8a6', label: 'Closed' };
+            case 'feedback-received':
+            case 'feedback-given':
+                return { icon: <Award size={15} />, bg: 'rgba(236, 72, 153, 0.15)', color: '#ec4899', label: 'Feedback' };
+            case 'repair-note-added':
+                return { icon: <FilePlus size={15} />, bg: 'rgba(100, 116, 139, 0.15)', color: '#64748b', label: 'Repair Note' };
+            default:
+                return { icon: <Clock size={15} />, bg: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', label: 'Update' };
         }
-        if (type === 'close-call-no-service' || desc.includes('no service') || desc.includes('cancelled')) {
-            return { icon: <X size={15} />, bg: 'rgba(239, 68, 68, 0.15)', color: '#f87171', label: 'No Service' };
-        }
-        if (type === 'job-closed' || type === 'job-status-closed' || desc.includes('closed') || desc.includes('repair done')) {
-            return { icon: <CheckCircle2 size={15} />, bg: 'rgba(52, 211, 153, 0.15)', color: '#34d399', label: 'Job Closed' };
-        }
-        if (type === 'on-way' || desc.includes('on the way')) {
-            return { icon: <MapPin size={15} />, bg: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', label: 'On Way' };
-        }
-        if (type === 'status-changed' && desc.includes('arrived')) {
-            return { icon: <MapPin size={15} />, bg: 'rgba(139, 92, 246, 0.15)', color: '#a78bfa', label: 'Arrived' };
-        }
-        if (type === 'quotation-sent' || type === 'sales-invoice-created' || desc.includes('invoice') || desc.includes('quotation') || desc.includes('estimate')) {
-            return { icon: <FilePlus size={15} />, bg: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', label: 'Billing' };
-        }
-        return { icon: <Clock size={15} />, bg: 'rgba(148, 163, 184, 0.15)', color: '#94a3b8', label: 'Update' };
     };
 
     // Format event time
@@ -148,189 +241,225 @@ export default function TechnicianViewTab() {
         }
     };
 
-    // Timeline formatting helpers
-    const statusLabels = {
-        new_job_request: 'New Request',
-        scheduled: 'Scheduled',
-        diagnosing_quoting: 'Diagnosing / Quoting',
-        work_in_progress: 'Work in Progress',
-        quotation_sent: 'Quotation Sent',
-        parts_ordered: 'Parts Ordered',
-        closed: 'Closed',
-        cancelled: 'Cancelled',
-        job_scheduled: 'Scheduled',
-        job_assigned: 'Assigned',
-        arrived: 'Arrived',
-        start_job: 'Started Job',
-        on_way: 'On Way',
-        close_call_no_service: 'Closed (No Service)'
-    };
-
-    const formatStatus = (status) => {
-        if (!status) return '';
-        const clean = status.trim().toLowerCase();
-        return statusLabels[clean] || status.replace(/_/g, ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-    };
-
-    const getStatusChangeDetails = (desc) => {
-        const match = desc.match(/Status changed:\s*([a-zA-Z0-9_]+)\s*(?:->|→)\s*([a-zA-Z0-9_]+)/i) ||
-                      desc.match(/status changed:\s*([a-zA-Z0-9_]+)\s*(?:->|→)\s*([a-zA-Z0-9_]+)/i);
-        if (match) {
-            return {
-                oldStatus: formatStatus(match[1]),
-                newStatus: formatStatus(match[2])
-            };
-        }
-        return null;
-    };
-
-    const cleanChangeValue = (val) => {
-        if (!val) return 'none';
-        val = String(val).trim();
-        // Remove wrapping quotes if they exist
-        if (val.startsWith('"') && val.endsWith('"') && val.length > 1) {
-            val = val.slice(1, -1);
-        }
-        // Check if it's a JSON string
-        if (val.startsWith('{') && val.endsWith('}')) {
-            try {
-                // Replace escaped quotes and backslashes
-                const normalized = val.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                const parsed = JSON.parse(normalized);
-                
-                let parts = [];
-                if (parsed.categoryName) parts.push(parsed.categoryName);
-                if (parsed.subcategoryName) parts.push(parsed.subcategoryName);
-                if (parsed.issueName) parts.push(parsed.issueName);
-                
-                const cust = parsed.customer || parsed;
-                if (cust.firstName || cust.name) {
-                    const name = cust.name || `${cust.firstName || ''} ${cust.lastName || ''}`.trim();
-                    const phone = cust.phone ? ` (Ph: ${cust.phone})` : '';
-                    parts.push(`Customer: ${name}${phone}`);
-                }
-                
-                if (parts.length > 0) {
-                    return parts.join(' - ');
-                }
-                return 'Updated Details';
-            } catch (e) {
-                return 'Custom Settings';
-            }
-        }
-        return val;
-    };
-
-    const parseChangeItem = (item) => {
-        if (!item) return { text: '', type: 'raw' };
-        // Case 1: "Label changed: 'Old' -> 'New'" or "Label changed: Old → New"
-        const match = item.match(/^(.*?)\s*changed:\s*"(.*?)"\s*(?:->|→)\s*"(.*?)"$/i) ||
-                      item.match(/^(.*?)\s*changed:\s*(.*?)\s*(?:->|→)\s*(.*?)$/i);
-        if (match) {
-            const label = match[1].trim();
-            const oldVal = cleanChangeValue(match[2]);
-            const newVal = cleanChangeValue(match[3]);
-            return { label, oldVal, newVal, type: 'change' };
-        }
-
-        // Case 2: "Label updated to Value"
-        const matchUpdate = item.match(/^(.*?)\s*updated\s*to\s*(.*?)$/i);
-        if (matchUpdate) {
-            const label = matchUpdate[1].trim();
-            const newVal = cleanChangeValue(matchUpdate[2]);
-            return { label, newVal, type: 'update' };
-        }
-
-        // Fallback
-        return { text: item, type: 'raw' };
-    };
-
     const getCleanTimelineEventTitle = (event) => {
-        const desc = event.description || event.message || '';
         const type = event.type || '';
         
-        if (type === 'job-edited' || type === 'edited' || desc.includes('updated by') || desc.includes('edited by')) {
-            return `Job Details Updated`;
+        switch (type) {
+            case 'job-reassigned':
+                return 'Job Assigned';
+            case 'customer-called':
+                return 'Called Customer';
+            case 'map-navigation-opened':
+                return 'Opened Maps Navigation';
+            case 'job-started':
+            case 'job_started':
+                return 'Started Job';
+            case 'job-status-diagnosing_quoting':
+                return 'Marked as Arrived';
+            case 'job-status-work_in_progress':
+                return 'Status set to Work In Progress';
+            case 'job-status-parts_ordered':
+                return 'Status set to Parts Ordered';
+            case 'job-status-cx_reschedule':
+                return 'Status set to Cx Reschedule';
+            case 'location-verified':
+                return 'Customer Pin Verified';
+            case 'location-updated':
+                return 'Customer Pin Updated';
+            case 'quotation-created':
+            case 'quotation-sent':
+                return 'Quotation Created';
+            case 'invoice-created':
+            case 'sales-invoice-created':
+            case 'sales-invoice-created-draft':
+                return 'Sales Invoice Draft Created';
+            case 'expense-submitted':
+                return 'Expense Claim Filed';
+            case 'purchase-invoice-created':
+                return 'Spare Purchase Draft Created';
+            case 'job-closed':
+            case 'job-status-closed':
+                return 'Job Closed';
+            case 'feedback-received':
+            case 'feedback-given':
+                return 'Feedback Collected';
+            case 'repair-note-added':
+                return 'Repair Note Added';
+            default:
+                return 'Activity Update';
         }
-        if (type === 'payment-received' || type === 'full-payment-collected') {
-            return `Payment Collected`;
-        }
-        if (type === 'close-call-no-service') {
-            return `Closed - No Service`;
-        }
-        if (type === 'job-closed' || type === 'job-status-closed') {
-            return `Closed - Repair Done`;
-        }
-        if (desc.includes('Status changed:')) {
-            return `Status Updated`;
-        }
-        return 'Activity Update';
     };
 
     const renderEventDescription = (event) => {
         const desc = event.description || event.message || '';
         const type = event.type || '';
-        
-        // Check if it's a status change
-        if (desc.includes('Status changed:') || desc.includes('status changed:')) {
-            const parsedStatus = getStatusChangeDetails(desc);
-            if (parsedStatus) {
-                return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 2 }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Status updated:</span>
-                        <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{parsedStatus.oldStatus}</span>
-                        <span style={{ color: '#ec4899', fontWeight: 700 }}>➔</span>
-                        <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{parsedStatus.newStatus}</span>
-                    </div>
-                );
-            }
+        const meta = event.metadata || {};
+
+        if (type === 'customer-called') {
+            return <div style={{ color: 'var(--text-primary)' }}>Called the customer to confirm details</div>;
         }
-        
-        if (type === 'job-edited' || type === 'edited' || desc.includes('updated by') || desc.includes('edited by')) {
-            return <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>Modified the job details:</div>;
+        if (type === 'map-navigation-opened') {
+            return <div style={{ color: 'var(--text-primary)' }}>Opened navigation for customer address</div>;
         }
-        
-        let cleanText = desc;
-        Object.keys(statusLabels).forEach(key => {
-            const regex = new RegExp(`\\b${key}\\b`, 'gi');
-            cleanText = cleanText.replace(regex, statusLabels[key]);
-        });
-        
-        return <div style={{ color: 'var(--text-primary)' }}>{cleanText}</div>;
+        if (type === 'job-started' || type === 'job_started') {
+            return <div style={{ color: 'var(--text-primary)' }}>Technician started the job diagnostics timer</div>;
+        }
+        if (type === 'job-status-diagnosing_quoting') {
+            return <div style={{ color: 'var(--text-primary)' }}>Arrived at customer location. Diagnosing issue...</div>;
+        }
+
+        if (type === 'expense-submitted') {
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>{desc}</span>
+                    {window.openTechnicianManagement && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                window.openTechnicianManagement('expenses');
+                            }}
+                            style={{
+                                padding: '2px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                backgroundColor: 'rgba(250, 204, 21, 0.15)',
+                                color: '#facc15',
+                                border: '1px solid rgba(250, 204, 21, 0.3)',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Review Expense Approval
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        if (type === 'purchase-invoice-created') {
+            return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <span style={{ color: 'var(--text-primary)' }}>{desc}</span>
+                    {window.openTechnicianManagement && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                window.openTechnicianManagement('spares-post');
+                            }}
+                            style={{
+                                padding: '2px 8px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                                color: '#f97316',
+                                border: '1px solid rgba(249, 115, 22, 0.3)',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Review Purchase Approval
+                        </button>
+                    )}
+                </div>
+            );
+        }
+
+        return <div style={{ color: 'var(--text-primary)' }}>{desc}</div>;
+    };
+
+    const renderEventLocation = (event) => {
+        const meta = event.metadata || {};
+        if (!meta.latitude || !meta.longitude) return null;
+
+        const key = `${meta.latitude},${meta.longitude}`;
+        const displayLocality = meta.locality || resolvedLocalities[key] || 'Location';
+
+        return (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 4, backgroundColor: 'rgba(59, 130, 246, 0.05)', padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(59, 130, 246, 0.1)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 2 }}>
+                    📍 <strong>{displayLocality}</strong> <span style={{ fontSize: 9, color: 'var(--text-tertiary)' }}>({meta.latitude.toFixed(4)}, {meta.longitude.toFixed(4)})</span>
+                </span>
+                <a 
+                    href={`https://www.google.com/maps?q=${meta.latitude},${meta.longitude}`} 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    style={{
+                        padding: '2px 8px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        color: '#3b82f6',
+                        border: '1px solid rgba(59, 130, 246, 0.3)',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center'
+                    }}
+                >
+                    View on Map
+                </a>
+            </div>
+        );
     };
 
     const renderMetadataDetails = (event) => {
+        const type = event.type || '';
         const meta = event.metadata;
         if (!meta || typeof meta !== 'object' || Object.keys(meta).length === 0) return null;
         
-        if (Array.isArray(meta.changes)) {
+        if (type === 'job-closed') {
             return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6, paddingLeft: 8, borderLeft: '2px solid var(--border-primary)' }}>
-                    {meta.changes.map((item, idx) => {
-                        const parsed = parseChangeItem(item);
-                        if (parsed.type === 'change') {
-                            return (
-                                <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                    🔹 <strong style={{ color: 'var(--text-primary)' }}>{parsed.label}</strong> changed: 
-                                    <span style={{ textDecoration: 'line-through', opacity: 0.6, marginLeft: 4 }}>"{parsed.oldVal}"</span>
-                                    <span style={{ marginLeft: 4, color: '#38bdf8', fontWeight: 600 }}>➔</span>
-                                    <span style={{ marginLeft: 4, fontWeight: 500, color: '#34d399' }}>"{parsed.newVal}"</span>
-                                </div>
-                            );
-                        } else if (parsed.type === 'update') {
-                            return (
-                                <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                    🔹 <strong style={{ color: 'var(--text-primary)' }}>{parsed.label}</strong> updated to <span style={{ fontWeight: 500, color: '#34d399' }}>"{parsed.newVal}"</span>
-                                </div>
-                            );
-                        } else {
-                            return (
-                                <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                    🔹 {parsed.text}
-                                </div>
-                            );
-                        }
-                    })}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, backgroundColor: 'rgba(20, 184, 166, 0.05)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(20, 184, 166, 0.1)' }}>
+                    <div style={{ fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Point of Contact:</span> <strong style={{ color: 'var(--text-primary)' }}>{meta.poc || 'Customer'}</strong>
+                    </div>
+                    <div style={{ fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Repair Outcome:</span> <strong style={{ color: meta.repair_outcome === 'Repair Done' ? '#14b8a6' : '#f59e0b' }}>{meta.repair_outcome}</strong>
+                    </div>
+                    {meta.custom_reason && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Reason:</span> <span style={{ color: 'var(--text-primary)' }}>{meta.custom_reason}</span>
+                        </div>
+                    )}
+                    {meta.warranty_explained && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Warranty Explained:</span> <strong style={{ color: meta.warranty_explained === 'Yes' ? '#14b8a6' : '#ef4444' }}>{meta.warranty_explained}</strong>
+                            {meta.warranty_reason && <span style={{ color: 'var(--text-secondary)', marginLeft: 6 }}>({meta.warranty_reason})</span>}
+                        </div>
+                    )}
+                    {meta.customer_tested && (
+                        <div style={{ fontSize: 12 }}>
+                            <span style={{ color: 'var(--text-secondary)' }}>Customer Tested:</span> <strong style={{ color: meta.customer_tested === 'Yes' ? '#14b8a6' : '#ef4444' }}>{meta.customer_tested}</strong>
+                            {meta.tested_reason && <span style={{ color: 'var(--text-secondary)', marginLeft: 6 }}>({meta.tested_reason})</span>}
+                        </div>
+                    )}
+                    {meta.notes && (
+                        <div style={{ fontSize: 12, marginTop: 6, whiteSpace: 'pre-line', borderTop: '1px solid rgba(20, 184, 166, 0.1)', paddingTop: 6, color: 'var(--text-secondary)', fontFamily: 'monospace', lineHeight: 1.4 }}>
+                            {meta.notes}
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        if (type === 'feedback-received' || type === 'feedback-given') {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, backgroundColor: 'rgba(236, 72, 153, 0.05)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(236, 72, 153, 0.1)' }}>
+                    <div style={{ fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-secondary)' }}>Feedback Collected:</span> <strong style={{ color: meta.feedback_given === 'yes' ? '#ec4899' : '#f59e0b' }}>{meta.feedback_given === 'yes' ? 'Yes ✓' : 'No / Skipped'}</strong>
+                    </div>
+                </div>
+            );
+        }
+
+        if (type === 'repair-note-added' && meta.note_text) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, backgroundColor: 'rgba(100, 116, 139, 0.05)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(100, 116, 139, 0.1)' }}>
+                    <div style={{ fontSize: 12 }}>
+                        <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>Parts / Repair Needed Note:</span>
+                        <div style={{ color: 'var(--text-primary)', marginTop: 4, whiteSpace: 'pre-line', lineHeight: 1.4 }}>{meta.note_text}</div>
+                    </div>
                 </div>
             );
         }
@@ -338,74 +467,14 @@ export default function TechnicianViewTab() {
         if (meta.amount !== undefined) {
             return (
                 <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap', backgroundColor: 'rgba(52, 211, 153, 0.05)', padding: '6px 10px', borderRadius: 6, border: '1px solid rgba(52, 211, 153, 0.1)' }}>
-                    {meta.amount !== undefined && (
-                        <div style={{ fontSize: 12 }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Amount:</span> <strong style={{ color: '#34d399' }}>₹{meta.amount.toLocaleString('en-IN')}</strong>
-                        </div>
-                    )}
-                    {meta.paymentMethod && (
-                        <div style={{ fontSize: 12 }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Method:</span> <strong style={{ color: 'var(--text-primary)' }}>{meta.paymentMethod}</strong>
-                        </div>
-                    )}
-                    {meta.payment_method && (
-                        <div style={{ fontSize: 12 }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Method:</span> <strong style={{ color: 'var(--text-primary)' }}>{meta.payment_method}</strong>
-                        </div>
-                    )}
-                    {meta.reference && (
-                        <div style={{ fontSize: 12 }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Ref/Voucher:</span> <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{meta.reference}</strong>
-                        </div>
-                    )}
-                    {meta.notes && (
-                        <div style={{ fontSize: 12, width: '100%' }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Notes:</span> <span style={{ color: 'var(--text-primary)' }}>{meta.notes}</span>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        if (meta.closed_by || meta.closure_reason || meta.closure_option) {
-            const option = meta.closure_option || meta.closure_reason || 'repair_done';
-            const formattedOption = option.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-            return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, backgroundColor: 'rgba(52, 211, 153, 0.05)', padding: '8px 12px', borderRadius: 8, border: '1px solid rgba(52, 211, 153, 0.1)' }}>
                     <div style={{ fontSize: 12 }}>
-                        <span style={{ color: 'var(--text-secondary)' }}>Closure Type:</span> <strong style={{ color: '#34d399' }}>{formattedOption}</strong>
+                        <span style={{ color: 'var(--text-secondary)' }}>Amount:</span> <strong style={{ color: '#34d399' }}>₹{meta.amount.toLocaleString('en-IN')}</strong>
                     </div>
-                    {meta.closure_notes && (
+                    {meta.category && (
                         <div style={{ fontSize: 12 }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Closure Notes:</span> <span style={{ color: 'var(--text-primary)' }}>{meta.closure_notes}</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>Category:</span> <strong style={{ color: 'var(--text-primary)' }}>{meta.category}</strong>
                         </div>
                     )}
-                    {meta.no_service_charge_taken !== undefined && (
-                        <div style={{ fontSize: 12 }}>
-                            <span style={{ color: 'var(--text-secondary)' }}>Service Charge Collected:</span> <strong style={{ color: meta.no_service_charge_taken ? '#f87171' : '#34d399' }}>{meta.no_service_charge_taken ? 'No (Waived)' : 'Yes'}</strong>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-        
-        if (meta.notes || meta.message) {
-            return (
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4, fontStyle: 'italic' }}>
-                    "{meta.notes || meta.message}"
-                </div>
-            );
-        }
-
-        const keys = Object.keys(meta).filter(k => typeof meta[k] !== 'object' && typeof meta[k] !== 'function');
-        if (keys.length > 0) {
-            return (
-                <div style={{ display: 'flex', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
-                    {keys.map(k => (
-                        <div key={k} style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                            <span style={{ textTransform: 'capitalize' }}>{k.replace(/_/g, ' ')}:</span> <strong style={{ color: 'var(--text-primary)' }}>{String(meta[k])}</strong>
-                        </div>
-                    ))}
                 </div>
             );
         }
@@ -414,6 +483,14 @@ export default function TechnicianViewTab() {
     };
 
     const selectedTech = technicians.find(t => t.id === selectedTechId);
+
+    // Apply job interactive filtering
+    const filteredEvents = timelineEvents.filter(event => {
+        if (selectedJobFilterId) {
+            return event.job_id === selectedJobFilterId;
+        }
+        return true;
+    });
 
     return (
         <div style={{ flex: 1, overflow: 'auto', padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
@@ -554,12 +631,18 @@ export default function TechnicianViewTab() {
                                     {jobs.map(job => (
                                         <div
                                             key={job.id}
-                                            onClick={() => setSelectedJob(job)}
+                                            onClick={() => {
+                                                if (selectedJobFilterId === job.id) {
+                                                    setSelectedJobFilterId(null);
+                                                } else {
+                                                    setSelectedJobFilterId(job.id);
+                                                }
+                                            }}
                                             style={{
                                                 padding: '12px',
                                                 borderRadius: 10,
-                                                border: '1px solid var(--border-primary)',
-                                                backgroundColor: 'var(--bg-secondary)',
+                                                border: selectedJobFilterId === job.id ? '2px solid var(--color-primary)' : '1px solid var(--border-primary)',
+                                                backgroundColor: selectedJobFilterId === job.id ? 'var(--bg-elevated)' : 'var(--bg-secondary)',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s',
                                                 display: 'flex',
@@ -568,28 +651,37 @@ export default function TechnicianViewTab() {
                                                 gap: 8
                                             }}
                                             onMouseEnter={e => {
-                                                e.currentTarget.style.borderColor = 'var(--color-primary)';
-                                                e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                                                if (selectedJobFilterId !== job.id) {
+                                                    e.currentTarget.style.borderColor = 'var(--color-primary)';
+                                                    e.currentTarget.style.backgroundColor = 'var(--bg-elevated)';
+                                                }
                                             }}
                                             onMouseLeave={e => {
-                                                e.currentTarget.style.borderColor = 'var(--border-primary)';
-                                                e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                                                if (selectedJobFilterId !== job.id) {
+                                                    e.currentTarget.style.borderColor = 'var(--border-primary)';
+                                                    e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                                                }
                                             }}
                                         >
                                             <div style={{ textAlign: 'left' }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-primary)' }}>#{job.job_number}</span>
-                                                    <span style={{
-                                                        padding: '1px 6px',
-                                                        borderRadius: 4,
-                                                        fontSize: 9,
-                                                        fontWeight: 700,
-                                                        textTransform: 'uppercase',
-                                                        backgroundColor: job.status === 'closed' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
-                                                        color: job.status === 'closed' ? '#10b981' : '#3b82f6'
-                                                    }}>
-                                                        {job.status.replace(/_/g, ' ')}
-                                                    </span>
+                                                     <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--color-primary)' }}>#{job.job_number}</span>
+                                                     <span style={{
+                                                         padding: '1px 6px',
+                                                         borderRadius: 4,
+                                                         fontSize: 9,
+                                                         fontWeight: 700,
+                                                         textTransform: 'uppercase',
+                                                         backgroundColor: job.status === 'closed' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
+                                                         color: job.status === 'closed' ? '#10b981' : '#3b82f6'
+                                                     }}>
+                                                         {job.status.replace(/_/g, ' ')}
+                                                     </span>
+                                                     {selectedJobFilterId === job.id && (
+                                                         <span style={{ fontSize: 9, color: 'var(--color-primary)', fontWeight: 600, textTransform: 'uppercase', marginLeft: 4 }}>
+                                                             (Filtering)
+                                                         </span>
+                                                     )}
                                                 </div>
                                                 <div style={{ fontSize: 13, fontWeight: 500, marginTop: 4, color: 'var(--text-primary)' }}>
                                                     {job.customer_name || (job.customer && job.customer.name) || 'Customer'}
@@ -598,11 +690,24 @@ export default function TechnicianViewTab() {
                                                     {job.appliance || job.category || 'Appliance'} — {job.issue || 'Service Request'}
                                                 </div>
                                             </div>
-                                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                            <div 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedJob(job);
+                                                }}
+                                                style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, padding: 4, borderRadius: 6, cursor: 'pointer' }}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                                }}
+                                                title="View Job Details"
+                                            >
                                                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)' }}>
                                                     {job.scheduled_time || 'No Slot'}
                                                 </span>
-                                                <ChevronRight size={14} color="var(--text-tertiary)" />
+                                                <ChevronRight size={14} color="var(--color-primary)" />
                                             </div>
                                         </div>
                                     ))}
@@ -612,18 +717,34 @@ export default function TechnicianViewTab() {
 
                         {/* Chronological Activity Timeline */}
                         <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: 6, borderBottom: '1px solid var(--border-primary)', paddingBottom: 10 }}>
-                                <Activity size={16} color="#ec4899" />
-                                Chronological Activity Timeline
+                            <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-primary)', paddingBottom: 10 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <Activity size={16} color="#ec4899" />
+                                    <span>Chronological Activity Timeline</span>
+                                    {selectedJobFilterId && (
+                                        <span style={{ fontSize: 11, color: 'var(--color-primary)', fontWeight: 600, backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: '2px 8px', borderRadius: 12 }}>
+                                            Job Filter Active
+                                        </span>
+                                    )}
+                                </div>
+                                {selectedJobFilterId && (
+                                    <button 
+                                        className="btn btn-secondary" 
+                                        onClick={() => setSelectedJobFilterId(null)}
+                                        style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, color: 'var(--color-primary)' }}
+                                    >
+                                        Clear Filter
+                                    </button>
+                                )}
                             </h3>
 
-                            {timelineEvents.length === 0 ? (
+                            {filteredEvents.length === 0 ? (
                                 <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: 13 }}>
-                                    No recorded activities for this technician/date.
+                                    {selectedJobFilterId ? "No activities found for this job." : "No recorded activities for this technician/date."}
                                 </div>
                             ) : (
                                 <div style={{ position: 'relative', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '20px', borderLeft: '2px dashed var(--border-primary)', margin: '10px 0 10px 10px', textAlign: 'left' }}>
-                                    {timelineEvents.map(event => {
+                                    {filteredEvents.map(event => {
                                         const style = getEventStyling(event);
                                         const eventTime = formatTime(event.timestamp || event.created_at);
                                         const relatedJob = jobs.find(j => j.id === event.job_id);
@@ -683,6 +804,9 @@ export default function TechnicianViewTab() {
                                                 <div style={{ fontSize: 12, color: 'var(--text-primary)', lineHeight: 1.4, wordBreak: 'break-word', marginTop: 2 }}>
                                                     {renderEventDescription(event)}
                                                 </div>
+
+                                                {/* Geolocation locality + view map link */}
+                                                {renderEventLocation(event)}
 
                                                 {/* Metadata */}
                                                 {renderMetadataDetails(event)}

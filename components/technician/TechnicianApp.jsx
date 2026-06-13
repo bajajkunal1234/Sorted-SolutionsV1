@@ -736,17 +736,31 @@ function TechnicianApp() {
                 });
 
                 if (purchaseJob?.id) {
-                    fetch(`/api/technician/jobs/${purchaseJob.id}/interactions`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            type: 'purchase-invoice-created',
-                            category: 'billing',
-                            description: `Technician spare purchase draft of ₹${totalAmount.toLocaleString('en-IN')} created`,
-                            user_name: nameOfTech,
-                            customer_id: purchaseJob.customerId || null
-                        })
-                    }).catch(() => {});
+                    const sendLog = (lat = null, lng = null) => {
+                        const metadata = lat && lng ? { latitude: lat, longitude: lng } : {};
+                        fetch(`/api/technician/jobs/${purchaseJob.id}/interactions`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                type: 'purchase-invoice-created',
+                                category: 'billing',
+                                description: `Technician spare purchase draft of ₹${totalAmount.toLocaleString('en-IN')} created`,
+                                user_name: nameOfTech,
+                                customer_id: purchaseJob.customerId || null,
+                                metadata
+                            })
+                        }).catch(() => {});
+                    };
+
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => sendLog(pos.coords.latitude, pos.coords.longitude),
+                            () => sendLog(),
+                            { timeout: 5000, enableHighAccuracy: true }
+                        );
+                    } else {
+                        sendLog();
+                    }
                 }
             } else {
                 throw new Error(result.error || 'Failed to create purchase invoice');

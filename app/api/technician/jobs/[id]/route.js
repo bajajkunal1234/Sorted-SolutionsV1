@@ -187,6 +187,19 @@ export async function PUT(request, { params }) {
                 job_id: id, type: 'on-way', message: `Technician is on the way`, user_name: techName
             }]).then(null, () => {});
 
+            logInteractionServer({
+                type: 'job-started',
+                category: 'job',
+                jobId: String(id),
+                customerId,
+                customerName,
+                performedBy: existing?.technician_id || null,
+                performedByName: techName,
+                description: `Technician started job #${jobRef} and shared location`,
+                metadata: { latitude: body.latitude || null, longitude: body.longitude || null },
+                source: 'Technician App'
+            });
+
             return NextResponse.json({ success: true, message: 'on_way_at recorded' });
         }
 
@@ -208,8 +221,12 @@ export async function PUT(request, { params }) {
             }]).then(null, () => {});
             logInteractionServer({
                 type: 'job-status-diagnosing_quoting', category: 'job', jobId: String(id),
-                customerId, customerName, performedByName: techName,
-                description: `Job #${jobRef} — ${statusMsg}`, source: 'Technician App'
+                customerId, customerName,
+                performedBy: existing?.technician_id || null,
+                performedByName: techName,
+                description: `Job #${jobRef} — ${statusMsg}`,
+                metadata: { latitude: body.latitude || null, longitude: body.longitude || null },
+                source: 'Technician App'
             });
             fireNotification('job_diagnosing', {
                 job_id: String(id), job_number: existing?.job_number,
@@ -231,11 +248,25 @@ export async function PUT(request, { params }) {
                 .eq('id', id);
             if (error) return NextResponse.json({ error: 'Failed to record repair note' }, { status: 500 });
 
+            const noteText = updates.note_text || body.note_text || body.repair_note || '';
             supabase.from('job_interactions').insert([{
                 job_id: id, type: 'repair-note-added',
-                message: updates.note_text ? `Repair note added: ${updates.note_text}` : 'Repair note added',
+                message: noteText ? `Repair note added: ${noteText}` : 'Repair note added',
                 user_name: techName
             }]).then(null, () => {});
+
+            logInteractionServer({
+                type: 'repair-note-added',
+                category: 'job',
+                jobId: String(id),
+                customerId,
+                customerName,
+                performedBy: existing?.technician_id || null,
+                performedByName: techName,
+                description: noteText ? `Technician added repair/parts note: ${noteText}` : 'Technician added repair note',
+                metadata: { note_text: noteText, latitude: body.latitude || null, longitude: body.longitude || null },
+                source: 'Technician App'
+            });
 
             return NextResponse.json({ success: true, message: 'Repair note recorded' });
         }
