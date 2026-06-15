@@ -30,7 +30,9 @@ export async function GET(request) {
                 customer:accounts(*),
                 technician:technicians(*),
                 rental:active_rentals(*),
-                amc:active_amcs(*)
+                amc:active_amcs(*),
+                quotations(id, quote_number, total_amount, status),
+                sales_invoices(id, invoice_number, total_amount, status)
             `)
             .order('created_at', { ascending: false })
 
