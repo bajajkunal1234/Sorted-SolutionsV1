@@ -22,7 +22,9 @@ export async function GET(request) {
             .select(`
                 *,
                 customer:accounts(*),
-                assigned_technician:technicians(id, name, phone)
+                assigned_technician:technicians(id, name, phone),
+                quotations(id, quote_number, total_amount, status),
+                sales_invoices(id, invoice_number, total_amount, status)
             `)
             .eq('technician_id', technicianId)
             .not('status', 'in', '("closed","cancelled","new_job_request","booking_request","enquiry")')  // hard filter — technicians never see unvetted or closed jobs
@@ -136,7 +138,10 @@ export async function GET(request) {
                 startedAt: job.started_at,
                 completedAt: job.completed_at,
                 createdAt: job.created_at,
-                notes: job.notes
+                notes: job.notes,
+                arrived_at: job.arrived_at,
+                quotations: job.quotations || [],
+                sales_invoices: job.sales_invoices || []
             };
         })
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Grid, Columns, Table as TableIcon, List } from 'lucide-react';
+import { Plus, Grid, Columns, Table as TableIcon, List, Settings } from 'lucide-react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import JobCard from './JobCard';
@@ -19,7 +19,7 @@ import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 // ─── Helpers ──────────────────────────────────────────────────────
 const VIEWS_API = '/api/admin/job-views';
 
-const DEFAULTS = { viewType: 'kanban', groupBy: 'status', sortBy: 'dueDate', sortOrder: 'asc', activeTags: [] };
+const DEFAULTS = { viewType: 'kanban', groupBy: 'none', sortBy: 'dueDate', sortOrder: 'asc', activeTags: [] };
 
 /** Generate a random short id */
 const uid = () => Math.random().toString(36).slice(2, 9);
@@ -110,6 +110,33 @@ function JobsTab({ jobToOpen, onJobOpened }) {
     const [sortOrder, setSortOrder] = useState(DEFAULTS.sortOrder);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTags, setActiveTags] = useState([]);
+
+    // Column visibility for Table View
+    const [visibleColumns, setVisibleColumns] = useState({
+        job: true,
+        customer: true,
+        locality: true,
+        brand: true,
+        technician: true,
+        dueDate: true,
+        visited: true,
+        quotation: true,
+        invoice: true,
+        status: true
+    });
+    const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+
+    // Close column dropdown on click outside
+    useEffect(() => {
+        if (!showColumnDropdown) return;
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.column-toggler-container-admin')) {
+                setShowColumnDropdown(false);
+            }
+        };
+        document.addEventListener('click', handleOutsideClick);
+        return () => document.removeEventListener('click', handleOutsideClick);
+    }, [showColumnDropdown]);
 
     // Named saved views
     const [savedViews, setSavedViews] = useState([]);
@@ -217,9 +244,11 @@ function JobsTab({ jobToOpen, onJobOpened }) {
         return sortJobs(filtered, sortBy, sortOrder);
     }, [jobs, activeTags, searchTerm, sortBy, sortOrder]);
 
+    const effectiveGroupBy = viewType === 'kanban' && (groupBy === 'none' || !groupBy) ? 'status' : (groupBy || 'none');
+
     const groupedJobs = useMemo(() => {
-        const raw = groupJobsBy(processedJobs, groupBy);
-        if (groupBy !== 'status') return raw;
+        const raw = groupJobsBy(processedJobs, effectiveGroupBy);
+        if (effectiveGroupBy !== 'status') return raw;
         // Sort columns in canonical 9-status lifecycle order
         const ordered = {};
         STATUS_ORDER.forEach(statusKey => {
@@ -230,7 +259,17 @@ function JobsTab({ jobToOpen, onJobOpened }) {
         // Append any remaining groups not in STATUS_ORDER (safety net)
         Object.keys(raw).forEach(k => { if (!ordered[k]) ordered[k] = raw[k]; });
         return ordered;
-    }, [processedJobs, groupBy]);
+    }, [processedJobs, effectiveGroupBy]);
+
+    // ── Sorting callback for Table View headers ──
+    const handleSort = (key) => {
+        if (sortBy === key) {
+            setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortBy(key);
+            setSortOrder('asc');
+        }
+    };
 
     // ── Tag management ────────────────────────────────────────────
     const handleAddTag = (tag) => setActiveTags(prev => [...prev.filter(t => t.id !== tag.id), tag]);
@@ -329,6 +368,86 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                 >
                     ↻ Refresh
                 </button>
+
+                {/* Columns Selection Dropdown (Table View only) */}
+                {viewType === 'table' && (
+                    <div className="column-toggler-container-admin" style={{ position: 'relative' }}>
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowColumnDropdown(!showColumnDropdown);
+                            }}
+                            style={{
+                                padding: '5px 10px',
+                                backgroundColor: 'transparent',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: '6px',
+                                color: '#94a3b8',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                transition: 'all 0.15s'
+                            }}
+                        >
+                            <Settings size={13} />
+                            <span>Columns</span>
+                        </button>
+                        {showColumnDropdown && (
+                            <div style={{
+                                position: 'absolute',
+                                top: '100%',
+                                right: 0,
+                                marginTop: '4px',
+                                backgroundColor: 'var(--bg-secondary)',
+                                border: '1px solid var(--border-primary)',
+                                borderRadius: 'var(--radius-md)',
+                                boxShadow: 'var(--shadow-lg)',
+                                padding: '8px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                                minWidth: '160px',
+                                zIndex: 110
+                            }}>
+                                <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', padding: '2px 8px', borderBottom: '1px solid var(--border-primary)', marginBottom: '4px' }}>
+                                    Toggle Columns
+                                </div>
+                                {Object.keys(visibleColumns).map(col => (
+                                    <label
+                                        key={col}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            fontSize: 'var(--font-size-xs)',
+                                            color: 'var(--text-primary)',
+                                            cursor: 'pointer',
+                                            padding: '4px 8px',
+                                            borderRadius: '4px',
+                                            transition: 'background-color 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'}
+                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={visibleColumns[col]}
+                                            onChange={() => setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }))}
+                                            style={{ cursor: 'pointer' }}
+                                        />
+                                        <span style={{ textTransform: 'capitalize' }}>
+                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col}
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
                 <span style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
                     {processedJobs.length} / {jobs.length} jobs
                 </span>
@@ -369,7 +488,18 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                                 </div>
                             </DndContext>
                         )}
-                        {viewType === 'table' && <JobsTableView jobs={processedJobs} onJobClick={handleJobClick} />}
+                        {viewType === 'table' && (
+                            <JobsTableView 
+                                jobs={processedJobs} 
+                                onJobClick={handleJobClick} 
+                                visibleColumns={visibleColumns} 
+                                groupBy={effectiveGroupBy} 
+                                groupedJobs={groupedJobs}
+                                sortBy={sortBy}
+                                sortOrder={sortOrder}
+                                onSort={handleSort}
+                            />
+                        )}
                         {viewType === 'list'  && <JobsListView  jobs={processedJobs} onJobClick={handleJobClick} />}
                     </>
                 )}

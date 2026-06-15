@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2 } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import CalendarView from '@/components/technician/CalendarView';
 import RepairCalculator from '@/components/common/RepairCalculator';
+import JobsTableView from '@/components/technician/JobsTableView';
 import NotificationBell from '@/components/common/NotificationBell';
 import { logInteraction } from '@/lib/interactions';
 import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
@@ -32,7 +33,7 @@ function TechnicianApp() {
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [groupBy, setGroupBy] = useState('status');
+    const [groupBy, setGroupBy] = useState('none');
     const [sortBy, setSortBy] = useState('dueDate');
     const [sortOrder, setSortOrder] = useState('asc');
     const [searchTerm, setSearchTerm] = useState('');
@@ -40,6 +41,32 @@ function TechnicianApp() {
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
+
+    // Columns Visibility for Table View
+    const [visibleColumns, setVisibleColumns] = useState({
+        job: true,
+        customer: true,
+        locality: true,
+        brand: true,
+        dueDate: true,
+        visited: true,
+        quotation: true,
+        invoice: true,
+        status: true
+    });
+    const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+
+    // Close column dropdown on click outside
+    useEffect(() => {
+        if (!showColumnDropdown) return;
+        const handleOutsideClick = (e) => {
+            if (!e.target.closest('.column-toggler-container-tech')) {
+                setShowColumnDropdown(false);
+            }
+        };
+        document.addEventListener('click', handleOutsideClick);
+        return () => document.removeEventListener('click', handleOutsideClick);
+    }, [showColumnDropdown]);
     const [calculatorJob, setCalculatorJob] = useState(null); // job to open in RepairCalculator
     const [darkMode, setDarkMode] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -514,6 +541,30 @@ function TechnicianApp() {
                 aVal = (a.locality || '').toLowerCase();
                 bVal = (b.locality || '').toLowerCase();
                 break;
+            case 'jobName':
+                aVal = (a.description || a.jobName || '').toLowerCase();
+                bVal = (b.description || b.jobName || '').toLowerCase();
+                break;
+            case 'brand':
+                aVal = (a.brand?.name || a.brand || '').toLowerCase();
+                bVal = (b.brand?.name || b.brand || '').toLowerCase();
+                break;
+            case 'status':
+                aVal = (a.status || '').toLowerCase();
+                bVal = (b.status || '').toLowerCase();
+                break;
+            case 'visited':
+                aVal = a.arrived_at ? 1 : 0;
+                bVal = b.arrived_at ? 1 : 0;
+                break;
+            case 'quotation':
+                aVal = parseFloat(a.quotations?.[0]?.total_amount || 0);
+                bVal = parseFloat(b.quotations?.[0]?.total_amount || 0);
+                break;
+            case 'invoice':
+                aVal = parseFloat(a.sales_invoices?.[0]?.total_amount || 0);
+                bVal = parseFloat(b.sales_invoices?.[0]?.total_amount || 0);
+                break;
             default:
                 return 0;
         }
@@ -522,13 +573,15 @@ function TechnicianApp() {
         return 0;
     });
 
+    const effectiveGroupBy = viewMode === 'kanban' && (groupBy === 'none' || !groupBy) ? 'status' : (groupBy || 'none');
+
     // Group sorted jobs
     const groupedJobs = {};
     sortedJobs.forEach(job => {
         let key;
-        if (groupBy === 'status') {
+        if (effectiveGroupBy === 'status') {
             key = job.status ? job.status.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
-        } else if (groupBy === 'due-date') {
+        } else if (effectiveGroupBy === 'due-date') {
             if (!job.dueDate) { key = 'No Date'; }
             else {
                 const d = new Date(job.dueDate);
@@ -540,14 +593,14 @@ function TechnicianApp() {
                 else if (d.getTime() === tomorrow.getTime()) key = 'Tomorrow';
                 else key = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
             }
-        } else if (groupBy === 'priority') {
+        } else if (effectiveGroupBy === 'priority') {
             const pMap = { urgent: '🔴 Urgent', high: '🟡 High', normal: '🟢 Normal', low: '⚪ Low' };
             key = pMap[job.priority] || '🟢 Normal';
-        } else if (groupBy === 'locality') {
+        } else if (effectiveGroupBy === 'locality') {
             key = job.locality || job.city || 'Unknown Area';
-        } else if (groupBy === 'customer') {
+        } else if (effectiveGroupBy === 'customer') {
             key = job.customerName || 'Walk-in';
-        } else if (groupBy === 'warranty') {
+        } else if (effectiveGroupBy === 'warranty') {
             key = job.product?.warranty?.status === 'in-warranty' ? 'In Warranty' : 'Out of Warranty';
         } else {
             key = 'All Jobs';
@@ -843,6 +896,7 @@ function TechnicianApp() {
                     onResetView={handleResetView}
                     showAssignee={false}
                     groupByOptions={[
+                        { value: 'none',     label: 'None' },
                         { value: 'status',   label: 'Status' },
                         { value: 'due-date', label: 'Due Date' },
                         { value: 'priority', label: 'Priority' },
@@ -872,12 +926,89 @@ function TechnicianApp() {
                         <button onClick={() => setViewMode('kanban')} title="Kanban View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'kanban' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'kanban' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'kanban' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                             <Columns size={16} />
                         </button>
+                        <button onClick={() => setViewMode('table')} title="Table View" style={{ padding: '4px 8px', borderRadius: '4px', border: 'none', backgroundColor: viewMode === 'table' ? 'var(--bg-primary)' : 'transparent', color: viewMode === 'table' ? '#3b82f6' : 'var(--text-secondary)', boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <Table size={16} />
+                        </button>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
                             {sortedJobs.length} active jobs
                         </span>
+
+                        {/* Columns Selection Dropdown (Table View only) */}
+                        {viewMode === 'table' && (
+                            <div className="column-toggler-container-tech" style={{ position: 'relative' }}>
+                                <button
+                                    type="button"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowColumnDropdown(!showColumnDropdown);
+                                    }}
+                                    style={{
+                                        padding: '3px 8px', fontSize: '11px', cursor: 'pointer',
+                                        border: '1px solid var(--border-primary)', borderRadius: '5px',
+                                        backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)',
+                                        display: 'flex', alignItems: 'center', gap: '4px'
+                                    }}
+                                >
+                                    <Settings size={12} />
+                                    <span>Columns</span>
+                                </button>
+                                {showColumnDropdown && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        right: 0,
+                                        marginTop: '4px',
+                                        backgroundColor: 'var(--bg-secondary)',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        boxShadow: 'var(--shadow-lg)',
+                                        padding: '8px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '4px',
+                                        minWidth: '160px',
+                                        zIndex: 110
+                                    }}>
+                                        <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-tertiary)', padding: '2px 8px', borderBottom: '1px solid var(--border-primary)', marginBottom: '4px' }}>
+                                            Toggle Columns
+                                        </div>
+                                        {Object.keys(visibleColumns).map(col => (
+                                            <label
+                                                key={col}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '8px',
+                                                    fontSize: 'var(--font-size-xs)',
+                                                    color: 'var(--text-primary)',
+                                                    cursor: 'pointer',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px',
+                                                    transition: 'background-color 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-elevated)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={visibleColumns[col]}
+                                                    onChange={() => setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }))}
+                                                    style={{ cursor: 'pointer' }}
+                                                />
+                                                <span style={{ textTransform: 'capitalize' }}>
+                                                    {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col}
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <button
                             onClick={() => {
                                 setLoading(true);
@@ -933,7 +1064,27 @@ function TechnicianApp() {
                         No jobs found
                     </div>
                 ) : (
-                    viewMode === 'kanban' ? (
+                    viewMode === 'table' ? (
+                        <JobsTableView
+                            jobs={sortedJobs}
+                            onJobClick={handleOpenJob}
+                            getStatusColor={getStatusColor}
+                            getTimeLeft={getTimeLeft}
+                            visibleColumns={visibleColumns}
+                            groupBy={effectiveGroupBy}
+                            groupedJobs={groupedJobs}
+                            sortBy={sortBy}
+                            sortOrder={sortOrder}
+                            onSort={(key) => {
+                                if (sortBy === key) {
+                                    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                                } else {
+                                    setSortBy(key);
+                                    setSortOrder('asc');
+                                }
+                            }}
+                        />
+                    ) : viewMode === 'kanban' ? (
                         <div style={{ display: 'flex', gap: '16px', height: '100%', overflowX: 'auto', paddingBottom: '16px', alignItems: 'flex-start' }}>
                             {Object.keys(groupedJobs).map(groupKey => (
                                 <div key={groupKey} style={{ minWidth: '320px', width: '320px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-primary)', maxHeight: '100%' }}>

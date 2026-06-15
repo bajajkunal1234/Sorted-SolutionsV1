@@ -32,6 +32,7 @@ const OPERATORS_BY_TYPE = {
 };
 
 const DEFAULT_GROUP_BY_OPTIONS = [
+    { value: 'none',        label: 'None' },
     { value: 'status',      label: 'Status' },
     { value: 'assignee',    label: 'Assignee' },
     { value: 'dueDate',     label: 'Due Date' },
@@ -230,8 +231,8 @@ export default function JobsSearchPanel({
                 ))}
 
                 {/* Group-by tag */}
-                {groupBy !== 'status' && (
-                    <FilterTag label={`Group: ${activeGroupBy?.label || groupBy}`} onRemove={() => onGroupByChange('status')} />
+                {groupBy && groupBy !== 'none' && (
+                    <FilterTag label={`Group: ${activeGroupBy?.label || groupBy}`} onRemove={() => onGroupByChange('none')} />
                 )}
 
                 {/* Sort tag */}
@@ -258,8 +259,8 @@ export default function JobsSearchPanel({
                 />
 
                 {/* Clear all */}
-                {(searchTerm || activeTags.length || groupBy !== 'status' || sortBy !== 'dueDate' || sortOrder !== 'asc') && (
-                    <button onClick={() => { onSearchChange(''); activeTags.forEach(t => onRemoveTag(t.id)); onGroupByChange('status'); onSortByChange('dueDate'); onSortOrderChange('asc'); }} title="Clear" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#64748b', display: 'flex' }}>
+                {(searchTerm || activeTags.length || (groupBy && groupBy !== 'none') || sortBy !== 'dueDate' || sortOrder !== 'asc') && (
+                    <button onClick={() => { onSearchChange(''); activeTags.forEach(t => onRemoveTag(t.id)); onGroupByChange('none'); onSortByChange('dueDate'); onSortOrderChange('asc'); }} title="Clear" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: '#64748b', display: 'flex' }}>
                         <X size={13} />
                     </button>
                 )}
@@ -371,7 +372,7 @@ export default function JobsSearchPanel({
                             {groupByOptions.map(opt => {
                                 const isActive = groupBy === opt.value;
                                 return (
-                                    <button key={opt.value} onClick={() => onGroupByChange(isActive ? 'status' : opt.value)}
+                                    <button key={opt.value} onClick={() => onGroupByChange(isActive ? 'none' : opt.value)}
                                         style={{ padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', backgroundColor: isActive ? 'rgba(52,211,153,0.15)' : 'transparent', color: isActive ? '#34d399' : '#cbd5e1', fontWeight: isActive ? 600 : 400, display: 'flex', alignItems: 'center', gap: '5px' }}
                                         onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#334155'; }}
                                         onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}

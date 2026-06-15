@@ -1,17 +1,15 @@
 'use client'
 
 import { useState, Fragment } from 'react';
-import { Calendar, User, MapPin, AlertCircle } from 'lucide-react';
-import { getInitials, getLocalityFromAddress, getStatusColor } from '@/lib/utils/helpers';
+import { AlertCircle } from 'lucide-react';
 
-function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs, sortBy, sortOrder, onSort }) {
+function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleColumns, groupBy, groupedJobs, sortBy, sortOrder, onSort }) {
     const [columnWidths, setColumnWidths] = useState({
         job: 200,
         customer: 140,
         locality: 160,
         brand: 100,
-        technician: 130,
-        dueDate: 140,
+        dueDate: 150,
         visited: 80,
         quotation: 100,
         invoice: 100,
@@ -19,7 +17,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
     });
 
     const isOverdue = (dueDate, status) => {
-        if (['completed','cancelled','closed'].includes(status)) return false;
+        if (['completed', 'cancelled', 'closed'].includes(status)) return false;
         if (!dueDate) return false;
         return new Date(dueDate) < new Date();
     };
@@ -52,20 +50,14 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
         .reduce((sum, col) => sum + (columnWidths[col] || 100), 0);
 
     const renderRow = (job) => {
-        const isBooking = job.status === 'booking_request' || job.status === 'new_job_request';
         const statusColor = getStatusColor(job.status);
-        const dueDate = job.scheduled_date || job.dueDate;
+        const dueDate = job.dueDate;
         const overdue = isOverdue(dueDate, job.status);
-        
-        let bd = {};
-        if (isBooking) {
-            try { bd = JSON.parse(job.notes || '{}'); } catch (e) { }
-        }
-
-        const locality = job.locality || job.property?.locality || getLocalityFromAddress(job.property?.address) || (isBooking ? bd.customer?.address?.locality : '') || 'No locality';
-        const technicianName = job.technician?.name || job.assignedToName || 'Unassigned';
-        const jobTitle = job.description || job.jobName || job.job_number || 'Untitled Job';
+        const timeLeft = getTimeLeft(dueDate);
         const isVisited = !!job.arrived_at;
+        
+        const jobTitle = job.description || job.product?.name || 'Untitled Job';
+        const productType = job.product?.type || '';
 
         const quotation = job.quotations && job.quotations.length > 0 ? job.quotations[0] : null;
         const quoteAmount = quotation ? quotation.total_amount : null;
@@ -80,23 +72,21 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                 style={{
                     borderBottom: '1px solid var(--border-primary)',
                     transition: 'background-color var(--transition-fast)',
-                    cursor: 'pointer',
-                    borderLeft: isBooking ? '3px solid #f59e0b' : 'none',
-                    backgroundColor: isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'
+                    cursor: 'pointer'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isBooking ? 'rgba(245,158,11,0.08)' : 'var(--bg-secondary)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isBooking ? 'rgba(245,158,11,0.03)' : 'transparent'}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-secondary)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
                 {visibleColumns?.job && (
                     <td style={{ padding: '6px 12px', width: columnWidths.job, minWidth: columnWidths.job, maxWidth: columnWidths.job, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
                             {job.thumbnail && (
                                 <img
                                     src={job.thumbnail}
                                     alt={jobTitle}
                                     style={{
-                                        width: '36px',
-                                        height: '36px',
+                                        width: '32px',
+                                        height: '32px',
                                         borderRadius: 'var(--radius-sm)',
                                         objectFit: 'cover',
                                         flexShrink: 0
@@ -104,17 +94,14 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                 />
                             )}
                             <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                {isBooking && (
-                                    <div style={{ color: '#f59e0b', fontSize: '9px', fontWeight: 800, marginBottom: '2px' }}>
-                                        WEBSITE BOOKING
-                                    </div>
-                                )}
-                                <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
+                                <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
                                     {jobTitle}
                                 </div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.product?.name || job.product || 'No product'}>
-                                    {job.product?.name || job.product || 'No product'}
-                                </div>
+                                {productType && (
+                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={productType}>
+                                        {productType}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </td>
@@ -122,12 +109,12 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                 {visibleColumns?.customer && (
                     <td style={{ padding: '6px 12px', width: columnWidths.customer, minWidth: columnWidths.customer, maxWidth: columnWidths.customer, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.customer?.name || job.customer || (isBooking ? (bd.customer?.name || 'New Customer') : 'Walk-in')}>
-                                {job.customer?.name || job.customer || (isBooking ? (bd.customer?.name || 'New Customer') : 'Walk-in')}
+                            <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.customerName || 'Walk-in'}>
+                                {job.customerName || 'Walk-in'}
                             </div>
-                            {(job.customer?.phone || (isBooking && bd.customer?.phone)) && (
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.customer?.phone || bd.customer?.phone}>
-                                    {job.customer?.phone || bd.customer?.phone}
+                            {job.mobile && (
+                                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.mobile}>
+                                    {job.mobile}
                                 </div>
                             )}
                         </div>
@@ -135,42 +122,30 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                 )}
                 {visibleColumns?.locality && (
                     <td style={{ padding: '6px 12px', width: columnWidths.locality, minWidth: columnWidths.locality, maxWidth: columnWidths.locality, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={locality}>
-                            {locality}
-                        </div>
+                        <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.locality || 'No Locality'}>
+                            {job.locality || 'No Locality'}
+                        </span>
                     </td>
                 )}
                 {visibleColumns?.brand && (
                     <td style={{ padding: '6px 12px', width: columnWidths.brand, minWidth: columnWidths.brand, maxWidth: columnWidths.brand, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.brand?.name || job.brand || '-'}>
-                            {job.brand?.name || job.brand || '-'}
+                        <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.product?.brand || '-'}>
+                            {job.product?.brand || '-'}
                         </span>
-                    </td>
-                )}
-                {visibleColumns?.technician && (
-                    <td style={{ padding: '6px 12px', width: columnWidths.technician, minWidth: columnWidths.technician, maxWidth: columnWidths.technician, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {isBooking ? (
-                            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>Waiting</span>
-                        ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                                <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '9px', fontWeight: 600, flexShrink: 0 }}>
-                                    {getInitials(technicianName)}
-                                </div>
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={technicianName}>{technicianName}</span>
-                            </div>
-                        )}
                     </td>
                 )}
                 {visibleColumns?.dueDate && (
                     <td style={{ padding: '6px 12px', width: columnWidths.dueDate, minWidth: columnWidths.dueDate, maxWidth: columnWidths.dueDate, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden' }}>
-                            <span style={overdue && !isBooking ? { color: 'var(--color-danger)', fontWeight: 600 } : {}}>
-                                {isBooking
-                                    ? bd.schedule?.date || 'Asap'
-                                    : dueDate ? new Date(dueDate).toLocaleDateString('en-GB') : 'No date'
-                                }
+                            <span style={overdue ? { color: 'var(--color-danger)', fontWeight: 600 } : { color: 'var(--text-primary)' }}>
+                                {dueDate ? new Date(dueDate).toLocaleDateString('en-GB') : '-'}
                             </span>
-                            {overdue && !isBooking && <AlertCircle size={14} color="var(--color-danger)" style={{ flexShrink: 0 }} />}
+                            {dueDate && (
+                                <span style={{ fontSize: '11px', color: timeLeft.color, fontWeight: 600, flexShrink: 0 }}>
+                                    · {timeLeft.text}
+                                </span>
+                            )}
+                            {overdue && <AlertCircle size={14} color="var(--color-danger)" style={{ flexShrink: 0 }} />}
                         </div>
                     </td>
                 )}
@@ -195,7 +170,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                 <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                                     ₹{parseFloat(quoteAmount).toLocaleString('en-IN')}
                                 </div>
-                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontSize: '9px', color: 'var(--text-secondary)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {quotation.status?.replace(/_/g, ' ').replace(/-/g, ' ')}
                                 </div>
                             </div>
@@ -211,7 +186,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                 <div style={{ fontWeight: 600, color: '#10b981' }}>
                                     ₹{parseFloat(invoiceAmount).toLocaleString('en-IN')}
                                 </div>
-                                <div style={{ fontSize: '10px', color: 'var(--text-secondary)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                <div style={{ fontSize: '9px', color: 'var(--text-secondary)', textTransform: 'capitalize', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {invoice.status?.replace(/_/g, ' ').replace(/-/g, ' ')}
                                 </div>
                             </div>
@@ -222,24 +197,18 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                 )}
                 {visibleColumns?.status && (
                     <td style={{ padding: '6px 12px', textAlign: 'center', width: columnWidths.status, minWidth: columnWidths.status, maxWidth: columnWidths.status, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {isBooking ? (
-                            <button className="btn btn-primary" style={{ fontSize: '10px', padding: '2px 8px', backgroundColor: '#f59e0b', border: 'none' }}>
-                                Create & Assign
-                            </button>
-                        ) : (
-                            <span style={{
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                fontSize: 'var(--font-size-xs)',
-                                fontWeight: 600,
-                                backgroundColor: `${statusColor}20`,
-                                color: statusColor,
-                                textTransform: 'capitalize',
-                                whiteSpace: 'nowrap'
-                            }}>
-                                {job.status.replace(/_/g, ' ').replace(/-/g, ' ')}
-                            </span>
-                        )}
+                        <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            backgroundColor: `${statusColor}20`,
+                            color: statusColor,
+                            textTransform: 'capitalize',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {job.status.replace(/_/g, ' ').replace(/-/g, ' ')}
+                        </span>
                     </td>
                 )}
             </tr>
@@ -247,24 +216,28 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
     };
 
     return (
-        <div style={{ padding: 'var(--spacing-md)' }}>
-            {/* Horizontal scroll support for table */}
+        <div style={{ padding: '4px' }}>
+            {/* Scrollable Container with horizontal scrolling for mobile */}
             <div style={{
                 overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
                 border: '1px solid var(--border-primary)',
                 borderRadius: 'var(--radius-md)',
                 boxShadow: 'var(--shadow-sm)',
-                backgroundColor: 'var(--bg-elevated)',
-                position: 'relative'
+                position: 'relative',
+                backgroundColor: 'var(--bg-elevated)'
             }}>
                 <table style={{
                     width: totalWidth || '100%',
                     tableLayout: 'fixed',
                     borderCollapse: 'collapse',
-                    fontSize: 'var(--font-size-sm)'
+                    fontSize: '13px'
                 }}>
                     <thead>
-                        <tr style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                        <tr style={{
+                            backgroundColor: 'var(--bg-secondary)',
+                            borderBottom: '2px solid var(--border-primary)'
+                        }}>
                             {Object.keys(columnWidths).map(col => {
                                 if (!visibleColumns?.[col]) return null;
 
@@ -273,7 +246,6 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                     customer: 'customer',
                                     locality: 'locality',
                                     brand: 'brand',
-                                    technician: 'assignee',
                                     dueDate: 'dueDate',
                                     visited: 'visited',
                                     quotation: 'quotation',
@@ -383,12 +355,12 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                         )}
                     </tbody>
                 </table>
-                {jobs.length === 0 && (
-                    <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                        No jobs found.
-                    </div>
-                )}
             </div>
+            {jobs.length === 0 && (
+                <div style={{ padding: 'var(--spacing-2xl)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
+                    No jobs found.
+                </div>
+            )}
         </div>
     );
 }
