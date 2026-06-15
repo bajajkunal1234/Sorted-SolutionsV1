@@ -587,8 +587,10 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                     ) : (
                                         <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '5%' }}>#</th>
-                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: formData.showTax ? '30%' : '40%' }}>Description *</th>
-                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '10%' }}>HSN</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: formData.showTax ? '30%' : '50%' }}>Description *</th>
+                                            {formData.showTax && (
+                                                <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '10%' }}>HSN</th>
+                                            )}
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Qty *</th>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '12%' }}>Rate *</th>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Disc.</th>
@@ -686,7 +688,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                                 </>
                                             ) : (
                                                 <>
-                                                    <td style={{ padding: 'var(--spacing-xs)', position: 'relative', overflow: 'visible' }} colSpan="2">
+                                                    <td style={{ padding: 'var(--spacing-xs)', position: 'relative', overflow: 'visible' }}>
                                                         <div style={{ marginBottom: 'var(--spacing-xs)' }}>
                                                             <ProductSelector
                                                                 value={item.productId}
@@ -716,16 +718,18 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                                             style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
                                                         />
                                                     </td>
-                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                        <input
-                                                            type="text"
-                                                            className="form-input"
-                                                            value={item.hsn}
-                                                            onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
-                                                            placeholder="HSN"
-                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                                        />
-                                                    </td>
+                                                    {formData.showTax && (
+                                                        <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                            <input
+                                                                type="text"
+                                                                className="form-input"
+                                                                value={item.hsn}
+                                                                onChange={(e) => handleItemChange(index, 'hsn', e.target.value)}
+                                                                placeholder="HSN"
+                                                                style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                            />
+                                                        </td>
+                                                    )}
                                                     <td style={{ padding: 'var(--spacing-xs)' }}>
                                                         <input
                                                             type="number"
