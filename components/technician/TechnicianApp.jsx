@@ -52,7 +52,9 @@ function TechnicianApp() {
         visited: true,
         quotation: true,
         invoice: true,
-        status: true
+        status: true,
+        appliance: true,
+        applianceType: true
     });
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
@@ -549,6 +551,14 @@ function TechnicianApp() {
                 aVal = (a.brand?.name || a.brand || '').toLowerCase();
                 bVal = (b.brand?.name || b.brand || '').toLowerCase();
                 break;
+            case 'appliance':
+                aVal = (a.appliance || a.product?.name || '').toLowerCase();
+                bVal = (b.appliance || b.product?.name || '').toLowerCase();
+                break;
+            case 'applianceType':
+                aVal = (a.subcategory || a.product?.type || '').toLowerCase();
+                bVal = (b.subcategory || a.product?.type || '').toLowerCase();
+                break;
             case 'status':
                 aVal = (a.status || '').toLowerCase();
                 bVal = (b.status || '').toLowerCase();
@@ -1000,7 +1010,7 @@ function TechnicianApp() {
                                                     style={{ cursor: 'pointer' }}
                                                 />
                                                 <span style={{ textTransform: 'capitalize' }}>
-                                                    {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col}
+                                                    {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col === 'applianceType' ? 'Appliance Type' : col}
                                                 </span>
                                             </label>
                                         ))}

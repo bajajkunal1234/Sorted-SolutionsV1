@@ -10,6 +10,8 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
         customer: 140,
         locality: 160,
         brand: 100,
+        appliance: 140,
+        applianceType: 120,
         technician: 130,
         dueDate: 140,
         visited: 80,
@@ -112,9 +114,6 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                 <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
                                     {jobTitle}
                                 </div>
-                                <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.product?.name || job.product || 'No product'}>
-                                    {job.product?.name || job.product || 'No product'}
-                                </div>
                             </div>
                         </div>
                     </td>
@@ -144,6 +143,20 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                     <td style={{ padding: '6px 12px', width: columnWidths.brand, minWidth: columnWidths.brand, maxWidth: columnWidths.brand, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.brand?.name || job.brand || '-'}>
                             {job.brand?.name || job.brand || '-'}
+                        </span>
+                    </td>
+                )}
+                {visibleColumns?.appliance && (
+                    <td style={{ padding: '6px 12px', width: columnWidths.appliance, minWidth: columnWidths.appliance, maxWidth: columnWidths.appliance, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.appliance || '-'}>
+                            {job.appliance || '-'}
+                        </span>
+                    </td>
+                )}
+                {visibleColumns?.applianceType && (
+                    <td style={{ padding: '6px 12px', width: columnWidths.applianceType, minWidth: columnWidths.applianceType, maxWidth: columnWidths.applianceType, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.subcategory || '-'}>
+                            {job.subcategory || '-'}
                         </span>
                     </td>
                 )}
@@ -278,7 +291,9 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                     visited: 'visited',
                                     quotation: 'quotation',
                                     invoice: 'invoice',
-                                    status: 'status'
+                                    status: 'status',
+                                    appliance: 'appliance',
+                                    applianceType: 'applianceType'
                                 };
                                 const sortKey = colToSortKey[col];
                                 const isSorted = sortBy === sortKey;
@@ -321,7 +336,7 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
                                         }}
                                     >
                                         <span style={{ textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col}
+                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col === 'applianceType' ? 'Appliance Type' : col}
                                             {isSorted && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
                                         </span>
                                         {/* Resize handle */}

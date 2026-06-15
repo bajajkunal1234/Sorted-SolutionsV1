@@ -122,7 +122,9 @@ function JobsTab({ jobToOpen, onJobOpened }) {
         visited: true,
         quotation: true,
         invoice: true,
-        status: true
+        status: true,
+        appliance: true,
+        applianceType: true
     });
     const [showColumnDropdown, setShowColumnDropdown] = useState(false);
 
@@ -440,7 +442,7 @@ function JobsTab({ jobToOpen, onJobOpened }) {
                                             style={{ cursor: 'pointer' }}
                                         />
                                         <span style={{ textTransform: 'capitalize' }}>
-                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col}
+                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col === 'applianceType' ? 'Appliance Type' : col}
                                         </span>
                                     </label>
                                 ))}

@@ -9,6 +9,8 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
         customer: 140,
         locality: 160,
         brand: 100,
+        appliance: 140,
+        applianceType: 120,
         dueDate: 150,
         visited: 80,
         quotation: 100,
@@ -93,15 +95,8 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
                                     }}
                                 />
                             )}
-                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
-                                    {jobTitle}
-                                </div>
-                                {productType && (
-                                    <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={productType}>
-                                        {productType}
-                                    </div>
-                                )}
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={jobTitle}>
+                                {jobTitle}
                             </div>
                         </div>
                     </td>
@@ -131,6 +126,20 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
                     <td style={{ padding: '6px 12px', width: columnWidths.brand, minWidth: columnWidths.brand, maxWidth: columnWidths.brand, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.product?.brand || '-'}>
                             {job.product?.brand || '-'}
+                        </span>
+                    </td>
+                )}
+                {visibleColumns?.appliance && (
+                    <td style={{ padding: '6px 12px', width: columnWidths.appliance, minWidth: columnWidths.appliance, maxWidth: columnWidths.appliance, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.appliance || job.product?.name || '-'}>
+                            {job.appliance || job.product?.name || '-'}
+                        </span>
+                    </td>
+                )}
+                {visibleColumns?.applianceType && (
+                    <td style={{ padding: '6px 12px', width: columnWidths.applianceType, minWidth: columnWidths.applianceType, maxWidth: columnWidths.applianceType, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.subcategory || job.product?.type || '-'}>
+                            {job.subcategory || job.product?.type || '-'}
                         </span>
                     </td>
                 )}
@@ -250,7 +259,9 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
                                     visited: 'visited',
                                     quotation: 'quotation',
                                     invoice: 'invoice',
-                                    status: 'status'
+                                    status: 'status',
+                                    appliance: 'appliance',
+                                    applianceType: 'applianceType'
                                 };
                                 const sortKey = colToSortKey[col];
                                 const isSorted = sortBy === sortKey;
@@ -293,7 +304,7 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
                                         }}
                                     >
                                         <span style={{ textTransform: 'capitalize', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col}
+                                            {col === 'dueDate' ? 'Due Date' : col === 'visited' ? 'Visited?' : col === 'applianceType' ? 'Appliance Type' : col}
                                             {isSorted && (sortOrder === 'asc' ? ' ↑' : ' ↓')}
                                         </span>
                                         {/* Resize handle */}
