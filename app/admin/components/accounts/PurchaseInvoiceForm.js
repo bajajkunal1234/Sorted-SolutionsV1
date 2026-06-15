@@ -6,7 +6,7 @@ import AccountSelector from '@/app/admin/components/common/AccountSelector';
 import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
-import { accountsAPI } from '@/lib/adminAPI';
+import { accountsAPI, printSettingsAPI } from '@/lib/adminAPI';
 
 function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
     const [formData, setFormData] = useState({
@@ -24,7 +24,10 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
         ],
         notes: existingInvoice?.notes || '',
         category: existingInvoice?.category || 'spare-parts',
-        paid_by: existingInvoice?.paid_by || 'company'
+        paid_by: existingInvoice?.paid_by || 'company',
+        showTax: existingInvoice?.showTax !== undefined
+            ? existingInvoice.showTax
+            : (existingInvoice?.cgst > 0 || existingInvoice?.sgst > 0 || existingInvoice?.igst > 0 || existingInvoice?.total_tax > 0)
     });
 
     const [showNewAccountForm, setShowNewAccountForm] = useState(false);
@@ -67,14 +70,45 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
         }
     }, [existingInvoice, expenseAccounts]);
 
+    useEffect(() => {
+        printSettingsAPI.get()
+            .then(res => {
+                if (res?.success && res.data) {
+                    const printData = res.data;
+                    const defaultShowTax = printData.invoice_show_gst ?? printData.show_gst ?? true;
+                    if (existingInvoice?.showTax === undefined && 
+                        !(existingInvoice?.cgst > 0 || existingInvoice?.sgst > 0 || existingInvoice?.igst > 0 || existingInvoice?.total_tax > 0)) {
+                        setFormData(prev => {
+                            const updatedItems = prev.items.map(item => ({
+                                ...item,
+                                total: calculateItemTotalWithTax(item, defaultShowTax)
+                            }));
+                            return {
+                                ...prev,
+                                showTax: defaultShowTax,
+                                items: updatedItems
+                            };
+                        });
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching print settings:', err);
+            });
+    }, [existingInvoice]);
+
     const companyState = 'Maharashtra';
 
-    const calculateItemTotal = (item) => {
+    const calculateItemTotalWithTax = (item, taxEnabled) => {
         const subtotal = item.qty * item.rate;
         const discountAmount = item.discount || 0;
         const taxableAmount = subtotal - discountAmount;
-        const taxAmount = (taxableAmount * (item.taxRate || 0)) / 100;
+        const taxAmount = taxEnabled ? ((taxableAmount * (item.taxRate || 0)) / 100) : 0;
         return taxableAmount + taxAmount;
+    };
+
+    const calculateItemTotal = (item) => {
+        return calculateItemTotalWithTax(item, formData.showTax);
     };
 
     const calculateTotals = () => {
@@ -87,7 +121,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
 
         formData.items.forEach(item => {
             const itemTaxable = (item.qty * item.rate) - (item.discount || 0);
-            const taxAmount = (itemTaxable * (item.taxRate || 0)) / 100;
+            const taxAmount = formData.showTax ? ((itemTaxable * (item.taxRate || 0)) / 100) : 0;
 
             if (isInterState) {
                 igst += taxAmount;
@@ -134,17 +168,22 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
     };
 
     const handleCalculatorItems = (calcItems) => {
-        const productItems = calcItems.filter(it => it.type !== 'service').map((it, idx) => ({
-            id: Date.now() + idx,
-            productId: it.productId || '',
-            description: it.description,
-            hsn: it.hsn || '',
-            qty: it.qty || 1,
-            rate: it.rate || 0,
-            discount: it.discount || 0,
-            taxRate: it.taxRate || 18,
-            total: (it.qty || 1) * (it.rate || 0)
-        }));
+        const productItems = calcItems.filter(it => it.type !== 'service').map((it, idx) => {
+            const newItem = {
+                id: Date.now() + idx,
+                productId: it.productId || '',
+                description: it.description,
+                hsn: it.hsn || '',
+                qty: it.qty || 1,
+                rate: it.rate || 0,
+                discount: it.discount || 0,
+                taxRate: it.taxRate || 18
+            };
+            return {
+                ...newItem,
+                total: calculateItemTotalWithTax(newItem, formData.showTax)
+            };
+        });
 
         const serviceItems = calcItems.filter(it => it.type === 'service').map((it, idx) => ({
             id: Date.now() + 1000 + idx,
@@ -169,17 +208,20 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
     };
 
     const addItem = () => {
+        const newItem = {
+            id: Date.now(),
+            description: '',
+            hsn: '',
+            qty: 1,
+            rate: 0,
+            discount: 0,
+            taxRate: 18
+        };
         setFormData({
             ...formData,
             items: [...formData.items, {
-                id: Date.now(),
-                description: '',
-                hsn: '',
-                qty: 1,
-                rate: 0,
-                discount: 0,
-                taxRate: 18,
-                total: 0
+                ...newItem,
+                total: calculateItemTotalWithTax(newItem, formData.showTax)
             }]
         });
     };
@@ -493,6 +535,31 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                         </div>
                     </div>
 
+                    {/* Show Tax Toggle */}
+                    <div style={{ marginBottom: 'var(--spacing-md)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-xs)', cursor: 'pointer' }}>
+                            <input
+                                type="checkbox"
+                                checked={formData.showTax}
+                                onChange={(e) => {
+                                    const nextShowTax = e.target.checked;
+                                    setFormData(prev => {
+                                        const updatedItems = prev.items.map(item => ({
+                                            ...item,
+                                            total: calculateItemTotalWithTax(item, nextShowTax)
+                                        }));
+                                        return {
+                                            ...prev,
+                                            showTax: nextShowTax,
+                                            items: updatedItems
+                                        };
+                                    });
+                                }}
+                            />
+                            <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 500, color: 'var(--text-primary)' }}>Apply GST/Tax calculations</span>
+                        </label>
+                    </div>
+
                     {/* Items Table */}
                     <div style={{
                         marginBottom: 'var(--spacing-lg)',
@@ -509,8 +576,10 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                     {invoiceMode === 'ledger' ? (
                                         <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '5%' }}>#</th>
-                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '55%' }}>Expense Ledger & Narration *</th>
-                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '12%' }}>Tax %</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: formData.showTax ? '55%' : '67%' }}>Expense Ledger & Narration *</th>
+                                            {formData.showTax && (
+                                                <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '12%' }}>Tax %</th>
+                                            )}
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '15%' }}>Amount *</th>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '13%' }}>Total</th>
                                             <th style={{ padding: 'var(--spacing-xs)', width: '5%' }}></th>
@@ -518,12 +587,14 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                     ) : (
                                         <tr style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)' }}>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '5%' }}>#</th>
-                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '30%' }}>Description *</th>
+                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: formData.showTax ? '30%' : '40%' }}>Description *</th>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'left', width: '10%' }}>HSN</th>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Qty *</th>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '12%' }}>Rate *</th>
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '10%' }}>Disc.</th>
-                                            <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '10%' }}>Tax %</th>
+                                            {formData.showTax && (
+                                                <th style={{ padding: 'var(--spacing-xs)', textAlign: 'center', width: '10%' }}>Tax %</th>
+                                            )}
                                             <th style={{ padding: 'var(--spacing-xs)', textAlign: 'right', width: '13%' }}>Total</th>
                                             <th style={{ padding: 'var(--spacing-xs)', width: '5%' }}></th>
                                         </tr>
@@ -574,20 +645,22 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                                     </td>
                                                     
                                                     {/* Tax % */}
-                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                        <select
-                                                            className="form-input"
-                                                            value={item.taxRate}
-                                                            onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
-                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                                        >
-                                                            <option value="0">0%</option>
-                                                            <option value="5">5%</option>
-                                                            <option value="12">12%</option>
-                                                            <option value="18">18%</option>
-                                                            <option value="28">28%</option>
-                                                        </select>
-                                                    </td>
+                                                    {formData.showTax && (
+                                                        <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                            <select
+                                                                className="form-input"
+                                                                value={item.taxRate}
+                                                                onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
+                                                                style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                            >
+                                                                <option value="0">0%</option>
+                                                                <option value="5">5%</option>
+                                                                <option value="12">12%</option>
+                                                                <option value="18">18%</option>
+                                                                <option value="28">28%</option>
+                                                            </select>
+                                                        </td>
+                                                    )}
 
                                                     {/* Amount field (maps to rate under the hood, with qty=1) */}
                                                     <td style={{ padding: 'var(--spacing-xs)' }}>
@@ -686,20 +759,22 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                                             style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)', textAlign: 'right' }}
                                                         />
                                                     </td>
-                                                    <td style={{ padding: 'var(--spacing-xs)' }}>
-                                                        <select
-                                                            className="form-input"
-                                                            value={item.taxRate}
-                                                            onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
-                                                            style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
-                                                        >
-                                                            <option value="0">0%</option>
-                                                            <option value="5">5%</option>
-                                                            <option value="12">12%</option>
-                                                            <option value="18">18%</option>
-                                                            <option value="28">28%</option>
-                                                        </select>
-                                                    </td>
+                                                    {formData.showTax && (
+                                                        <td style={{ padding: 'var(--spacing-xs)' }}>
+                                                            <select
+                                                                className="form-input"
+                                                                value={item.taxRate}
+                                                                onChange={(e) => handleItemChange(index, 'taxRate', e.target.value)}
+                                                                style={{ width: '100%', padding: '4px 8px', fontSize: 'var(--font-size-xs)' }}
+                                                            >
+                                                                <option value="0">0%</option>
+                                                                <option value="5">5%</option>
+                                                                <option value="12">12%</option>
+                                                                <option value="18">18%</option>
+                                                                <option value="28">28%</option>
+                                                            </select>
+                                                        </td>
+                                                    )}
                                                 </>
                                             )}
 
