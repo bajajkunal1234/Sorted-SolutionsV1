@@ -41,6 +41,7 @@ function TechnicianApp() {
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
+    const [gpsStatus, setGpsStatus] = useState('checking'); // 'checking' | 'granted' | 'denied' | 'error'
 
     // Columns Visibility for Table View
     const [visibleColumns, setVisibleColumns] = useState({
@@ -218,19 +219,23 @@ function TechnicianApp() {
     // ── Request push notification permission once logged in ────────────────
     usePushNotifications({ userType: 'technician', userId: technicianId });
 
-    // ── Silent background location tracking ──────────────────────────────────
-    // Sends GPS to admin every 60s. No UI shown to technician.
-    // Technician only sees the customer-facing "share location" flow tied to Start Job.
-    useEffect(() => {
+    const checkGpsAndPingLocation = () => {
         if (!technicianId) return;
-        if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+        if (typeof navigator === 'undefined' || !navigator.geolocation) {
+            setGpsStatus('error');
+            return;
+        }
 
-        let pingInterval = null;
+        const isWorkingHours = () => {
+            const now = new Date();
+            const hours = now.getHours();
+            return hours >= 8 && hours < 20; // 8:00 AM to 8:00 PM
+        };
 
-        const sendLocation = () => {
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    // Fire-and-forget — no await, no error shown to user
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setGpsStatus('granted');
+                if (isWorkingHours()) {
                     fetch('/api/technician/location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -238,18 +243,34 @@ function TechnicianApp() {
                             technician_id: technicianId,
                             latitude: pos.coords.latitude,
                             longitude: pos.coords.longitude,
-                            is_on_job: false, // updated by job tracking separately
+                            is_on_job: false,
                         }),
-                    }).catch(() => {}); // silently ignore errors
-                },
-                () => {}, // silently ignore GPS errors
-                { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
-            );
-        };
+                    }).catch(() => {});
+                }
+            },
+            (err) => {
+                console.warn('GPS check failed:', err);
+                if (err.code === 1) {
+                    setGpsStatus('denied');
+                } else {
+                    setGpsStatus('error');
+                }
+            },
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 30000 }
+        );
+    };
 
-        // First ping immediately, then every 60 seconds
-        sendLocation();
-        pingInterval = setInterval(sendLocation, 60_000);
+    // ── Silent background location tracking ──────────────────────────────────
+    // Sends GPS to admin every 60s during working hours.
+    // Blame-blocks technician UI if location permissions are denied/off.
+    useEffect(() => {
+        if (!technicianId) return;
+
+        // Run immediately
+        checkGpsAndPingLocation();
+
+        // Check every 60 seconds
+        const pingInterval = setInterval(checkGpsAndPingLocation, 60_000);
 
         return () => {
             if (pingInterval) clearInterval(pingInterval);
@@ -1797,6 +1818,83 @@ function TechnicianApp() {
             </div>
         );
     };
+
+    if (!technicianId) {
+        return (
+            <div style={{
+                minHeight: '100dvh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'var(--bg-primary)'
+            }}>
+                <div style={{ fontSize: 'var(--font-size-lg)', color: 'var(--text-secondary)' }}>
+                    Loading...
+                </div>
+            </div>
+        );
+    }
+
+    if (gpsStatus === 'checking') {
+        return (
+            <div style={{
+                minHeight: '100dvh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'var(--bg-primary)'
+            }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ fontSize: 'var(--font-size-lg)', color: 'var(--text-secondary)' }}>
+                        Verifying location access...
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    if (gpsStatus === 'denied' || gpsStatus === 'error') {
+        return (
+            <div style={{
+                minHeight: '100dvh',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px',
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-primary)',
+                textAlign: 'center',
+                zIndex: 9999,
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0
+            }}>
+                <div style={{ fontSize: '4rem', marginBottom: '16px' }}>📍</div>
+                <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>Location Access Required</h1>
+                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '320px', lineHeight: 1.6, marginBottom: '24px' }}>
+                    Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location services on your device and allow browser access to proceed.
+                </p>
+                <button 
+                    onClick={checkGpsAndPingLocation}
+                    style={{
+                        padding: '12px 24px',
+                        backgroundColor: '#3b82f6',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(59,130,246,0.25)'
+                    }}
+                >
+                    Retry / Enable Location
+                </button>
+            </div>
+        );
+    }
 
     return (
         <>
