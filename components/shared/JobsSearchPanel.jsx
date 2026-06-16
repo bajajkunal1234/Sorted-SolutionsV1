@@ -44,13 +44,20 @@ const DEFAULT_GROUP_BY_OPTIONS = [
 ];
 
 const DEFAULT_SORT_BY_OPTIONS = [
-    { value: 'dueDate',   label: 'Due Date' },
-    { value: 'createdAt', label: 'Creation Date' },
-    { value: 'jobName',   label: 'Job Name' },
-    { value: 'customer',  label: 'Customer' },
-    { value: 'priority',  label: 'Priority' },
-    { value: 'locality',  label: 'Locality' },
-    { value: 'assignee',  label: 'Assignee' },
+    { value: 'dueDate',       label: 'Due Date' },
+    { value: 'createdAt',     label: 'Creation Date' },
+    { value: 'jobName',       label: 'Job Name' },
+    { value: 'customer',      label: 'Customer' },
+    { value: 'priority',      label: 'Priority' },
+    { value: 'locality',      label: 'Locality' },
+    { value: 'assignee',      label: 'Assignee' },
+    { value: 'brand',         label: 'Brand' },
+    { value: 'appliance',     label: 'Appliance' },
+    { value: 'applianceType', label: 'Appliance Type' },
+    { value: 'status',        label: 'Status' },
+    { value: 'visited',       label: 'Visited' },
+    { value: 'quotation',     label: 'Quotation' },
+    { value: 'invoice',       label: 'Invoice' },
 ];
 
 const PRESET_FILTERS = [

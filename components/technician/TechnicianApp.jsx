@@ -936,11 +936,19 @@ function TechnicianApp() {
                         { value: 'warranty', label: 'Warranty' },
                     ]}
                     sortByOptions={[
-                        { value: 'dueDate',   label: 'Due Date' },
-                        { value: 'createdAt', label: 'Creation Date' },
-                        { value: 'customer',  label: 'Customer' },
-                        { value: 'priority',  label: 'Priority' },
-                        { value: 'locality',  label: 'Locality' },
+                        { value: 'dueDate',       label: 'Due Date' },
+                        { value: 'createdAt',     label: 'Creation Date' },
+                        { value: 'jobName',       label: 'Job Name' },
+                        { value: 'customer',      label: 'Customer' },
+                        { value: 'priority',      label: 'Priority' },
+                        { value: 'locality',      label: 'Locality' },
+                        { value: 'brand',         label: 'Brand' },
+                        { value: 'appliance',     label: 'Appliance' },
+                        { value: 'applianceType', label: 'Appliance Type' },
+                        { value: 'status',        label: 'Status' },
+                        { value: 'visited',       label: 'Visited' },
+                        { value: 'quotation',     label: 'Quotation' },
+                        { value: 'invoice',       label: 'Invoice' },
                     ]}
                 />
                 {/* Count + Refresh */}
