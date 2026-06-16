@@ -915,6 +915,42 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     {activeTab === 'actions' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
 
+                            {/* Job Status Card */}
+                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
+                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <Activity size={18} color="#3b82f6" /> Job Status
+                                </h3>
+                                
+                                <select 
+                                    className="form-select" 
+                                    value={editedJob.status}
+                                    onChange={(e) => {
+                                        const newStatus = e.target.value;
+                                        if (newStatus === 'parts_ordered') {
+                                            // Gate: require repair note first
+                                            setShowPartsNoteModal(true);
+                                        } else {
+                                            handleSaveStatus(newStatus);
+                                        }
+                                    }}
+                                    disabled={loading}
+                                    style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
+                                >
+                                    {/* Tech-settable statuses only */}
+                                    <option value="scheduled">Scheduled</option>
+                                    <option value="diagnosing_quoting">Diagnosing &amp; Quoting</option>
+                                    <option value="quotation_sent">Quotation Sent</option>
+                                    <option value="parts_ordered">Parts Ordered</option>
+                                    <option value="work_in_progress">Work In Progress</option>
+                                    <option value="cx_reschedule">Cx Reschedule</option>
+                                    {/* Read-only states shown for context but disabled */}
+                                    <option value="new_job_request" disabled>New Job Request (admin only)</option>
+                                    <option value="cancelled" disabled>Cancelled (admin only)</option>
+                                    <option value="closed" disabled>Closed (auto on payment)</option>
+                                </select>
+                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
+                            </div>
+
                             {/* Customer Card */}
                             <div className="card" style={{ padding: 'var(--spacing-md)' }}>
                                 <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '12px' }}>Customer Info</h3>
@@ -1026,41 +1062,6 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     )}
                                 </div>
                             )}
-
-                            <div className="card" style={{ padding: 'var(--spacing-md)' }}>
-                                <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Activity size={18} color="#3b82f6" /> Job Status
-                                </h3>
-                                
-                                <select 
-                                    className="form-select" 
-                                    value={editedJob.status}
-                                    onChange={(e) => {
-                                        const newStatus = e.target.value;
-                                        if (newStatus === 'parts_ordered') {
-                                            // Gate: require repair note first
-                                            setShowPartsNoteModal(true);
-                                        } else {
-                                            handleSaveStatus(newStatus);
-                                        }
-                                    }}
-                                    disabled={loading}
-                                    style={{ width: '100%', marginBottom: '12px', padding: '12px', fontSize: '15px', fontWeight: 500 }}
-                                >
-                                    {/* Tech-settable statuses only */}
-                                    <option value="scheduled">Scheduled</option>
-                                    <option value="diagnosing_quoting">Diagnosing &amp; Quoting</option>
-                                    <option value="quotation_sent">Quotation Sent</option>
-                                    <option value="parts_ordered">Parts Ordered</option>
-                                    <option value="work_in_progress">Work In Progress</option>
-                                    <option value="cx_reschedule">Cx Reschedule</option>
-                                    {/* Read-only states shown for context but disabled */}
-                                    <option value="new_job_request" disabled>New Job Request (admin only)</option>
-                                    <option value="cancelled" disabled>Cancelled (admin only)</option>
-                                    <option value="closed" disabled>Closed (auto on payment)</option>
-                                </select>
-                                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Changing status automatically updates the admin timeline and notifies the team.</p>
-                            </div>
 
                             {/* Close Call — No Service (shown on diagnosing_quoting or scheduled) */}
                             {(editedJob.status === 'diagnosing_quoting' || editedJob.status === 'scheduled') && (
