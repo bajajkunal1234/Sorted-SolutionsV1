@@ -158,6 +158,7 @@ export default function JobsSearchPanel({
     const [showCustomFilter, setShowCustomFilter] = useState(false);
     const [showSaveInput, setShowSaveInput] = useState(false);
     const [viewName, setViewName] = useState('');
+    const [openFilter, setOpenFilter] = useState(false);
     const [customRows, setCustomRows] = useState([{ id: Date.now(), field: 'status', operator: 'is', value: '' }]);
     const panelRef = useRef(null);
 
@@ -326,96 +327,137 @@ export default function JobsSearchPanel({
                         </div>
                     )}
 
-                    {/* ── Filters ── */}
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #334155' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Filter size={11} /> Filters
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '2px' }}>
-                            {PRESET_FILTERS.map(preset => {
-                                const isActive = activeTags.some(t => t.id === preset.id);
-                                return (
-                                    <button
-                                        key={preset.id}
-                                        onClick={() => handlePreset(preset)}
-                                        style={{ padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', backgroundColor: isActive ? 'rgba(99,102,241,0.2)' : 'transparent', color: isActive ? '#818cf8' : '#cbd5e1', fontWeight: isActive ? 600 : 400, display: 'flex', alignItems: 'center', gap: '5px' }}
-                                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#334155'; }}
-                                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                    >
-                                        {isActive && <Check size={11} />}
-                                        {preset.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        <button onClick={() => setShowCustomFilter(v => !v)} style={{ marginTop: '8px', padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Plus size={12} /> Custom Filter...
+                    {/* ── Filters (Collapsible Accordion) ── */}
+                    <div style={{ borderBottom: '1px solid #334155' }}>
+                        <button
+                            onClick={() => setOpenFilter(v => !v)}
+                            style={{
+                                width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                padding: '12px 16px', background: 'none', border: 'none', cursor: 'pointer',
+                                color: '#818cf8', fontWeight: 600, fontSize: '13px', outline: 'none'
+                            }}
+                        >
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <Filter size={14} /> Filters {activeTags.length > 0 && `(${activeTags.length} active)`}
+                            </span>
+                            <ChevronDown size={14} style={{ transform: openFilter ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
                         </button>
-                        {showCustomFilter && (
-                            <div style={{ marginTop: '10px', padding: '12px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
-                                    {customRows.map(row => (
-                                        <CustomFilterRow key={row.id} row={row} onChange={upd => updateRow(row.id, upd)} onRemove={() => removeRow(row.id)} showAssignee={showAssignee} />
-                                    ))}
+                        {openFilter && (
+                            <div style={{ padding: '0 16px 12px 16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '2px' }}>
+                                    {PRESET_FILTERS.map(preset => {
+                                        const isActive = activeTags.some(t => t.id === preset.id);
+                                        return (
+                                            <button
+                                                key={preset.id}
+                                                onClick={() => handlePreset(preset)}
+                                                style={{ padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', backgroundColor: isActive ? 'rgba(99,102,241,0.2)' : 'transparent', color: isActive ? '#818cf8' : '#cbd5e1', fontWeight: isActive ? 600 : 400, display: 'flex', alignItems: 'center', gap: '5px' }}
+                                                onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#334155'; }}
+                                                onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                            >
+                                                {isActive && <Check size={11} />}
+                                                {preset.label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <button onClick={addCustomRow} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', fontSize: '12px', border: '1px dashed #334155', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', cursor: 'pointer' }}>
-                                        <Plus size={12} /> Add condition
-                                    </button>
-                                    <button onClick={applyCustomFilters} style={{ padding: '5px 14px', fontSize: '12px', border: 'none', borderRadius: '6px', backgroundColor: '#6366f1', color: 'white', cursor: 'pointer', fontWeight: 500 }}>
-                                        Apply
-                                    </button>
-                                </div>
+                                <button onClick={() => setShowCustomFilter(v => !v)} style={{ marginTop: '8px', padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer', color: '#6366f1', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <Plus size={12} /> Custom Filter...
+                                </button>
+                                {showCustomFilter && (
+                                    <div style={{ marginTop: '10px', padding: '12px', backgroundColor: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                                            {customRows.map(row => (
+                                                <CustomFilterRow key={row.id} row={row} onChange={upd => updateRow(row.id, upd)} onRemove={() => removeRow(row.id)} showAssignee={showAssignee} />
+                                            ))}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button onClick={addCustomRow} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', fontSize: '12px', border: '1px dashed #334155', borderRadius: '6px', backgroundColor: 'transparent', color: '#94a3b8', cursor: 'pointer' }}>
+                                                <Plus size={12} /> Add condition
+                                            </button>
+                                            <button onClick={applyCustomFilters} style={{ padding: '5px 14px', fontSize: '12px', border: 'none', borderRadius: '6px', backgroundColor: '#6366f1', color: 'white', cursor: 'pointer', fontWeight: 500 }}>
+                                                Apply
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* ── Group By ── */}
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #334155' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <Layers size={11} /> Group By
+                    {/* ── Group By Dropdown ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #334155' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#34d399', fontSize: '13px', fontWeight: 600, width: '100px', flexShrink: 0 }}>
+                            <Layers size={14} /> Group By:
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '2px' }}>
-                            {groupByOptions.map(opt => {
-                                const isActive = groupBy === opt.value;
-                                return (
-                                    <button key={opt.value} onClick={() => onGroupByChange(isActive ? 'none' : opt.value)}
-                                        style={{ padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', backgroundColor: isActive ? 'rgba(52,211,153,0.15)' : 'transparent', color: isActive ? '#34d399' : '#cbd5e1', fontWeight: isActive ? 600 : 400, display: 'flex', alignItems: 'center', gap: '5px' }}
-                                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#334155'; }}
-                                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                    >
-                                        {isActive && <Check size={11} />}
-                                        {opt.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <select
+                            value={groupBy}
+                            onChange={e => onGroupByChange(e.target.value)}
+                            style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                fontSize: '13px',
+                                borderRadius: '6px',
+                                border: '1px solid #334155',
+                                backgroundColor: '#0f172a',
+                                color: '#e2e8f0',
+                                outline: 'none',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {groupByOptions.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
                     </div>
 
-                    {/* ── Sort By ── */}
-                    <div style={{ padding: '12px 16px', borderBottom: '1px solid #334155' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            <ArrowUpDown size={11} /> Sort By
+                    {/* ── Sort By Dropdown ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: '1px solid #334155' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fb923c', fontSize: '13px', fontWeight: 600, width: '100px', flexShrink: 0 }}>
+                            <ArrowUpDown size={14} /> Sort By:
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '2px' }}>
-                            {sortByOptions.map(opt => {
-                                const isActive = sortBy === opt.value;
-                                return (
-                                    <button key={opt.value}
-                                        onClick={() => { if (isActive) onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc'); else { onSortByChange(opt.value); onSortOrderChange('asc'); } }}
-                                        style={{ padding: '6px 10px', textAlign: 'left', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', backgroundColor: isActive ? 'rgba(251,146,60,0.15)' : 'transparent', color: isActive ? '#fb923c' : '#cbd5e1', fontWeight: isActive ? 600 : 400, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}
-                                        onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#334155'; }}
-                                        onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
-                                    >
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            {isActive && <Check size={11} />}
-                                            {opt.label}
-                                        </span>
-                                        {isActive && <span style={{ fontSize: '12px' }}>{sortOrder === 'asc' ? '↑' : '↓'}</span>}
-                                    </button>
-                                );
-                            })}
-                        </div>
+                        <select
+                            value={sortBy}
+                            onChange={e => {
+                                onSortByChange(e.target.value);
+                                if (e.target.value === 'dueDate' && sortBy !== 'dueDate') {
+                                    onSortOrderChange('asc');
+                                }
+                            }}
+                            style={{
+                                flex: 1,
+                                padding: '6px 10px',
+                                fontSize: '13px',
+                                borderRadius: '6px',
+                                border: '1px solid #334155',
+                                backgroundColor: '#0f172a',
+                                color: '#e2e8f0',
+                                outline: 'none',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {sortByOptions.map(opt => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={() => onSortOrderChange(sortOrder === 'asc' ? 'desc' : 'asc')}
+                            style={{
+                                padding: '6px 12px',
+                                fontSize: '13px',
+                                borderRadius: '6px',
+                                border: '1px solid #334155',
+                                backgroundColor: '#0f172a',
+                                color: '#fb923c',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                                transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = '#1e293b'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = '#0f172a'}
+                        >
+                            {sortOrder === 'asc' ? 'Asc ↑' : 'Desc ↓'}
+                        </button>
                     </div>
 
                     {/* ── Footer: Save View ── */}
