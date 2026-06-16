@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Fragment } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { AlertCircle } from 'lucide-react';
 
 function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleColumns, groupBy, groupedJobs, sortBy, sortOrder, onSort }) {
@@ -33,6 +33,46 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
     ]);
     const [canDrag, setCanDrag] = useState(true);
     const [draggedOverCol, setDraggedOverCol] = useState(null);
+    const [isLoaded, setIsLoaded] = useState(false);
+
+    // Load from localStorage on mount
+    useEffect(() => {
+        const savedOrder = localStorage.getItem('technician_column_order');
+        if (savedOrder) {
+            try {
+                const parsed = JSON.parse(savedOrder);
+                const validKeys = [
+                    'job',
+                    'customer',
+                    'locality',
+                    'brand',
+                    'appliance',
+                    'applianceType',
+                    'dueDate',
+                    'visited',
+                    'quotation',
+                    'invoice',
+                    'status'
+                ];
+                const isValid = Array.isArray(parsed) && 
+                                parsed.every(key => validKeys.includes(key)) && 
+                                parsed.length === validKeys.length;
+                if (isValid) {
+                    setColumnOrder(parsed);
+                }
+            } catch (e) {
+                console.error('Failed to load column order from localStorage', e);
+            }
+        }
+        setIsLoaded(true);
+    }, []);
+
+    // Save to localStorage when columnOrder changes, after initial load is done
+    useEffect(() => {
+        if (isLoaded) {
+            localStorage.setItem('technician_column_order', JSON.stringify(columnOrder));
+        }
+    }, [columnOrder, isLoaded]);
 
     const handleDragStart = (e, col) => {
         e.dataTransfer.setData('text/plain', col);
