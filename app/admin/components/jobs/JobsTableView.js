@@ -364,15 +364,18 @@ function JobsTableView({ jobs, onJobClick, visibleColumns, groupBy, groupedJobs,
     };
 
     return (
-        <div style={{ padding: 'var(--spacing-md)' }}>
+        <div style={{ padding: 'var(--spacing-md)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
             {/* Horizontal scroll support for table */}
             <div style={{
-                overflowX: 'auto',
+                flex: 1,
+                overflow: 'auto',
                 border: '1px solid var(--border-primary)',
                 borderRadius: 'var(--radius-md)',
                 boxShadow: 'var(--shadow-sm)',
                 backgroundColor: 'var(--bg-elevated)',
-                position: 'relative'
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column'
             }}>
                 <table style={{
                     width: totalWidth || '100%',

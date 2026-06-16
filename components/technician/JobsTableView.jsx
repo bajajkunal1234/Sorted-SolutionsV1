@@ -326,16 +326,19 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
     };
 
     return (
-        <div style={{ padding: '4px' }}>
+        <div style={{ padding: '4px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
             {/* Scrollable Container with horizontal scrolling for mobile */}
             <div style={{
-                overflowX: 'auto',
+                flex: 1,
+                overflow: 'auto',
                 WebkitOverflowScrolling: 'touch',
                 border: '1px solid var(--border-primary)',
                 borderRadius: 'var(--radius-md)',
                 boxShadow: 'var(--shadow-sm)',
                 position: 'relative',
-                backgroundColor: 'var(--bg-elevated)'
+                backgroundColor: 'var(--bg-elevated)',
+                display: 'flex',
+                flexDirection: 'column'
             }}>
                 <table style={{
                     width: totalWidth || '100%',

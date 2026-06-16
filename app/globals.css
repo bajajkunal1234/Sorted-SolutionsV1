@@ -510,8 +510,8 @@ select option {
 .kanban-board {
   display: flex;
   gap: var(--spacing-md);
-  min-height: 100%;
-  padding-bottom: var(--spacing-md);
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .kanban-column {
@@ -521,7 +521,8 @@ select option {
   padding: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - var(--bottom-tab-height) - 180px);
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .kanban-column-header {
