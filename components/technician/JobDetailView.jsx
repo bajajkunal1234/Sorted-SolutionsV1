@@ -235,6 +235,111 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         }
     };
 
+    const handleRestartProcess = async () => {
+        if (!savedInvoice) return;
+        
+        if (!window.confirm("Are you sure you want to restart the quotation and invoice process? This will permanently delete the current invoice, set the status to Diagnosing & Quoting, and reopen the Repair Calculator.")) {
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // 1. Delete invoice from Supabase
+            const response = await fetch(`/api/admin/transactions?type=sales&id=${savedInvoice.id}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.error || 'Failed to delete invoice');
+
+            // 2. Format detailed text for interactions log
+            const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+            const techId = editedJob.assignedTo || job.technician_id || null;
+            
+            const itemLines = (savedInvoice.items || []).map(item => 
+                `- ${item.description || 'Item'} (Qty: ${item.qty || 1}, Rate: ₹${item.rate || 0}, Total: ₹${item.total || 0})`
+            ).join('\n');
+
+            const description = `Invoice ${savedInvoice.invoice_number} deleted by technician ${techName}. Process restarted back to Diagnosing & Quoting.\nInvoice details:\nTotal Amount: ₹${savedInvoice.total_amount || 0}\nSubtotal: ₹${savedInvoice.subtotal || 0}\nCGST: ₹${savedInvoice.cgst || 0}\nSGST: ₹${savedInvoice.sgst || 0}\nIGST: ₹${savedInvoice.igst || 0}\nTotal Tax: ₹${savedInvoice.total_tax || 0}\nItems:\n${itemLines || 'No items listed'}`;
+
+            // Post to technician job interactions API
+            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'invoice-deleted',
+                    category: 'billing',
+                    description: description,
+                    user_name: techName,
+                    performedBy: techId,
+                    customer_id: editedJob.customerId || null,
+                    metadata: {
+                        deleted_invoice_number: savedInvoice.invoice_number,
+                        deleted_invoice_id: savedInvoice.id,
+                        deleted_invoice_total: savedInvoice.total_amount,
+                        deleted_invoice_subtotal: savedInvoice.subtotal,
+                        deleted_invoice_tax: savedInvoice.total_tax,
+                        deleted_invoice_items: savedInvoice.items
+                    }
+                })
+            }).catch(e => console.error("Job interaction logging failed", e));
+
+            // Also log to global client-side log
+            logInteraction({
+                type: 'invoice-deleted',
+                category: 'billing',
+                jobId: String(job.id),
+                customerId: editedJob.customerId ? String(editedJob.customerId) : undefined,
+                customerName: editedJob.customerName || editedJob.customer_name,
+                description: `Invoice ${savedInvoice.invoice_number} deleted. Process restarted back to Diagnosing & Quoting.`,
+                performedByName: techName,
+                performedBy: techId,
+                source: 'Technician App',
+            });
+
+            // 3. Update job status to diagnosing_quoting in DB
+            const updateRes = await fetch(`/api/technician/jobs/${job.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    status: 'diagnosing_quoting',
+                    updated_by_name: techName,
+                    source: 'Technician App',
+                    _changeLog: [`Invoice ${savedInvoice.invoice_number} deleted. Status changed: ${editedJob.status} → diagnosing_quoting`]
+                })
+            });
+            const updateJson = await updateRes.json();
+            if (!updateRes.ok) throw new Error(updateJson.error || 'Failed to update job status');
+
+            // 4. Update local states
+            setSavedInvoice(null);
+            
+            // Log local interaction in memory so it updates the UI immediately
+            const localInteraction = {
+                type: 'invoice-deleted',
+                performed_by_name: techName,
+                description: description,
+                timestamp: new Date().toISOString()
+            };
+            
+            const updatedJobData = { 
+                ...editedJob, 
+                status: 'diagnosing_quoting',
+                interactions: [localInteraction, ...(editedJob.interactions || [])]
+            };
+            setEditedJob(updatedJobData);
+            if (onJobUpdate) onJobUpdate(updatedJobData);
+
+            // Reopen repair estimate calculator
+            setActiveForm('calculator');
+            alert('Invoice deleted and process restarted successfully!');
+
+        } catch (err) {
+            alert('Failed to restart process: ' + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleAutoCreateQuotation = async (items) => {
         setLoading(true);
         try {
@@ -1434,44 +1539,70 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 </h3>
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     {savedInvoice ? (
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                                            <div>
-                                                <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
-                                                <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
+                                        <>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8 }}>
+                                                    <button
+                                                        className="btn"
+                                                        style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                        onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
+                                                    >
+                                                        View / Send
+                                                    </button>
+                                                    {editedJob.status === 'closed' ? (
+                                                        <div
+                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+                                                        >
+                                                            <CheckCircle size={14} /> Closed & Paid
+                                                        </div>
+                                                    ) : editedJob.interactions?.some(i => i.type === 'payment-received') ? (
+                                                        <button
+                                                            className="btn"
+                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                            onClick={() => setShowFeedbackCloseFlow(true)}
+                                                        >
+                                                            <CheckCircle size={14} /> Close Call
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            className="btn"
+                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                            onClick={() => setShowCollectPayment(true)}
+                                                        >
+                                                            <CheckCircle size={14} /> Collect Payment
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div style={{ display: 'flex', gap: 8 }}>
+                                            {editedJob.status !== 'closed' && (
                                                 <button
                                                     className="btn"
-                                                    style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
-                                                    onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
+                                                    disabled={loading}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '10px 14px',
+                                                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                                        color: '#f87171',
+                                                        border: '1px solid rgba(239, 68, 68, 0.25)',
+                                                        fontWeight: 700,
+                                                        fontSize: '13px',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        gap: '8px',
+                                                        cursor: loading ? 'not-allowed' : 'pointer'
+                                                    }}
+                                                    onClick={handleRestartProcess}
                                                 >
-                                                    View / Send
+                                                    🔄 Restart Quotation & Invoice
                                                 </button>
-                                                {editedJob.status === 'closed' ? (
-                                                    <div
-                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
-                                                    >
-                                                        <CheckCircle size={14} /> Closed & Paid
-                                                    </div>
-                                                ) : editedJob.interactions?.some(i => i.type === 'payment-received') ? (
-                                                    <button
-                                                        className="btn"
-                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                                                        onClick={() => setShowFeedbackCloseFlow(true)}
-                                                    >
-                                                        <CheckCircle size={14} /> Close Call
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        className="btn"
-                                                        style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-                                                        onClick={() => setShowCollectPayment(true)}
-                                                    >
-                                                        <CheckCircle size={14} /> Collect Payment
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
+                                            )}
+                                        </>
                                     ) : savedQuotation ? (
                                         <>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>

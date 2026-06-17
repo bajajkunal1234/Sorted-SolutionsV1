@@ -24,6 +24,16 @@ export default function CollectPaymentFlow({
     const [selectedJob, setSelectedJob] = useState(prefilledJob);
     const [narration, setNarration] = useState('');
     
+    // Split Payment State
+    const [isSplit, setIsSplit] = useState(false);
+    const [splitAmount1, setSplitAmount1] = useState('');
+    const [splitAmount2, setSplitAmount2] = useState('');
+    const [currentPaymentIndex, setCurrentPaymentIndex] = useState(1);
+
+    const currentAmount = isSplit
+        ? (currentPaymentIndex === 1 ? parseFloat(splitAmount1) || 0 : parseFloat(splitAmount2) || 0)
+        : parseFloat(amount) || 0;
+    
     // Step 2 State
     const [paymentMethod, setPaymentMethod] = useState(null); // 'cash', 'qr', 'card'
     const [cardAction, setCardAction] = useState(null); // 'show_qr', 'push', 'copy'
@@ -90,6 +100,18 @@ export default function CollectPaymentFlow({
         if (context === 'technician' && !selectedJob) return alert('Please select an active job ticket.');
         if (!selectedCustomer) return alert('Customer association is missing! Please select a job/customer.');
         if (!amount || Number(amount) <= 0) return alert('Please enter a valid amount.');
+        if (isSplit) {
+            const a1 = parseFloat(splitAmount1) || 0;
+            const a2 = parseFloat(splitAmount2) || 0;
+            const tot = parseFloat(amount) || 0;
+            if (a1 <= 0 || a2 <= 0) {
+                return alert('Both split amounts must be greater than zero.');
+            }
+            if (Math.abs(a1 + a2 - tot) > 0.01) {
+                return alert('The sum of split amounts must equal the total amount.');
+            }
+        }
+        setCurrentPaymentIndex(1);
         setStep(2);
     };
 
@@ -106,7 +128,7 @@ export default function CollectPaymentFlow({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    amount: parseFloat(amount),
+                    amount: currentAmount,
                     customer_name: selectedCustomer.name,
                     customer_phone: selectedCustomer.mobile || selectedCustomer.phone || '',
                     job_id: selectedJob?.id || '',
@@ -185,10 +207,10 @@ export default function CollectPaymentFlow({
                     date,
                     account_id: selectedCustomer.id,
                     account_name: selectedCustomer.name,
-                    amount: parseFloat(amount),
+                    amount: currentAmount,
                     payment_mode: paymentMethod === 'cash' ? 'Cash' : (paymentMethod === 'qr' ? 'UPI' : 'Payment Link'),
                     reference_number: selectedJob?.job_number || selectedJob?.id || '',
-                    narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
+                    narration: `${narration ? narration + ' | ' : ''}Collected by ${currentUserName} (${context}). ${isSplit ? `[Part ${currentPaymentIndex}/2]` : ''} ${cardAction ? 'Razorpay Link' : ''} ${razorpayLinkId ? `[LinkID:${razorpayLinkId}]` : ''} ${screenshotUrl ? `[Screenshot:${screenshotUrl}]` : ''}`.trim(),
                     status: 'pending_verification',
                     source: context === 'admin' ? 'Admin Panel' : 'Technician App',
                     created_by: currentUserName || 'Technician',
@@ -213,9 +235,9 @@ export default function CollectPaymentFlow({
                         jobId: selectedJob.id,
                         performedBy: currentUserId,
                         performedByName: currentUserName,
-                        description: `Payment of ₹${amount} collected via ${paymentMethod.toUpperCase()} marking for Admin Verification.`,
+                        description: `Payment of ₹${currentAmount} collected via ${paymentMethod.toUpperCase()} ${isSplit ? `(Part ${currentPaymentIndex}/2)` : ''} marking for Admin Verification.`,
                         metadata: {
-                            amount: parseFloat(amount),
+                            amount: currentAmount,
                             method: paymentMethod,
                             attachments: screenshotUrl ? [screenshotUrl] : [],
                             receipt_id: txData.data?.id,
@@ -233,11 +255,21 @@ export default function CollectPaymentFlow({
                     }).catch(e => console.error("Interaction logged failed (non-critical)", e));
                 }
 
-                setStep(4); // Success screen
-                setTimeout(() => {
-                    if(onSuccess) onSuccess();
-                    onClose();
-                }, 3000);
+                if (isSplit && currentPaymentIndex === 1) {
+                    setPaymentMethod(null);
+                    setCardAction(null);
+                    setRazorpayLink(null);
+                    setRazorpayLinkId(null);
+                    setScreenshotFile(null);
+                    setCurrentPaymentIndex(2);
+                    setStep(2);
+                } else {
+                    setStep(4); // Success screen
+                    setTimeout(() => {
+                        if(onSuccess) onSuccess();
+                        onClose();
+                    }, 3000);
+                }
 
             } catch (err) {
                 alert('Submission failed: ' + err.message);
@@ -283,12 +315,24 @@ export default function CollectPaymentFlow({
                         setIsPaymentConfirmed(true);
                         clearInterval(pollInterval);
                         clearInterval(interval);
-                        // Jump to success step automatically
-                        setStep(4);
-                        setTimeout(() => {
-                            if (onSuccess) onSuccess();
-                            onClose();
-                        }, 3000);
+                        
+                        if (isSplit && currentPaymentIndex === 1) {
+                            setPaymentMethod(null);
+                            setCardAction(null);
+                            setRazorpayLink(null);
+                            setRazorpayLinkId(null);
+                            setScreenshotFile(null);
+                            setIsPaymentConfirmed(false);
+                            setCurrentPaymentIndex(2);
+                            setStep(2);
+                        } else {
+                            // Jump to success step automatically
+                            setStep(4);
+                            setTimeout(() => {
+                                if (onSuccess) onSuccess();
+                                onClose();
+                            }, 3000);
+                        }
                     }
                 } catch (err) {
                     console.error("Polling error:", err);
@@ -300,7 +344,7 @@ export default function CollectPaymentFlow({
             if (interval) clearInterval(interval);
             if (pollInterval) clearInterval(pollInterval);
         };
-    }, [step, paymentMethod, razorpayLinkId, isPaymentConfirmed]);
+    }, [step, paymentMethod, razorpayLinkId, isPaymentConfirmed, isSplit, currentPaymentIndex]);
 
     return (
         <div 
@@ -542,24 +586,93 @@ export default function CollectPaymentFlow({
                             )}
 
                             <div className="form-group">
-                                <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                                    <Banknote size={14} color="var(--color-primary)" />
-                                    Amount (₹) <span style={{ color: 'var(--error)' }}>*</span>
-                                </label>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                    <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center', margin: 0 }}>
+                                        <Banknote size={14} color="var(--color-primary)" />
+                                        Amount (₹) <span style={{ color: 'var(--error)' }}>*</span>
+                                    </label>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: 'var(--font-size-sm)', cursor: 'pointer', userSelect: 'none', color: 'var(--text-secondary)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isSplit}
+                                            onChange={e => {
+                                                const checked = e.target.checked;
+                                                setIsSplit(checked);
+                                                if (checked) {
+                                                    const tot = parseFloat(amount) || 0;
+                                                    const half = Math.round(tot / 2);
+                                                    setSplitAmount1(String(half));
+                                                    setSplitAmount2(String(tot - half));
+                                                }
+                                            }}
+                                            style={{ accentColor: 'var(--color-primary)', width: '16px', height: '16px', cursor: 'pointer' }}
+                                        />
+                                        Split into 2 receipts
+                                    </label>
+                                </div>
                                 <input
                                     type="number"
                                     className="form-input"
                                     placeholder="0.00"
                                     value={amount}
                                     onChange={e => {
-                                        setAmount(e.target.value);
+                                        const val = e.target.value;
+                                        setAmount(val);
                                         setRazorpayLink(null);
+                                        if (isSplit) {
+                                            const tot = parseFloat(val) || 0;
+                                            const half = Math.round(tot / 2);
+                                            setSplitAmount1(String(half));
+                                            setSplitAmount2(String(tot - half));
+                                        }
                                     }}
                                     min="1"
                                     step="1"
-                                    style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600 }}
+                                    disabled={isSplit}
+                                    style={{ fontSize: 'var(--font-size-lg)', fontWeight: 600, backgroundColor: isSplit ? 'var(--bg-secondary)' : 'inherit', cursor: isSplit ? 'not-allowed' : 'text' }}
                                 />
                             </div>
+
+                            {isSplit && (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)', padding: 'var(--spacing-md)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', animation: 'fadeIn 0.2s ease' }}>
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label className="form-label" style={{ fontSize: 'var(--font-size-xs)', marginBottom: '6px', display: 'block' }}>Receipt 1 Amount (₹)</label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={splitAmount1}
+                                            onChange={e => {
+                                                const a1 = e.target.value;
+                                                setSplitAmount1(a1);
+                                                const tot = parseFloat(amount) || 0;
+                                                const val1 = parseFloat(a1) || 0;
+                                                setSplitAmount2(String(Math.max(0, tot - val1)));
+                                            }}
+                                            min="1"
+                                            step="1"
+                                            style={{ fontWeight: 600 }}
+                                        />
+                                    </div>
+                                    <div className="form-group" style={{ margin: 0 }}>
+                                        <label className="form-label" style={{ fontSize: 'var(--font-size-xs)', marginBottom: '6px', display: 'block' }}>Receipt 2 Amount (₹)</label>
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            value={splitAmount2}
+                                            onChange={e => {
+                                                const a2 = e.target.value;
+                                                setSplitAmount2(a2);
+                                                const tot = parseFloat(amount) || 0;
+                                                const val2 = parseFloat(a2) || 0;
+                                                setSplitAmount1(String(Math.max(0, tot - val2)));
+                                            }}
+                                            min="1"
+                                            step="1"
+                                            style={{ fontWeight: 600 }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="form-group">
                                 <label className="form-label" style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -586,8 +699,10 @@ export default function CollectPaymentFlow({
                                 textAlign: 'center',
                                 marginBottom: 'var(--spacing-sm)'
                             }}>
-                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>Paying Amount</div>
-                                <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-primary)' }}>₹{parseFloat(amount).toFixed(2)}</div>
+                                <div style={{ fontSize: 'var(--font-size-sm)', color: 'var(--text-secondary)' }}>
+                                    {isSplit ? `Paying Amount (Receipt ${currentPaymentIndex}/2)` : 'Paying Amount'}
+                                </div>
+                                <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--color-primary)' }}>₹{currentAmount.toFixed(2)}</div>
                             </div>
 
                             {!paymentMethod || paymentMethod === 'cash' || paymentMethod === 'qr' ? (
@@ -715,7 +830,7 @@ export default function CollectPaymentFlow({
                             {paymentMethod === 'cash' && (
                                 <div style={{ textAlign: 'center', padding: 'var(--spacing-lg)' }}>
                                     <Banknote size={64} color="#10b981" style={{ margin: '0 auto var(--spacing-md)' }} />
-                                    <h3 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-xs)' }}>Collect ₹{parseFloat(amount).toFixed(2)} Cash</h3>
+                                    <h3 style={{ fontSize: 'var(--font-size-xl)', fontWeight: 700, marginBottom: 'var(--spacing-xs)' }}>Collect ₹{currentAmount.toFixed(2)} Cash</h3>
                                     <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--font-size-sm)', marginBottom: 'var(--spacing-lg)' }}>
                                         Verify the cash physical amount received from the customer.
                                     </p>
@@ -740,7 +855,7 @@ export default function CollectPaymentFlow({
                                                 <QrCode size={64} color="#9ca3af" />
                                             </div>
                                         )}
-                                        <div style={{ marginTop: 'var(--spacing-sm)', fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>Scan to Pay ₹{parseFloat(amount).toFixed(2)}</div>
+                                        <div style={{ marginTop: 'var(--spacing-sm)', fontSize: 'var(--font-size-lg)', fontWeight: 600 }}>Scan to Pay ₹{currentAmount.toFixed(2)}</div>
                                     </div>
                                     
                                     <div style={{
@@ -830,7 +945,7 @@ export default function CollectPaymentFlow({
                                             className="btn btn-primary" 
                                             style={{ width: '100%', padding: '16px', fontSize: 'var(--font-size-lg)', marginBottom: 'var(--spacing-sm)' }}
                                             onClick={() => {
-                                                navigator.clipboard.writeText(`Please pay ₹${amount} using this secure link (UPI disabled): ${razorpayLink}`);
+                                                navigator.clipboard.writeText(`Please pay ₹${currentAmount} using this secure link (UPI disabled): ${razorpayLink}`);
                                                 alert("Copied to clipboard!");
                                             }}
                                         >
@@ -895,7 +1010,11 @@ export default function CollectPaymentFlow({
                         alignItems: 'center'
                     }}>
                         {step > 1 ? (
-                            <button className="btn btn-secondary" onClick={() => setStep(step - 1)} disabled={isGeneratingLink || isSubmitting}>
+                            <button 
+                                className="btn btn-secondary" 
+                                onClick={() => setStep(step - 1)} 
+                                disabled={isGeneratingLink || isSubmitting || (isSplit && currentPaymentIndex === 2 && step === 2)}
+                            >
                                 Back
                             </button>
                         ) : (
