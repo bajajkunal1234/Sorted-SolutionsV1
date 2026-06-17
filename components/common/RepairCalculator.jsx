@@ -79,7 +79,7 @@ const PricePills = ({ b, setPriceType, setCustomPrice }) => (
     </div>
 );
 
-export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel }) {
+export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems }) {
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading]           = useState(true);
@@ -107,9 +107,36 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                 if (printData && !isPurchase) {
                     setShowTax(printData.quotation_show_gst ?? printData.show_gst ?? true);
                 }
+                
+                // If prefillItems is provided, initialize the basket
+                if (prefillItems && prefillItems.length > 0) {
+                    const initialBasket = prefillItems.map(p => {
+                        const invItem = inv?.find(item => item.id === p.productId);
+                        const isService = p.isCharge || p.type === 'service';
+                        
+                        return {
+                            id: p.productId || p.id || `manual-${Date.now()}-${Math.random()}`,
+                            name: p.description,
+                            sale_price: invItem ? invItem.sale_price : p.rate,
+                            dealer_price: invItem ? invItem.dealer_price : null,
+                            retail_price: invItem ? invItem.retail_price : null,
+                            tax_rate: p.taxRate ?? (invItem ? invItem.tax_rate : 18),
+                            itemType: isService ? 'service' : 'product',
+                            type: isService ? 'service' : 'product',
+                            qty: p.qty || 1,
+                            priceType: invItem && invItem.sale_price === p.rate ? 'sale' : 
+                                       invItem && invItem.dealer_price === p.rate ? 'dealer' :
+                                       invItem && invItem.retail_price === p.rate ? 'mrp' : 'custom',
+                            customPrice: p.rate || 0,
+                            isManual: !p.productId,
+                            terms_conditions: p.terms_conditions || []
+                        };
+                    });
+                    setBasket(initialBasket);
+                }
             })
             .finally(() => setLoading(false));
-    }, [invoiceLabel]);
+    }, [invoiceLabel, prefillItems]);
 
     // ── Basket helpers ────────────────────────────────────────────────────────
     const addToBasket = (item) => {

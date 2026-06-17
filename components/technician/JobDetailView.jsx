@@ -5,7 +5,7 @@ import { X, Phone, MapPin, Clock, FileText, CheckSquare, Wrench, Menu, Activity,
 import JobInteractionsTab from '@/app/admin/components/jobs/JobInteractionsTab';
 import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm';
 import QuotationForm from '@/app/admin/components/accounts/QuotationForm';
-import { transactionsAPI } from '@/lib/adminAPI';
+import { transactionsAPI, printSettingsAPI } from '@/lib/adminAPI';
 import { logInteraction } from '@/lib/interactions';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import DocumentWhatsAppPopup from '@/components/common/DocumentWhatsAppPopup';
@@ -227,6 +227,155 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             alert('Status updated successfully!');
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAutoCreateQuotation = async (items) => {
+        setLoading(true);
+        try {
+            // 1. Fetch print settings to get default showTax
+            let showTax = false;
+            try {
+                const settings = await printSettingsAPI.get();
+                if (settings) {
+                    showTax = settings.quotation_show_gst ?? settings.show_gst ?? true;
+                }
+            } catch (err) {
+                console.error('Failed to fetch print settings', err);
+            }
+
+            // 2. Format items & calculate totals
+            const companyState = 'Maharashtra';
+            const accountState = editedJob.customer?.address?.state || 'Maharashtra';
+            const isInterState = accountState !== companyState;
+
+            const formattedItems = items.map((it, idx) => {
+                const isService = it.type === 'service';
+                const rate = Number(it.rate) || 0;
+                const qty = Number(it.qty) || 1;
+                const taxRate = Number(it.taxRate) || 18;
+                const subtotal = qty * rate;
+                const total = showTax ? subtotal * (1 + taxRate / 100) : subtotal;
+
+                return {
+                    id: isService ? Date.now() + idx : idx + 1,
+                    productId: it.productId || null,
+                    description: it.description,
+                    hsn: '',
+                    qty: qty,
+                    rate: rate,
+                    discount: 0,
+                    taxRate: taxRate,
+                    terms_conditions: it.terms_conditions || [],
+                    unit: it.unit || 'Nos',
+                    total: total,
+                    isCharge: isService
+                };
+            });
+
+            const itemsSubtotal = formattedItems.filter(i => !i.isCharge).reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const chargesTotal = formattedItems.filter(i => i.isCharge).reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const combinedTaxable = itemsSubtotal + chargesTotal;
+
+            let cgst = 0, sgst = 0, igst = 0;
+            if (showTax) {
+                formattedItems.forEach(item => {
+                    const taxAmount = (item.qty * item.rate * item.taxRate) / 100;
+                    if (isInterState) {
+                        igst += taxAmount;
+                    } else {
+                        cgst += taxAmount / 2;
+                        sgst += taxAmount / 2;
+                    }
+                });
+            }
+
+            const totalTax = cgst + sgst + igst;
+            const totalAmount = combinedTaxable + totalTax;
+
+            const isEditing = !!savedQuotation?.id;
+
+            const quotationPayload = {
+                account_id: editedJob.customerId,
+                account_name: editedJob.customerName || 'Customer',
+                account_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                account_mobile: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                account_email: editedJob.email || editedJob.customer?.email || '',
+                account_gstin: editedJob.customer?.gstin || '',
+                account_state: accountState,
+                billing_address: [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                quote_number: isEditing ? savedQuotation.quote_number : `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                date: isEditing ? savedQuotation.date : new Date().toISOString().split('T')[0],
+                valid_until: isEditing ? savedQuotation.valid_until : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                subject: `Quotation for Job #${editedJob.job_number || editedJob.id}`,
+                items: formattedItems,
+                notes: isEditing ? (savedQuotation.notes || 'Auto-generated from Repair Calculator') : 'Auto-generated from Repair Calculator',
+                showTax,
+                status: 'sent',
+                items_subtotal: itemsSubtotal,
+                subtotal: combinedTaxable,
+                discount: 0,
+                charges_total: chargesTotal,
+                cgst,
+                sgst,
+                igst,
+                total_tax: totalTax,
+                total_amount: totalAmount,
+                job_id: editedJob.id,
+                technician_id: techId,
+                technician_name: techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+            };
+
+            if (isEditing) {
+                quotationPayload.id = savedQuotation.id;
+            }
+
+            // 3. Save or update in database
+            const saveRes = await fetch(`/api/admin/transactions?type=quotation`, {
+                method: isEditing ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quotationPayload)
+            });
+            const saveJson = await saveRes.json();
+            if (!saveJson.success) {
+                throw new Error(saveJson.error || 'Failed to save quotation');
+            }
+
+            const savedData = saveJson.data;
+            setSavedQuotation(savedData);
+
+            // 4. Log interaction
+            const interactionType = isEditing ? 'quotation-edited' : 'quotation-created';
+            const interactionDesc = isEditing 
+                ? `Quotation ${savedData?.quote_number || savedData?.reference || ''} updated for job #${editedJob.job_number || editedJob.id}`
+                : `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`;
+
+            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: interactionType,
+                    category: 'billing',
+                    description: interactionDesc,
+                    user_name: techName,
+                    customer_id: editedJob.customerId || null
+                })
+            }).catch(() => {});
+
+            // 5. Update job status to 'quotation_sent' if not already
+            if (editedJob.status !== 'quotation_sent') {
+                await handleSaveStatus('quotation_sent');
+            }
+
+            // 6. Close calculator and trigger WhatsApp share popup
+            setActiveForm(null);
+            setCalculatorItems(null);
+            setShowWhatsappPopup({ type: 'quotation', doc: savedData });
+        } catch (e) {
+            console.error('Failed to auto-create/update quotation', e);
+            alert('Failed to save quotation: ' + e.message);
         } finally {
             setLoading(false);
         }
@@ -1138,7 +1287,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                     <button
                                                         className="btn"
                                                         style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
-                                                        onClick={() => setActiveForm('quotation')}
+                                                        onClick={() => setActiveForm('calculator')}
                                                     >
                                                         Edit / Send
                                                     </button>
@@ -1632,54 +1781,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     <RepairCalculator
                         job={editedJob}
                         onClose={() => setActiveForm(null)}
-                        onCreateQuotation={(items) => {
-                            setCalculatorItems(items);
-                            setActiveForm('quotation');
-                        }}
-                    />
-                )}
-                {activeForm === 'quotation' && (
-                    <QuotationForm 
-                        onClose={() => { setActiveForm(null); setCalculatorItems(null); }}
-                        onSave={async (data) => {
-                            // 1. Save quotation to DB properly
-                            const type = 'quotation';
-                            let savedData = data;
-                            try {
-                                const saveRes = await fetch(`/api/admin/transactions?type=${type}`, {
-                                    method: data.id ? 'PUT' : 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ 
-                                        ...data, 
-                                        job_id: editedJob.id,
-                                        technician_id: data.technician_id || techId,
-                                        technician_name: data.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
-                                    })
-                                });
-                                const saveJson = await saveRes.json();
-                                if (saveJson.success) savedData = saveJson.data;
-                            } catch (e) {
-                                console.error('Failed to save quotation to DB', e);
-                            }
-                            
-                            setSavedQuotation(savedData);
-                            // Status stays — tech will explicitly choose Approved / Denied / Needs Time
-                            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ type: 'quotation-created', category: 'billing', description: `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: techName, customer_id: editedJob.customerId || null })
-                            }).catch(() => {});
-                            setActiveForm(null); setCalculatorItems(null);
-                            setShowWhatsappPopup({ type: 'quotation', doc: savedData });
-                        }}
-                        defaultAccount={{ 
-                            id: editedJob.customerId, 
-                            name: editedJob.customerName, 
-                            gstin: editedJob.customer?.gstin, 
-                            state: editedJob.customer?.address?.state || 'Maharashtra',
-                            address: [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ')
-                        }}
-                        prefillItems={calculatorItems}
-                        existingQuotation={savedQuotation}
+                        onCreateQuotation={(items) => handleAutoCreateQuotation(items)}
+                        prefillItems={savedQuotation?.items || calculatorItems}
                     />
                 )}
                 {/* Manual Sales Invoice Form is now hidden from the UI but could still be opened programmatically */}

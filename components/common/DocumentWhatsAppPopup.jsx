@@ -82,14 +82,6 @@ We've prepared your repair estimate for service request (Job #{job_number}).
 
 📋 *Quotation {quote_number}*
 
-*Items:*
-{line_items}
-
-Subtotal: {subtotal}
-CGST: {cgst}
-SGST: {sgst}
-*Total Amount: {total_amount}*
-
 📱 View & track your service request here:
 {tracking_url}
 
@@ -100,6 +92,16 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
     const compileTemplate = (content) => {
         if (!content) return '';
         let result = content;
+        
+        // Remove *Items:* and *Total Amount:* sections dynamically if type is quotation
+        if (type === 'quotation') {
+            result = result.replace(/\*Items:\*\s*\n?\{\s*line_items\s*\}\s*\n?/gi, '');
+            result = result.replace(/\*Total Amount:\s*\{\s*total_amount\s*\}\*\s*\n?/gi, '');
+            result = result.replace(/Subtotal:\s*\{\s*subtotal\s*\}\s*\n?/gi, '');
+            result = result.replace(/CGST:\s*\{\s*cgst\s*\}\s*\n?/gi, '');
+            result = result.replace(/SGST:\s*\{\s*sgst\s*\}\s*\n?/gi, '');
+            result = result.replace(/\n{3,}/g, '\n\n');
+        }
         
         const replacements = {
             customer_name: customerName,
