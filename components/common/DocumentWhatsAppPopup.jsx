@@ -220,7 +220,26 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
             const styleOverride = iframeDoc.createElement('style');
             styleOverride.innerHTML = `
                 @page { size: A4; margin: 0 !important; }
-                html, body { margin: 0 !important; padding: 0 !important; width: 794px !important; }
+                html, body {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    width: 794px !important;
+                    background-color: #ffffff !important;
+                    background: #ffffff !important;
+                    color: #1e293b !important;
+                }
+                /* Override any global dark mode leaks during canvas cloning */
+                * {
+                    --bg-primary: #ffffff !important;
+                    --bg-secondary: #f8fafc !important;
+                    --bg-tertiary: #f1f5f9 !important;
+                    --bg-elevated: #ffffff !important;
+                    --text-primary: #0f172a !important;
+                    --text-secondary: #475569 !important;
+                    --text-tertiary: #64748b !important;
+                    --border-primary: #e2e8f0 !important;
+                    color-scheme: light !important;
+                }
             `;
             iframeDoc.head.appendChild(styleOverride);
 
