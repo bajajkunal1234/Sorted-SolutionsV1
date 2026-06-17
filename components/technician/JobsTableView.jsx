@@ -195,11 +195,6 @@ function JobsTableView({ jobs, onJobClick, getStatusColor, getTimeLeft, visibleC
                                         <div style={{ fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.customerName || 'Walk-in'}>
                                             {job.customerName || 'Walk-in'}
                                         </div>
-                                        {job.mobile && (
-                                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.mobile}>
-                                                {job.mobile}
-                                            </div>
-                                        )}
                                     </div>
                                 </td>
                             );

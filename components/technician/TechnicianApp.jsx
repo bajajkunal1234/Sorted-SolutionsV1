@@ -21,14 +21,7 @@ import LocalityCombobox from '@/components/common/LocalityCombobox';
 function TechnicianApp() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [viewMode, setViewMode] = useState(() => {
-        if (typeof window !== 'undefined') return localStorage.getItem('techViewMode') || 'kanban';
-        return 'kanban';
-    });
-    
-    useEffect(() => {
-        if (typeof window !== 'undefined') localStorage.setItem('techViewMode', viewMode);
-    }, [viewMode]);
+    const [viewMode, setViewMode] = useState('kanban');
 
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
