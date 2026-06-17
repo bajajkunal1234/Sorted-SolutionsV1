@@ -216,6 +216,14 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
             iframeDoc.write(cleanHtml);
             iframeDoc.close();
 
+            // Force print margins to 0 and page width to 794px for high-fidelity edge-to-edge PDF generation
+            const styleOverride = iframeDoc.createElement('style');
+            styleOverride.innerHTML = `
+                @page { size: A4; margin: 0 !important; }
+                html, body { margin: 0 !important; padding: 0 !important; width: 794px !important; }
+            `;
+            iframeDoc.head.appendChild(styleOverride);
+
             // Wait a brief delay for remote images (logo, signature) and stylesheets to load in the iframe
             await new Promise((resolve) => setTimeout(resolve, 600));
 
