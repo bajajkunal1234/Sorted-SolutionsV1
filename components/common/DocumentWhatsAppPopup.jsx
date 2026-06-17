@@ -243,6 +243,12 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
             `;
             iframeDoc.head.appendChild(styleOverride);
 
+            // Move all style tags from iframe head to iframe body so they are cloned by html2pdf
+            const styleTags = iframeDoc.head.querySelectorAll('style');
+            styleTags.forEach(tag => {
+                iframeDoc.body.appendChild(tag);
+            });
+
             // Wait a brief delay for remote images (logo, signature) and stylesheets to load in the iframe
             await new Promise((resolve) => setTimeout(resolve, 600));
 
