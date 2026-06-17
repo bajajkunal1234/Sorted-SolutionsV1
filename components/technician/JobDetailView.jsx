@@ -64,6 +64,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
     const [showQuotationFeedbackFlow, setShowQuotationFeedbackFlow] = useState(false);
     const [showQuotationCollectPayment, setShowQuotationCollectPayment] = useState(false);
     const [showQuotationFinalFeedback, setShowQuotationFinalFeedback] = useState(false);
+    const [showServiceChargeCloseCallFlow, setShowServiceChargeCloseCallFlow] = useState(false);
+    const [showServiceChargeCollectPayment, setShowServiceChargeCollectPayment] = useState(false);
+    const [showServiceChargeFeedbackQR, setShowServiceChargeFeedbackQR] = useState(false);
     // Read technician identity from localStorage for CollectPaymentFlow (SSR-safe)
     const { techName, techId } = (() => {
         if (typeof window === 'undefined') return { techName: 'Technician', techId: null };
@@ -376,6 +379,200 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         } catch (e) {
             console.error('Failed to auto-create/update quotation', e);
             alert('Failed to save quotation: ' + e.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAutoCreateInvoiceFromCalculator = async (items) => {
+        setLoading(true);
+        try {
+            // 1. Fetch print settings to resolve showTax
+            let showTax = false;
+            try {
+                const settings = await printSettingsAPI.get();
+                if (settings) {
+                    showTax = settings.quotation_show_gst ?? settings.show_gst ?? true;
+                }
+            } catch (err) {
+                console.error('Failed to fetch print settings', err);
+            }
+
+            // 2. Format items & calculate totals
+            const companyState = 'Maharashtra';
+            const accountState = editedJob.customer?.address?.state || 'Maharashtra';
+            const isInterState = accountState !== companyState;
+
+            const formattedItems = items.map((it, idx) => {
+                const isService = it.type === 'service';
+                const rate = Number(it.rate) || 0;
+                const qty = Number(it.qty) || 1;
+                const taxRate = Number(it.taxRate) || 18;
+                const subtotal = qty * rate;
+                const total = showTax ? subtotal * (1 + taxRate / 100) : subtotal;
+
+                return {
+                    id: isService ? Date.now() + idx : idx + 1,
+                    productId: it.productId || null,
+                    description: it.description,
+                    hsn: '',
+                    qty: qty,
+                    rate: rate,
+                    discount: 0,
+                    taxRate: taxRate,
+                    terms_conditions: it.terms_conditions || [],
+                    unit: it.unit || 'Nos',
+                    total: total,
+                    isCharge: isService
+                };
+            });
+
+            const itemsSubtotal = formattedItems.filter(i => !i.isCharge).reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const chargesTotal = formattedItems.filter(i => i.isCharge).reduce((sum, item) => sum + (item.qty * item.rate), 0);
+            const combinedTaxable = itemsSubtotal + chargesTotal;
+
+            let cgst = 0, sgst = 0, igst = 0;
+            if (showTax) {
+                formattedItems.forEach(item => {
+                    const taxAmount = (item.qty * item.rate * item.taxRate) / 100;
+                    if (isInterState) {
+                        igst += taxAmount;
+                    } else {
+                        cgst += taxAmount / 2;
+                        sgst += taxAmount / 2;
+                    }
+                });
+            }
+
+            const totalTax = cgst + sgst + igst;
+            const totalAmount = combinedTaxable + totalTax;
+
+            const isEditing = !!savedQuotation?.id;
+
+            // Save the updated quotation in database
+            const quotationPayload = {
+                account_id: editedJob.customerId,
+                account_name: editedJob.customerName || 'Customer',
+                account_phone: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                account_mobile: editedJob.mobile || editedJob.customer_phone || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                account_email: editedJob.email || editedJob.customer?.email || '',
+                account_gstin: editedJob.customer?.gstin || '',
+                account_state: accountState,
+                billing_address: [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                quote_number: isEditing ? savedQuotation.quote_number : `QUO-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                date: isEditing ? savedQuotation.date : new Date().toISOString().split('T')[0],
+                valid_until: isEditing ? savedQuotation.valid_until : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                subject: `Quotation for Job #${editedJob.job_number || editedJob.id}`,
+                items: formattedItems,
+                notes: 'Auto-generated service charge quotation',
+                showTax,
+                status: 'sent',
+                items_subtotal: itemsSubtotal,
+                subtotal: combinedTaxable,
+                discount: 0,
+                charges_total: chargesTotal,
+                cgst,
+                sgst,
+                igst,
+                total_tax: totalTax,
+                total_amount: totalAmount,
+                job_id: editedJob.id,
+                technician_id: techId,
+                technician_name: techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+            };
+
+            if (isEditing) {
+                quotationPayload.id = savedQuotation.id;
+            }
+
+            const saveRes = await fetch(`/api/admin/transactions?type=quotation`, {
+                method: isEditing ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(quotationPayload)
+            });
+            const saveJson = await saveRes.json();
+            if (!saveJson.success) {
+                throw new Error(saveJson.error || 'Failed to save quotation');
+            }
+
+            const savedData = saveJson.data;
+            setSavedQuotation(savedData);
+
+            // Log quotation interaction
+            const qType = isEditing ? 'quotation-edited' : 'quotation-created';
+            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: qType,
+                    category: 'billing',
+                    description: `Quotation ${savedData.quote_number} updated to service charge only`,
+                    user_name: techName,
+                    customer_id: editedJob.customerId || null
+                })
+            }).catch(() => {});
+
+            // Auto-create final invoice for the service charge
+            const invoiceRes = await fetch(`/api/admin/transactions?type=sales`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    account_id: savedData.account_id,
+                    account_name: savedData.account_name || editedJob.customer?.name || 'Customer',
+                    accountGSTIN: savedData.accountGSTIN || '',
+                    accountState: savedData.account_state || 'Maharashtra',
+                    billing_address: savedData.billing_address || [editedJob.address, editedJob.locality, editedJob.city, editedJob.pincode].filter(Boolean).join(', ') || '',
+                    job_id: editedJob.id,
+                    date: new Date().toISOString().split('T')[0],
+                    due_date: new Date().toISOString().split('T')[0],
+                    invoice_number: `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+                    reference: savedData.quote_number,
+                    status: 'unpaid',
+                    items: savedData.items,
+                    subtotal: savedData.subtotal,
+                    cgst: savedData.cgst,
+                    sgst: savedData.sgst,
+                    igst: savedData.igst,
+                    total_tax: savedData.total_tax,
+                    total_amount: savedData.total_amount,
+                    notes: 'Auto-generated from service charge quotation',
+                    terms: savedData.terms,
+                    technician_id: savedData.technician_id || techId,
+                    technician_name: savedData.technician_name || techName || editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician'
+                })
+            });
+            const invoiceJson = await invoiceRes.json();
+            if (!invoiceJson.success) {
+                throw new Error(invoiceJson.error || 'Failed to auto-create invoice');
+            }
+
+            const finalInvoice = invoiceJson.data;
+            setSavedInvoice(finalInvoice);
+
+            // Log invoice interaction
+            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'invoice-created',
+                    category: 'billing',
+                    description: `Final invoice ${finalInvoice.invoice_number} created from quotation ${savedData.quote_number}`,
+                    user_name: techName
+                })
+            }).catch(() => {});
+
+            // Update job status to quotation_sent if not already
+            if (editedJob.status !== 'quotation_sent') {
+                await handleSaveStatus('quotation_sent');
+            }
+
+            // Close calculator and trigger Close Call Questionnaire Flow
+            setActiveForm(null);
+            setCalculatorItems(null);
+            setShowServiceChargeCloseCallFlow(true);
+        } catch (e) {
+            console.error('Failed to auto-create invoice from calculator', e);
+            alert('Failed to save & invoice: ' + e.message);
         } finally {
             setLoading(false);
         }
@@ -1212,8 +1409,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 </div>
                             )}
 
-                            {/* Close Call — No Service (shown on diagnosing_quoting or scheduled) */}
-                            {(editedJob.status === 'diagnosing_quoting' || editedJob.status === 'scheduled') && (
+                            {/* Close Call — No Service (shown on diagnosing_quoting, scheduled, or quotation_sent) */}
+                            {(editedJob.status === 'diagnosing_quoting' || editedJob.status === 'scheduled' || editedJob.status === 'quotation_sent') && (
                                 <div className="card" style={{ padding: 'var(--spacing-md)', border: '1px solid rgba(239,68,68,0.2)', backgroundColor: 'rgba(239,68,68,0.03)' }}>
                                     <h3 style={{ fontSize: '15px', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: '#f87171' }}>
                                         <X size={16} color="#f87171" /> Close Call — No Service
@@ -1398,7 +1595,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                 onClick={() => {
                                                                     if (cxAppApproved) return;
                                                                     setQuotationDecisionMode('denied');
-                                                                    setShowQuotationFeedbackFlow(true);
+                                                                    setActiveForm('calculator');
                                                                 }}
                                                             >
                                                                 <span style={{ fontSize: 20 }}>❌</span>
@@ -1416,7 +1613,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                 onClick={() => {
                                                                     if (cxAppApproved) return;
                                                                     setQuotationDecisionMode('thinking');
-                                                                    setShowQuotationFeedbackFlow(true);
+                                                                    setActiveForm('calculator');
                                                                 }}
                                                             >
                                                                 <span style={{ fontSize: 20 }}>🕐</span>
@@ -1780,8 +1977,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 {activeForm === 'calculator' && (
                     <RepairCalculator
                         job={editedJob}
-                        onClose={() => setActiveForm(null)}
+                        onClose={() => {
+                            setActiveForm(null);
+                            setQuotationDecisionMode(null);
+                        }}
                         onCreateQuotation={(items) => handleAutoCreateQuotation(items)}
+                        onCreateInvoice={quotationDecisionMode ? (items) => handleAutoCreateInvoiceFromCalculator(items) : null}
                         prefillItems={savedQuotation?.items || calculatorItems}
                     />
                 )}
@@ -1973,6 +2174,81 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 excludeRepairDone={true}
                 initialStep={2}
                 onSuccess={() => { setShowQuotationFinalFeedback(false); setQuotationDecisionMode(null); }}
+            />
+        )}
+
+        {/* ── Service Charge Close Call Details ── */}
+        {showServiceChargeCloseCallFlow && (
+            <FeedbackAndCloseCallFlow
+                onClose={() => { setShowServiceChargeCloseCallFlow(false); setQuotationDecisionMode(null); }}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                job={editedJob}
+                initialRepairOutcome="Closed on service charge"
+                skipFeedbackStep={false}
+                excludeRepairDone={true}
+                onNotesSubmitted={({ formattedNotes }) => {
+                    setShowServiceChargeCloseCallFlow(false);
+                    setShowServiceChargeCollectPayment(true);
+                }}
+            />
+        )}
+
+        {/* ── Service Charge Collect Payment ── */}
+        {showServiceChargeCollectPayment && (
+            <CollectPaymentFlow
+                onClose={() => setShowServiceChargeCollectPayment(false)}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                prefilledCustomer={{
+                    id: editedJob.customerId || editedJob.account_id || editedJob.customer?.id,
+                    name: editedJob.customerName || editedJob.customer?.name || 'Customer',
+                    phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    mobile: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                }}
+                prefilledJob={{
+                    id: editedJob.id,
+                    job_number: editedJob.job_number,
+                    account_id: editedJob.customerId || editedJob.account_id,
+                    account_name: editedJob.customerName,
+                    customer_name: editedJob.customerName,
+                    customer_phone: editedJob.mobile || editedJob.customer?.mobile || editedJob.customer?.phone || '',
+                    category: editedJob.description || editedJob.product?.type || editedJob.issueCategory || 'Repair',
+                    technician_id: techId,
+                }}
+                prefilledAmount={savedInvoice?.total_amount ? String(savedInvoice.total_amount) : ''}
+                onSuccess={async () => {
+                    setShowServiceChargeCollectPayment(false);
+                    try {
+                        await fetch(`/api/technician/jobs/${editedJob.id}`, {
+                            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — service charge invoice paid.' })
+                        });
+                    } catch (e) { /* non-fatal */ }
+                    
+                    const merged = { ...editedJob, status: 'closed' };
+                    setEditedJob(merged);
+                    if (onJobUpdate) onJobUpdate(merged);
+                    
+                    setShowServiceChargeFeedbackQR(true);
+                }}
+            />
+        )}
+
+        {/* ── Service Charge Feedback QR Flow ── */}
+        {showServiceChargeFeedbackQR && (
+            <FeedbackAndCloseCallFlow
+                onClose={() => { setShowServiceChargeFeedbackQR(false); setQuotationDecisionMode(null); }}
+                context="technician"
+                currentUserName={techName}
+                currentUserId={techId}
+                job={{ ...editedJob, status: 'closed' }}
+                initialRepairOutcome="Closed on service charge"
+                excludeRepairDone={true}
+                initialStep={2}
+                onSuccess={() => { setShowServiceChargeFeedbackQR(false); setQuotationDecisionMode(null); }}
             />
         )}
         </>
