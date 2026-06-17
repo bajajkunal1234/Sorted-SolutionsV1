@@ -1,32 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react';
-import { X, MessageCircle, Copy, Check, ExternalLink, QrCode, Download } from 'lucide-react';
+import { X, MessageCircle, Copy, Check, Download } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-
-// Helper to convert image URL to base64 safely
-const loadImageBase64 = (url) => {
-    return new Promise((resolve) => {
-        if (!url) return resolve(null);
-        const img = new Image();
-        img.crossOrigin = 'Anonymous';
-        img.onload = () => {
-            const canvas = window.document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            try {
-                const dataURL = canvas.toDataURL('image/png');
-                resolve(dataURL);
-            } catch {
-                resolve(null);
-            }
-        };
-        img.onerror = () => resolve(null);
-        img.src = url;
-    });
-};
 
 /**
  * DocumentWhatsAppPopup
@@ -197,256 +173,83 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
         }
     };
 
-    // Client-side A4 PDF Generator
+    // High-Fidelity Client-side A4 PDF Generator using html2pdf.js and global print setup templates
     const generateInvoicePDF = async (downloadOnly = false) => {
         setGeneratingPdf(true);
         try {
-            const { jsPDF } = await import('jspdf');
-            const doc = new jsPDF({
-                orientation: 'portrait',
-                unit: 'pt',
-                format: 'a4'
-            });
+            const html2pdf = (await import('html2pdf.js')).default;
 
-            const compName = settings?.company_name || 'Sorted Solutions';
-            const compAddress = settings?.company_address || '123 Tech Park, Sector 5, India';
-            const compPhone = settings?.company_phone || '+91 99999 99999';
-            const compEmail = settings?.company_email || 'info@sortedsolutions.in';
-            const compGst = settings?.gst_number || '';
-            const showLogo = settings?.show_logo && settings?.logo_url;
-            const signatureUrl = settings?.include_signature && settings?.signature_url;
+            // Prepare transaction object for printing, matching the DB fields used by the print inject engine
+            const itemForPrint = {
+                ...docProp,
+                account_name: job.customer_name || docProp.account_name || '',
+                account_phone: job.customer_phone || docProp.account_phone || '',
+                account_address: job.customer_address || job.address || docProp.account_address || docProp.billing_address || '',
+                job_number: job.job_number || docProp.job_number || '',
+                date: docProp.created_at || docProp.date || new Date().toISOString()
+            };
 
-            // Load images safely with crossOrigin
-            let logoBase64 = null;
-            let signatureBase64 = null;
-            if (showLogo) {
-                logoBase64 = await loadImageBase64(settings.logo_url);
-            }
-            if (signatureUrl) {
-                signatureBase64 = await loadImageBase64(settings.signature_url);
-            }
-
-            let y = 50;
-
-            // Top decorative bar
-            doc.setFillColor(30, 41, 59);
-            doc.rect(40, y, 515, 6, 'F');
-            y += 25;
-
-            // Document Title Header
-            doc.setFont('Helvetica', 'bold').setFontSize(22).setTextColor(30, 41, 59);
-            doc.text(isInvoice ? 'INVOICE' : 'QUOTATION', 555, y + 15, { align: 'right' });
-
-            // Company Logo or Name
-            if (logoBase64) {
-                doc.addImage(logoBase64, 'PNG', 40, y, 120, 36);
-                y += 45;
-            } else {
-                doc.setFont('Helvetica', 'bold').setFontSize(16).setTextColor(15, 23, 42);
-                doc.text(compName, 40, y + 12);
-                y += 25;
-            }
-
-            // Company details text
-            doc.setFont('Helvetica', 'normal').setFontSize(9).setTextColor(100, 116, 139);
-            const compAddrLines = doc.splitTextToSize(compAddress, 260);
-            compAddrLines.forEach(line => {
-                doc.text(line, 40, y);
-                y += 12;
-            });
-            if (compPhone || compEmail) {
-                doc.text(`${compPhone} | ${compEmail}`, 40, y);
-                y += 12;
-            }
-            if (compGst && settings?.invoice_show_gst) {
-                doc.setFont('Helvetica', 'bold');
-                doc.text(`GSTIN: ${compGst}`, 40, y);
-                y += 12;
-            }
-
-            // Document metadata right column
-            let metaY = 70 + 25;
-            doc.setFont('Helvetica', 'normal').setFontSize(9).setTextColor(71, 85, 105);
-            doc.text(`${isInvoice ? 'Invoice' : 'Quotation'} No: ${docNum || ''}`, 555, metaY, { align: 'right' });
-            metaY += 14;
-            const dateStr = docProp.created_at ? new Date(docProp.created_at).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
-            doc.text(`Date: ${dateStr}`, 555, metaY, { align: 'right' });
-            metaY += 14;
+            const tabType = type === 'invoice' ? 'sales' : 'quotations';
             
-            if (isInvoice) {
-                const dueDateVal = docProp.due_date ? new Date(docProp.due_date).toLocaleDateString('en-GB') : new Date(Date.now() + 7 * 86400000).toLocaleDateString('en-GB');
-                doc.text(`Due Date: ${dueDateVal}`, 555, metaY, { align: 'right' });
-            }
-
-            y = Math.max(y + 10, metaY + 20);
-
-            // Divider line
-            doc.setDrawColor(226, 232, 240);
-            doc.line(40, y, 555, y);
-            y += 18;
-
-            // Bill To details
-            doc.setFont('Helvetica', 'bold').setFontSize(10).setTextColor(100, 116, 139);
-            doc.text('BILL TO', 40, y);
-            y += 16;
-
-            doc.setFont('Helvetica', 'bold').setFontSize(11).setTextColor(15, 23, 42);
-            doc.text(customerName, 40, y);
-            y += 14;
-
-            doc.setFont('Helvetica', 'normal').setFontSize(9).setTextColor(71, 85, 105);
-            const customerPhone = job.customer_phone || '';
-            if (customerPhone) {
-                doc.text(`Phone: ${customerPhone}`, 40, y);
-                y += 14;
-            }
-
-            const customerAddr = job.customer_address || job.address || '';
-            if (customerAddr) {
-                const custAddrLines = doc.splitTextToSize(customerAddr, 250);
-                custAddrLines.forEach(line => {
-                    doc.text(line, 40, y);
-                    y += 12;
-                });
-            }
-            y += 15;
-
-            // Items Table Header
-            doc.setFillColor(241, 245, 249);
-            doc.rect(40, y, 515, 20, 'F');
-            doc.setFont('Helvetica', 'bold').setFontSize(9).setTextColor(71, 85, 105);
-            doc.text('Description', 45, y + 13);
-            doc.text('Qty', 350, y + 13);
-            doc.text('Rate', 430, y + 13);
-            doc.text('Amount (INR)', 555, y + 13, { align: 'right' });
-            y += 20;
-
-            // Table Rows
-            const docItems = docProp.items || [];
-            doc.setFont('Helvetica', 'normal').setFontSize(9).setTextColor(51, 65, 85);
-            doc.setDrawColor(241, 245, 249);
-            
-            docItems.forEach((item) => {
-                if (!item.description) return;
-                const qtyVal = item.qty || 1;
-                const rateVal = item.rate || 0;
-                const amtVal = qtyVal * rateVal;
-
-                const descLines = doc.splitTextToSize(item.description, 290);
-                const rowH = Math.max(20, descLines.length * 12 + 6);
-
-                if (y + rowH > 730) {
-                    doc.addPage();
-                    y = 50;
-                    doc.setFillColor(241, 245, 249);
-                    doc.rect(40, y, 515, 20, 'F');
-                    doc.setFont('Helvetica', 'bold').setFontSize(9).setTextColor(71, 85, 105);
-                    doc.text('Description', 45, y + 13);
-                    doc.text('Qty', 350, y + 13);
-                    doc.text('Rate', 430, y + 13);
-                    doc.text('Amount (INR)', 555, y + 13, { align: 'right' });
-                    y += 20;
-                    doc.setFont('Helvetica', 'normal').setFontSize(9).setTextColor(51, 65, 85);
-                }
-
-                descLines.forEach((line, idx) => {
-                    doc.text(line, 45, y + 13 + (idx * 12));
-                });
-                
-                doc.text(qtyVal.toString(), 350, y + 13);
-                doc.text(`₹${rateVal.toLocaleString()}`, 430, y + 13);
-                doc.text(`₹${amtVal.toLocaleString()}`, 555, y + 13, { align: 'right' });
-
-                doc.line(40, y + rowH, 555, y + rowH);
-                y += rowH;
-            });
-
-            y += 12;
-
-            // Totals section
-            if (y + 100 > 730) {
-                doc.addPage();
-                y = 50;
-            }
-
-            doc.setFont('Helvetica', 'normal').setFontSize(9).setTextColor(71, 85, 105);
-            doc.text('Subtotal:', 350, y);
-            const subtotalVal = docProp.subtotal || docProp.total_amount || 0;
-            doc.text(`₹${subtotalVal.toLocaleString()}`, 555, y, { align: 'right' });
-            y += 14;
-
-            if (docProp.cgst > 0) {
-                doc.text(`CGST (${settings?.gst_breakdown?.cgstRate || 9}%):`, 350, y);
-                doc.text(`₹${(docProp.cgst || 0).toLocaleString()}`, 555, y, { align: 'right' });
-                y += 14;
-            }
-            if (docProp.sgst > 0) {
-                doc.text(`SGST (${settings?.gst_breakdown?.sgstRate || 9}%):`, 350, y);
-                doc.text(`₹${(docProp.sgst || 0).toLocaleString()}`, 555, y, { align: 'right' });
-                y += 14;
-            }
-            if (docProp.igst > 0) {
-                doc.text(`IGST (${settings?.gst_breakdown?.igstRate || 18}%):`, 350, y);
-                doc.text(`₹${(docProp.igst || 0).toLocaleString()}`, 555, y, { align: 'right' });
-                y += 14;
-            }
-
-            doc.setDrawColor(203, 213, 225);
-            doc.line(350, y - 2, 555, y - 2);
-
-            doc.setFont('Helvetica', 'bold').setFontSize(11).setTextColor(15, 23, 42);
-            doc.text('Grand Total:', 350, y + 4);
-            doc.text(`₹${(docProp.total_amount || 0).toLocaleString()}`, 555, y + 4, { align: 'right' });
-            y += 35;
-
-            // Footer (Terms and Signature)
-            let footerY = 700;
-            if (y > 600) {
-                doc.addPage();
-                y = 50;
+            // Invoke the global generator injected by public/scripts/_print_func_inject.js
+            let printHtml = '';
+            if (typeof window !== 'undefined' && window.generatePrintHtml) {
+                printHtml = window.generatePrintHtml(itemForPrint, tabType, settings);
             } else {
-                footerY = Math.max(680, y + 40);
+                throw new Error('Print template engine not loaded.');
             }
 
-            const invoiceTerms = settings?.invoice_terms || [];
-            if (settings?.show_terms && invoiceTerms.length > 0) {
-                doc.setFont('Helvetica', 'bold').setFontSize(8).setTextColor(100, 116, 139);
-                doc.text('TERMS & CONDITIONS', 40, footerY - 50);
-                
-                doc.setFont('Helvetica', 'normal').setFontSize(7).setTextColor(100, 116, 139);
-                let termY = footerY - 40;
-                invoiceTerms.slice(0, 4).forEach((term, idx) => {
-                    doc.text(`${idx + 1}. ${term}`, 40, termY);
-                    termY += 10;
-                });
-            }
+            // Remove print window scripts from the HTML code so print dialog doesn't pop up during PDF rendering
+            const cleanHtml = printHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
 
-            if (settings?.include_signature) {
-                if (signatureBase64) {
-                    doc.addImage(signatureBase64, 'PNG', 430, footerY - 60, 100, 35);
-                }
-                doc.setFont('Helvetica', 'normal').setFontSize(7).setTextColor(100, 116, 139);
-                doc.text(`For ${compName}`, 480, footerY - 65, { align: 'center' });
-                
-                doc.setFont('Helvetica', 'bold').setFontSize(8).setTextColor(30, 41, 59);
-                doc.text('Authorized Signatory', 480, footerY - 15, { align: 'center' });
-                doc.setDrawColor(203, 213, 225);
-                doc.line(420, footerY - 22, 540, footerY - 22);
-            }
+            // Create an isolated sandboxed iframe to mount and render the print HTML, preventing style leakage
+            const iframe = window.document.createElement('iframe');
+            iframe.style.position = 'absolute';
+            iframe.style.left = '-9999px';
+            iframe.style.top = '-9999px';
+            iframe.style.width = '794px';  // A4 size width at 96 DPI
+            iframe.style.height = '1123px'; // A4 size height at 96 DPI
+            window.document.body.appendChild(iframe);
+
+            const iframeDoc = iframe.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(cleanHtml);
+            iframeDoc.close();
+
+            // Wait a brief delay for remote images (logo, signature) and stylesheets to load in the iframe
+            await new Promise((resolve) => setTimeout(resolve, 600));
 
             const filename = `${type === 'invoice' ? 'Invoice' : 'Quotation'}_${docNum}.pdf`;
+
+            const opt = {
+                margin: 0,
+                filename: filename,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { 
+                    scale: 2, 
+                    useCORS: true, 
+                    logging: false,
+                    letterRendering: true
+                },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            const element = iframeDoc.body;
             
             if (downloadOnly) {
-                doc.save(filename);
+                await html2pdf().set(opt).from(element).save();
+                window.document.body.removeChild(iframe);
             } else {
+                const blob = await html2pdf().set(opt).from(element).output('blob');
+                window.document.body.removeChild(iframe);
                 return {
-                    blob: doc.output('blob'),
+                    blob,
                     filename
                 };
             }
         } catch (err) {
             console.error('Error generating PDF:', err);
-            alert('Failed to generate PDF: ' + err.message);
+            alert('Failed to generate PDF invoice: ' + err.message);
         } finally {
             setGeneratingPdf(false);
         }
@@ -466,7 +269,7 @@ Please review and let us know if you'd like to proceed. Feel free to call us for
             const { blob, filename } = pdfData;
             const pdfFile = new File([blob], filename, { type: 'application/pdf' });
 
-            // Check if Web Share API can share the PDF file
+            // Check if Web Share API is supported and can share the PDF file
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
                 try {
                     await navigator.share({
