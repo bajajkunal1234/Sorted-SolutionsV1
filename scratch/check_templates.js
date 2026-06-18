@@ -1,16 +1,21 @@
+const fs = require('fs');
+const env = fs.readFileSync('.env.local', 'utf8');
+let supabaseUrl = env.match(/NEXT_PUBLIC_SUPABASE_URL=(.*)/)[1].trim();
+let supabaseKey = env.match(/SUPABASE_SERVICE_ROLE_KEY=(.*)/)[1].trim();
+supabaseUrl = supabaseUrl.replace(/['"]/g, '');
+supabaseKey = supabaseKey.replace(/['"]/g, '');
 const { createClient } = require('@supabase/supabase-js');
-const dotenv = require('dotenv');
-dotenv.config({ path: '.env.local' });
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-async function checkTemplates() {
-    const { data, error } = await supabase.from('notification_templates').select('*');
-    if (error) {
-        console.error('Error fetching templates:', error);
-    } else {
-        console.log('Templates:', JSON.stringify(data, null, 2));
-    }
+async function run() {
+  const { data, error } = await supabase
+    .from('notification_templates')
+    .select('*');
+  if (error) {
+    console.error(error);
+  } else {
+    console.log("Templates found in database:");
+    console.log(JSON.stringify(data, null, 2));
+  }
 }
-
-checkTemplates();
+run();
