@@ -1453,7 +1453,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     </p>
                                     <button
                                         className="btn btn-primary"
-                                        style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)' }}
+                                        style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', whiteSpace: 'normal' }}
                                         onClick={async () => {
                                             if (!navigator.geolocation) return alert('GPS not supported on this device');
                                             navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -1506,7 +1506,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 className="btn btn-primary"
                                                 onClick={handleMarkArrived}
                                                 disabled={markingArrival}
-                                                style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)' }}
+                                                style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#8b5cf6,#6d28d9)', whiteSpace: 'normal' }}
                                             >
                                                 {markingArrival ? ' Recording...' : 'Mark as Arrived'}
                                             </button>
@@ -1526,7 +1526,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     </p>
                                     <button
                                         className="btn"
-                                        style={{ width: '100%', padding: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                                        style={{ width: '100%', padding: '12px', backgroundColor: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)', fontWeight: 700, fontSize: '14px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, whiteSpace: 'normal' }}
                                         onClick={() => { setNoServicePOC(''); setNoServiceReason(''); setNoChargeChecked(false); setShowNoServiceModal(true); }}
                                     >
                                         <X size={15} /> Close Call Without Service
@@ -1541,29 +1541,29 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     {savedInvoice ? (
                                         <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
-                                                <div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'rgba(16,185,129,0.05)', borderRadius: 'var(--radius-md)', border: '1px solid rgba(16,185,129,0.3)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <div style={{ fontSize: '14px', fontWeight: 600, color: '#10b981' }}>Invoice {savedInvoice.invoice_number || ''}</div>
-                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Total: ₹{(savedInvoice.total_amount || 0).toLocaleString('en-IN')}</div>
                                                 </div>
                                                 <div style={{ display: 'flex', gap: 8 }}>
                                                     <button
                                                         className="btn"
-                                                        style={{ flex: 1, padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                        style={{ flex: 1, padding: '8px 12px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
                                                         onClick={() => setShowWhatsappPopup({ type: 'invoice', doc: savedInvoice })}
                                                     >
                                                         View / Send
                                                     </button>
                                                     {editedJob.status === 'closed' ? (
                                                         <div
-                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: 6 }}
+                                                            style={{ flex: 1, padding: '8px 12px', backgroundColor: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                                                         >
                                                             <CheckCircle size={14} /> Closed & Paid
                                                         </div>
                                                     ) : editedJob.interactions?.some(i => i.type === 'payment-received') ? (
                                                         <button
                                                             className="btn"
-                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                            style={{ flex: 1, padding: '8px 12px', backgroundColor: 'rgba(99,102,241,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'normal' }}
                                                             onClick={() => setShowFeedbackCloseFlow(true)}
                                                         >
                                                             <CheckCircle size={14} /> Close Call
@@ -1571,7 +1571,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                     ) : (
                                                         <button
                                                             className="btn"
-                                                            style={{ padding: '8px 16px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                                                            style={{ flex: 1, padding: '8px 12px', backgroundColor: 'rgba(16,185,129,0.9)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '13px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, whiteSpace: 'normal' }}
                                                             onClick={() => setShowCollectPayment(true)}
                                                         >
                                                             <CheckCircle size={14} /> Collect Payment
@@ -1596,7 +1596,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
                                                         gap: '8px',
-                                                        cursor: loading ? 'not-allowed' : 'pointer'
+                                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                                        whiteSpace: 'normal'
                                                     }}
                                                     onClick={handleRestartProcess}
                                                 >
@@ -1606,16 +1607,16 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         </>
                                     ) : savedQuotation ? (
                                         <>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                                                <div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '12px', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-primary)' }}>Quotation {savedQuotation.quote_number || ''}</div>
-                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
+                                                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600 }}>Total: ₹{(savedQuotation.total_amount || 0).toLocaleString('en-IN')}</div>
                                                 </div>
                                                 {/* Edit goes away if approved */}
                                                 {!['work_in_progress', 'completed', 'closed'].includes(editedJob.status) && (
                                                     <button
                                                         className="btn"
-                                                        style={{ padding: '8px 16px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)' }}
+                                                        style={{ width: '100%', padding: '8px 12px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 600, fontSize: '13px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
                                                         onClick={() => setActiveForm('calculator')}
                                                     >
                                                         Edit / Send
@@ -1634,7 +1635,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                     </div>
                                                     <button
                                                         className="btn"
-                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)' }}
+                                                        style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 12px rgba(16,185,129,0.2)', whiteSpace: 'normal' }}
                                                         disabled={loading}
                                                         onClick={async () => {
                                                             setLoading(true);
@@ -1700,7 +1701,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                             <button
                                                                 className="btn"
                                                                 disabled={cxAppApproved}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: cxAppApproved ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.08)', color: cxAppApproved ? '#fff' : '#10b981', border: cxAppApproved ? 'none' : '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'default' : 'pointer', opacity: cxAppApproved ? 1 : 1 }}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: cxAppApproved ? 'linear-gradient(135deg,#10b981,#059669)' : 'rgba(16,185,129,0.08)', color: cxAppApproved ? '#fff' : '#10b981', border: cxAppApproved ? 'none' : '1px solid rgba(16,185,129,0.3)', fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'default' : 'pointer', opacity: cxAppApproved ? 1 : 1, whiteSpace: 'normal' }}
                                                                 onClick={async () => {
                                                                     if (cxAppApproved) return;
                                                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
@@ -1723,7 +1724,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                             <button
                                                                 className="btn"
                                                                 disabled={cxAppApproved}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.06)', color: cxAppApproved ? '#64748b' : '#f87171', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(239,68,68,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1 }}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(239,68,68,0.06)', color: cxAppApproved ? '#64748b' : '#f87171', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(239,68,68,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1, whiteSpace: 'normal' }}
                                                                 onClick={() => {
                                                                     if (cxAppApproved) return;
                                                                     setQuotationDecisionMode('denied');
@@ -1741,7 +1742,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                             <button
                                                                 className="btn"
                                                                 disabled={cxAppApproved}
-                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.06)', color: cxAppApproved ? '#64748b' : '#f59e0b', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1 }}
+                                                                style={{ width: '100%', padding: '14px', display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(245,158,11,0.06)', color: cxAppApproved ? '#64748b' : '#f59e0b', border: `1px solid ${cxAppApproved ? 'rgba(255,255,255,0.05)' : 'rgba(245,158,11,0.25)'}`, fontWeight: 700, fontSize: 14, borderRadius: 'var(--radius-md)', textAlign: 'left', cursor: cxAppApproved ? 'not-allowed' : 'pointer', opacity: cxAppApproved ? 0.4 : 1, whiteSpace: 'normal' }}
                                                                 onClick={() => {
                                                                     if (cxAppApproved) return;
                                                                     setQuotationDecisionMode('thinking');
@@ -1762,7 +1763,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     ) : (
                                         <button
                                             className="btn"
-                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)' }}
+                                            style={{ width: '100%', padding: '14px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#8b5cf620', color: '#8b5cf6', border: '1px solid #8b5cf640', fontWeight: 700, fontSize: '15px', borderRadius: 'var(--radius-md)', whiteSpace: 'normal' }}
                                             onClick={() => setActiveForm('calculator')}
                                         >
                                              Calculate Repair Estimate

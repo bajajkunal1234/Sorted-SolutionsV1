@@ -1156,7 +1156,7 @@ function TechnicianApp() {
                     ) : viewMode === 'kanban' ? (
                         <div style={{ display: 'flex', gap: '16px', height: '100%', overflowX: 'auto', paddingBottom: '16px', alignItems: 'flex-start' }}>
                             {Object.keys(groupedJobs).map(groupKey => (
-                                <div key={groupKey} style={{ minWidth: '320px', width: '320px', backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-primary)', maxHeight: '100%' }}>
+                                <div key={groupKey} style={{ minWidth: '290px', width: '290px', flexShrink: 0, backgroundColor: 'var(--bg-secondary)', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', border: '1px solid var(--border-primary)', maxHeight: '100%' }}>
                                     <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'var(--text-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                         {groupKey} 
                                         <span style={{ backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', color: 'var(--text-primary)' }}>
@@ -1178,9 +1178,9 @@ function TechnicianApp() {
                                                         </div>
                                                         <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{priority.text}</div>
                                                     </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '11px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
-                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.locality || job.city || 'No location'}</span></div>
+                                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.4, whiteSpace: 'normal', wordBreak: 'break-word' }}>{job.locality || job.city || 'No location'}</span></div>
                                                     </div>
                                                 </div>
                                             );
@@ -1246,7 +1246,7 @@ function TechnicianApp() {
                                                         <div style={{ padding: '2px 6px', backgroundColor: priority.color + '20', color: priority.color, borderRadius: '4px', fontSize: '10px', fontWeight: 600 }}>{priority.text}</div>
                                                     </div>
 
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={12} color={timeLeft.color} /><span style={{ fontSize: '12px', color: timeLeft.color, fontWeight: 600 }}>{timeLeft.text}</span></div>
                                                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}><MapPin size={12} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} /><span style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{job.locality || job.city || job.address || 'No location'}</span></div>
                                                     </div>
@@ -1372,29 +1372,19 @@ function TechnicianApp() {
                 </div>
 
                 {/* Profile Details */}
-                <div style={{ display: 'grid', gap: 'var(--spacing-sm)' }}>
-                    <div>
-                        <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Name</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.name || 'Loading...'}</div>
-                    </div>
-                    <div>
-                        <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Employee ID</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.id || '...'}</div>
-                    </div>
-                    <div>
-                        <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Phone</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.phone || '...'}</div>
-                    </div>
-                    <div>
-                        <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Email</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>{technicianData?.email || '...'}</div>
-                    </div>
-                    <div>
-                        <label style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)' }}>Joined</label>
-                        <div style={{ fontSize: 'var(--font-size-base)', fontWeight: 600 }}>
-                            {technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '...'}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {[
+                        { label: 'Name', value: technicianData?.name || 'Loading...' },
+                        { label: 'Employee ID', value: technicianData?.id || '...' },
+                        { label: 'Phone', value: technicianData?.phone || '...' },
+                        { label: 'Email', value: technicianData?.email || '...', breakWord: true },
+                        { label: 'Joined', value: technicianData?.joinDate ? new Date(technicianData.joinDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '...' }
+                    ].map((item, idx) => (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: idx !== 4 ? '1px solid var(--border-primary)' : 'none', paddingBottom: idx !== 4 ? '8px' : '0' }}>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 500 }}>{item.label}</span>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)', textAlign: 'right', wordBreak: item.breakWord ? 'break-all' : 'normal', maxWidth: '70%' }}>{item.value}</span>
                         </div>
-                    </div>
+                    ))}
                 </div>
             </div>
 
