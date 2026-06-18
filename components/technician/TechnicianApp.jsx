@@ -1867,7 +1867,7 @@ function TechnicianApp() {
                             key={index}
                             className="card"
                             style={{ 
-                                padding: 'var(--spacing-md) var(--spacing-lg)', 
+                                padding: dashboardView === 'grid' ? '12px 10px' : 'var(--spacing-md) var(--spacing-lg)', 
                                 cursor: 'pointer', 
                                 borderLeft: `4px solid ${card.color}`, 
                                 backgroundColor: 'var(--bg-elevated)', 
@@ -1877,22 +1877,41 @@ function TechnicianApp() {
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'center',
-                                minHeight: dashboardView === 'grid' ? '90px' : 'auto'
+                                minHeight: dashboardView === 'grid' ? '112px' : 'auto'
                             }}
                             onClick={card.onClick}
                             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                             onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ flex: 1, minWidth: 0, paddingRight: '4px' }}>
-                                    <h3 style={{ fontSize: '15px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                        {card.icon} {card.title}
+                                <div style={{ flex: 1, minWidth: 0, paddingRight: dashboardView === 'grid' ? '0px' : '4px' }}>
+                                    <h3 style={{ 
+                                        fontSize: dashboardView === 'grid' ? '13px' : '15px', 
+                                        fontWeight: 600, 
+                                        display: 'flex', 
+                                        flexDirection: dashboardView === 'grid' ? 'column' : 'row',
+                                        alignItems: dashboardView === 'grid' ? 'flex-start' : 'center', 
+                                        gap: dashboardView === 'grid' ? '6px' : '6px', 
+                                        marginBottom: '6px', 
+                                        margin: 0, 
+                                        whiteSpace: dashboardView === 'grid' ? 'normal' : 'nowrap', 
+                                        overflow: dashboardView === 'grid' ? 'visible' : 'hidden', 
+                                        textOverflow: dashboardView === 'grid' ? 'clip' : 'ellipsis',
+                                        lineHeight: 1.25
+                                    }}>
+                                        {card.icon}
+                                        <span style={{ 
+                                            overflow: dashboardView === 'grid' ? 'visible' : 'hidden', 
+                                            textOverflow: dashboardView === 'grid' ? 'clip' : 'ellipsis', 
+                                            whiteSpace: dashboardView === 'grid' ? 'normal' : 'nowrap',
+                                            wordBreak: 'break-word'
+                                        }}>{card.title}</span>
                                     </h3>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.3' }}>
+                                    <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '1.25' }}>
                                         {card.description}
                                     </p>
                                 </div>
-                                <ChevronRight size={18} color="var(--text-tertiary)" style={{ flexShrink: 0 }} />
+                                {dashboardView !== 'grid' && <ChevronRight size={18} color="var(--text-tertiary)" style={{ flexShrink: 0 }} />}
                             </div>
                         </div>
                     ))}
