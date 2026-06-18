@@ -5,5 +5,11 @@
   "server": {
     "url": "https://sortedsolutions.in/technician/dashboard",
     "cleartext": true
+  },
+  "plugins": {
+    "Keyboard": {
+      "resize": "body",
+      "style": "DARK"
+    }
   }
 }
