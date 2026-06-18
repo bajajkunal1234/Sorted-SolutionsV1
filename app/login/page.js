@@ -395,6 +395,11 @@ function LoginContent() {
 
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
+            <style dangerouslySetInnerHTML={{ __html: `
+                html, body, #root, #__next {
+                    background-color: #000000 !important;
+                }
+            ` }} />
             {/* Background Watermark */}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120vw', height: '120vh', pointerEvents: 'none', backgroundImage: 'url("/New%20Logo.jpg")', backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
             

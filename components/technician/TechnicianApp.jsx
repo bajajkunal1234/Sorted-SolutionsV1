@@ -1901,41 +1901,82 @@ function TechnicianApp() {
         );
     };
 
-    if (!technicianId) {
+    const renderLoader = (text) => {
         return (
             <div style={{
                 minHeight: '100dvh',
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: 'var(--bg-primary)'
+                backgroundColor: '#0b1329',
+                color: '#ffffff',
+                padding: '24px',
+                boxSizing: 'border-box',
+                fontFamily: 'sans-serif'
             }}>
-                <div style={{ fontSize: 'var(--font-size-lg)', color: 'var(--text-secondary)' }}>
-                    Loading...
+                <style dangerouslySetInnerHTML={{ __html: `
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                ` }} />
+                <div style={{
+                    width: '120px',
+                    height: '120px',
+                    borderRadius: '50%',
+                    overflow: 'hidden',
+                    backgroundColor: '#ffffff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(255, 255, 255, 0.1)',
+                    marginBottom: '32px'
+                }}>
+                    <img 
+                        src="/New Logo.jpg" 
+                        alt="Sorted Solutions" 
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain'
+                        }}
+                    />
                 </div>
+                <div style={{
+                    width: '36px',
+                    height: '36px',
+                    border: '3px solid rgba(255, 255, 255, 0.1)',
+                    borderTop: '3px solid #f59e0b',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                    marginBottom: '20px'
+                }} />
+                <h1 style={{
+                    fontSize: '20px',
+                    fontWeight: 700,
+                    margin: '0 0 8px 0',
+                    letterSpacing: '1px',
+                    textTransform: 'uppercase'
+                }}>Sorted Solutions</h1>
+                <p style={{
+                    fontSize: '14px',
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    margin: 0
+                }}>{text}</p>
             </div>
         );
+    };
+
+    if (!technicianId) {
+        return renderLoader("Loading jobs...");
     }
 
     if (gpsStatus === 'checking') {
-        return (
-            <div style={{
-                minHeight: '100dvh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: 'var(--bg-primary)'
-            }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ fontSize: 'var(--font-size-lg)', color: 'var(--text-secondary)' }}>
-                        Verifying location access...
-                    </div>
-                </div>
-            </div>
-        );
+        return renderLoader("Verifying location access...");
     }
 
-    if (gpsStatus === 'denied' || gpsStatus === 'error') {
+    if (gpsStatus === 'denied') {
         return (
             <div style={{
                 minHeight: '100dvh',
