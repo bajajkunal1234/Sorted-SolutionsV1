@@ -170,23 +170,6 @@ const Header = () => {
                         <span className="header-mobile-theme-label">Switch Theme</span>
                     </div>
                 </div>
-                {/* Watermark Logo */}
-                <div className="header-mobile-watermark">
-                    <Image
-                        src="/logo-light.jpg"
-                        alt=""
-                        width={200}
-                        height={200}
-                        className="watermark-img watermark-light"
-                    />
-                    <Image
-                        src="/logo-dark.jpg"
-                        alt=""
-                        width={200}
-                        height={200}
-                        className="watermark-img watermark-dark"
-                    />
-                </div>
             </div>
             {mobileOpen && <div className="header-mobile-overlay" onClick={() => setMobileOpen(false)} />}
         </>
