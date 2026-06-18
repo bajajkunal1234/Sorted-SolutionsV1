@@ -1,0 +1,9 @@
+{
+  "appId": "in.sortedsolutions.technician",
+  "appName": "Sorted Technician",
+  "webDir": "public",
+  "server": {
+    "url": "https://sortedsolutions.in/technician/dashboard",
+    "cleartext": true
+  }
+}
