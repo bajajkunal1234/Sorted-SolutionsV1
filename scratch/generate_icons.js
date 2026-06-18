@@ -2,8 +2,10 @@ const sharp = require('sharp');
 const fs = require('fs');
 const path = require('path');
 
-const logoPath = path.join(__dirname, '../public/New Logo.jpg');
+const iconSrcPath = path.join(__dirname, '../public/logo-light.jpg');
+const splashSrcPath = path.join(__dirname, '../public/New Logo.jpg');
 const resDir = path.join(__dirname, '../android/app/src/main/res');
+const publicDir = path.join(__dirname, '../public');
 
 const sizes = {
   mdpi: { legacy: 48, foreground: 108 },
@@ -21,46 +23,84 @@ const splashSizes = {
   xxxhdpi: { port: [1280, 1920], land: [1920, 1280], logo: 750 }
 };
 
-async function processImage() {
-  if (!fs.existsSync(logoPath)) {
-    console.error(`Logo file not found at ${logoPath}`);
+async function processImages() {
+  if (!fs.existsSync(iconSrcPath)) {
+    console.error(`Icon source file not found at ${iconSrcPath}`);
+    process.exit(1);
+  }
+  if (!fs.existsSync(splashSrcPath)) {
+    console.error(`Splash source file not found at ${splashSrcPath}`);
     process.exit(1);
   }
 
-  // 1. Load the original logo and make it transparent (removing white background)
-  const originalLogoBuffer = await sharp(logoPath)
+  console.log('Extracting transparent foreground for App Icon...');
+  // 1. Process App Icon Source (logo-light.jpg) to make it transparent
+  const iconRaw = await sharp(iconSrcPath)
     .ensureAlpha()
     .toFormat('png')
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const { data, info } = originalLogoBuffer;
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i+1];
-    const b = data[i+2];
-    // Threshold to convert white/near-white to transparent
+  const iconData = iconRaw.data;
+  for (let i = 0; i < iconData.length; i += 4) {
+    const r = iconData[i];
+    const g = iconData[i+1];
+    const b = iconData[i+2];
+    // Convert white/near-white to transparent
     if (r > 200 && g > 200 && b > 200) {
-      data[i+3] = 0; // Set alpha to 0 (transparent)
+      iconData[i+3] = 0;
     }
   }
 
-  const transparentLogo = sharp(data, {
+  const transparentIconBuffer = await sharp(iconData, {
     raw: {
-      width: info.width,
-      height: info.height,
+      width: iconRaw.info.width,
+      height: iconRaw.info.height,
       channels: 4
     }
-  });
+  }).png().toBuffer();
 
-  const transparentLogoBuffer = await transparentLogo.png().toBuffer();
+  // 2. Process Splash Source (New Logo.jpg) to generate transparent and inverted versions for Webapp Loader
+  console.log('Extracting transparent and inverted versions of New Logo.jpg...');
+  const splashRaw = await sharp(splashSrcPath)
+    .ensureAlpha()
+    .toFormat('png')
+    .raw()
+    .toBuffer({ resolveWithObject: true });
 
-  // 2. Load the logo and invert it for the dark splash screen (white stamp on transparent background)
-  const invertedLogoBuffer = await sharp(transparentLogoBuffer)
-    .negate({ alpha: false }) // Invert colors, keep alpha channel intact
+  const splashData = splashRaw.data;
+  for (let i = 0; i < splashData.length; i += 4) {
+    const r = splashData[i];
+    const g = splashData[i+1];
+    const b = splashData[i+2];
+    if (r > 200 && g > 200 && b > 200) {
+      splashData[i+3] = 0;
+    }
+  }
+
+  const transparentSplashBuffer = await sharp(splashData, {
+    raw: {
+      width: splashRaw.info.width,
+      height: splashRaw.info.height,
+      channels: 4
+    }
+  }).png().toBuffer();
+
+  // Save transparent logo to public/logo-transparent.png
+  await fs.promises.writeFile(path.join(publicDir, 'logo-transparent.png'), transparentSplashBuffer);
+  console.log('Saved public/logo-transparent.png');
+
+  // Invert the transparent logo to create a white stamp for dark backgrounds
+  const invertedSplashBuffer = await sharp(transparentSplashBuffer)
+    .negate({ alpha: false })
     .toBuffer();
 
-  // 3. Generate launcher icons (Legacy, Round, and Adaptive Foreground)
+  // Save inverted logo to public/logo-inverted.png
+  await fs.promises.writeFile(path.join(publicDir, 'logo-inverted.png'), invertedSplashBuffer);
+  console.log('Saved public/logo-inverted.png');
+
+  // 3. Generate Android Launcher Icons using the white logo (logo-light.jpg)
+  console.log('Generating Android launcher icons...');
   for (const [density, s] of Object.entries(sizes)) {
     const dir = path.join(resDir, `mipmap-${density}`);
     if (!fs.existsSync(dir)) {
@@ -68,7 +108,7 @@ async function processImage() {
     }
 
     // Legacy square launcher icon: Transparent logo centered on white background
-    await sharp(transparentLogoBuffer)
+    await sharp(transparentIconBuffer)
       .resize(s.legacy, s.legacy, { fit: 'contain', background: '#FFFFFF' })
       .toFile(path.join(dir, 'ic_launcher.png'));
 
@@ -79,7 +119,7 @@ async function processImage() {
         <circle cx="${radius}" cy="${radius}" r="${radius}" fill="#FFFFFF"/>
        </svg>`
     );
-    const logoResized = await sharp(transparentLogoBuffer)
+    const logoResized = await sharp(transparentIconBuffer)
       .resize(Math.round(s.legacy * 0.75), Math.round(s.legacy * 0.75), { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
       .toBuffer();
 
@@ -88,8 +128,8 @@ async function processImage() {
       .png()
       .toFile(path.join(dir, 'ic_launcher_round.png'));
 
-    // Adaptive foreground icon: ONLY the transparent logo centered on a transparent background
-    const logoForegroundResized = await sharp(transparentLogoBuffer)
+    // Adaptive foreground icon: Transparent logo centered on transparent background (Android will mask it)
+    const logoForegroundResized = await sharp(transparentIconBuffer)
       .resize(Math.round(s.foreground * 0.65), Math.round(s.foreground * 0.65), { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
       .toBuffer();
 
@@ -108,14 +148,15 @@ async function processImage() {
     console.log(`Generated launcher icons for mipmap-${density}`);
   }
 
-  // 4. Generate splash screens (Black background, centered inverted white logo)
+  // 4. Generate Android Splash Screens using original New Logo.jpg centered on white background
+  console.log('Generating Android splash screens (White background + original New Logo.jpg)...');
   const drawDir = path.join(resDir, 'drawable');
   if (!fs.existsSync(drawDir)) {
     fs.mkdirSync(drawDir, { recursive: true });
   }
 
-  const mainSplashLogo = await sharp(invertedLogoBuffer)
-    .resize(300, 300, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+  const mainSplashLogo = await sharp(splashSrcPath)
+    .resize(300, 300, { fit: 'contain', background: '#FFFFFF' })
     .toBuffer();
 
   await sharp({
@@ -123,7 +164,7 @@ async function processImage() {
       width: 512,
       height: 512,
       channels: 4,
-      background: '#000000'
+      background: '#FFFFFF'
     }
   })
     .composite([{ input: mainSplashLogo, gravity: 'center' }])
@@ -138,30 +179,30 @@ async function processImage() {
     if (!fs.existsSync(portDir)) fs.mkdirSync(portDir, { recursive: true });
     if (!fs.existsSync(landDir)) fs.mkdirSync(landDir, { recursive: true });
 
-    const splashLogo = await sharp(invertedLogoBuffer)
-      .resize(s.logo, s.logo, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    const splashLogo = await sharp(splashSrcPath)
+      .resize(s.logo, s.logo, { fit: 'contain', background: '#FFFFFF' })
       .toBuffer();
 
-    // Portrait splash screen (Black background)
+    // Portrait splash screen (White background)
     await sharp({
       create: {
         width: s.port[0],
         height: s.port[1],
         channels: 4,
-        background: '#000000'
+        background: '#FFFFFF'
       }
     })
       .composite([{ input: splashLogo, gravity: 'center' }])
       .png()
       .toFile(path.join(portDir, 'splash.png'));
 
-    // Landscape splash screen (Black background)
+    // Landscape splash screen (White background)
     await sharp({
       create: {
         width: s.land[0],
         height: s.land[1],
         channels: 4,
-        background: '#000000'
+        background: '#FFFFFF'
       }
     })
       .composite([{ input: splashLogo, gravity: 'center' }])
@@ -172,4 +213,4 @@ async function processImage() {
   }
 }
 
-processImage().catch(console.error);
+processImages().catch(console.error);

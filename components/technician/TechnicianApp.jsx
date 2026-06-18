@@ -1909,7 +1909,7 @@ function TechnicianApp() {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: '#0b1329',
+                backgroundColor: '#000000',
                 color: '#ffffff',
                 padding: '24px',
                 boxSizing: 'border-box',
@@ -1921,28 +1921,16 @@ function TechnicianApp() {
                         100% { transform: rotate(360deg); }
                     }
                 ` }} />
-                <div style={{
-                    width: '120px',
-                    height: '120px',
-                    borderRadius: '50%',
-                    overflow: 'hidden',
-                    backgroundColor: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(255, 255, 255, 0.1)',
-                    marginBottom: '32px'
-                }}>
-                    <img 
-                        src="/New Logo.jpg" 
-                        alt="Sorted Solutions" 
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'contain'
-                        }}
-                    />
-                </div>
+                <img 
+                    src="/logo-inverted.png" 
+                    alt="Sorted Solutions" 
+                    style={{
+                        width: '120px',
+                        height: '120px',
+                        objectFit: 'contain',
+                        marginBottom: '32px'
+                    }}
+                />
                 <div style={{
                     width: '36px',
                     height: '36px',
@@ -1985,8 +1973,8 @@ function TechnicianApp() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '24px',
-                backgroundColor: 'var(--bg-primary)',
-                color: 'var(--text-primary)',
+                backgroundColor: '#000000',
+                color: '#ffffff',
                 textAlign: 'center',
                 zIndex: 9999,
                 position: 'fixed',
@@ -1995,9 +1983,18 @@ function TechnicianApp() {
                 right: 0,
                 bottom: 0
             }}>
-                <div style={{ fontSize: '4rem', marginBottom: '16px' }}>📍</div>
+                <img 
+                    src="/logo-inverted.png" 
+                    alt="Sorted Solutions" 
+                    style={{
+                        width: '120px',
+                        height: '120px',
+                        objectFit: 'contain',
+                        marginBottom: '32px'
+                    }}
+                />
                 <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>Location Access Required</h1>
-                <p style={{ fontSize: '14px', color: 'var(--text-secondary)', maxWidth: '320px', lineHeight: 1.6, marginBottom: '24px' }}>
+                <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.6)', maxWidth: '320px', lineHeight: 1.6, marginBottom: '24px' }}>
                     Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location services on your device and allow browser access to proceed.
                 </p>
                 <button 
