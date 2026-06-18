@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request) {
     try {
-        const { technician_id, latitude, longitude, is_on_job } = await request.json()
+        const { technician_id, latitude, longitude, is_on_job, tracking_source } = await request.json()
 
         if (!technician_id || !latitude || !longitude) {
             return NextResponse.json({ ok: false }, { status: 400 })
@@ -25,6 +25,7 @@ export async function POST(request) {
                     latitude,
                     longitude,
                     is_on_job: !!is_on_job,
+                    tracking_source: tracking_source || 'web',
                     updated_at: new Date().toISOString(),
                 },
                 { onConflict: 'technician_id' }

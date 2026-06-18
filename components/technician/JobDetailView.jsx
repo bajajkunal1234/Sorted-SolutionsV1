@@ -14,6 +14,7 @@ import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import FeedbackAndCloseCallFlow from '@/components/shared/FeedbackAndCloseCallFlow';
 import dynamic from 'next/dynamic';
 import { supabase } from '@/lib/supabase';
+import { apiCall } from '@/lib/offlineSync';
 
 const PinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
     ssr: false,
@@ -122,9 +123,9 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 // Note: skip admin/transactions here — requires admin auth, not available to technician
                 const t = Date.now();
                 const [jobRes, intRes, jobIntRes] = await Promise.all([
-                    fetch(`/api/technician/jobs/${job.id}?t=${t}`),
-                    fetch(`/api/admin/interactions?job_id=${job.id}&t=${t}`),
-                    fetch(`/api/technician/jobs/${job.id}/interactions?t=${t}`),
+                    apiCall(`/api/technician/jobs/${job.id}?t=${t}`),
+                    apiCall(`/api/admin/interactions?job_id=${job.id}&t=${t}`),
+                    apiCall(`/api/technician/jobs/${job.id}/interactions?t=${t}`),
                 ]);
                 const jobData = await jobRes.json();
                 const intData = await intRes.json().catch(() => ({ data: [] }));
@@ -133,8 +134,8 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 // Try to load quotation and invoice from technician-accessible routes
                 try {
                     const [quotaRes, invRes] = await Promise.all([
-                        fetch(`/api/technician/jobs/${job.id}/quotation`),
-                        fetch(`/api/technician/jobs/${job.id}/invoice`)
+                        apiCall(`/api/technician/jobs/${job.id}/quotation`),
+                        apiCall(`/api/technician/jobs/${job.id}/invoice`)
                     ]);
                     if (quotaRes.ok) {
                         const quotaData = await quotaRes.json();
@@ -197,7 +198,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`/api/technician/jobs/${job.id}`, {
+            const response = await apiCall(`/api/technician/jobs/${job.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -245,7 +246,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         setLoading(true);
         try {
             // 1. Delete invoice from Supabase
-            const response = await fetch(`/api/admin/transactions?type=sales&id=${savedInvoice.id}`, {
+            const response = await apiCall(`/api/admin/transactions?type=sales&id=${savedInvoice.id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -262,7 +263,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             const description = `Invoice ${savedInvoice.invoice_number} deleted by technician ${techName}. Process restarted back to Diagnosing & Quoting.\nInvoice details:\nTotal Amount: ₹${savedInvoice.total_amount || 0}\nSubtotal: ₹${savedInvoice.subtotal || 0}\nCGST: ₹${savedInvoice.cgst || 0}\nSGST: ₹${savedInvoice.sgst || 0}\nIGST: ₹${savedInvoice.igst || 0}\nTotal Tax: ₹${savedInvoice.total_tax || 0}\nItems:\n${itemLines || 'No items listed'}`;
 
             // Post to technician job interactions API
-            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -297,7 +298,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             });
 
             // 3. Update job status to diagnosing_quoting in DB
-            const updateRes = await fetch(`/api/technician/jobs/${job.id}`, {
+            const updateRes = await apiCall(`/api/technician/jobs/${job.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -441,7 +442,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             }
 
             // 3. Save or update in database
-            const saveRes = await fetch(`/api/admin/transactions?type=quotation`, {
+            const saveRes = await apiCall(`/api/admin/transactions?type=quotation`, {
                 method: isEditing ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(quotationPayload)
@@ -460,7 +461,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 ? `Quotation ${savedData?.quote_number || savedData?.reference || ''} updated for job #${editedJob.job_number || editedJob.id}`
                 : `Quotation ${savedData?.quote_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`;
 
-            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -590,7 +591,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 quotationPayload.id = savedQuotation.id;
             }
 
-            const saveRes = await fetch(`/api/admin/transactions?type=quotation`, {
+            const saveRes = await apiCall(`/api/admin/transactions?type=quotation`, {
                 method: isEditing ? 'PUT' : 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(quotationPayload)
@@ -605,7 +606,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
             // Log quotation interaction
             const qType = isEditing ? 'quotation-edited' : 'quotation-created';
-            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -618,7 +619,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             }).catch(() => {});
 
             // Auto-create final invoice for the service charge
-            const invoiceRes = await fetch(`/api/admin/transactions?type=sales`, {
+            const invoiceRes = await apiCall(`/api/admin/transactions?type=sales`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -655,7 +656,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             setSavedInvoice(finalInvoice);
 
             // Log invoice interaction
-            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -690,7 +691,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         const performMarkArrived = async (lat = null, lng = null) => {
             try {
                 // Calls mark_arrived action → sets arrived_at + auto-advances status to diagnosing_quoting
-                const res = await fetch(`/api/technician/jobs/${job.id}`, {
+                const res = await apiCall(`/api/technician/jobs/${job.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -799,7 +800,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         // Mark the existing pin as verified by this technician
         const propertyId = editedJob._raw_property?.id || null;
         if (propertyId) {
-            fetch(`/api/admin/properties?id=${propertyId}`, {
+            apiCall(`/api/admin/properties?id=${propertyId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -809,7 +810,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             }).catch(() => {});
         }
         // Log the confirmation
-        fetch(`/api/technician/jobs/${job.id}/interactions`, {
+        apiCall(`/api/technician/jobs/${job.id}/interactions`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ type: 'location-verified', category: 'property', description: `Customer pin location confirmed accurate by ${techName}`, user_name: techName })
         }).catch(() => {});
@@ -824,7 +825,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
         try {
             // Update property pin + verified fields
             if (propertyId) {
-                await fetch(`/api/admin/properties?id=${propertyId}`, {
+                await apiCall(`/api/admin/properties?id=${propertyId}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -836,7 +837,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 });
             }
             // Log the pin update
-            await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+            await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ type: 'location-updated', category: 'property', description: `Customer pin location updated and verified by ${techName} (${verifyLat.toFixed(5)}, ${verifyLng.toFixed(5)})`, user_name: techName })
             }).catch(() => {});
@@ -919,7 +920,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 metadata: { attachments: uploadedUrls },
             };
 
-            const res = await fetch('/api/admin/interactions', {
+            const res = await apiCall('/api/admin/interactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload),
@@ -993,7 +994,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             }
 
             // 2. Patch the original note
-            const patchRes = await fetch('/api/admin/interactions', {
+            const patchRes = await apiCall('/api/admin/interactions', {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1020,7 +1021,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 metadata: editInteractionData.metadata,
             };
 
-            const postRes = await fetch('/api/admin/interactions', {
+            const postRes = await apiCall('/api/admin/interactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(interactionPayload),
@@ -1459,7 +1460,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                 const lat = pos.coords.latitude;
                                                 const lng = pos.coords.longitude;
                                                 const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-                                                await fetch(`/api/technician/jobs/${job.id}`, {
+                                                await apiCall(`/api/technician/jobs/${job.id}`, {
                                                     method: 'PUT',
                                                     headers: { 'Content-Type': 'application/json' },
                                                     body: JSON.stringify({ 
@@ -1638,7 +1639,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                         onClick={async () => {
                                                             setLoading(true);
                                                             try {
-                                                                const res = await fetch(`/api/admin/transactions?type=sales`, {
+                                                                const res = await apiCall(`/api/admin/transactions?type=sales`, {
                                                                     method: 'POST',
                                                                     headers: { 'Content-Type': 'application/json' },
                                                                     body: JSON.stringify({
@@ -1669,7 +1670,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                 const data = await res.json();
                                                                 if (data.success) {
                                                                     setSavedInvoice(data.data);
-                                                                    fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                    apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                                                                         body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Final invoice created from quotation ${savedQuotation.quote_number}`, user_name: techName })
                                                                     }).catch(() => {});
@@ -1704,7 +1705,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                                                     if (cxAppApproved) return;
                                                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
                                                                     await handleSaveStatus('work_in_progress');
-                                                                    fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                                                                    apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                                                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                                                                         body: JSON.stringify({ type: 'approve_quotation', category: 'billing', description: `Quotation ${savedQuotation.quote_number} approved by customer (confirmed by ${techName})`, user_name: techName })
                                                                     }).catch(() => {});
@@ -1860,12 +1861,12 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     try {
                                         const description = `Close Call — No Service. POC: ${noServicePOC.trim()}. Reason: ${noServiceReason.trim()}`;
                                         // 1. Log interaction
-                                        await fetch(`/api/technician/jobs/${job.id}/interactions`, {
+                                        await apiCall(`/api/technician/jobs/${job.id}/interactions`, {
                                             method: 'POST', headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ type: 'close-call-no-service', category: 'job', description, user_name: techName })
                                         });
                                         // 2. Close the job
-                                        const res = await fetch(`/api/technician/jobs/${job.id}`, {
+                                        const res = await apiCall(`/api/technician/jobs/${job.id}`, {
                                             method: 'PUT',
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ action: 'close_job', notes: description, updated_by_name: techName })
@@ -2054,7 +2055,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                     const saveRepairNote = async (lat = null, lng = null) => {
                                         try {
                                             // 1. Add repair note (sets repair_note_added_at on job)
-                                            const noteRes = await fetch(`/api/technician/jobs/${job.id}`, {
+                                            const noteRes = await apiCall(`/api/technician/jobs/${job.id}`, {
                                                 method: 'PUT',
                                                 headers: { 'Content-Type': 'application/json' },
                                                 body: JSON.stringify({ 
@@ -2124,7 +2125,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                         onSave={async (data) => {
                             let savedData = data;
                             try {
-                                const saveRes = await fetch(`/api/admin/transactions?type=sales`, {
+                                const saveRes = await apiCall(`/api/admin/transactions?type=sales`, {
                                     method: data.id ? 'PUT' : 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({ ...data, job_id: editedJob.id })
@@ -2133,7 +2134,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 if (saveJson.success) savedData = saveJson.data;
                             } catch (e) { console.error('Failed to save sales invoice', e); }
                             setSavedInvoice(savedData);
-                            fetch(`/api/technician/jobs/${editedJob.id}/interactions`, {
+                            apiCall(`/api/technician/jobs/${editedJob.id}/interactions`, {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ type: 'invoice-created', category: 'billing', description: `Sales invoice ${savedData?.invoice_number || savedData?.reference || ''} created for job #${editedJob.job_number || editedJob.id}`, user_name: techName, customer_id: editedJob.customerId || null })
                             }).catch(() => {});
@@ -2196,7 +2197,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 onSuccess={async () => {
                     setShowFeedbackCloseFlow(false);
                     try {
-                        const res = await fetch(`/api/technician/jobs/${editedJob.id}`);
+                        const res = await apiCall(`/api/technician/jobs/${editedJob.id}`);
                         const data = await res.json();
                         if (data.success && data.job) {
                             setEditedJob(data.job);
@@ -2259,7 +2260,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     if (quotationDecisionMode === 'denied') {
                         // Denied path: close job + show feedback QR
                         try {
-                            await fetch(`/api/technician/jobs/${editedJob.id}`, {
+                            await apiCall(`/api/technician/jobs/${editedJob.id}`, {
                                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — quotation denied, visit charge collected.' })
                             });
@@ -2270,14 +2271,14 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                     } else {
                         // Thinking path: keep job in quotation_sent, notify admin
                         try {
-                            await fetch(`/api/admin/jobs`, {
+                            await apiCall(`/api/admin/jobs`, {
                                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ id: editedJob.id, status: 'quotation_sent', quotation_followup_at: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() })
                             });
                             setEditedJob(prev => ({ ...prev, status: 'quotation_sent' }));
                             if (onJobUpdate) onJobUpdate({ ...editedJob, status: 'quotation_sent' });
                             // Fire admin notification
-                            fetch('/api/admin/notifications', {
+                            apiCall('/api/admin/notifications', {
                                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     type: 'quotation_followup',
@@ -2353,7 +2354,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                 onSuccess={async () => {
                     setShowServiceChargeCollectPayment(false);
                     try {
-                        await fetch(`/api/technician/jobs/${editedJob.id}`, {
+                        await apiCall(`/api/technician/jobs/${editedJob.id}`, {
                             method: 'PUT', headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action: 'close_job', updated_by_name: techName, notes: 'Closed — service charge invoice paid.' })
                         });

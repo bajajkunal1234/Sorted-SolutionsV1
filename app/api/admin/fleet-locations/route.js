@@ -13,7 +13,7 @@ export async function GET() {
     try {
         const { data, error } = await supabase
             .from('technician_live_locations')
-            .select('technician_id, latitude, longitude, is_on_job, updated_at')
+            .select('technician_id, latitude, longitude, is_on_job, tracking_source, updated_at')
             .not('latitude', 'is', null)
             .order('updated_at', { ascending: false })
 
@@ -36,6 +36,7 @@ export async function GET() {
             latitude: r.latitude,
             longitude: r.longitude,
             is_on_job: r.is_on_job,
+            tracking_source: r.tracking_source || 'web',
             last_seen: r.updated_at,
             // seconds since last ping
             seconds_ago: Math.round((Date.now() - new Date(r.updated_at).getTime()) / 1000),

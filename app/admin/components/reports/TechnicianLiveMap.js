@@ -217,9 +217,16 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         }}>
                                             {isOffline ? '💤 OFFLINE (LAST KNOWN)' : (loc.is_on_job ? '🟢 ON JOB' : '⚪ IDLE')}
                                         </div>
-                                        <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                                            📍 {isOffline ? 'Last seen' : 'Updated'}: {formatAge(loc.seconds_ago)}
-                                            {loc.isRealtime && <span style={{ color: '#10b981', marginLeft: 4 }}>● Live</span>}
+                                        <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+                                            <div>📍 {isOffline ? 'Last seen' : 'Updated'}: {formatAge(loc.seconds_ago)}</div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                {loc.tracking_source === 'native' ? (
+                                                    <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
+                                                ) : (
+                                                    <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>
+                                                )}
+                                                {loc.isRealtime && <span style={{ color: '#10b981', fontWeight: 700, fontSize: 10 }}>● LIVE</span>}
+                                            </div>
                                         </div>
                                     </div>
                                 </Popup>
@@ -263,9 +270,16 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         {isOffline ? '💤 Offline' : (loc.is_on_job ? '🟢 On job' : '⚪ Idle')} · {formatAge(loc.seconds_ago)}
                                     </div>
                                 </div>
-                                {loc.isRealtime && (
-                                    <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>● LIVE</div>
-                                )}
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                                    {loc.tracking_source === 'native' ? (
+                                        <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
+                                    ) : (
+                                        <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>
+                                    )}
+                                    {loc.isRealtime && (
+                                        <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>● LIVE</div>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}

@@ -17,6 +17,7 @@ import PWAPrompt from '@/components/common/PWAPrompt';
 import TechSupportTab from '@/components/technician/TechSupportTab';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
+import { apiCall } from '@/lib/offlineSync';
 
 function TechnicianApp() {
     const router = useRouter();
@@ -35,6 +36,32 @@ function TechnicianApp() {
     const [saveStatus, setSaveStatus] = useState(null);
     const [selectedJob, setSelectedJob] = useState(null);
     const [gpsStatus, setGpsStatus] = useState('checking'); // 'checking' | 'granted' | 'denied' | 'error'
+
+    // Offline Sync States & Listeners
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
+    const [isDeviceOnline, setIsDeviceOnline] = useState(true);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        setIsDeviceOnline(navigator.onLine);
+
+        const handleOnline = () => setIsDeviceOnline(true);
+        const handleOffline = () => setIsDeviceOnline(false);
+        const handleQueueChange = (e) => setPendingSyncCount(e.detail.count || 0);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        window.addEventListener('offline-queue-changed', handleQueueChange);
+
+        const initialQueue = JSON.parse(localStorage.getItem('offline_sync_queue') || '[]');
+        setPendingSyncCount(initialQueue.length);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+            window.removeEventListener('offline-queue-changed', handleQueueChange);
+        };
+    }, []);
 
     // Columns Visibility for Table View
     const [visibleColumns, setVisibleColumns] = useState({
@@ -219,6 +246,8 @@ function TechnicianApp() {
             return;
         }
 
+        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+
         const isWorkingHours = () => {
             const now = new Date();
             const hours = now.getHours();
@@ -228,7 +257,7 @@ function TechnicianApp() {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 setGpsStatus('granted');
-                if (isWorkingHours()) {
+                if (isNative || isWorkingHours()) {
                     fetch('/api/technician/location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -237,6 +266,7 @@ function TechnicianApp() {
                             latitude: pos.coords.latitude,
                             longitude: pos.coords.longitude,
                             is_on_job: false,
+                            tracking_source: isNative ? 'native' : 'web'
                         }),
                     }).catch(() => {});
                 }
@@ -275,7 +305,7 @@ function TechnicianApp() {
         if (!technicianId) return;
         const loadViews = async () => {
             try {
-                const res = await fetch(`/api/technician/job-views?technicianId=${technicianId}`);
+                const res = await apiCall(`/api/technician/job-views?technicianId=${technicianId}`);
                 const json = await res.json();
                 if (json.success && Array.isArray(json.data)) {
                     setSavedViews(json.data);
@@ -340,7 +370,7 @@ function TechnicianApp() {
         const fetchJobs = async () => {
             try {
                 setLoading(true);
-                const response = await fetch(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`);
+                const response = await apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`);
 
                 if (!response.ok) {
                     throw new Error('Failed to fetch jobs');
@@ -359,7 +389,7 @@ function TechnicianApp() {
 
         const fetchIncentives = async () => {
             try {
-                const response = await fetch(`/api/technician/incentives?technicianId=${technicianId}`);
+                const response = await apiCall(`/api/technician/incentives?technicianId=${technicianId}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
@@ -373,7 +403,7 @@ function TechnicianApp() {
 
         const fetchProfile = async () => {
             try {
-                const response = await fetch(`/api/technician/profile?technicianId=${technicianId}`);
+                const response = await apiCall(`/api/technician/profile?technicianId=${technicianId}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
@@ -392,6 +422,12 @@ function TechnicianApp() {
         fetchProfile();
         fetchRepeatCalls();
         fetchPurchaseRequests();
+
+        // Listen for offline sync completion to reload jobs list
+        const handleSyncComplete = () => {
+            fetchJobs();
+        };
+        window.addEventListener('offline-sync-complete', handleSyncComplete);
 
         // 5-minute polling — fallback in case Supabase realtime misses an event
         // Realtime handles instant updates; polling is just a safety net
@@ -420,6 +456,7 @@ function TechnicianApp() {
 
         return () => {
             clearInterval(pollInterval);
+            window.removeEventListener('offline-sync-complete', handleSyncComplete);
             supabase.removeChannel(channel);
         };
     }, [technicianId]);
@@ -640,7 +677,7 @@ function TechnicianApp() {
     const persistViews = async (views) => {
         setSavedViews(views);
         try {
-            await fetch('/api/technician/job-views', {
+            await apiCall('/api/technician/job-views', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ technicianId, views }),
@@ -788,7 +825,7 @@ function TechnicianApp() {
                 billing_address: billingAddress
             };
 
-            const response = await fetch('/api/admin/transactions?type=purchase', {
+            const response = await apiCall('/api/admin/transactions?type=purchase', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(purchaseData)
@@ -815,7 +852,7 @@ function TechnicianApp() {
                 if (purchaseJob?.id) {
                     const sendLog = (lat = null, lng = null) => {
                         const metadata = lat && lng ? { latitude: lat, longitude: lng } : {};
-                        fetch(`/api/technician/jobs/${purchaseJob.id}/interactions`, {
+                        apiCall(`/api/technician/jobs/${purchaseJob.id}/interactions`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -868,7 +905,7 @@ function TechnicianApp() {
             return;
         }
         try {
-            const response = await fetch(`/api/admin/transactions?type=purchase&id=${id}`, {
+            const response = await apiCall(`/api/admin/transactions?type=purchase&id=${id}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
@@ -1462,6 +1499,50 @@ function TechnicianApp() {
                 </button>
             </div>
 
+            {/* Download APK Section */}
+            <div style={{
+                padding: 'var(--spacing-md)',
+                backgroundColor: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-primary)',
+                marginBottom: 'var(--spacing-md)'
+            }}>
+                <h3 style={{ fontSize: 'var(--font-size-base)', fontWeight: 600, marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>📱</span>
+                    Android App
+                </h3>
+                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', marginBottom: 'var(--spacing-sm)', lineHeight: '1.4' }}>
+                    Install the native Android app for 24/7 background location tracking, thermal printer support, and reliable push notifications.
+                </p>
+                <a
+                    href="/downloads/technician-app.apk"
+                    download="SortedTechnician.apk"
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: 'var(--radius-md)',
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                        fontSize: 'var(--font-size-sm)',
+                        transition: 'background-color 0.2s',
+                        border: 'none',
+                        cursor: 'pointer'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+                >
+                    <Package size={16} />
+                    Download APK (Latest Version)
+                </a>
+            </div>
+
             {/* Logout */}
             <button
                 onClick={handleLogout}
@@ -1907,6 +1988,17 @@ function TechnicianApp() {
             userId={technicianId}
         />
         <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
+            {!isDeviceOnline && (
+                <div style={{ backgroundColor: '#b45309', color: '#fef3c7', textAlign: 'center', padding: '6px 12px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 1000, borderBottom: '1px solid rgba(245,158,11,0.2)', flexShrink: 0 }}>
+                    <span>⚠️ Working Offline</span>
+                    {pendingSyncCount > 0 && <span style={{ opacity: 0.8 }}>· {pendingSyncCount} changes saved locally</span>}
+                </div>
+            )}
+            {isDeviceOnline && pendingSyncCount > 0 && (
+                <div style={{ backgroundColor: '#1e3a8a', color: '#dbeafe', textAlign: 'center', padding: '6px 12px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 1000, borderBottom: '1px solid rgba(59,130,246,0.2)', flexShrink: 0 }}>
+                    <span>🔄 Syncing {pendingSyncCount} changes to the server...</span>
+                </div>
+            )}
             {/* Tab Content — Support view intercepts here so bottom nav stays visible */}
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                 {showSupport ? (
