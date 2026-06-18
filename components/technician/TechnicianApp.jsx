@@ -1922,7 +1922,7 @@ function TechnicianApp() {
                     }
                 ` }} />
                 <img 
-                    src="/logo-inverted.png" 
+                    src="/new-logo.jpg" 
                     alt="Sorted Solutions" 
                     style={{
                         width: '120px',
@@ -1984,7 +1984,7 @@ function TechnicianApp() {
                 bottom: 0
             }}>
                 <img 
-                    src="/logo-inverted.png" 
+                    src="/new-logo.jpg" 
                     alt="Sorted Solutions" 
                     style={{
                         width: '120px',

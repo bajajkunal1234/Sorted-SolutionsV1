@@ -148,15 +148,15 @@ async function processImages() {
     console.log(`Generated launcher icons for mipmap-${density}`);
   }
 
-  // 4. Generate Android Splash Screens using original New Logo.jpg centered on white background
-  console.log('Generating Android splash screens (White background + original New Logo.jpg)...');
+  // 4. Generate Android Splash Screens using original New Logo.jpg centered on black background
+  console.log('Generating Android splash screens (Black background + original New Logo.jpg)...');
   const drawDir = path.join(resDir, 'drawable');
   if (!fs.existsSync(drawDir)) {
     fs.mkdirSync(drawDir, { recursive: true });
   }
 
   const mainSplashLogo = await sharp(splashSrcPath)
-    .resize(300, 300, { fit: 'contain', background: '#FFFFFF' })
+    .resize(300, 300, { fit: 'contain', background: '#000000' })
     .toBuffer();
 
   await sharp({
@@ -164,7 +164,7 @@ async function processImages() {
       width: 512,
       height: 512,
       channels: 4,
-      background: '#FFFFFF'
+      background: '#000000'
     }
   })
     .composite([{ input: mainSplashLogo, gravity: 'center' }])
@@ -180,29 +180,29 @@ async function processImages() {
     if (!fs.existsSync(landDir)) fs.mkdirSync(landDir, { recursive: true });
 
     const splashLogo = await sharp(splashSrcPath)
-      .resize(s.logo, s.logo, { fit: 'contain', background: '#FFFFFF' })
+      .resize(s.logo, s.logo, { fit: 'contain', background: '#000000' })
       .toBuffer();
 
-    // Portrait splash screen (White background)
+    // Portrait splash screen (Black background)
     await sharp({
       create: {
         width: s.port[0],
         height: s.port[1],
         channels: 4,
-        background: '#FFFFFF'
+        background: '#000000'
       }
     })
       .composite([{ input: splashLogo, gravity: 'center' }])
       .png()
       .toFile(path.join(portDir, 'splash.png'));
 
-    // Landscape splash screen (White background)
+    // Landscape splash screen (Black background)
     await sharp({
       create: {
         width: s.land[0],
         height: s.land[1],
         channels: 4,
-        background: '#FFFFFF'
+        background: '#000000'
       }
     })
       .composite([{ input: splashLogo, gravity: 'center' }])

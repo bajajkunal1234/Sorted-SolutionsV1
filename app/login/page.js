@@ -401,7 +401,7 @@ function LoginContent() {
                 }
             ` }} />
             {/* Background Watermark */}
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120vw', height: '120vh', pointerEvents: 'none', backgroundImage: 'url("/logo-inverted.png")', opacity: 0.05, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
+            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: '120vw', height: '120vh', pointerEvents: 'none', backgroundImage: 'url("/new-logo.jpg")', opacity: 0.05, backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' }} />
             
             {/* Subtle glow behind card */}
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, height: 400, background: 'radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%)', filter: 'blur(60px)', pointerEvents: 'none' }} />
