@@ -19,6 +19,7 @@ export async function GET() {
         trimmedEndsWithEnd: key.trim().endsWith('-----'),
         first20Chars: key.substring(0, 20),
         last20Chars: key.substring(key.length - 20),
+        rawLast20CharCodes: Array.from(key.substring(key.length - 20)).map(c => c.charCodeAt(0)),
     };
 
     // Try parsing it using our cleaning logic
@@ -37,6 +38,7 @@ export async function GET() {
         endsWithEnd: cleanKey.endsWith('-----'),
         first30Chars: cleanKey.substring(0, 30),
         last30Chars: cleanKey.substring(cleanKey.length - 30),
+        cleanLast20CharCodes: Array.from(cleanKey.substring(cleanKey.length - 20)).map(c => c.charCodeAt(0)),
     };
 
     let parseError = null;
