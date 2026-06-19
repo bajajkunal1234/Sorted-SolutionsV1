@@ -128,6 +128,17 @@ export async function POST(request) {
             customer_name: data.customer_name || undefined,
         }).catch(e => console.error('[jobs POST] fireNotification:', e.message));
 
+        if (data.technician_id) {
+            fireNotification('job_assigned', {
+                job_id: String(data.id),
+                job_number: data.job_number,
+                customer_id: body.customer_id ? String(body.customer_id) : undefined,
+                technician_id: String(data.technician_id),
+                customer_name: data.customer_name || undefined,
+                technician_name: data.technician_name || undefined,
+            }).catch(e => console.error('[jobs POST] fireNotification (job_assigned):', e.message));
+        }
+
         return responseData;
     } catch (error) {
         return NextResponse.json({ success: false, error: error.message }, { status: 500 })
