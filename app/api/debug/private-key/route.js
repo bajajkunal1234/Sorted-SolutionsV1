@@ -32,8 +32,10 @@ export async function GET() {
     }
     cleanKey = cleanKey.trim().replace(/\\n/g, '\n');
 
+    const cleanHash = crypto.createHash('sha256').update(cleanKey).digest('hex');
     const cleanInfo = {
         length: cleanKey.length,
+        hash: cleanHash,
         startsWithBegin: cleanKey.startsWith('-----BEGIN'),
         endsWithEnd: cleanKey.endsWith('-----'),
         first30Chars: cleanKey.substring(0, 30),
