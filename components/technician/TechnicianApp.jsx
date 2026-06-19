@@ -1973,7 +1973,8 @@ function TechnicianApp() {
         return renderLoader("Verifying location access...");
     }
 
-    if (gpsStatus === 'denied') {
+    if (gpsStatus === 'denied' || gpsStatus === 'error') {
+        const isError = gpsStatus === 'error';
         return (
             <div style={{
                 minHeight: '100dvh',
@@ -2002,24 +2003,28 @@ function TechnicianApp() {
                         marginBottom: '32px'
                     }}
                 />
-                <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>Location Access Required</h1>
+                <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '12px' }}>
+                    {isError ? 'GPS Services Disabled' : 'Location Access Required'}
+                </h1>
                 <p style={{ fontSize: '14px', color: 'rgba(255, 255, 255, 0.6)', maxWidth: '320px', lineHeight: 1.6, marginBottom: '24px' }}>
-                    Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location services on your device and allow browser access to proceed.
+                    {isError 
+                        ? "Your device's GPS or Location Services appear to be turned off. Please enable Location/GPS in your phone settings to proceed."
+                        : "Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location permissions for this app in your device settings to proceed."}
                 </p>
                 <button 
                     onClick={checkGpsAndPingLocation}
                     style={{
                         padding: '12px 24px',
-                        backgroundColor: '#3b82f6',
+                        backgroundColor: '#f59e0b',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '12px',
                         fontWeight: 700,
                         cursor: 'pointer',
-                        boxShadow: '0 4px 12px rgba(59,130,246,0.25)'
+                        boxShadow: '0 4px 12px rgba(245,158,11,0.25)'
                     }}
                 >
-                    Retry / Enable Location
+                    Retry / Enable GPS
                 </button>
             </div>
         );
