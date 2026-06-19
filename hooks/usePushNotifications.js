@@ -2,18 +2,7 @@
  * hooks/usePushNotifications.js
  *
  * Requests notification permission and registers FCM token.
- *
- * Platform behaviour:
- * - Android Chrome / desktop browsers: auto-prompts on mount
- * - iOS Safari (PWA from home screen, iOS 16.4+): MUST be from a user gesture.
- *   The hook returns { needsPrompt, promptNow } so the calling component can
- *   show a "Enable Notifications" button and call promptNow() on tap.
- *
- * Chrome on iPhone is NOT real Chrome — it's Safari WebKit and cannot do push at all.
- * The user must open the site in Safari and "Add to Home Screen".
- *
- * Usage:
- *   const { needsPrompt, promptNow } = usePushNotifications({ userType, userId })
+ * Handles both Native (Android/iOS Capacitor) and Web (Browser/PWA) platforms.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -33,7 +22,11 @@ export function usePushNotifications({ userType, userId }) {
         typeof navigator !== 'undefined' &&
         /iphone|ipad|ipod/i.test(navigator.userAgent);
 
-    const register = useCallback(async () => {
+    const isNative =
+        typeof window !== 'undefined' &&
+        !!window.Capacitor;
+
+    const registerWebPush = useCallback(async () => {
         if (typeof window === 'undefined') return;
         if (!('Notification' in window)) {
             console.warn('[Push] Notification API not supported (Chrome on iOS?)');
@@ -46,44 +39,94 @@ export function usePushNotifications({ userType, userId }) {
             const token = await requestNotificationPermission();
             if (token) {
                 await saveFCMTokenToServer(token, userType, userId);
-                console.log(`[Push] Token registered for ${userType}:${userId}`);
+                console.log(`[Push] Web Token registered for ${userType}:${userId}`);
                 setNeedsPrompt(false);
             }
         } catch (err) {
-            console.warn('[Push] Token registration failed:', err.message);
+            console.warn('[Push] Web Token registration failed:', err.message);
         }
     }, [userType, userId]);
+
+    const registerNativePush = useCallback(async () => {
+        if (!userType || !userId) return;
+        try {
+            const { PushNotifications } = await import('@capacitor/push-notifications');
+            
+            // Check current native permissions
+            let permStatus = await PushNotifications.checkPermissions();
+            
+            if (permStatus.receive === 'prompt') {
+                permStatus = await PushNotifications.requestPermissions();
+            }
+            
+            if (permStatus.receive !== 'granted') {
+                console.warn('[Native Push] Permission denied by user');
+                return;
+            }
+            
+            // Listen for native registration success
+            await PushNotifications.addListener('registration', async (token) => {
+                console.log('[Native Push] Registration token obtained:', token.value.substring(0, 20) + '...');
+                if (token.value) {
+                    await saveFCMTokenToServer(token.value, userType, userId);
+                }
+            });
+            
+            // Listen for native registration error
+            await PushNotifications.addListener('registrationError', (error) => {
+                console.error('[Native Push] Registration error:', error);
+            });
+            
+            // Listen for received notification (foreground)
+            await PushNotifications.addListener('pushNotificationReceived', (notification) => {
+                console.log('[Native Push] Notification received in foreground:', notification);
+            });
+            
+            // Register app with FCM natively
+            await PushNotifications.register();
+            
+        } catch (err) {
+            console.error('[Native Push] Setup failed:', err);
+        }
+    }, [userType, userId]);
+
+    const handlePrompt = useCallback(() => {
+        if (isNative) {
+            registerNativePush();
+        } else {
+            registerWebPush();
+        }
+    }, [isNative, registerNativePush, registerWebPush]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
-        if (!('Notification' in window)) return;  // Chrome on iOS — can't do push
         if (!userType || !userId) return;
 
-        const permission = Notification.permission;
-
-        if (permission === 'granted') {
-            // Already granted — silently refresh the token (no prompt shown)
-            register();
-        } else if (permission === 'denied') {
-            // User previously denied — we can't ask again
-            console.warn('[Push] Permission previously denied by user');
+        if (isNative) {
+            // Native platform (Android/iOS APK) - always safe to initialize native push flow
+            registerNativePush();
         } else {
-            // 'default' — need to ask
-            if (isIOS) {
-                // iOS requires the request to come from a user gesture (tap).
-                // Show a "Enable Notifications" button instead of auto-prompting.
-                setNeedsPrompt(true);
+            // Web platform (Desktop/Mobile Web browser)
+            if (!('Notification' in window)) return;
+            const permission = Notification.permission;
+
+            if (permission === 'granted') {
+                registerWebPush();
+            } else if (permission === 'denied') {
+                console.warn('[Push] Web permission previously denied by user');
             } else {
-                // Android / Desktop — safe to auto-prompt
-                register();
+                if (isIOS) {
+                    setNeedsPrompt(true);
+                } else {
+                    registerWebPush();
+                }
             }
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [userType, userId]);
+    }, [userType, userId, isNative, registerNativePush, registerWebPush, isIOS]);
 
     return {
         needsPrompt: needsPrompt && !prompted,
-        promptNow: register,
+        promptNow: handlePrompt,
         isIOSStandalone,
         isIOS,
     };
