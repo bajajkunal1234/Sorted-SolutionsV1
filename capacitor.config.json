@@ -1,7 +1,7 @@
 {
   "appId": "in.sortedsolutions.technician",
   "appName": "Sorted Technician",
-  "webDir": "public",
+  "webDir": "android-web-placeholder",
   "server": {
     "url": "https://sortedsolutions.in/technician/dashboard",
     "cleartext": true

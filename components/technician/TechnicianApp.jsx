@@ -18,6 +18,11 @@ import TechSupportTab from '@/components/technician/TechSupportTab';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { apiCall } from '@/lib/offlineSync';
+import { registerPlugin } from '@capacitor/core';
+
+const BackgroundGeolocation = typeof window !== 'undefined' && window.Capacitor
+    ? registerPlugin('BackgroundGeolocation')
+    : null;
 
 function TechnicianApp() {
     const router = useRouter();
@@ -283,20 +288,90 @@ function TechnicianApp() {
         );
     };
 
+    const handleGpsRetry = async () => {
+        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+        if (isNative && gpsStatus === 'denied' && BackgroundGeolocation) {
+            try {
+                await BackgroundGeolocation.openSettings();
+            } catch (err) {
+                console.warn('Failed to open settings:', err);
+            }
+        }
+        checkGpsAndPingLocation();
+    };
+
     // ── Silent background location tracking ──────────────────────────────────
-    // Sends GPS to admin every 60s during working hours.
-    // Blame-blocks technician UI if location permissions are denied/off.
+    // Tracks technician coordinates 24/7.
+    // Uses native background service on mobile app, falls back to browser setInterval on web.
     useEffect(() => {
         if (!technicianId) return;
 
-        // Run immediately
+        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+
+        // Run foreground check immediately to verify status and set block screens
         checkGpsAndPingLocation();
 
-        // Check every 60 seconds
-        const pingInterval = setInterval(checkGpsAndPingLocation, 60_000);
+        let pingInterval;
+        let nativeWatcherId = null;
+        let isStopped = false;
+
+        const startNativeTracking = async () => {
+            if (!BackgroundGeolocation) return;
+            try {
+                const id = await BackgroundGeolocation.addWatcher(
+                    {
+                        backgroundTitle: "Sorted Solutions GPS Active",
+                        backgroundMessage: "Tracking location for job dispatching.",
+                        requestPermissions: true,
+                        stale: false,
+                        distanceFilter: 30, // Trigger update only when moved 30 meters
+                    },
+                    (pos, err) => {
+                        if (isStopped) return;
+                        if (err) {
+                            console.error('[Native GPS] Background watcher error:', err);
+                            if (err.code === 'NOT_AUTHORIZED') {
+                                setGpsStatus('denied');
+                            }
+                            return;
+                        }
+                        if (pos) {
+                            setGpsStatus('granted');
+                            // Send location update to the server
+                            fetch('/api/technician/location', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    technician_id: technicianId,
+                                    latitude: pos.latitude,
+                                    longitude: pos.longitude,
+                                    is_on_job: false,
+                                    tracking_source: 'native'
+                                }),
+                            }).catch(() => {});
+                        }
+                    }
+                );
+                
+                nativeWatcherId = id;
+            } catch (err) {
+                console.error('Failed to initialize BackgroundGeolocation:', err);
+            }
+        };
+
+        if (isNative) {
+            startNativeTracking();
+        } else {
+            // Web fallback: ping every 60s
+            pingInterval = setInterval(checkGpsAndPingLocation, 60_000);
+        }
 
         return () => {
+            isStopped = true;
             if (pingInterval) clearInterval(pingInterval);
+            if (nativeWatcherId && BackgroundGeolocation) {
+                BackgroundGeolocation.removeWatcher({ id: nativeWatcherId }).catch(() => {});
+            }
         };
     }, [technicianId]);
 
@@ -2012,7 +2087,7 @@ function TechnicianApp() {
                         : "Sorted Solutions requires active GPS to manage your assigned jobs. Please enable location permissions for this app in your device settings to proceed."}
                 </p>
                 <button 
-                    onClick={checkGpsAndPingLocation}
+                    onClick={handleGpsRetry}
                     style={{
                         padding: '12px 24px',
                         backgroundColor: '#f59e0b',
