@@ -23,13 +23,13 @@ export async function GET() {
 
     // Try parsing it using our cleaning logic
     let cleanKey = key.trim();
-    if (cleanKey.startsWith('"') && cleanKey.endsWith('"')) {
-        cleanKey = cleanKey.slice(1, -1);
+    if (cleanKey.startsWith('"') || cleanKey.startsWith("'")) {
+        cleanKey = cleanKey.slice(1);
     }
-    if (cleanKey.startsWith("'") && cleanKey.endsWith("'")) {
-        cleanKey = cleanKey.slice(1, -1);
+    if (cleanKey.endsWith('"') || cleanKey.endsWith("'")) {
+        cleanKey = cleanKey.slice(0, -1);
     }
-    cleanKey = cleanKey.replace(/\\n/g, '\n');
+    cleanKey = cleanKey.trim().replace(/\\n/g, '\n');
 
     const cleanInfo = {
         length: cleanKey.length,
