@@ -142,17 +142,15 @@ export async function POST(request) {
             }
 
             // Always add to In-App Notifications (Notification Bell) regardless of push success
-            if (status !== 'failed') {
-                // If it's a push or whatsapp we want it in the bell. Even if skipped (no token), putting it in the bell ensures they see it when they open the app next!
-                await supabase.from('app_notifications').insert({
-                    recipient_type: recipient.recipientType,
-                    recipient_id: String(recipient.id),
-                    title: template.name || 'Notification',
-                    message: message,
-                    link: targetLink,
-                    is_read: false
-                }).catch(e => console.error('[notifications/bell] Error saving in-app notification', e.message));
-            }
+            // If it's a push or whatsapp we want it in the bell. Even if failed or skipped (no token), putting it in the bell ensures they see it when they open the app next!
+            await supabase.from('app_notifications').insert({
+                recipient_type: recipient.recipientType,
+                recipient_id: String(recipient.id),
+                title: template.name || 'Notification',
+                message: message,
+                link: targetLink,
+                is_read: false
+            }).catch(e => console.error('[notifications/bell] Error saving in-app notification', e.message));
 
             // Log result
             await supabase.from('notification_logs').insert({
