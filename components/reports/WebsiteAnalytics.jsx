@@ -475,8 +475,8 @@ export default function WebsiteAnalytics() {
         setLoading(true); setError('')
         try {
             const [analyticsRes, leadsRes] = await Promise.all([
-                fetch(`/api/analytics?range=${r}&start=${start}&end=${end}`),
-                fetch(`/api/admin/leads?range=${r}&start=${start}&end=${end}`)
+                fetch(`/api/analytics?range=${r}&start=${start}&end=${end}&_t=${Date.now()}`, { cache: 'no-store' }),
+                fetch(`/api/admin/leads?range=${r}&start=${start}&end=${end}&_t=${Date.now()}`, { cache: 'no-store' })
             ])
             
             const analyticsJson = await analyticsRes.json()
@@ -664,6 +664,14 @@ export default function WebsiteAnalytics() {
 
     // Lead status update
     const handleUpdateLeadStatus = async (phone, status) => {
+        // Optimistic update
+        setLeadsData(prev => {
+            if (!prev || !prev.leads) return prev;
+            return {
+                ...prev,
+                leads: prev.leads.map(l => l.phone === phone ? { ...l, status } : l)
+            };
+        });
         try {
             const res = await fetch('/api/admin/leads', {
                 method: 'PUT',
@@ -673,14 +681,25 @@ export default function WebsiteAnalytics() {
             const json = await res.json()
             if (json.success) {
                 load(range)
+            } else {
+                load(range)
             }
         } catch (err) {
             console.error(err)
+            load(range)
         }
     }
 
     // Lead notes update
     const handleUpdateLeadNotes = async (phone, notes) => {
+        // Optimistic update
+        setLeadsData(prev => {
+            if (!prev || !prev.leads) return prev;
+            return {
+                ...prev,
+                leads: prev.leads.map(l => l.phone === phone ? { ...l, notes } : l)
+            };
+        });
         try {
             const res = await fetch('/api/admin/leads', {
                 method: 'PUT',
@@ -690,14 +709,25 @@ export default function WebsiteAnalytics() {
             const json = await res.json()
             if (json.success) {
                 load(range)
+            } else {
+                load(range)
             }
         } catch (err) {
             console.error(err)
+            load(range)
         }
     }
 
     // Lead source update
     const handleUpdateLeadSource = async (phone, lead_source) => {
+        // Optimistic update
+        setLeadsData(prev => {
+            if (!prev || !prev.leads) return prev;
+            return {
+                ...prev,
+                leads: prev.leads.map(l => l.phone === phone ? { ...l, lead_source } : l)
+            };
+        });
         try {
             const res = await fetch('/api/admin/leads', {
                 method: 'PUT',
@@ -707,14 +737,25 @@ export default function WebsiteAnalytics() {
             const json = await res.json()
             if (json.success) {
                 load(range)
+            } else {
+                load(range)
             }
         } catch (err) {
             console.error(err)
+            load(range)
         }
     }
 
     // Lead campaign update
     const handleUpdateLeadCampaign = async (phone, campaign) => {
+        // Optimistic update
+        setLeadsData(prev => {
+            if (!prev || !prev.leads) return prev;
+            return {
+                ...prev,
+                leads: prev.leads.map(l => l.phone === phone ? { ...l, campaign } : l)
+            };
+        });
         try {
             const res = await fetch('/api/admin/leads', {
                 method: 'PUT',
@@ -724,9 +765,12 @@ export default function WebsiteAnalytics() {
             const json = await res.json()
             if (json.success) {
                 load(range)
+            } else {
+                load(range)
             }
         } catch (err) {
             console.error(err)
+            load(range)
         }
     }
 
