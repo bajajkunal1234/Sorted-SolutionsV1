@@ -16,7 +16,7 @@ function todayStart() {
 }
 
 // ─── GA4 Data API ─────────────────────────────────────────────────────────────
-async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
+async function fetchGA4(propertyId, serviceAccountJson, startDate, endDate = 'today') {
     try {
         const sa = JSON.parse(serviceAccountJson)
         // Build a JWT for Google OAuth2
@@ -59,7 +59,7 @@ async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
 
         // GA4 Data API runReport
         const body = {
-            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            dateRanges: [{ startDate, endDate }],
             metrics: [
                 { name: 'sessions' },
                 { name: 'totalUsers' },
@@ -91,7 +91,7 @@ async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
 
         // Top pages
         const pagesBody = {
-            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            dateRanges: [{ startDate, endDate }],
             metrics: [{ name: 'sessions' }, { name: 'bounceRate' }],
             dimensions: [{ name: 'pagePath' }],
             orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
@@ -110,7 +110,7 @@ async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
 
         // Traffic sources
         const sourcesBody = {
-            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            dateRanges: [{ startDate, endDate }],
             metrics: [{ name: 'sessions' }],
             dimensions: [{ name: 'sessionDefaultChannelGroup' }],
             orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
@@ -128,7 +128,7 @@ async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
 
         // Daily trend (last 30d)
         const trendBody = {
-            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            dateRanges: [{ startDate, endDate }],
             metrics: [{ name: 'sessions' }, { name: 'screenPageViews' }],
             dimensions: [{ name: 'date' }],
             orderBys: [{ dimension: { dimensionName: 'date' } }],
@@ -146,7 +146,7 @@ async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
 
         // Device Categories
         const deviceBody = {
-            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            dateRanges: [{ startDate, endDate }],
             metrics: [{ name: 'sessions' }],
             dimensions: [{ name: 'deviceCategory' }],
             orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
@@ -165,7 +165,7 @@ async function fetchGA4(propertyId, serviceAccountJson, dateRange) {
         // User Types (New vs Returning)
         // GA4 uses 'newVsReturning' dimension and 'activeUsers' or 'sessions' metric
         const userTypeBody = {
-            dateRanges: [{ startDate: dateRange, endDate: 'today' }],
+            dateRanges: [{ startDate, endDate }],
             metrics: [{ name: 'activeUsers' }],
             dimensions: [{ name: 'newVsReturning' }],
             orderBys: [{ metric: { metricName: 'activeUsers' }, desc: true }]
@@ -192,18 +192,50 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const range = searchParams.get('range') || '30d'
 
-    const dateRangeMap = { '7d': '7daysAgo', '30d': '30daysAgo', '90d': '90daysAgo', 'today': 'today' }
-    const ga4DateRange = dateRangeMap[range] || '30daysAgo'
+    const startParam = searchParams.get('start')
+    const endParam = searchParams.get('end')
 
-    const lookback = range === 'today' ? todayStart()
-        : range === '7d' ? daysAgo(7)
-            : range === '90d' ? daysAgo(90)
-                : daysAgo(30)
+    let ga4StartDate = '30daysAgo'
+    let ga4EndDate = 'today'
 
-    const prevLookback = range === 'today' ? daysAgo(1)
-        : range === '7d' ? daysAgo(14)
-            : range === '90d' ? daysAgo(180)
-                : daysAgo(60)
+    let lookback = todayStart()
+    let prevLookback = daysAgo(1)
+
+    if (range === 'custom' && startParam && endParam) {
+        ga4StartDate = startParam
+        ga4EndDate = endParam
+
+        const sParts = startParam.split('-')
+        const eParts = endParam.split('-')
+        if (sParts.length === 3 && eParts.length === 3) {
+            const startD = new Date()
+            startD.setFullYear(parseInt(sParts[0]), parseInt(sParts[1]) - 1, parseInt(sParts[2]))
+            startD.setHours(0, 0, 0, 0)
+            lookback = startD.toISOString()
+
+            const endD = new Date()
+            endD.setFullYear(parseInt(eParts[0]), parseInt(eParts[1]) - 1, parseInt(eParts[2]))
+            endD.setHours(23, 59, 59, 999)
+            
+            const diffMs = endD.getTime() - startD.getTime()
+            const prevStartD = new Date(startD.getTime() - diffMs)
+            prevLookback = prevStartD.toISOString()
+        }
+    } else {
+        const dateRangeMap = { '7d': '7daysAgo', '30d': '30daysAgo', '90d': '90daysAgo', 'today': 'today' }
+        ga4StartDate = dateRangeMap[range] || '30daysAgo'
+        ga4EndDate = 'today'
+
+        lookback = range === 'today' ? todayStart()
+            : range === '7d' ? daysAgo(7)
+                : range === '90d' ? daysAgo(90)
+                    : daysAgo(30)
+
+        prevLookback = range === 'today' ? daysAgo(1)
+            : range === '7d' ? daysAgo(14)
+                : range === '90d' ? daysAgo(180)
+                    : daysAgo(60)
+    }
 
     try {
         const supabase = createServerSupabase()
@@ -356,7 +388,7 @@ export async function GET(request) {
         const cfg = googleConfig?.value || {}
         let ga4Data = null
         if (cfg.ga4PropertyId && cfg.ga4ServiceAccountJson) {
-            ga4Data = await fetchGA4(cfg.ga4PropertyId, cfg.ga4ServiceAccountJson, ga4DateRange)
+            ga4Data = await fetchGA4(cfg.ga4PropertyId, cfg.ga4ServiceAccountJson, ga4StartDate, ga4EndDate)
         }
 
         // Process First-Party Data

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
-        const range = searchParams.get('range') || '30d'; // today, yesterday, 7d, 30d, 90d, all
+        const range = searchParams.get('range') || '30d'; // today, yesterday, 7d, 30d, 90d, all, custom
 
         const supabase = createServerSupabase();
         if (!supabase) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
@@ -25,6 +25,20 @@ export async function GET(request) {
             
             endDate.setDate(endDate.getDate() - 1);
             endDate.setHours(23, 59, 59, 999);
+        } else if (range === 'custom') {
+            const startParam = searchParams.get('start');
+            const endParam = searchParams.get('end');
+            if (startParam && endParam) {
+                const sParts = startParam.split('-');
+                const eParts = endParam.split('-');
+                if (sParts.length === 3 && eParts.length === 3) {
+                    startDate.setFullYear(parseInt(sParts[0]), parseInt(sParts[1]) - 1, parseInt(sParts[2]));
+                    startDate.setHours(0, 0, 0, 0);
+
+                    endDate.setFullYear(parseInt(eParts[0]), parseInt(eParts[1]) - 1, parseInt(eParts[2]));
+                    endDate.setHours(23, 59, 59, 999);
+                }
+            }
         } else if (range === '7d') {
             startDate.setDate(startDate.getDate() - 7);
             startDate.setHours(0, 0, 0, 0);
@@ -68,6 +82,7 @@ export async function GET(request) {
             { data: pageViews },
             { data: clicks },
             { data: customers },
+            { data: accounts },
             { data: jobs },
             { data: invoices },
             { data: dailyMetrics }
@@ -86,6 +101,8 @@ export async function GET(request) {
                 Promise.resolve({ data: [] }),
             // Customers
             supabase.from('customers').select('id, name, phone, ledger_id, created_at'),
+            // Accounts
+            supabase.from('accounts').select('id, name, phone, mobile, created_at'),
             // Jobs (Website or Admin created)
             supabase.from('jobs').select('id, job_number, customer_id, customer_name, status, category, subcategory, amount, source, created_at, notes'),
             // Invoices
@@ -126,11 +143,27 @@ export async function GET(request) {
             // Find phone number associated with the job
             let phone = null;
             if (j.customer_id) {
-                const cx = (customers || []).find(c => c.id === j.customer_id);
-                if (cx) phone = cleanPhone10(cx.phone);
+                const cx = (customers || []).find(c => c.id === j.customer_id || c.ledger_id === j.customer_id);
+                if (cx) {
+                    phone = cleanPhone10(cx.phone);
+                } else {
+                    const acc = (accounts || []).find(a => a.id === j.customer_id);
+                    if (acc) {
+                        phone = cleanPhone10(acc.mobile || acc.phone);
+                    }
+                }
             }
-            if (!phone && j.customer_name && cleanPhone10(j.customer_name)) {
-                phone = cleanPhone10(j.customer_name);
+            if (!phone && j.customer_name) {
+                const cleanName = j.customer_name.toLowerCase().trim();
+                const cx = (customers || []).find(c => c.name && c.name.toLowerCase().trim() === cleanName);
+                if (cx) {
+                    phone = cleanPhone10(cx.phone);
+                } else {
+                    const acc = (accounts || []).find(a => a.name && a.name.toLowerCase().trim() === cleanName);
+                    if (acc) {
+                        phone = cleanPhone10(acc.mobile || acc.phone);
+                    }
+                }
             }
             if (!phone && j.notes) {
                 try {

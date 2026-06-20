@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch'
+import NewAccountForm from '@/app/admin/components/accounts/NewAccountForm'
 import {
     TrendingUp, TrendingDown, Users, Calendar, BarChart2,
     Globe, Loader2, RefreshCw, AlertCircle,
@@ -342,6 +343,11 @@ export default function WebsiteAnalytics() {
     const [customerSearchTerm, setCustomerSearchTerm] = useState('')
     const [selectedCustomer, setSelectedCustomer] = useState(null)
 
+    // Custom date range states
+    const todayYMD = new Date().toISOString().split('T')[0]
+    const [customStartDate, setCustomStartDate] = useState(todayYMD)
+    const [customEndDate, setCustomEndDate] = useState(todayYMD)
+
     // Leads Tracker state
     const [leadsData, setLeadsData] = useState(null)
     const [leadsSearch, setLeadsSearch] = useState('')
@@ -374,6 +380,21 @@ export default function WebsiteAnalytics() {
     const [drawerRows, setDrawerRows] = useState([])
     const [drawerLoading, setDrawerLoading] = useState(false)
 
+    const [groups, setGroups] = useState([])
+    const [showNewAccountForm, setShowNewAccountForm] = useState(false)
+
+    const fetchGroups = async () => {
+        try {
+            const res = await fetch('/api/admin/account-groups')
+            const json = await res.json()
+            if (json.success || json.data) {
+                setGroups(json.data || [])
+            }
+        } catch (e) {
+            console.error('Failed to fetch account groups:', e)
+        }
+    }
+
     const fetchCustomers = async () => {
         setLoadingCustomers(true)
         try {
@@ -397,14 +418,15 @@ export default function WebsiteAnalytics() {
 
     useEffect(() => {
         fetchCustomers()
+        fetchGroups()
     }, [])
 
-    const load = async (r = range) => {
+    const load = async (r = range, start = customStartDate, end = customEndDate) => {
         setLoading(true); setError('')
         try {
             const [analyticsRes, leadsRes] = await Promise.all([
-                fetch(`/api/analytics?range=${r}`),
-                fetch(`/api/admin/leads?range=${r}`)
+                fetch(`/api/analytics?range=${r}&start=${start}&end=${end}`),
+                fetch(`/api/admin/leads?range=${r}&start=${start}&end=${end}`)
             ])
             
             const analyticsJson = await analyticsRes.json()
@@ -435,7 +457,11 @@ export default function WebsiteAnalytics() {
         }
     }
 
-    useEffect(() => { load(range) }, [range])
+    useEffect(() => {
+        if (range !== 'custom') {
+            load(range)
+        }
+    }, [range])
 
     useEffect(() => {
         if (leadsTab === 'daily_spend') {
@@ -548,6 +574,36 @@ export default function WebsiteAnalytics() {
         }
     }
 
+    const handleNewAccountSave = async (accountData) => {
+        try {
+            const res = await fetch('/api/admin/accounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(accountData)
+            })
+            const json = await res.json()
+            if (json.success && json.data) {
+                // Refresh customer list
+                await fetchCustomers()
+                
+                // Select the newly created customer
+                const newAcc = json.data
+                setSelectedCustomer(newAcc)
+                setCustomerSearchTerm(`${newAcc.name} ${newAcc.mobile ? `- ${newAcc.mobile}` : ''}`)
+                setManualLeadForm(prev => ({
+                    ...prev,
+                    phone: newAcc.mobile || '',
+                    name: newAcc.name
+                }))
+            } else {
+                throw new Error(json.error || 'Failed to save account')
+            }
+        } catch (err) {
+            alert('Failed to create account: ' + err.message)
+        }
+        setShowNewAccountForm(false)
+    }
+
     // Lead status update
     const handleUpdateLeadStatus = async (phone, status) => {
         try {
@@ -580,6 +636,48 @@ export default function WebsiteAnalytics() {
         } catch (err) {
             console.error(err)
         }
+    }
+
+    // Export leads directory to CSV
+    const exportToCSV = () => {
+        const leads = leadsData?.leads || []
+        if (leads.length === 0) {
+            alert('No leads to export')
+            return
+        }
+        
+        const headers = ['Date', 'Name', 'Phone', 'Source', 'Campaign', 'GCLID', 'Type', 'Status', 'Jobs', 'Revenue', 'Reason/Notes']
+        
+        const csvRows = [
+            headers.join(','),
+            ...leads.map(l => {
+                const row = [
+                    new Date(l.first_contact_at).toLocaleString('en-IN'),
+                    l.name || 'Anonymous Visitor',
+                    l.phone,
+                    l.lead_source,
+                    l.campaign || '',
+                    l.gclid || '',
+                    l.conversion_type || '',
+                    l.status,
+                    l.jobsCount || 0,
+                    l.totalRevenue || 0,
+                    (l.notes || '').replace(/"/g, '""')
+                ]
+                return row.map(val => `"${String(val).replace(/\r?\n/g, ' ')}"`).join(',')
+            })
+        ]
+        
+        const csvString = csvRows.join('\r\n')
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.setAttribute("href", url)
+        link.setAttribute("download", `leads_export_${range}_${new Date().toISOString().split('T')[0]}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
     }
 
     const sb = data?.supabase
@@ -636,7 +734,61 @@ export default function WebsiteAnalytics() {
                         </p>
                     </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {range === 'custom' && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>From</span>
+                                <input
+                                    type="date"
+                                    value={customStartDate}
+                                    onChange={e => setCustomStartDate(e.target.value)}
+                                    style={{
+                                        padding: '4px 6px',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: '4px',
+                                        backgroundColor: 'var(--bg-primary)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '12px',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>To</span>
+                                <input
+                                    type="date"
+                                    value={customEndDate}
+                                    onChange={e => setCustomEndDate(e.target.value)}
+                                    style={{
+                                        padding: '4px 6px',
+                                        border: '1px solid var(--border-primary)',
+                                        borderRadius: '4px',
+                                        backgroundColor: 'var(--bg-primary)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '12px',
+                                        outline: 'none'
+                                    }}
+                                />
+                            </div>
+                            <button
+                                onClick={() => load('custom', customStartDate, customEndDate)}
+                                disabled={loading}
+                                style={{
+                                    padding: '5px 10px',
+                                    backgroundColor: 'var(--color-primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Apply
+                            </button>
+                        </div>
+                    )}
                     <select
                         value={range}
                         onChange={e => setRange(e.target.value)}
@@ -658,6 +810,7 @@ export default function WebsiteAnalytics() {
                         <option value="30d">Last 30 Days</option>
                         <option value="90d">Last 90 Days</option>
                         <option value="all">All Time</option>
+                        <option value="custom">Custom Range</option>
                     </select>
                     <button onClick={() => load(range)} disabled={loading}
                         style={{ padding: '7px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
@@ -725,6 +878,27 @@ export default function WebsiteAnalytics() {
                                         borderRadius: 'var(--radius-md)', fontSize: '13px'
                                     }}
                                 />
+                                <button
+                                    onClick={exportToCSV}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '10px 16px',
+                                        border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-elevated)',
+                                        color: 'var(--text-secondary)',
+                                        borderRadius: 'var(--radius-md)',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--text-primary)'}
+                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-primary)'}
+                                >
+                                    <FileText size={14} /> Export CSV
+                                </button>
                             </div>
 
                             <div style={{ overflowX: 'auto', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', backgroundColor: 'var(--bg-elevated)' }}>
@@ -924,33 +1098,55 @@ export default function WebsiteAnalytics() {
 
                                 <div style={{ display: 'grid', gap: '4px' }}>
                                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Select Customer Account *</label>
-                                    <div style={{ border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
-                                        <AutocompleteSearch
-                                            placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
-                                            value={customerSearchTerm}
-                                            onChange={(val) => {
-                                                setCustomerSearchTerm(val);
-                                                if (!val) {
-                                                    setSelectedCustomer(null);
-                                                    setManualLeadForm(prev => ({ ...prev, phone: '', name: '' }));
-                                                }
+                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                        <div style={{ flex: 1, border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                                            <AutocompleteSearch
+                                                placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
+                                                value={customerSearchTerm}
+                                                onChange={(val) => {
+                                                    setCustomerSearchTerm(val);
+                                                    if (!val) {
+                                                        setSelectedCustomer(null);
+                                                        setManualLeadForm(prev => ({ ...prev, phone: '', name: '' }));
+                                                    }
+                                                }}
+                                                suggestions={customers.map(c => ({
+                                                    ...c,
+                                                    displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
+                                                }))}
+                                                searchKey="displayText"
+                                                onSelect={(selected) => {
+                                                    setCustomerSearchTerm(selected.displayText);
+                                                    setSelectedCustomer(selected);
+                                                    setManualLeadForm(prev => ({
+                                                        ...prev,
+                                                        phone: selected.phone || selected.mobile || '',
+                                                        name: selected.name
+                                                    }));
+                                                }}
+                                                loading={loadingCustomers}
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowNewAccountForm(true)}
+                                            style={{
+                                                height: '36px',
+                                                width: '36px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: '1px solid var(--border-primary)',
+                                                backgroundColor: 'var(--color-primary)',
+                                                color: 'white',
+                                                cursor: 'pointer',
+                                                flexShrink: 0
                                             }}
-                                            suggestions={customers.map(c => ({
-                                                ...c,
-                                                displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
-                                            }))}
-                                            searchKey="displayText"
-                                            onSelect={(selected) => {
-                                                setCustomerSearchTerm(selected.displayText);
-                                                setSelectedCustomer(selected);
-                                                setManualLeadForm(prev => ({
-                                                    ...prev,
-                                                    phone: selected.phone || selected.mobile || '',
-                                                    name: selected.name
-                                                }));
-                                            }}
-                                            loading={loadingCustomers}
-                                        />
+                                            title="Create New Customer Account"
+                                        >
+                                            <Plus size={18} />
+                                        </button>
                                     </div>
                                 </div>
 
@@ -1421,6 +1617,32 @@ export default function WebsiteAnalytics() {
                     : <BookingTable rows={drawerRows} />
                 }
             </Drawer>
+
+            {/* New Account Form Modal */}
+            {showNewAccountForm && (
+                <NewAccountForm
+                    groups={groups}
+                    preselectedType={(() => {
+                        const customersGroupId = groups.find(g =>
+                            g.name?.toLowerCase().includes('customer') &&
+                            (g.parent_name?.toLowerCase().includes('sundry') || g.nature === 'asset')
+                        )?.id || groups.find(g => g.name?.toLowerCase() === 'customers')?.id || '';
+                        return customersGroupId;
+                    })()}
+                    onClose={() => setShowNewAccountForm(false)}
+                    onSave={handleNewAccountSave}
+                    initialData={(() => {
+                        const term = customerSearchTerm.trim();
+                        if (!term) return null;
+                        const isPhone = /^[0-9+-\s]{5,20}$/.test(term.replace(/\D/g, ''));
+                        if (isPhone) {
+                            return { mobile: term };
+                        } else {
+                            return { name: term };
+                        }
+                    })()}
+                />
+            )}
 
             <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
         </div>
