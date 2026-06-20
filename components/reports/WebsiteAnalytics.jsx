@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import AutocompleteSearch from '@/components/admin/AutocompleteSearch'
 import {
     TrendingUp, TrendingDown, Users, Calendar, BarChart2,
     Globe, Loader2, RefreshCw, AlertCircle,
@@ -223,6 +224,44 @@ function JourneyTable({ rows }) {
     )
 }
 
+function InlineNotesInput({ initialValue, onSave }) {
+    const [value, setValue] = useState(initialValue || '')
+    const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        setValue(initialValue || '')
+    }, [initialValue])
+
+    const handleBlur = async () => {
+        if (value === (initialValue || '')) return
+        setSaving(true)
+        await onSave(value)
+        setSaving(false)
+    }
+
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', position: 'relative', minWidth: '160px' }}>
+            <input
+                type="text"
+                value={value}
+                onChange={e => setValue(e.target.value)}
+                onBlur={handleBlur}
+                placeholder="Reason not converted..."
+                style={{
+                    width: '100%',
+                    padding: '4px 8px',
+                    border: '1px solid var(--border-primary)',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px'
+                }}
+            />
+            {saving && <Loader2 size={12} style={{ animation: 'spin 1s linear infinite', position: 'absolute', right: '8px' }} />}
+        </div>
+    )
+}
+
 // ─── Clickable Metric Card ────────────────────────────────────────────────────
 function MetricCard({ icon: Icon, color, label, value, change, subtitle, sparkData, na, onClick }) {
     const up = change > 0; const flat = change === 0
@@ -297,6 +336,12 @@ export default function WebsiteAnalytics() {
     // Sub-view control
     const [subView, setSubView] = useState('dashboard') // 'dashboard' | 'leads_tracker'
     
+    // Customers for manual lead logging
+    const [customers, setCustomers] = useState([])
+    const [loadingCustomers, setLoadingCustomers] = useState(false)
+    const [customerSearchTerm, setCustomerSearchTerm] = useState('')
+    const [selectedCustomer, setSelectedCustomer] = useState(null)
+
     // Leads Tracker state
     const [leadsData, setLeadsData] = useState(null)
     const [leadsSearch, setLeadsSearch] = useState('')
@@ -328,6 +373,31 @@ export default function WebsiteAnalytics() {
     const [drawer, setDrawer] = useState(null) // { type, filter, title, subtitle }
     const [drawerRows, setDrawerRows] = useState([])
     const [drawerLoading, setDrawerLoading] = useState(false)
+
+    const fetchCustomers = async () => {
+        setLoadingCustomers(true)
+        try {
+            const res = await fetch('/api/admin/accounts?purpose=dropdown&type=customer')
+            const json = await res.json()
+            if (json.success || json.data) {
+                const list = json.data || json.customers || []
+                const customersOnly = list.filter(a =>
+                    a.type === 'customer' ||
+                    (a.under || '').toLowerCase().includes('customer') ||
+                    (a.under || '').toLowerCase().includes('debtor')
+                )
+                setCustomers(customersOnly)
+            }
+        } catch (e) {
+            console.error('Failed to fetch customers:', e)
+        } finally {
+            setLoadingCustomers(false)
+        }
+    }
+
+    useEffect(() => {
+        fetchCustomers()
+    }, [])
 
     const load = async (r = range) => {
         setLoading(true); setError('')
@@ -460,6 +530,8 @@ export default function WebsiteAnalytics() {
                     notes: '',
                     status: 'interested'
                 })
+                setSelectedCustomer(null)
+                setCustomerSearchTerm('')
             } else {
                 setManualLeadResult({
                     success: false,
@@ -483,6 +555,23 @@ export default function WebsiteAnalytics() {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phone, status })
+            })
+            const json = await res.json()
+            if (json.success) {
+                load(range)
+            }
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    // Lead notes update
+    const handleUpdateLeadNotes = async (phone, notes) => {
+        try {
+            const res = await fetch('/api/admin/leads', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, notes })
             })
             const json = await res.json()
             if (json.success) {
@@ -548,14 +637,28 @@ export default function WebsiteAnalytics() {
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '4px', padding: '4px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                        {RANGES.map(r => (
-                            <button key={r.id} onClick={() => setRange(r.id)}
-                                style={{ padding: '5px 12px', borderRadius: 'var(--radius-sm)', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 600, backgroundColor: range === r.id ? 'var(--color-primary)' : 'transparent', color: range === r.id ? 'white' : 'var(--text-secondary)', transition: 'all 0.15s' }}>
-                                {r.label}
-                            </button>
-                        ))}
-                    </div>
+                    <select
+                        value={range}
+                        onChange={e => setRange(e.target.value)}
+                        style={{
+                            padding: '6px 12px',
+                            borderRadius: 'var(--radius-md)',
+                            border: '1px solid var(--border-primary)',
+                            backgroundColor: 'var(--bg-elevated)',
+                            color: 'var(--text-primary)',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            outline: 'none'
+                        }}
+                    >
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                        <option value="all">All Time</option>
+                    </select>
                     <button onClick={() => load(range)} disabled={loading}
                         style={{ padding: '7px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
                         <RefreshCw size={14} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
@@ -628,7 +731,7 @@ export default function WebsiteAnalytics() {
                                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                                     <thead>
                                         <tr style={{ borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)' }}>
-                                            {['Date', 'Lead Details', 'Attribution Source', 'Type', 'Status', 'Jobs', 'Revenue', 'Actions'].map(h => (
+                                            {['Date', 'Lead Details', 'Attribution Source', 'Type', 'Status', 'Jobs', 'Revenue', 'Reason / Notes', 'Actions'].map(h => (
                                                 <th key={h} style={{ padding: '12px 16px', color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase' }}>{h}</th>
                                             ))}
                                         </tr>
@@ -682,6 +785,18 @@ export default function WebsiteAnalytics() {
                                                 </td>
                                                 <td style={{ padding: '12px 16px', fontWeight: 700, color: '#10b981' }}>
                                                     {l.totalRevenue > 0 ? `₹${l.totalRevenue.toLocaleString()}` : '—'}
+                                                </td>
+                                                <td style={{ padding: '12px 16px' }}>
+                                                    {l.jobsCount > 0 || l.status === 'converted' ? (
+                                                        <span style={{ fontSize: '12px', color: 'var(--text-tertiary)' }}>
+                                                            {l.notes || '—'}
+                                                        </span>
+                                                    ) : (
+                                                        <InlineNotesInput
+                                                            initialValue={l.notes}
+                                                            onSave={(newVal) => handleUpdateLeadNotes(l.phone, newVal)}
+                                                        />
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '12px 16px' }}>
                                                     <button
@@ -808,17 +923,35 @@ export default function WebsiteAnalytics() {
                                 </div>
 
                                 <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Mobile Number *</label>
-                                    <input type="tel" required placeholder="Enter 10-digit number" value={manualLeadForm.phone}
-                                        onChange={e => setManualLeadForm({ ...manualLeadForm, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '14px', fontWeight: 600 }} />
-                                </div>
-
-                                <div style={{ display: 'grid', gap: '4px' }}>
-                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Customer Name (Optional)</label>
-                                    <input type="text" placeholder="Enter name" value={manualLeadForm.name}
-                                        onChange={e => setManualLeadForm({ ...manualLeadForm, name: e.target.value })}
-                                        style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                    <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Select Customer Account *</label>
+                                    <div style={{ border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
+                                        <AutocompleteSearch
+                                            placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
+                                            value={customerSearchTerm}
+                                            onChange={(val) => {
+                                                setCustomerSearchTerm(val);
+                                                if (!val) {
+                                                    setSelectedCustomer(null);
+                                                    setManualLeadForm(prev => ({ ...prev, phone: '', name: '' }));
+                                                }
+                                            }}
+                                            suggestions={customers.map(c => ({
+                                                ...c,
+                                                displayText: `${c.name} ${c.phone || c.mobile ? `- ${c.phone || c.mobile}` : ''}`
+                                            }))}
+                                            searchKey="displayText"
+                                            onSelect={(selected) => {
+                                                setCustomerSearchTerm(selected.displayText);
+                                                setSelectedCustomer(selected);
+                                                setManualLeadForm(prev => ({
+                                                    ...prev,
+                                                    phone: selected.phone || selected.mobile || '',
+                                                    name: selected.name
+                                                }));
+                                            }}
+                                            loading={loadingCustomers}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>

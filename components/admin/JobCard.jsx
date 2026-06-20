@@ -7,12 +7,51 @@ const getTechnicianColor = (name) => {
     if (!name || name === 'Unassigned') {
         return 'linear-gradient(135deg, #64748b, #475569)';
     }
+    const cleanName = name.toLowerCase().trim();
+    if (cleanName.includes('kunal') || cleanName.includes('bajaj') || cleanName === 'kb') {
+        return 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+    }
+    if (cleanName.includes('vinod') || cleanName.includes('gupta') || cleanName === 'vg') {
+        return 'linear-gradient(135deg, #ec4899, #be185d)';
+    }
+    if (cleanName.includes('sandeep') || cleanName.includes('yadav')) {
+        return 'linear-gradient(135deg, #10b981, #047857)';
+    }
+    if (cleanName.includes('arjun') || cleanName.includes('ruby')) {
+        return 'linear-gradient(135deg, #f97316, #c2410c)';
+    }
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
     const hue = Math.abs(hash) % 360;
     return `linear-gradient(135deg, hsl(${hue}, 65%, 45%), hsl(${(hue + 35) % 360}, 70%, 35%))`;
+};
+
+const getLocalityColor = (locality) => {
+    if (!locality) return 'var(--text-secondary)';
+    const cleanLoc = locality.toLowerCase().trim();
+    if (cleanLoc.includes('aarey')) {
+        return '#fbbf24';
+    }
+    if (cleanLoc.includes('goregaon east')) {
+        return '#38bdf8';
+    }
+    if (cleanLoc.includes('goregaon west')) {
+        return '#818cf8';
+    }
+    if (cleanLoc.includes('bandra')) {
+        return '#f472b6';
+    }
+    if (cleanLoc.includes('kandivali')) {
+        return '#34d399';
+    }
+    let hash = 0;
+    for (let i = 0; i < locality.length; i++) {
+        hash = locality.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue}, 85%, 75%)`;
 };
 
 function JobCard({ job, onClick }) {
@@ -57,7 +96,7 @@ function JobCard({ job, onClick }) {
 
             {/* Info */}
             <div className="job-card-info">
-                <div className="job-card-info-item">
+                <div className="job-card-info-item" style={{ color: getLocalityColor(locality) }}>
                     <MapPin size={14} />
                     <span>{locality}</span>
                 </div>

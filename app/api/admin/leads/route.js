@@ -8,17 +8,36 @@ export const dynamic = 'force-dynamic';
 export async function GET(request) {
     try {
         const { searchParams } = new URL(request.url);
-        const range = searchParams.get('range') || '30d'; // 7d, 30d, 90d, all
+        const range = searchParams.get('range') || '30d'; // today, yesterday, 7d, 30d, 90d, all
 
         const supabase = createServerSupabase();
         if (!supabase) return NextResponse.json({ error: 'DB unavailable' }, { status: 503 });
 
-        // Calculate lookback date
-        const lookbackDate = new Date();
-        if (range === '7d') lookbackDate.setDate(lookbackDate.getDate() - 7);
-        else if (range === '30d') lookbackDate.setDate(lookbackDate.getDate() - 30);
-        else if (range === '90d') lookbackDate.setDate(lookbackDate.getDate() - 90);
-        else lookbackDate.setFullYear(lookbackDate.getFullYear() - 10); // all-time
+        // Calculate date boundaries
+        const startDate = new Date();
+        const endDate = new Date();
+
+        if (range === 'today') {
+            startDate.setHours(0, 0, 0, 0);
+        } else if (range === 'yesterday') {
+            startDate.setDate(startDate.getDate() - 1);
+            startDate.setHours(0, 0, 0, 0);
+            
+            endDate.setDate(endDate.getDate() - 1);
+            endDate.setHours(23, 59, 59, 999);
+        } else if (range === '7d') {
+            startDate.setDate(startDate.getDate() - 7);
+            startDate.setHours(0, 0, 0, 0);
+        } else if (range === '30d') {
+            startDate.setDate(startDate.getDate() - 30);
+            startDate.setHours(0, 0, 0, 0);
+        } else if (range === '90d') {
+            startDate.setDate(startDate.getDate() - 90);
+            startDate.setHours(0, 0, 0, 0);
+        } else {
+            // all time
+            startDate.setFullYear(startDate.getFullYear() - 10);
+        }
 
         // 1. Fetch leads
         let leadQuery = supabase
@@ -27,7 +46,9 @@ export async function GET(request) {
             .order('first_contact_at', { ascending: false });
         
         if (range !== 'all') {
-            leadQuery = leadQuery.gte('first_contact_at', lookbackDate.toISOString());
+            leadQuery = leadQuery
+                .gte('first_contact_at', startDate.toISOString())
+                .lte('first_contact_at', endDate.toISOString());
         }
 
         const { data: leads, error: leadError } = await leadQuery;
@@ -70,7 +91,10 @@ export async function GET(request) {
             // Invoices
             supabase.from('sales_invoices').select('id, job_id, total_amount, status, created_at'),
             // Daily Ad Spend metrics
-            supabase.from('google_ads_daily_metrics').select('*')
+            supabase.from('google_ads_daily_metrics')
+                .select('*')
+                .gte('date', startDate.toISOString().split('T')[0])
+                .lte('date', endDate.toISOString().split('T')[0])
         ]);
 
         // Build mappings in memory
@@ -266,13 +290,9 @@ export async function GET(request) {
         });
 
         (dailyMetrics || []).forEach(m => {
-            // Check if within range
-            const metricDate = new Date(m.date);
-            if (metricDate >= lookbackDate) {
-                totalAdsSpend += parseFloat(m.amount_spent || '0');
-                totalAdsClicks += parseInt(m.clicks || '0');
-                totalAdsImpressions += parseInt(m.impressions || '0');
-            }
+            totalAdsSpend += parseFloat(m.amount_spent || '0');
+            totalAdsClicks += parseInt(m.clicks || '0');
+            totalAdsImpressions += parseInt(m.impressions || '0');
         });
 
         const summary = {
