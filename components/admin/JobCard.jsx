@@ -3,6 +3,18 @@ import { CSS } from '@dnd-kit/utilities';
 import { MapPin, User, Calendar, AlertCircle } from 'lucide-react';
 import { getLocalityFromAddress, formatDate, getInitials, isOverdue } from '@/utils/helpers';
 
+const getTechnicianColor = (name) => {
+    if (!name || name === 'Unassigned') {
+        return 'linear-gradient(135deg, #64748b, #475569)';
+    }
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `linear-gradient(135deg, hsl(${hue}, 65%, 45%), hsl(${(hue + 35) % 360}, 70%, 35%))`;
+};
+
 function JobCard({ job, onClick }) {
     const {
         attributes,
@@ -49,24 +61,15 @@ function JobCard({ job, onClick }) {
                     <MapPin size={14} />
                     <span>{locality}</span>
                 </div>
-
-                <div className="job-card-info-item">
-                    <User size={14} />
-                    <span>{job.assignedToName}</span>
-                </div>
-
-                {job.dueDate && (
-                    <div className="job-card-info-item">
-                        <Calendar size={14} />
-                        <span>{formatDate(job.dueDate)}</span>
-                    </div>
-                )}
             </div>
 
             {/* Footer */}
             <div className="job-card-footer">
                 <div className="job-card-assignee">
-                    <div className="assignee-avatar">
+                    <div 
+                        className="assignee-avatar"
+                        style={{ background: getTechnicianColor(job.assignedToName) }}
+                    >
                         {getInitials(job.assignedToName)}
                     </div>
                 </div>
@@ -74,14 +77,22 @@ function JobCard({ job, onClick }) {
                 {overdue ? (
                     <div className="job-card-badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <AlertCircle size={12} />
-                        Overdue
+                        <span>{formatDate(job.dueDate)}{job.scheduled_time ? ` (${job.scheduled_time})` : ''} - Overdue</span>
                     </div>
                 ) : (
-                    job.tags && job.tags.length > 0 && (
-                        <div className={`job-card-badge ${job.tags[0] === 'VIP' ? 'tag-vip' : 'tag-aged'}`}>
-                            {job.tags[0]}
-                        </div>
-                    )
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        {job.dueDate && (
+                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                <Calendar size={12} />
+                                <span>{formatDate(job.dueDate)}{job.scheduled_time ? ` (${job.scheduled_time})` : ''}</span>
+                            </div>
+                        )}
+                        {job.tags && job.tags.length > 0 && (
+                            <div className={`job-card-badge ${job.tags[0] === 'VIP' ? 'tag-vip' : 'tag-aged'}`}>
+                                {job.tags[0]}
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

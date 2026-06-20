@@ -4,6 +4,17 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { MapPin, User, Calendar, AlertCircle, Calculator, Phone } from 'lucide-react';
 import { getLocalityFromAddress, formatDate, getInitials, isOverdue } from '@/lib/utils/helpers';
+const getTechnicianColor = (name) => {
+    if (!name || name === 'Unassigned') {
+        return 'linear-gradient(135deg, #64748b, #475569)';
+    }
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+        hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const hue = Math.abs(hash) % 360;
+    return `linear-gradient(135deg, hsl(${hue}, 65%, 45%), hsl(${(hue + 35) % 360}, 70%, 35%))`;
+};
 
 function JobCard({ job, onClick, onCalculate }) {
     const {
@@ -153,24 +164,16 @@ function JobCard({ job, onClick, onCalculate }) {
                     <MapPin size={14} style={{ flexShrink: 0 }} />
                     <span>{locality || 'No location'}</span>
                 </div>
-
-                <div className="job-card-info-item">
-                    <User size={14} />
-                    <span>{technicianName}</span>
-                </div>
-
-                {dueDate && (
-                    <div className="job-card-info-item">
-                        <Calendar size={14} />
-                        <span>{formatDate(dueDate)}</span>
-                    </div>
-                )}
             </div>
 
             {/* Footer */}
             <div className="job-card-footer">
                 <div className="job-card-assignee">
-                    <div className="assignee-avatar" title={technicianName}>
+                    <div 
+                        className="assignee-avatar" 
+                        title={technicianName}
+                        style={{ background: getTechnicianColor(technicianName) }}
+                    >
                         {getInitials(technicianName)}
                     </div>
                 </div>
@@ -178,14 +181,22 @@ function JobCard({ job, onClick, onCalculate }) {
                 {overdue ? (
                     <div className="job-card-badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <AlertCircle size={12} />
-                        Overdue
+                        <span>{formatDate(dueDate)}{job.scheduled_time ? ` (${job.scheduled_time})` : ''} - Overdue</span>
                     </div>
                 ) : (
-                    job.priority && (
-                        <div className={`job-card-badge ${job.priority === 'high' ? 'tag-vip' : 'tag-aged'}`} style={{ textTransform: 'capitalize' }}>
-                            {job.priority}
-                        </div>
-                    )
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        {dueDate && (
+                            <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                                <Calendar size={12} />
+                                <span>{formatDate(dueDate)}{job.scheduled_time ? ` (${job.scheduled_time})` : ''}</span>
+                            </div>
+                        )}
+                        {job.priority && (
+                            <div className={`job-card-badge ${job.priority === 'high' ? 'tag-vip' : 'tag-aged'}`} style={{ textTransform: 'capitalize' }}>
+                                {job.priority}
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
