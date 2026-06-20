@@ -374,7 +374,7 @@ export async function GET(request) {
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { phone, name, type, date, notes, status = 'interested' } = body;
+        const { phone, name, type, date, notes, status = 'interested', lead_source = null, campaign = null } = body;
 
         if (!phone || !type) {
             return NextResponse.json({ success: false, error: 'Phone and type are required' }, { status: 400 });
@@ -451,13 +451,17 @@ export async function POST(request) {
 
         // Trigger trackLeadAttribution
         const conversionType = type === 'whatsapp' ? 'manual_whatsapp' : 'manual_call';
+        const forcedSource = lead_source && lead_source !== 'auto' ? lead_source : null;
+
         const result = await trackLeadAttribution(supabase, {
             phone,
             session_id: matchedSessionId,
             conversion_type: conversionType,
             name,
             status,
-            notes: notes || (matchedSessionId ? `Auto-linked to website click session.` : `Manual lead log.`)
+            notes: notes || (matchedSessionId ? `Auto-linked to website click session.` : `Manual lead log.`),
+            lead_source: forcedSource,
+            campaign: campaign
         });
 
         if (!result.success) throw new Error(result.error);

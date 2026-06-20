@@ -372,7 +372,9 @@ export default function WebsiteAnalytics() {
         type: 'call',
         date: new Date().toISOString().slice(0, 16),
         notes: '',
-        status: 'interested'
+        status: 'interested',
+        lead_source: 'auto',
+        campaign: ''
     })
     const [manualLeadSubmitting, setManualLeadSubmitting] = useState(false)
     const [manualLeadResult, setManualLeadResult] = useState(null)
@@ -601,7 +603,9 @@ export default function WebsiteAnalytics() {
                     type: 'call',
                     date: new Date().toISOString().slice(0, 16),
                     notes: '',
-                    status: 'interested'
+                    status: 'interested',
+                    lead_source: 'auto',
+                    campaign: ''
                 })
                 setSelectedCustomer(null)
                 setCustomerSearchTerm('')
@@ -1235,6 +1239,25 @@ export default function WebsiteAnalytics() {
                                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Date &amp; Time received</label>
                                     <input type="datetime-local" value={manualLeadForm.date} onChange={e => setManualLeadForm({ ...manualLeadForm, date: e.target.value })}
                                         style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                    <div style={{ display: 'grid', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Attribution Source</label>
+                                        <select value={manualLeadForm.lead_source} onChange={e => setManualLeadForm({ ...manualLeadForm, lead_source: e.target.value })}
+                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
+                                            <option value="auto">Auto-detect (Website click)</option>
+                                            <option value="google_ads">Google Ads (Paid)</option>
+                                            <option value="google_organic">Google Search (Organic)</option>
+                                            <option value="referral">Referral / Word of Mouth</option>
+                                            <option value="direct">Direct / Offline</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'grid', gap: '4px' }}>
+                                        <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Campaign Name (Optional)</label>
+                                        <input type="text" placeholder="e.g. OTG_Repair" value={manualLeadForm.campaign} onChange={e => setManualLeadForm({ ...manualLeadForm, campaign: e.target.value })}
+                                            style={{ padding: '10px 12px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', fontSize: '13px' }} />
+                                    </div>
                                 </div>
 
                                 <div style={{ display: 'grid', gap: '4px' }}>
