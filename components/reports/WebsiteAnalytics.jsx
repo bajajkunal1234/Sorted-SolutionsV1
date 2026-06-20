@@ -363,6 +363,7 @@ export default function WebsiteAnalytics() {
         impressions: '',
         conversions_recorded: ''
     })
+    const [includeGST, setIncludeGST] = useState(true)
     const [dailySpendList, setDailySpendList] = useState([])
     const [dailySpendLoading, setDailySpendLoading] = useState(false)
 
@@ -536,10 +537,16 @@ export default function WebsiteAnalytics() {
     const handleSaveSpend = async (e) => {
         e.preventDefault()
         try {
+            const finalForm = {
+                ...dailySpendForm,
+                amount_spent: includeGST
+                    ? (parseFloat(dailySpendForm.amount_spent) * 1.18).toFixed(2)
+                    : dailySpendForm.amount_spent
+            }
             const res = await fetch('/api/admin/google-ads/metrics', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dailySpendForm)
+                body: JSON.stringify(finalForm)
             })
             const json = await res.json()
             if (json.success) {
@@ -679,6 +686,40 @@ export default function WebsiteAnalytics() {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phone, notes })
+            })
+            const json = await res.json()
+            if (json.success) {
+                load(range)
+            }
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    // Lead source update
+    const handleUpdateLeadSource = async (phone, lead_source) => {
+        try {
+            const res = await fetch('/api/admin/leads', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, lead_source })
+            })
+            const json = await res.json()
+            if (json.success) {
+                load(range)
+            }
+        } catch (err) {
+            console.error(err)
+        }
+    }
+
+    // Lead campaign update
+    const handleUpdateLeadCampaign = async (phone, campaign) => {
+        try {
+            const res = await fetch('/api/admin/leads', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone, campaign })
             })
             const json = await res.json()
             if (json.success) {
@@ -974,15 +1015,51 @@ export default function WebsiteAnalytics() {
                                                     <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{l.phone}</span>
                                                 </td>
                                                 <td style={{ padding: '12px 16px' }}>
-                                                    <span style={{
-                                                        padding: '2px 8px', borderRadius: '4px',
-                                                        backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
-                                                        color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-secondary)',
-                                                        fontSize: '11px', fontWeight: 700
-                                                    }}>
-                                                        {l.lead_source === 'google_ads' ? 'Google Ads' : l.lead_source}
-                                                    </span>
-                                                    {l.campaign && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Camp: {l.campaign}</div>}
+                                                    <select
+                                                        value={l.lead_source || 'direct'}
+                                                        onChange={e => handleUpdateLeadSource(l.phone, e.target.value)}
+                                                        style={{
+                                                            padding: '4px 8px', borderRadius: '4px',
+                                                            backgroundColor: l.lead_source === 'google_ads' ? '#ea433515' : 'var(--bg-secondary)',
+                                                            color: l.lead_source === 'google_ads' ? '#ea4335' : 'var(--text-primary)',
+                                                            border: '1px solid var(--border-primary)', fontSize: '11px', fontWeight: 600,
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        <option value="google_ads">Google Ads</option>
+                                                        <option value="google_organic">Google Search (Organic)</option>
+                                                        <option value="referral">Referral / Word of Mouth</option>
+                                                        <option value="direct">Direct / Offline</option>
+                                                        <option value="social">Social Media</option>
+                                                        <option value="website">Website (Organic)</option>
+                                                    </select>
+                                                    {l.lead_source === 'google_ads' ? (
+                                                        <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                            <span style={{ fontSize: '10px', color: 'var(--text-tertiary)', whiteSpace: 'nowrap' }}>Camp:</span>
+                                                            <input
+                                                                type="text"
+                                                                defaultValue={l.campaign || ''}
+                                                                placeholder="None"
+                                                                onBlur={e => handleUpdateLeadCampaign(l.phone, e.target.value)}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') {
+                                                                        e.target.blur();
+                                                                    }
+                                                                }}
+                                                                style={{
+                                                                    width: '80px',
+                                                                    fontSize: '10px',
+                                                                    padding: '2px 4px',
+                                                                    backgroundColor: 'transparent',
+                                                                    border: '1px solid var(--border-primary)',
+                                                                    borderRadius: '3px',
+                                                                    color: 'var(--text-primary)'
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        l.campaign && <div style={{ fontSize: '10px', color: 'var(--text-tertiary)', marginTop: '4px' }}>Camp: {l.campaign}</div>
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: '12px 16px', textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
                                                     {l.conversion_type?.replace(/_/g, ' ') || '—'}
@@ -1080,6 +1157,10 @@ export default function WebsiteAnalytics() {
                                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Amount Spent (₹)</label>
                                     <input type="number" step="0.01" required placeholder="0.00" value={dailySpendForm.amount_spent} onChange={e => setDailySpendForm({ ...dailySpendForm, amount_spent: e.target.value })}
                                         style={{ padding: '8px 10px', border: '1px solid var(--border-primary)', borderRadius: '6px', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-secondary)', cursor: 'pointer', marginTop: '2px' }}>
+                                        <input type="checkbox" checked={includeGST} onChange={e => setIncludeGST(e.target.checked)} />
+                                        Auto-add 18% GST (Indian tax)
+                                    </label>
                                 </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
