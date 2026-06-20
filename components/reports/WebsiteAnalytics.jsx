@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import AutocompleteSearch from '@/components/admin/AutocompleteSearch'
 import NewAccountForm from '@/app/admin/components/accounts/NewAccountForm'
+import JobDetailModal from '@/app/admin/components/JobDetailModal'
+import SalesInvoiceForm from '@/app/admin/components/accounts/SalesInvoiceForm'
 import {
     TrendingUp, TrendingDown, Users, Calendar, BarChart2,
     Globe, Loader2, RefreshCw, AlertCircle,
@@ -383,6 +385,51 @@ export default function WebsiteAnalytics() {
     const [groups, setGroups] = useState([])
     const [showNewAccountForm, setShowNewAccountForm] = useState(false)
 
+    const [selectedJobForModal, setSelectedJobForModal] = useState(null)
+    const [selectedInvoiceForModal, setSelectedInvoiceForModal] = useState(null)
+    const [loadingJobOrInvoice, setLoadingJobOrInvoice] = useState(false)
+
+    const handleOpenJob = async (jobId) => {
+        setLoadingJobOrInvoice(true)
+        try {
+            const res = await fetch(`/api/admin/jobs`)
+            const json = await res.json()
+            if (json.success && json.data) {
+                const foundJob = json.data.find(j => j.id === jobId)
+                if (foundJob) {
+                    setSelectedJobForModal(foundJob)
+                } else {
+                    alert('Job not found')
+                }
+            } else {
+                alert('Failed to load job details')
+            }
+        } catch (err) {
+            console.error(err)
+            alert('Error loading job details')
+        } finally {
+            setLoadingJobOrInvoice(false)
+        }
+    }
+
+    const handleOpenInvoice = async (jobId) => {
+        setLoadingJobOrInvoice(true)
+        try {
+            const res = await fetch(`/api/admin/transactions?type=sales&job_id=${jobId}`)
+            const json = await res.json()
+            if (json.success && json.data && json.data.length > 0) {
+                setSelectedInvoiceForModal(json.data[0])
+            } else {
+                alert('Invoice not found for this job')
+            }
+        } catch (err) {
+            console.error(err)
+            alert('Error loading invoice details')
+        } finally {
+            setLoadingJobOrInvoice(false)
+        }
+    }
+
     const fetchGroups = async () => {
         try {
             const res = await fetch('/api/admin/account-groups')
@@ -653,7 +700,7 @@ export default function WebsiteAnalytics() {
             ...leads.map(l => {
                 const row = [
                     new Date(l.first_contact_at).toLocaleString('en-IN'),
-                    l.name || 'Anonymous Visitor',
+                    l.name || l.customer?.name || 'Anonymous Visitor',
                     l.phone,
                     l.lead_source,
                     l.campaign || '',
@@ -918,7 +965,7 @@ export default function WebsiteAnalytics() {
                                                     <span style={{ fontSize: '10px', color: 'var(--text-tertiary)' }}>{new Date(l.first_contact_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                 </td>
                                                 <td style={{ padding: '12px 16px' }}>
-                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{l.name || 'Anonymous Visitor'}</span><br/>
+                                                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{l.name || l.customer?.name || 'Anonymous Visitor'}</span><br/>
                                                     <span style={{ fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{l.phone}</span>
                                                 </td>
                                                 <td style={{ padding: '12px 16px' }}>
@@ -953,12 +1000,26 @@ export default function WebsiteAnalytics() {
                                                     </select>
                                                 </td>
                                                 <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                                                    {l.jobsCount > 0 ? (
-                                                        <span style={{ color: '#6366f1' }}>{l.jobsCount} jobs</span>
+                                                    {l.jobsCount > 0 && l.jobs && l.jobs[0] ? (
+                                                        <span 
+                                                            onClick={() => handleOpenJob(l.jobs[0].id)}
+                                                            style={{ color: '#6366f1', cursor: 'pointer', textDecoration: 'underline' }}
+                                                        >
+                                                            {l.jobsCount} jobs
+                                                        </span>
                                                     ) : '—'}
                                                 </td>
                                                 <td style={{ padding: '12px 16px', fontWeight: 700, color: '#10b981' }}>
-                                                    {l.totalRevenue > 0 ? `₹${l.totalRevenue.toLocaleString()}` : '—'}
+                                                    {l.totalRevenue > 0 && l.jobs && l.jobs[0] ? (
+                                                        <span 
+                                                            onClick={() => handleOpenInvoice(l.jobs[0].id)}
+                                                            style={{ color: '#10b981', cursor: 'pointer', textDecoration: 'underline' }}
+                                                        >
+                                                            ₹{l.totalRevenue.toLocaleString()}
+                                                        </span>
+                                                    ) : l.totalRevenue > 0 ? (
+                                                        <span>₹{l.totalRevenue.toLocaleString()}</span>
+                                                    ) : '—'}
                                                 </td>
                                                 <td style={{ padding: '12px 16px' }}>
                                                     {l.jobsCount > 0 || l.status === 'converted' ? (
@@ -1642,6 +1703,53 @@ export default function WebsiteAnalytics() {
                         }
                     })()}
                 />
+            )}
+
+            {/* Job Detail Modal */}
+            {selectedJobForModal && (
+                <JobDetailModal 
+                    job={selectedJobForModal} 
+                    onClose={() => setSelectedJobForModal(null)} 
+                    onUpdate={() => {
+                        setSelectedJobForModal(null)
+                        load(range)
+                    }} 
+                />
+            )}
+
+            {/* Sales Invoice Form Modal (to view the invoice) */}
+            {selectedInvoiceForModal && (
+                <SalesInvoiceForm 
+                    existingInvoice={selectedInvoiceForModal} 
+                    onClose={() => setSelectedInvoiceForModal(null)} 
+                    onSave={() => {
+                        setSelectedInvoiceForModal(null)
+                        load(range)
+                    }} 
+                />
+            )}
+
+            {/* Global details fetch loading overlay */}
+            {loadingJobOrInvoice && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    color: 'white',
+                    fontSize: '14px'
+                }}>
+                    <Loader2 size={36} className="animate-spin" style={{ color: 'var(--color-primary)' }} />
+                    <span>Loading details...</span>
+                </div>
             )}
 
             <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>

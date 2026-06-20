@@ -189,7 +189,21 @@ export async function GET(request) {
         const enrichedLeads = leads.map(lead => {
             const cleanPhone = lead.phone;
             const session = lead.session_id ? sessionMap[lead.session_id] : null;
-            const matchedCustomer = customerMap[cleanPhone];
+            
+            // Resolve matched customer or account
+            let matchedCustomer = customerMap[cleanPhone];
+            if (!matchedCustomer) {
+                const acc = (accounts || []).find(a => cleanPhone10(a.mobile || a.phone) === cleanPhone);
+                if (acc) {
+                    matchedCustomer = {
+                        id: acc.id,
+                        name: acc.name,
+                        email: acc.email || ''
+                    };
+                }
+            }
+            
+            const leadName = lead.name || matchedCustomer?.name || 'Anonymous Visitor';
             const matchedJobs = jobsByPhoneMap[cleanPhone] || [];
 
             // Calculate revenue and invoices
@@ -293,6 +307,7 @@ export async function GET(request) {
 
             return {
                 ...lead,
+                name: leadName,
                 customer: matchedCustomer ? { id: matchedCustomer.id, name: matchedCustomer.name, email: matchedCustomer.email } : null,
                 session: session ? { ip: session.ip_address, referrer: session.referrer, utm_campaign: session.utm_campaign, utm_source: session.utm_source } : null,
                 jobs: jobDetails,
