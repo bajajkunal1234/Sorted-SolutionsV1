@@ -351,6 +351,7 @@ export async function GET(request) {
             adsClicks: totalAdsClicks,
             adsImpressions: totalAdsImpressions,
             cpl: adsLeadCount > 0 ? (totalAdsSpend / adsLeadCount) : 0,
+            cpa: adsConvertedCount > 0 ? (totalAdsSpend / adsConvertedCount) : 0,
             cpc: totalAdsClicks > 0 ? (totalAdsSpend / totalAdsClicks) : 0,
             ctr: totalAdsImpressions > 0 ? (totalAdsClicks / totalAdsImpressions) * 100 : 0,
             roas: totalAdsSpend > 0 ? (adsRevenue / totalAdsSpend) : 0,

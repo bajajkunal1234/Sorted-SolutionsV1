@@ -887,6 +887,7 @@ export default function WebsiteAnalytics() {
                         <MetricCard icon={Percent} color="#10b981" label="Conversion Rate" value={`${(leadsSummary?.conversionRate ?? 0).toFixed(1)}%`} subtitle="Leads to Jobs" />
                         <MetricCard icon={DollarSign} color="#ea4335" label="Google Ads Spend" value={`₹${(leadsSummary?.adsSpend ?? 0).toLocaleString()}`} subtitle={`${leadsSummary?.adsClicks ?? 0} clicks · ${leadsSummary?.adsImpressions ?? 0} impr.`} />
                         <MetricCard icon={Info} color="#06b6d4" label="Cost Per Lead (CPL)" value={`₹${Math.round(leadsSummary?.cpl ?? 0).toLocaleString()}`} subtitle="Spend / Leads" />
+                        <MetricCard icon={User} color="#ec4899" label="Cost Per Customer (CPA)" value={`₹${Math.round(leadsSummary?.cpa ?? 0).toLocaleString()}`} subtitle="Spend / Converted" />
                         <MetricCard icon={ShoppingCart} color="#fbbc04" label="Revenue Generated" value={`₹${(leadsSummary?.adsRevenue ?? 0).toLocaleString()}`} subtitle={`ROAS: ${(leadsSummary?.roas ?? 0).toFixed(2)}x`} />
                     </div>
 
