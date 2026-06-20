@@ -1164,7 +1164,7 @@ export default function WebsiteAnalytics() {
                                 <div style={{ display: 'grid', gap: '4px' }}>
                                     <label style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: 600 }}>Select Customer Account *</label>
                                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                        <div style={{ flex: 1, border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                                        <div style={{ flex: 1, border: !selectedCustomer ? '1px solid var(--border-primary)' : '1px solid var(--color-primary)', borderRadius: 'var(--radius-md)' }}>
                                             <AutocompleteSearch
                                                 placeholder={loadingCustomers ? 'Loading customers...' : 'Search customer by name or phone...'}
                                                 value={customerSearchTerm}
