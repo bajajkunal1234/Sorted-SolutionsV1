@@ -181,14 +181,14 @@ function JobCard({ job, onClick, onCalculate }) {
                 {overdue ? (
                     <div className="job-card-badge badge-warning" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <AlertCircle size={12} />
-                        <span>{formatDate(dueDate)}{job.scheduled_time ? ` (${job.scheduled_time})` : ''} - Overdue</span>
+                        <span>{formatDate(dueDate)} - Overdue</span>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                         {dueDate && (
                             <div className="job-card-badge" style={{ display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                                 <Calendar size={12} />
-                                <span>{formatDate(dueDate)}{job.scheduled_time ? ` (${job.scheduled_time})` : ''}</span>
+                                <span>{formatDate(dueDate)}</span>
                             </div>
                         )}
                         {job.priority && (
