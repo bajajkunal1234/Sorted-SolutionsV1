@@ -362,6 +362,12 @@ export async function GET(request) {
             success: true,
             leads: enrichedLeads,
             summary
+        }, {
+            headers: {
+                'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+            }
         });
 
     } catch (error) {
@@ -484,7 +490,7 @@ export async function POST(request) {
 export async function PUT(request) {
     try {
         const body = await request.json();
-        const { phone, status, notes } = body;
+        const { phone, status, notes, lead_source, campaign } = body;
 
         if (!phone) {
             return NextResponse.json({ success: false, error: 'Phone is required' }, { status: 400 });
@@ -501,6 +507,8 @@ export async function PUT(request) {
         const updatePayload = {};
         if (status) updatePayload.status = status;
         if (notes !== undefined) updatePayload.notes = notes;
+        if (lead_source !== undefined) updatePayload.lead_source = lead_source;
+        if (campaign !== undefined) updatePayload.campaign = campaign;
 
         const { data, error } = await supabase
             .from('lead_attributions')
