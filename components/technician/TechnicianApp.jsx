@@ -20,8 +20,8 @@ import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { apiCall } from '@/lib/offlineSync';
 import { registerPlugin } from '@capacitor/core';
 
-const BackgroundGeolocation = typeof window !== 'undefined' && window.Capacitor
-    ? registerPlugin('BackgroundGeolocation')
+const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor
+    ? registerPlugin('GPSBridgePlugin')
     : null;
 
 function TechnicianApp() {
@@ -244,14 +244,28 @@ function TechnicianApp() {
     // ── Request push notification permission once logged in ────────────────
     usePushNotifications({ userType: 'technician', userId: technicianId });
 
-    const checkGpsAndPingLocation = () => {
+    const checkGpsAndPingLocation = async () => {
         if (!technicianId) return;
+
+        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+
+        // 1. If native, check if physical GPS is enabled first
+        if (isNative && GPSBridgePlugin) {
+            try {
+                const { enabled } = await GPSBridgePlugin.isGpsEnabled();
+                if (!enabled) {
+                    setGpsStatus('error');
+                    return;
+                }
+            } catch (err) {
+                console.warn('[GPS check] isGpsEnabled call failed:', err);
+            }
+        }
+
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
             setGpsStatus('error');
             return;
         }
-
-        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
 
         const isWorkingHours = () => {
             const now = new Date();
@@ -262,7 +276,10 @@ function TechnicianApp() {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 setGpsStatus('granted');
-                if (isNative || isWorkingHours()) {
+                // Web/PWA: post coordinates inside working hours.
+                // Native: we don't need to post coordinates from JavaScript because our native service 
+                // is running in the background posting location every 5 minutes natively!
+                if (!isNative && isWorkingHours()) {
                     fetch('/api/technician/location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -271,7 +288,7 @@ function TechnicianApp() {
                             latitude: pos.coords.latitude,
                             longitude: pos.coords.longitude,
                             is_on_job: false,
-                            tracking_source: isNative ? 'native' : 'web'
+                            tracking_source: 'web'
                         }),
                     }).catch(() => {});
                 }
@@ -290,9 +307,13 @@ function TechnicianApp() {
 
     const handleGpsRetry = async () => {
         const isNative = typeof window !== 'undefined' && !!window.Capacitor;
-        if (isNative && gpsStatus === 'denied' && BackgroundGeolocation) {
+        if (isNative && GPSBridgePlugin) {
             try {
-                await BackgroundGeolocation.openSettings();
+                if (gpsStatus === 'error') {
+                    await GPSBridgePlugin.openLocationSettings();
+                } else if (gpsStatus === 'denied') {
+                    await GPSBridgePlugin.openAppSettings();
+                }
             } catch (err) {
                 console.warn('Failed to open settings:', err);
             }
@@ -301,7 +322,7 @@ function TechnicianApp() {
     };
 
     // ── Silent background location tracking ──────────────────────────────────
-    // Tracks technician coordinates 24/7.
+    // Tracks technician coordinates.
     // Uses native background service on mobile app, falls back to browser setInterval on web.
     useEffect(() => {
         if (!technicianId) return;
@@ -311,67 +332,21 @@ function TechnicianApp() {
         // Run foreground check immediately to verify status and set block screens
         checkGpsAndPingLocation();
 
+        if (isNative && GPSBridgePlugin) {
+            GPSBridgePlugin.setTechnicianId({ id: String(technicianId) })
+                .then(() => console.log('[Native GPS] Technician ID registered on native service'))
+                .catch(err => console.error('[Native GPS] Failed to register technician ID:', err));
+        }
+
         let pingInterval;
-        let nativeWatcherId = null;
-        let isStopped = false;
 
-        const startNativeTracking = async () => {
-            if (!BackgroundGeolocation) return;
-            try {
-                const id = await BackgroundGeolocation.addWatcher(
-                    {
-                        backgroundTitle: "Sorted Solutions GPS Active",
-                        backgroundMessage: "Tracking location for job dispatching.",
-                        requestPermissions: true,
-                        stale: false,
-                        distanceFilter: 30, // Trigger update only when moved 30 meters
-                    },
-                    (pos, err) => {
-                        if (isStopped) return;
-                        if (err) {
-                            console.error('[Native GPS] Background watcher error:', err);
-                            if (err.code === 'NOT_AUTHORIZED') {
-                                setGpsStatus('denied');
-                            }
-                            return;
-                        }
-                        if (pos) {
-                            setGpsStatus('granted');
-                            // Send location update to the server
-                            fetch('/api/technician/location', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    technician_id: technicianId,
-                                    latitude: pos.latitude,
-                                    longitude: pos.longitude,
-                                    is_on_job: false,
-                                    tracking_source: 'native'
-                                }),
-                            }).catch(() => {});
-                        }
-                    }
-                );
-                
-                nativeWatcherId = id;
-            } catch (err) {
-                console.error('Failed to initialize BackgroundGeolocation:', err);
-            }
-        };
-
-        if (isNative) {
-            startNativeTracking();
-        } else {
+        if (!isNative) {
             // Web fallback: ping every 60s
             pingInterval = setInterval(checkGpsAndPingLocation, 60_000);
         }
 
         return () => {
-            isStopped = true;
             if (pingInterval) clearInterval(pingInterval);
-            if (nativeWatcherId && BackgroundGeolocation) {
-                BackgroundGeolocation.removeWatcher({ id: nativeWatcherId }).catch(() => {});
-            }
         };
     }, [technicianId]);
 
@@ -537,14 +512,21 @@ function TechnicianApp() {
     }, [technicianId]);
 
     // Logout handler
-    const handleLogout = () => {
+    const handleLogout = async () => {
         if (window.confirm('Are you sure you want to logout?')) {
+            const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+            if (isNative && GPSBridgePlugin) {
+                try {
+                    await GPSBridgePlugin.clearTechnicianId();
+                } catch (err) {
+                    console.error('Failed to clear native GPS settings on logout:', err);
+                }
+            }
             localStorage.removeItem('technicianSession');
             localStorage.removeItem('technicianData');
             // Force a hard reload to clear any in-memory state
             window.location.href = '/login';
         }
-
     };
 
     // Calculate time left to due

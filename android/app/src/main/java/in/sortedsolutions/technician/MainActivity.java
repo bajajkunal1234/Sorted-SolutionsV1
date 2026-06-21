@@ -10,6 +10,7 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(GPSBridgePlugin.class);
         super.onCreate(savedInstanceState);
         // Set the window background to solid black programmatically to prevent any splash screen image leak
         getWindow().setBackgroundDrawable(new ColorDrawable(Color.BLACK));

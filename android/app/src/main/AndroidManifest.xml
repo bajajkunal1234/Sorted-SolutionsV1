@@ -34,6 +34,29 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- Custom Background Location Tracking Service -->
+        <service
+            android:name=".BackgroundLocationService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- Receivers for Working Hours Alarms and Boot Rescheduling -->
+        <receiver 
+            android:name=".AlarmReceiver" 
+            android:enabled="true" 
+            android:exported="false" />
+
+        <receiver 
+            android:name=".BootReceiver" 
+            android:enabled="true" 
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
     <!-- Permissions -->
@@ -42,4 +65,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
