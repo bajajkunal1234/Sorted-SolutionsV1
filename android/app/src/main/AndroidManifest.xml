@@ -42,12 +42,7 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
-        <!-- Receivers for Working Hours Alarms and Boot Rescheduling -->
-        <receiver 
-            android:name=".AlarmReceiver" 
-            android:enabled="true" 
-            android:exported="false" />
-
+        <!-- Receiver for Boot Rescheduling -->
         <receiver 
             android:name=".BootReceiver" 
             android:enabled="true" 

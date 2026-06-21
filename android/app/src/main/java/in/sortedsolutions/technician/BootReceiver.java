@@ -5,7 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
-import java.util.Calendar;
 
 public class BootReceiver extends BroadcastReceiver {
 
@@ -18,24 +17,17 @@ public class BootReceiver extends BroadcastReceiver {
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             String technicianId = prefs.getString(KEY_TECH_ID, "");
 
-            // If a technician is logged in, restore alarms
+            // If a technician is logged in, start the background service immediately
             if (!technicianId.isEmpty()) {
-                GPSBridgePlugin.scheduleAlarms(context);
-
-                // Start service immediately if currently inside working hours (8:00 AM - 8:00 PM)
-                Calendar now = Calendar.getInstance();
-                int hour = now.get(Calendar.HOUR_OF_DAY);
-                if (hour >= 8 && hour < 20) {
-                    Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(serviceIntent);
-                        } else {
-                            context.startService(serviceIntent);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(serviceIntent);
+                    } else {
+                        context.startService(serviceIntent);
                     }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
         }

@@ -69,15 +69,6 @@ public class BackgroundLocationService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // 1. Check working hours (8:00 AM - 8:00 PM)
-        Calendar now = Calendar.getInstance();
-        int hour = now.get(Calendar.HOUR_OF_DAY);
-        if (hour < 8 || hour >= 20) {
-            // Outside working hours: stop immediately
-            GPSBridgePlugin.scheduleAlarms(this);
-            stopSelf();
-            return START_NOT_STICKY;
-        }
 
         // 2. Check if technician ID exists
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
@@ -154,15 +145,6 @@ public class BackgroundLocationService extends Service {
         pingRunnable = new Runnable() {
             @Override
             public void run() {
-                // 1. Double check business hours
-                Calendar now = Calendar.getInstance();
-                int hour = now.get(Calendar.HOUR_OF_DAY);
-                if (hour < 8 || hour >= 20) {
-                    // Stop service if we hit 8:00 PM
-                    GPSBridgePlugin.scheduleAlarms(BackgroundLocationService.this);
-                    stopSelf();
-                    return;
-                }
 
                 // 2. Perform HTTP ping
                 final Location loc = lastLocation;
