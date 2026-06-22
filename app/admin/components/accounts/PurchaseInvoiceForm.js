@@ -7,6 +7,7 @@ import ProductSelector from '@/app/admin/components/common/ProductSelector';
 import NewAccountForm from './NewAccountForm';
 import RepairCalculator from '@/components/common/RepairCalculator';
 import { accountsAPI, printSettingsAPI } from '@/lib/adminAPI';
+import JobSelector from './JobSelector';
 
 function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
     const [formData, setFormData] = useState({
@@ -19,6 +20,7 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
         vendor_invoice_number: existingInvoice?.vendor_invoice_number || '',
         date: existingInvoice?.date || new Date().toISOString().split('T')[0],
         po_reference: existingInvoice?.po_reference || '',
+        job_id: existingInvoice?.job_id || null,
         items: existingInvoice?.items || [
             { id: 1, productId: '', description: '', hsn: '', qty: 1, rate: 0, discount: 0, taxRate: 18, total: 0 }
         ],
@@ -474,6 +476,14 @@ function PurchaseInvoiceForm({ onClose, onSave, existingInvoice }) {
                                 <option value="consumables">Consumables</option>
                                 <option value="other">Other</option>
                             </select>
+                        </div>
+                        <div>
+                            <JobSelector
+                                value={formData.job_id}
+                                onChange={(jobId) => setFormData(prev => ({ ...prev, job_id: jobId }))}
+                                accountId={formData.account_id}
+                                label="Link to Job (optional)"
+                            />
                         </div>
                     </div>
 

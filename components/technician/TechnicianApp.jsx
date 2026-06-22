@@ -2385,30 +2385,6 @@ function TechnicianApp() {
                             </button>
                         </div>
 
-                        {/* General Purchase Option */}
-                        <div style={{ marginBottom: '12px' }}>
-                            <button
-                                onClick={() => {
-                                    setPurchaseJob(null);
-                                    setShowPurchaseJobSelectorModal(false);
-                                    setShowPurchaseCalculator(true);
-                                }}
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    backgroundColor: 'rgba(245,158,11,0.1)',
-                                    color: '#f59e0b',
-                                    border: '1px dashed #f59e0b',
-                                    borderRadius: '8px',
-                                    fontSize: '14px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    textAlign: 'center',
-                                }}
-                            >
-                                🛒 General Purchase (Not associated with any job)
-                            </button>
-                        </div>
 
                         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)', paddingRight: '4px' }}>
                             {jobs.filter(j => j.status !== 'closed' && j.status !== 'cancelled').length === 0 ? (
