@@ -30,16 +30,23 @@ public class GPSBridgePlugin extends Plugin {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putString(KEY_TECH_ID, id).apply();
 
-        // Start background location service immediately (24/7 tracking)
-        Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);
-            } else {
-                context.startService(serviceIntent);
+        // Start background location service immediately (24/7 tracking) ONLY if permission is granted
+        boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        boolean hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+
+        if (hasFineLocation || hasCoarseLocation) {
+            Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent);
+                } else {
+                    context.startService(serviceIntent);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } else {
+            android.util.Log.w("GPSBridgePlugin", "Location permission not granted yet. Service will start once permission is obtained.");
         }
 
         JSObject ret = new JSObject();

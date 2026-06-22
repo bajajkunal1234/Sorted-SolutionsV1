@@ -332,12 +332,6 @@ function TechnicianApp() {
         // Run foreground check immediately to verify status and set block screens
         checkGpsAndPingLocation();
 
-        if (isNative && GPSBridgePlugin) {
-            GPSBridgePlugin.setTechnicianId({ id: String(technicianId) })
-                .then(() => console.log('[Native GPS] Technician ID registered on native service'))
-                .catch(err => console.error('[Native GPS] Failed to register technician ID:', err));
-        }
-
         let pingInterval;
 
         if (!isNative) {
@@ -349,6 +343,19 @@ function TechnicianApp() {
             if (pingInterval) clearInterval(pingInterval);
         };
     }, [technicianId]);
+
+    // Start native background service only after GPS/location permission is granted
+    useEffect(() => {
+        if (!technicianId || gpsStatus !== 'granted') return;
+
+        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+
+        if (isNative && GPSBridgePlugin) {
+            GPSBridgePlugin.setTechnicianId({ id: String(technicianId) })
+                .then(() => console.log('[Native GPS] Technician ID registered on native service'))
+                .catch(err => console.error('[Native GPS] Failed to register technician ID:', err));
+        }
+    }, [technicianId, gpsStatus]);
 
     // Load saved views from Supabase after technicianId is ready
     useEffect(() => {
