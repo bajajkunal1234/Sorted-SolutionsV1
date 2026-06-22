@@ -100,7 +100,14 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         if (isPurchase) {
             setShowTax(false);
         }
-        Promise.all([inventoryAPI.getAll(), productLinksAPI.getAll().catch(() => []), printSettingsAPI.get().catch(() => null)])
+        Promise.all([
+            inventoryAPI.getAll().catch(err => {
+                console.error('[RepairCalculator] Failed to fetch inventory:', err);
+                return [];
+            }),
+            productLinksAPI.getAll().catch(() => []),
+            printSettingsAPI.get().catch(() => null)
+        ])
             .then(([inv, links, printData]) => {
                 setInventory(inv || []);
                 setProductLinks(links || []);
@@ -467,6 +474,5 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         </div>
     );
 
-    if (typeof window === 'undefined') return content;
-    return createPortal(content, document.body);
+    return content;
 }
