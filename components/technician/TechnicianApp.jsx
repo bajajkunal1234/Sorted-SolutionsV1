@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import CalendarView from '@/components/technician/CalendarView';
@@ -39,8 +39,11 @@ function TechnicianApp() {
     const [activeTags, setActiveTags] = useState([]);
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
-    const [selectedJob, setSelectedJob] = useState(null);
     const [gpsStatus, setGpsStatus] = useState('checking'); // 'checking' | 'granted' | 'denied' | 'error'
+    const [isOnline, setIsOnline] = useState(true);
+    const [leaves, setLeaves] = useState([]);
+    const [leavesLoading, setLeavesLoading] = useState(false);
+    const [dutyStatusError, setDutyStatusError] = useState(null);
 
     // Offline Sync States & Listeners
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
@@ -263,17 +266,10 @@ function TechnicianApp() {
 
         const isNative = typeof window !== 'undefined' && !!window.Capacitor;
 
-        // 1. If native, check if physical GPS is enabled first
-        if (isNative && GPSBridgePlugin) {
-            try {
-                const { enabled } = await GPSBridgePlugin.isGpsEnabled();
-                if (!enabled) {
-                    setGpsStatus('error');
-                    return;
-                }
-            } catch (err) {
-                console.warn('[GPS check] isGpsEnabled call failed:', err);
-            }
+        // 1. If native, bypass GPS check and never block the app UI
+        if (isNative) {
+            setGpsStatus('granted');
+            return;
         }
 
         if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -281,19 +277,17 @@ function TechnicianApp() {
             return;
         }
 
-        const isWorkingHours = () => {
+        const isWorkingHoursCheck = () => {
             const now = new Date();
             const hours = now.getHours();
-            return hours >= 8 && hours < 20; // 8:00 AM to 8:00 PM
+            return hours >= 8 && hours < 21; // 8:00 AM to 9:00 PM
         };
 
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 setGpsStatus('granted');
                 // Web/PWA: post coordinates inside working hours.
-                // Native: we don't need to post coordinates from JavaScript because our native service 
-                // is running in the background posting location every 5 minutes natively!
-                if (!isNative && isWorkingHours()) {
+                if (!isNative && isWorkingHoursCheck()) {
                     fetch('/api/technician/location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -334,6 +328,150 @@ function TechnicianApp() {
         }
         checkGpsAndPingLocation();
     };
+
+    const isWorkingHours = () => {
+        const now = new Date();
+        const hours = now.getHours();
+        return hours >= 8 && hours < 21; // 8:00 AM - 9:00 PM
+    };
+
+    const getTodayLocalString = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const isSupposedToBeOnDutyToday = () => {
+        const todayStr = getTodayLocalString();
+        const isSunday = new Date().getDay() === 0;
+        if (isSunday) return false;
+
+        const hasApprovedLeave = leaves.some(
+            (leave) => leave.leave_date === todayStr && leave.status === 'approved'
+        );
+        return !hasApprovedLeave;
+    };
+
+    const updateOnlineStatus = async (status) => {
+        setIsOnline(status);
+        
+        const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+        if (isNative && GPSBridgePlugin) {
+            try {
+                await GPSBridgePlugin.setOnlineStatus({ isOnline: status });
+            } catch (err) {
+                console.error('[GPSBridge] Failed to set online status:', err);
+            }
+        }
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const trackingSource = isNative ? 'native_service' : 'web';
+                    const precision = status ? 'precise' : 'approx';
+                    
+                    fetch('/api/technician/location', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            technician_id: technicianId,
+                            latitude: pos.coords.latitude,
+                            longitude: pos.coords.longitude,
+                            is_on_job: false,
+                            tracking_source: trackingSource,
+                            is_online: status,
+                            location_precision: precision
+                        }),
+                    }).catch((err) => console.error('Error posting location on toggle:', err));
+                },
+                (err) => {
+                    console.warn('Error getting location on toggle:', err);
+                    supabase
+                        .from('technician_live_locations')
+                        .update({ 
+                            is_online: status,
+                            location_precision: status ? 'precise' : 'approx',
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('technician_id', technicianId)
+                        .then(({ error }) => {
+                            if (error) console.error('Error updating live location status:', error);
+                        });
+                },
+                { 
+                    enableHighAccuracy: status,
+                    timeout: 10000, 
+                    maximumAge: 30000 
+                }
+            );
+        } else {
+            const { error } = await supabase
+                .from('technician_live_locations')
+                .update({ 
+                    is_online: status,
+                    location_precision: status ? 'precise' : 'approx',
+                    updated_at: new Date().toISOString()
+                })
+                .eq('technician_id', technicianId);
+            if (error) console.error('Error updating live location status fallback:', error);
+        }
+    };
+
+    const handleToggleOnline = async () => {
+        const newStatus = !isOnline;
+        if (newStatus) {
+            if (!isWorkingHours()) {
+                setDutyStatusError("You cannot go online outside working hours (8:00 AM - 9:00 PM).");
+                setTimeout(() => setDutyStatusError(null), 5000);
+                return;
+            }
+        }
+        setDutyStatusError(null);
+        await updateOnlineStatus(newStatus);
+    };
+
+    // Fetch initial online status and leaves
+    useEffect(() => {
+        if (!technicianId) return;
+
+        const loadInitialData = async () => {
+            try {
+                // Fetch online status
+                const { data, error } = await supabase
+                    .from('technician_live_locations')
+                    .select('is_online')
+                    .eq('technician_id', technicianId)
+                    .maybeSingle();
+                
+                if (error) {
+                    console.error('Error fetching online status:', error);
+                } else if (data) {
+                    setIsOnline(data.is_online !== false);
+                    const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+                    if (isNative && GPSBridgePlugin) {
+                        GPSBridgePlugin.setOnlineStatus({ isOnline: data.is_online !== false })
+                            .catch(err => console.error('[Native GPS] setOnlineStatus failed on mount:', err));
+                    }
+                }
+
+                // Fetch leaves
+                setLeavesLoading(true);
+                const leavesRes = await apiCall(`/api/technician/leaves?technicianId=${technicianId}`);
+                const leavesJson = await leavesRes.json();
+                if (leavesJson && leavesJson.success) {
+                    setLeaves(leavesJson.leaves || []);
+                }
+            } catch (err) {
+                console.error('Error loading initial data:', err);
+            } finally {
+                setLeavesLoading(false);
+            }
+        };
+
+        loadInitialData();
+    }, [technicianId]);
 
     // ── Silent background location tracking ──────────────────────────────────
     // Tracks technician coordinates.
@@ -802,6 +940,14 @@ function TechnicianApp() {
     };
 
     const handleCallCustomer = (mobile, customerName = 'Customer', jobId = null, customerId = null) => {
+        if (!isOnline) {
+            alert('Please go online to call customers.');
+            return;
+        }
+        if (!isWorkingHours()) {
+            alert('Calling customers is only allowed during working hours (8:00 AM - 9:00 PM).');
+            return;
+        }
         window.location.href = `tel:${mobile}`;
     };
 
@@ -1336,7 +1482,7 @@ function TechnicianApp() {
 
                                                     <div style={{ display: 'flex', gap: '6px', marginTop: 'auto' }} onClick={e => e.stopPropagation()}>
                                                         <button onClick={() => setCalculatorJob(job)} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>🧮 Estimate</button>
-                                                        {job.mobile ? <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📞 Call</a> : null}
+                                                        {job.mobile && isOnline && isWorkingHours() ? <a href={`tel:${job.mobile}`} style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📞 Call</a> : null}
                                                         {(job.location?.lat && job.location?.lng) ? <a href={`https://www.google.com/maps?q=${job.location.lat},${job.location.lng}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : (job.locality || job.city || job.address) ? <a href={`https://www.google.com/maps/search/${encodeURIComponent([job.address, job.locality, job.city].filter(Boolean).join(', '))}`} target="_blank" rel="noopener noreferrer" style={{ flex: 1, padding: '7px 4px', backgroundColor: 'rgba(59,130,246,0.15)', color: '#3b82f6', border: '1px solid rgba(59,130,246,0.3)', borderRadius: '8px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>📍 Map</a> : null}
                                                     </div>
                                                 </div>
@@ -1895,6 +2041,82 @@ function TechnicianApp() {
                     </div>
                 </div>
 
+                {/* Duty Status Card */}
+                <div 
+                    className="card"
+                    style={{ 
+                        padding: 'var(--spacing-lg)', 
+                        borderLeft: `4px solid ${isOnline ? '#10b981' : '#6b7280'}`, 
+                        backgroundColor: 'var(--bg-elevated)', 
+                        borderRadius: 'var(--radius-lg)', 
+                        boxShadow: 'var(--shadow-sm)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px'
+                    }}
+                >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ fontSize: '18px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                            <Activity size={20} color={isOnline ? '#10b981' : '#6b7280'} /> Duty Status
+                        </h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 600, color: isOnline ? '#10b981' : 'var(--text-secondary)' }}>
+                                {isOnline ? 'Online' : 'Offline'}
+                            </span>
+                            <button
+                                onClick={handleToggleOnline}
+                                style={{
+                                    width: '48px',
+                                    height: '24px',
+                                    borderRadius: '12px',
+                                    backgroundColor: isOnline ? '#10b981' : '#475569',
+                                    border: 'none',
+                                    position: 'relative',
+                                    cursor: 'pointer',
+                                    transition: 'background-color 0.2s',
+                                    padding: 0,
+                                    outline: 'none'
+                                }}
+                            >
+                                <span
+                                    style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        borderRadius: '50%',
+                                        backgroundColor: '#ffffff',
+                                        position: 'absolute',
+                                        top: '3px',
+                                        left: isOnline ? '27px' : '3px',
+                                        transition: 'left 0.2s',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                    }}
+                                />
+                            </button>
+                        </div>
+                    </div>
+
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
+                        {isOnline 
+                            ? "You are Online. Precise GPS location tracking is active. Customers and admin can see your live dispatch status." 
+                            : "You are Offline. Live GPS dispatch status is disabled. Customer phone numbers and details are hidden."}
+                    </p>
+
+                    {dutyStatusError && (
+                        <div style={{ color: '#ef4444', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: 'rgba(239, 68, 68, 0.1)', padding: '8px 12px', borderRadius: '6px' }}>
+                            <AlertCircle size={14} /> {dutyStatusError}
+                        </div>
+                    )}
+
+                    {(!isOnline && isSupposedToBeOnDutyToday()) && (
+                        <div style={{ color: '#f59e0b', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'flex-start', gap: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: '6px', lineHeight: 1.4 }}>
+                            <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
+                            <div>
+                                <strong>Alert:</strong> You are scheduled to be on duty today. Please switch to Online status to receive and view your jobs.
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* Jobs Summary Card (On Top) */}
                 <div 
                     className="card"
@@ -2331,6 +2553,7 @@ function TechnicianApp() {
                 <JobDetailView
                     job={selectedJob}
                     onClose={() => setSelectedJob(null)}
+                    isOnline={isOnline && isWorkingHours()}
                     onJobUpdate={(updatedJob) => {
                         // Update both the jobs list AND the selectedJob so the header/status reflects immediately
                         if (updatedJob) {

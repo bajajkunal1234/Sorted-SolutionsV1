@@ -154,6 +154,9 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
     const onlineCount = activeTechsList.length;
     const offlineCount = offlineTechsList.length;
 
+    const redAlertTechs = mergedLocations.filter(loc => loc.seconds_ago > 1800);
+    const redAlertCount = redAlertTechs.length;
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {/* Status badges */}
@@ -179,6 +182,30 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                     </div>
                 )}
             </div>
+
+            {/* Red Alert Banner */}
+            {redAlertCount > 0 && (
+                <div style={{
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.25)',
+                    color: '#ef4444',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
+                        <span>🚨 RED ALERT:</span>
+                        <span>{redAlertCount} {redAlertCount === 1 ? 'technician has' : 'technicians have'} not sent location pings for over 30 minutes!</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'rgba(239, 68, 68, 0.85)', paddingLeft: 22 }}>
+                        Unresponsive: {redAlertTechs.map(t => `${t.name} (${formatAge(t.seconds_ago)})`).join(', ')}
+                    </div>
+                </div>
+            )}
 
             {/* Map */}
             <div style={{ height: height, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
@@ -209,18 +236,50 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         <div style={{ fontWeight: 700, marginBottom: 4 }}>
                                             🔧 {loc.name}
                                         </div>
-                                        <div style={{
-                                            display: 'inline-block', padding: '2px 8px', borderRadius: 12,
-                                            background: isOffline ? 'rgba(239,68,68,0.15)' : (loc.is_on_job ? '#dcfce7' : '#f1f5f9'),
-                                            color: isOffline ? '#ef4444' : (loc.is_on_job ? '#16a34a' : '#64748b'),
-                                            fontSize: 11, fontWeight: 700, marginBottom: 6
-                                        }}>
-                                            {isOffline ? '💤 OFFLINE (LAST KNOWN)' : (loc.is_on_job ? '🟢 ON JOB' : '⚪ IDLE')}
+                                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
+                                            <span style={{
+                                                padding: '2px 8px', borderRadius: 12,
+                                                background: loc.is_online ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
+                                                color: loc.is_online ? '#10b981' : '#94a3b8',
+                                                fontSize: 10, fontWeight: 700
+                                            }}>
+                                                {loc.is_online ? 'ONLINE' : 'OFFLINE'}
+                                            </span>
+                                            <span style={{
+                                                padding: '2px 8px', borderRadius: 12,
+                                                background: loc.location_precision === 'precise' ? 'rgba(56, 189, 248, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                                                color: loc.location_precision === 'precise' ? '#38bdf8' : '#f59e0b',
+                                                fontSize: 10, fontWeight: 700
+                                            }}>
+                                                {loc.location_precision === 'precise' ? 'PRECISE' : 'APPROX'}
+                                            </span>
+                                            {loc.is_on_job && (
+                                                <span style={{
+                                                    padding: '2px 8px', borderRadius: 12,
+                                                    background: 'rgba(59, 130, 246, 0.15)',
+                                                    color: '#3b82f6',
+                                                    fontSize: 10, fontWeight: 700
+                                                }}>
+                                                    ON JOB
+                                                </span>
+                                            )}
                                         </div>
+
+                                        {loc.seconds_ago > 1800 && (
+                                            <div style={{
+                                                color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)',
+                                                padding: '4px 8px', borderRadius: 6, fontSize: 11,
+                                                fontWeight: 700, border: '1px solid rgba(239,68,68,0.2)',
+                                                marginBottom: 6
+                                            }}>
+                                                ⚠️ ALERT: No ping for &gt; 30m!
+                                            </div>
+                                        )}
+
                                         <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                                            <div>📍 {isOffline ? 'Last seen' : 'Updated'}: {formatAge(loc.seconds_ago)}</div>
+                                            <div>📍 Last seen: {formatAge(loc.seconds_ago)}</div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                {loc.tracking_source === 'native' ? (
+                                                {loc.tracking_source === 'native_service' ? (
                                                     <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
                                                 ) : (
                                                     <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>
@@ -248,30 +307,39 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8 }}>
                     {mergedLocations.map(loc => {
                         const isOffline = loc.seconds_ago > 900;
+                        const isRedAlert = loc.seconds_ago > 1800;
                         return (
                             <div key={loc.technician_id} style={{
                                 padding: '10px 12px', borderRadius: 10,
-                                background: isOffline ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)',
-                                border: `1px solid ${isOffline ? 'rgba(255,255,255,0.03)' : (loc.is_on_job ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)')}`,
+                                background: isRedAlert ? 'rgba(239, 68, 68, 0.05)' : (isOffline ? 'rgba(255,255,255,0.01)' : 'rgba(255,255,255,0.03)'),
+                                border: `1px solid ${isRedAlert ? '#ef4444' : (isOffline ? 'rgba(255,255,255,0.03)' : (loc.is_on_job ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.07)'))}`,
                                 display: 'flex', alignItems: 'center', gap: 10,
                                 opacity: isOffline ? 0.6 : 1
                             }}>
                                 <div style={{
                                     width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
-                                    backgroundColor: isOffline ? '#64748b' : (loc.is_on_job ? '#10b981' : '#475569'),
-                                    boxShadow: (!isOffline && loc.is_on_job) ? '0 0 0 3px rgba(16,185,129,0.2)' : 'none',
-                                    animation: (!isOffline && loc.is_on_job) ? 'pulse 2s infinite' : 'none',
+                                    backgroundColor: isRedAlert ? '#ef4444' : (isOffline ? '#64748b' : (loc.is_on_job ? '#10b981' : '#475569')),
+                                    boxShadow: isRedAlert ? '0 0 0 3px rgba(239, 68, 68, 0.2)' : ((!isOffline && loc.is_on_job) ? '0 0 0 3px rgba(16,185,129,0.2)' : 'none'),
+                                    animation: isRedAlert ? 'pulse 2s infinite' : ((!isOffline && loc.is_on_job) ? 'pulse 2s infinite' : 'none'),
                                 }} />
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 13, color: isOffline ? '#94a3b8' : '#e2e8f0' }}>
+                                    <div style={{ fontWeight: 600, fontSize: 13, color: isRedAlert ? '#fca5a5' : (isOffline ? '#94a3b8' : '#e2e8f0'), display: 'flex', alignItems: 'center', gap: 6 }}>
                                         {loc.name}
+                                        {isRedAlert && (
+                                            <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700 }}>🚨 LATE</span>
+                                        )}
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#64748b' }}>
-                                        {isOffline ? '💤 Offline' : (loc.is_on_job ? '🟢 On job' : '⚪ Idle')} · {formatAge(loc.seconds_ago)}
+                                    <div style={{ fontSize: 11, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+                                        <div>
+                                            {loc.is_online ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
+                                        </div>
+                                        <div>
+                                            Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}
+                                        </div>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
-                                    {loc.tracking_source === 'native' ? (
+                                    {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
                                         <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
                                     ) : (
                                         <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>

@@ -55,6 +55,40 @@ public class GPSBridgePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void setOnlineStatus(PluginCall call) {
+        Boolean isOnline = call.getBoolean("isOnline");
+        if (isOnline == null) {
+            isOnline = true;
+        }
+        Context context = getContext();
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putBoolean("is_online", isOnline).apply();
+
+        // Trigger onStartCommand to apply location listener changes immediately
+        String techId = prefs.getString(KEY_TECH_ID, "");
+        if (!techId.isEmpty()) {
+            boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            boolean hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+            if (hasFineLocation || hasCoarseLocation) {
+                Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(serviceIntent);
+                    } else {
+                        context.startService(serviceIntent);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        JSObject ret = new JSObject();
+        ret.put("success", true);
+        call.resolve(ret);
+    }
+
+    @PluginMethod
     public void clearTechnicianId(PluginCall call) {
         Context context = getContext();
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);

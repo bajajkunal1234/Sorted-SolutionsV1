@@ -103,6 +103,9 @@ public class BackgroundLocationService extends Service {
 
             // 5. Start periodic 5-minute pings
             startPeriodicPings(technicianId);
+        } else {
+            // Already tracking, but we might have changed online status!
+            startLocationUpdates();
         }
 
         return START_STICKY;
@@ -111,18 +114,13 @@ public class BackgroundLocationService extends Service {
     private void startLocationUpdates() {
         try {
             if (locationManager != null) {
-                // Query GPS provider
-                if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-                    locationManager.requestLocationUpdates(
-                        LocationManager.GPS_PROVIDER,
-                        30000, // min time 30s to keep cache warm
-                        10,    // min distance 10m
-                        locationListener
-                    );
-                    Location loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-                    if (loc != null) lastLocation = loc;
-                }
-                // Query Network provider (fallback for indoor tracking)
+                // Clear any active listener registration first
+                locationManager.removeUpdates(locationListener);
+
+                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                boolean isOnline = prefs.getBoolean("is_online", true);
+
+                // Query Network provider (always active, but is the sole provider when offline)
                 if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                     locationManager.requestLocationUpdates(
                         LocationManager.NETWORK_PROVIDER,
@@ -131,6 +129,20 @@ public class BackgroundLocationService extends Service {
                         locationListener
                     );
                     Location loc = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+                    if (loc != null) {
+                        lastLocation = loc;
+                    }
+                }
+
+                // Query GPS provider (only active when technician is online)
+                if (isOnline && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                    locationManager.requestLocationUpdates(
+                        LocationManager.GPS_PROVIDER,
+                        30000, // min time 30s to keep cache warm
+                        10,    // min distance 10m
+                        locationListener
+                    );
+                    Location loc = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
                     if (loc != null && (lastLocation == null || loc.getTime() > lastLocation.getTime())) {
                         lastLocation = loc;
                     }
@@ -189,10 +201,14 @@ public class BackgroundLocationService extends Service {
             conn.setConnectTimeout(15000);
             conn.setReadTimeout(15000);
 
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            boolean isOnline = prefs.getBoolean("is_online", true);
+            String precision = isOnline ? "precise" : "approx";
+
             String jsonPayload = String.format(
                 Locale.US,
-                "{\"technician_id\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"is_on_job\":false,\"tracking_source\":\"native_service\"}",
-                technicianId, lat, lng
+                "{\"technician_id\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"is_on_job\":false,\"tracking_source\":\"native_service\",\"is_online\":%b,\"location_precision\":\"%s\"}",
+                technicianId, lat, lng, isOnline, precision
             );
 
             try (OutputStream os = conn.getOutputStream()) {

@@ -27,7 +27,7 @@ const PinDropMap = dynamic(() => import('@/components/common/PinDropMap'), {
 
 
 
-export default function JobDetailView({ job, onClose, onJobUpdate }) {
+export default function JobDetailView({ job, onClose, onJobUpdate, isOnline = true }) {
     const [activeTab, setActiveTab] = useState('actions');
     const [editedJob, setEditedJob] = useState(job);
     const [loading, setLoading] = useState(false);
@@ -1411,7 +1411,11 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 <div style={{ display: 'grid', gap: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <Phone size={16} color="var(--text-secondary)" />
-                                        <a href={`tel:${editedJob.mobile}`} onClick={handleCallCustomerClick} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
+                                        {isOnline ? (
+                                            <a href={`tel:${editedJob.mobile}`} onClick={handleCallCustomerClick} style={{ color: '#3b82f6', textDecoration: 'none', fontWeight: 500 }}>{editedJob.mobile}</a>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-tertiary)', fontStyle: 'italic', fontSize: '14px' }}>•••••••••• (Go online to view)</span>
+                                        )}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                                         <MapPin size={16} color="var(--text-secondary)" style={{ marginTop: '2px', flexShrink: 0 }} />
