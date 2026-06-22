@@ -103,8 +103,8 @@ export default function CustomerApp() {
     }
 
     return (
-        <div style={{
-            height: '100dvh', display: 'flex', flexDirection: 'column',
+        <div className="h-dvh" style={{
+            display: 'flex', flexDirection: 'column',
             background: '#0a0f1e',
             color: '#f8fafc', fontFamily: "'Inter', system-ui, sans-serif",
             overflow: 'hidden', position: 'relative',

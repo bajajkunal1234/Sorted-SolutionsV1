@@ -17,8 +17,7 @@ export default function TechnicianPage() {
     }, [router])
 
     return (
-        <div style={{
-            minHeight: '100dvh',
+        <div className="dvh-full" style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

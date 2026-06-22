@@ -336,23 +336,23 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        backgroundColor: 'rgba(0,0,0,0.65)',
-                        backdropFilter: 'blur(4px)',
+                        backgroundColor: tok.modalBg,
                         zIndex: 100000,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
                     }}
-                    onClick={(e) => { if (e.target === e.currentTarget) setShowInboxModal(false); }}
                 >
                     <div style={{
                         backgroundColor: tok.modalBg,
-                        border: `1px solid ${tok.modalBorder}`,
-                        borderRadius: '16px',
-                        width: '100%', maxWidth: '560px',
-                        maxHeight: '85vh',
-                        display: 'flex', flexDirection: 'column',
-                        boxShadow: tok.shadow,
+                        border: 'none',
+                        borderRadius: 0,
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        boxShadow: 'none',
                         overflow: 'hidden',
+                        paddingTop: 'env(safe-area-inset-top, 0px)',
                     }}>
                         {/* Modal Header */}
                         <div style={{

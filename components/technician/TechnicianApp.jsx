@@ -27,7 +27,7 @@ const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor
 function TechnicianApp() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [viewMode, setViewMode] = useState('card');
+    const [viewMode, setViewMode] = useState('kanban');
 
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1978,7 +1978,14 @@ function TechnicianApp() {
     const renderLoader = (text) => {
         return (
             <div style={{
-                minHeight: '100dvh',
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                width: '100%',
+                height: '100%',
+                zIndex: 99999,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -2041,8 +2048,7 @@ function TechnicianApp() {
     if (gpsStatus === 'denied' || gpsStatus === 'error') {
         const isError = gpsStatus === 'error';
         return (
-            <div style={{
-                minHeight: '100dvh',
+            <div className="dvh-full" style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -2104,7 +2110,7 @@ function TechnicianApp() {
             userType="technician"
             userId={technicianId}
         />
-        <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
+        <div className="h-dvh" style={{ display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
             {!isDeviceOnline && (
                 <div style={{ backgroundColor: '#b45309', color: '#fef3c7', textAlign: 'center', padding: '6px 12px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', zIndex: 1000, borderBottom: '1px solid rgba(245,158,11,0.2)', flexShrink: 0 }}>
                     <span>⚠️ Working Offline</span>
