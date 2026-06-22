@@ -64,6 +64,37 @@ export function usePushNotifications({ userType, userId }) {
                 return;
             }
             
+            // Create default high-importance notification channels for Android so that alerts play sound and display heads-up banners.
+            // We first delete the channels to reset any previous silent configuration, and then create them with max importance.
+            try {
+                await PushNotifications.deleteChannel({ id: 'default' });
+            } catch (e) {
+                console.warn('[Native Push] Failed to delete default channel:', e);
+            }
+            try {
+                await PushNotifications.deleteChannel({ id: 'jobs' });
+            } catch (e) {
+                console.warn('[Native Push] Failed to delete jobs channel:', e);
+            }
+
+            await PushNotifications.createChannel({
+                id: 'default',
+                name: 'Default Channel',
+                description: 'General notifications',
+                importance: 5, // Max importance (heads-up banner with sound)
+                visibility: 1, // Public visibility
+                vibration: true,
+            });
+
+            await PushNotifications.createChannel({
+                id: 'jobs',
+                name: 'Jobs & Alerts',
+                description: 'Notifications for jobs, bookings, and updates',
+                importance: 5, // Max importance (heads-up banner with sound)
+                visibility: 1, // Public visibility
+                vibration: true,
+            });
+            
             // Listen for native registration success
             await PushNotifications.addListener('registration', async (token) => {
                 console.log('[Native Push] Registration token obtained:', token.value.substring(0, 20) + '...');

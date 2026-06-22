@@ -369,7 +369,7 @@ function JobInteractionsTab({ jobId, jobReference, interactions = [], onAddNote,
                 )}
 
                 {/* Interactions */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)', justifyContent: 'flex-start' }}>
                     {interactions.map((interaction) => (
                         <div key={interaction.id} style={{ position: 'relative', paddingLeft: '48px' }}>
                             {/* Timeline Dot */}

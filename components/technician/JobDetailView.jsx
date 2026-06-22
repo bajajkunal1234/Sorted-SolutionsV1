@@ -1138,16 +1138,18 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 style={{
-                                    display: 'flex', alignItems: 'center', gap: '6px',
-                                    padding: '8px 16px', fontSize: '14px', fontWeight: 500,
                                     border: 'none', borderRadius: '20px', cursor: 'pointer',
                                     transition: 'all 0.2s ease', flexShrink: 0,
                                     backgroundColor: isActive ? '#3b82f6' : 'var(--bg-secondary)',
                                     color: isActive ? '#fff' : 'var(--text-primary)',
+                                    padding: '8px 16px',
+                                    whiteSpace: 'nowrap'
                                 }}
                             >
-                                <Icon size={16} />
-                                {tab.label}
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+                                    <Icon size={16} />
+                                    {tab.label}
+                                </span>
                             </button>
                         );
                     })}
@@ -1800,7 +1802,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
             {/* ── No-Service Close Call Modal ── */}
             {showNoServiceModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                     <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1e1a2e,#0f0f1a)', borderTop: '1px solid rgba(239,68,68,0.2)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))' }}>
                         <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.12)', borderRadius: 2, margin: '0 auto 20px' }} />
 
@@ -1918,7 +1920,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
             {/* ── Location Verify Modal — shown after Mark as Arrived ── */}
             {showLocationVerifyModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 600, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                     <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 20px calc(28px + env(safe-area-inset-bottom))' }}>
                         <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
 
@@ -2042,7 +2044,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
 
             {/* ── Parts Ordered Gate Modal ── */}
             {showPartsNoteModal && (
-                <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+                <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', zIndex: 500, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
                     <div style={{ width: '100%', maxWidth: 480, background: 'linear-gradient(180deg,#1a2332,#0f172a)', borderTop: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px 24px 0 0', padding: '28px 24px calc(28px + env(safe-area-inset-bottom))' }}>
                         <div style={{ width: 40, height: 4, background: 'rgba(255,255,255,0.15)', borderRadius: 2, margin: '0 auto 20px' }} />
                         <h3 style={{ fontSize: 18, fontWeight: 700, color: '#f8fafc', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>

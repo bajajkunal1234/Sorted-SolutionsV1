@@ -286,7 +286,12 @@ function BottomSheet({ children, appColor, onClose }) {
             <div
                 onClick={onClose}
                 style={{
-                    position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.55)',
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.55)',
                     zIndex: 9998, backdropFilter: 'blur(4px)',
                     animation: 'fadeIn 0.25s ease',
                 }}

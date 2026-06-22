@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Calendar, User, Search, Hash, Banknote, QrCode, CreditCard, CheckCircle, ArrowRight, Upload, Paperclip, ShieldCheck, Loader2, Link as LinkIcon, Send, Copy } from 'lucide-react';
 import AutocompleteSearch from '../admin/AutocompleteSearch';
 import imageCompression from 'browser-image-compression';
@@ -16,6 +17,11 @@ export default function CollectPaymentFlow({
     onSuccess
 }) {
     const [step, setStep] = useState(1);
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
     
     // Step 1 State
     const [date, setDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -346,12 +352,15 @@ export default function CollectPaymentFlow({
         };
     }, [step, paymentMethod, razorpayLinkId, isPaymentConfirmed, isSplit, currentPaymentIndex]);
 
-    return (
+    const content = (
         <div 
             onClick={(e) => e.stopPropagation()}
             style={{
                 position: 'fixed',
-                inset: 0,
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 backgroundColor: 'rgba(0,0,0,0.5)',
                 backdropFilter: 'blur(4px)',
                 display: 'flex',
@@ -1033,4 +1042,7 @@ export default function CollectPaymentFlow({
             </div>
         </div>
     );
+
+    if (!mounted) return null;
+    return createPortal(content, document.body);
 }

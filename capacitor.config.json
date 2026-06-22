@@ -10,6 +10,9 @@
     "Keyboard": {
       "resize": "body",
       "style": "DARK"
+    },
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
     }
   }
 }
