@@ -45,6 +45,20 @@ function TechnicianApp() {
     // Offline Sync States & Listeners
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [isDeviceOnline, setIsDeviceOnline] = useState(true);
+    const [apkSize, setApkSize] = useState('6.53 MB');
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        fetch('/downloads/technician-app.apk', { method: 'HEAD' })
+            .then(res => {
+                const bytes = res.headers.get('Content-Length');
+                if (bytes) {
+                    const mb = (parseInt(bytes, 10) / 1000000).toFixed(2);
+                    setApkSize(`${mb} MB`);
+                }
+            })
+            .catch(err => console.warn('Could not fetch APK size:', err));
+    }, []);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -1593,7 +1607,7 @@ function TechnicianApp() {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
                 >
                     <Package size={16} />
-                    Download APK (Latest Version)
+                    Download APK (Latest Version - {apkSize})
                 </a>
             </div>
 
