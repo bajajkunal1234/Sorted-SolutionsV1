@@ -204,6 +204,45 @@ export default function JobsSearchPanel({
     const activeGroupBy = groupByOptions.find(o => o.value === groupBy);
     const activeSortBy = sortByOptions.find(o => o.value === sortBy);
 
+    // Find if current filters, grouping, and sorting match an existing saved view config
+    const activeSavedView = (() => {
+        if (!savedViews || savedViews.length === 0) return null;
+        return savedViews.find(view => {
+            const cfg = view.config;
+            if (!cfg) return false;
+            
+            // Compare groupBy (treating 'none', null, undefined, false as equivalent)
+            const vGroupBy = cfg.groupBy || 'none';
+            const cGroupBy = groupBy || 'none';
+            if (vGroupBy !== cGroupBy) return false;
+            
+            // Compare sortBy (treating null/undefined as 'dueDate')
+            const vSortBy = cfg.sortBy || 'dueDate';
+            const cSortBy = sortBy || 'dueDate';
+            if (vSortBy !== cSortBy) return false;
+            
+            // Compare sortOrder (treating null/undefined as 'asc')
+            const vSortOrder = cfg.sortOrder || 'asc';
+            const cSortOrder = sortOrder || 'asc';
+            if (vSortOrder !== cSortOrder) return false;
+            
+            // Compare activeTags
+            const vTags = cfg.activeTags || [];
+            const cTags = activeTags || [];
+            if (vTags.length !== cTags.length) return false;
+            
+            // Compare every tag's id
+            const vTagIds = vTags.map(t => t.id).filter(Boolean).sort();
+            const cTagIds = cTags.map(t => t.id).filter(Boolean).sort();
+            if (vTagIds.length !== cTagIds.length) return false;
+            for (let i = 0; i < vTagIds.length; i++) {
+                if (vTagIds[i] !== cTagIds[i]) return false;
+            }
+            
+            return true;
+        });
+    })();
+
     const optBtn = (active, label, onClick) => (
         <button
             onClick={onClick}
@@ -233,22 +272,41 @@ export default function JobsSearchPanel({
             }}>
                 <Search size={14} color="#64748b" style={{ flexShrink: 0 }} />
 
-                {/* Active filter tags */}
-                {activeTags.map(tag => (
-                    <FilterTag key={tag.id} label={tag.label} onRemove={() => onRemoveTag(tag.id)} />
-                ))}
-
-                {/* Group-by tag */}
-                {groupBy && groupBy !== 'none' && (
-                    <FilterTag label={`Group: ${activeGroupBy?.label || groupBy}`} onRemove={() => onGroupByChange('none')} />
-                )}
-
-                {/* Sort tag */}
-                {(sortBy !== 'dueDate' || sortOrder !== 'asc') && (
+                {/* Active saved view tag OR individual filter/group/sort tags */}
+                {activeSavedView ? (
                     <FilterTag
-                        label={`Sort: ${activeSortBy?.label || sortBy} ${sortOrder === 'asc' ? '↑' : '↓'}`}
-                        onRemove={() => { onSortByChange('dueDate'); onSortOrderChange('asc'); }}
+                        label={activeSavedView.name.startsWith('★') ? activeSavedView.name : `★ ${activeSavedView.name}`}
+                        onRemove={() => {
+                            if (onResetView) {
+                                onResetView();
+                            } else {
+                                activeTags.forEach(t => onRemoveTag(t.id));
+                                onGroupByChange('none');
+                                onSortByChange('dueDate');
+                                onSortOrderChange('asc');
+                            }
+                        }}
                     />
+                ) : (
+                    <>
+                        {/* Active filter tags */}
+                        {activeTags.map(tag => (
+                            <FilterTag key={tag.id} label={tag.label} onRemove={() => onRemoveTag(tag.id)} />
+                        ))}
+
+                        {/* Group-by tag */}
+                        {groupBy && groupBy !== 'none' && (
+                            <FilterTag label={`Group: ${activeGroupBy?.label || groupBy}`} onRemove={() => onGroupByChange('none')} />
+                        )}
+
+                        {/* Sort tag */}
+                        {(sortBy !== 'dueDate' || sortOrder !== 'asc') && (
+                            <FilterTag
+                                label={`Sort: ${activeSortBy?.label || sortBy} ${sortOrder === 'asc' ? '↑' : '↓'}`}
+                                onRemove={() => { onSortByChange('dueDate'); onSortOrderChange('asc'); }}
+                            />
+                        )}
+                    </>
                 )}
 
                 {/* Search input */}
@@ -261,7 +319,7 @@ export default function JobsSearchPanel({
                             setOpen(false);
                         }
                     }}
-                    placeholder={activeTags.length ? 'Add filter...' : 'Search by name, phone, job#, address...'}
+                    placeholder={(activeTags.length || activeSavedView) ? 'Add filter...' : 'Search by name, phone, job#, address...'}
                     onFocus={() => setOpen(true)}
                     style={{ flex: 1, minWidth: '100px', background: 'none', border: 'none', outline: 'none', color: '#e2e8f0', fontSize: '13px', padding: '2px 0' }}
                 />
