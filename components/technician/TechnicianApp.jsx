@@ -27,7 +27,7 @@ const GPSBridgePlugin = typeof window !== 'undefined' && window.Capacitor
 function TechnicianApp() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState('dashboard');
-    const [viewMode, setViewMode] = useState('kanban');
+    const [viewMode, setViewMode] = useState('card');
 
     const [jobs, setJobs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -1931,7 +1931,8 @@ function TechnicianApp() {
                                 display: 'flex',
                                 flexDirection: 'column',
                                 justifyContent: 'center',
-                                minHeight: dashboardView === 'grid' ? '112px' : 'auto'
+                                minHeight: dashboardView === 'grid' ? '112px' : 'auto',
+                                gridColumn: (dashboardView === 'grid' && index === cardsData.length - 1 && cardsData.length % 2 !== 0) ? 'span 2' : 'auto'
                             }}
                             onClick={card.onClick}
                             onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}

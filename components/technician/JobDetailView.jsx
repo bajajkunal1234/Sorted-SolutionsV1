@@ -721,7 +721,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => performMarkArrived(pos.coords.latitude, pos.coords.longitude),
                 () => performMarkArrived(),
-                { timeout: 5000, enableHighAccuracy: true }
+                { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
             );
         } else {
             performMarkArrived();
@@ -752,7 +752,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => sendLog(pos.coords.latitude, pos.coords.longitude),
                 () => sendLog(),
-                { timeout: 5000, enableHighAccuracy: true }
+                { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
             );
         } else {
             sendLog();
@@ -783,7 +783,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => sendLog(pos.coords.latitude, pos.coords.longitude),
                 () => sendLog(),
-                { timeout: 5000, enableHighAccuracy: true }
+                { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
             );
         } else {
             sendLog();
@@ -1455,27 +1455,49 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         className="btn btn-primary"
                                         style={{ width: '100%', padding: '14px', fontSize: '15px', fontWeight: 700, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg,#38bdf8,#3b82f6)', whiteSpace: 'normal' }}
                                         onClick={async () => {
-                                            if (!navigator.geolocation) return alert('GPS not supported on this device');
-                                            navigator.geolocation.getCurrentPosition(async (pos) => {
-                                                const lat = pos.coords.latitude;
-                                                const lng = pos.coords.longitude;
-                                                const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
-                                                await apiCall(`/api/technician/jobs/${job.id}`, {
-                                                    method: 'PUT',
-                                                    headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ 
-                                                        action: 'mark_on_way', 
-                                                        updated_by_name: techName,
-                                                        latitude: lat,
-                                                        longitude: lng
-                                                    })
-                                                });
-                                                setEditedJob(prev => ({ ...prev, on_way_at: new Date().toISOString() }));
-                                            }, () => alert('Please enable GPS permissions.'));
-                                        }}
+                                             if (loading) return;
+                                             setLoading(true);
+                                             
+                                             const markOnWay = async (lat = null, lng = null) => {
+                                                 try {
+                                                     const techName = editedJob.assigned_technician?.name || editedJob.technician_name || 'Technician';
+                                                     const res = await apiCall(`/api/technician/jobs/${job.id}`, {
+                                                         method: 'PUT',
+                                                         headers: { 'Content-Type': 'application/json' },
+                                                         body: JSON.stringify({ 
+                                                             action: 'mark_on_way', 
+                                                             updated_by_name: techName,
+                                                             latitude: lat,
+                                                             longitude: lng
+                                                         })
+                                                     });
+                                                     const data = await res.json();
+                                                     if (!res.ok) throw new Error(data.error || 'Failed to start job');
+                                                     setEditedJob(prev => ({ ...prev, on_way_at: new Date().toISOString() }));
+                                                     if (onJobUpdate && data.job) onJobUpdate(data.job);
+                                                 } catch (err) {
+                                                     alert('Failed to start job: ' + err.message);
+                                                 } finally {
+                                                     setLoading(false);
+                                                 }
+                                             };
+
+                                             if (navigator.geolocation) {
+                                                 navigator.geolocation.getCurrentPosition(
+                                                     (pos) => markOnWay(pos.coords.latitude, pos.coords.longitude),
+                                                     (err) => {
+                                                         console.warn('[GPS] Failed to retrieve position for Start Job, falling back without coordinates:', err);
+                                                         markOnWay();
+                                                     },
+                                                     { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
+                                                 );
+                                             } else {
+                                                 markOnWay();
+                                             }
+                                         }}
                                         disabled={loading}
                                     >
-                                         Start Job & Share Location
+                                         {loading ? 'Starting...' : 'Start Job & Share Location'}
                                     </button>
                                 </div>
                             )}
@@ -2086,7 +2108,7 @@ export default function JobDetailView({ job, onClose, onJobUpdate }) {
                                         navigator.geolocation.getCurrentPosition(
                                             (pos) => saveRepairNote(pos.coords.latitude, pos.coords.longitude),
                                             () => saveRepairNote(),
-                                            { timeout: 5000, enableHighAccuracy: true }
+                                            { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
                                         );
                                     } else {
                                         saveRepairNote();

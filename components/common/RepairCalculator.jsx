@@ -80,6 +80,7 @@ const PricePills = ({ b, setPriceType, setCustomPrice }) => (
 );
 
 export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoice, onApply, onClose, invoiceLabel, prefillItems }) {
+    const [mounted, setMounted] = useState(false);
     const [inventory, setInventory]       = useState([]);
     const [productLinks, setProductLinks] = useState([]);
     const [loading, setLoading]           = useState(true);
@@ -88,6 +89,11 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
     const [basket, setBasket]             = useState([]); // { ...item, qty, priceType, customPrice }
     const [showTax, setShowTax]           = useState(true);
     const [basketOpen, setBasketOpen]     = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        return () => setMounted(false);
+    }, []);
     const [showManual, setShowManual]     = useState(false);
     const [manualItem, setManualItem]     = useState({ name: '', rate: '', type: 'product' });
 
@@ -274,7 +280,6 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Search spare parts & services..."
                         style={{ paddingLeft: '32px', width: '100%', fontSize: '14px', padding: '10px 10px 10px 32px' }}
-                        autoFocus
                     />
                 </div>
 
@@ -474,5 +479,6 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         </div>
     );
 
-    return content;
+    if (!mounted) return null;
+    return createPortal(content, document.body);
 }
