@@ -158,6 +158,8 @@ body {
 .h-dvh {
   height: 100vh; /* fallback */
   height: 100dvh;
+  padding-top: env(safe-area-inset-top, 0px);
+  box-sizing: border-box;
 }
 
 /* Standalone PWA mode: compensate for status bar area at top */
