@@ -1874,7 +1874,7 @@ function TechnicianApp() {
                             </button>
                         </div>
                         {technicianId && (
-                            <div style={{ transform: 'scale(1.1)', transformOrigin: 'right center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
                                 <NotificationBell recipientId={technicianId} recipientType="technician" theme={darkMode ? 'dark' : 'light'} />
                             </div>
                         )}
@@ -2163,8 +2163,10 @@ function TechnicianApp() {
             {/* Bottom Tabs */}
             <nav className="bottom-tabs">
                 <button
-                    className={`tab-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'dashboard' && !showSupport) ? 'active' : ''}`}
                     onClick={() => {
+                        setShowSupport(false);
+                        setShowPurchaseRequestsList(false);
                         setActiveTab('dashboard');
                     }}
                 >
@@ -2172,8 +2174,9 @@ function TechnicianApp() {
                     <span>Dashboard</span>
                 </button>
                 <button
-                    className={`tab-item ${activeTab === 'jobs' ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'jobs' && !showSupport) ? 'active' : ''}`}
                     onClick={() => {
+                        setShowSupport(false);
                         setActiveTab('jobs');
                     }}
                 >
@@ -2181,8 +2184,9 @@ function TechnicianApp() {
                     <span>Jobs</span>
                 </button>
                 <button
-                    className={`tab-item ${activeTab === 'settings' ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'settings' || showSupport) ? 'active' : ''}`}
                     onClick={() => {
+                        setShowSupport(false);
                         setActiveTab('settings');
                     }}
                 >

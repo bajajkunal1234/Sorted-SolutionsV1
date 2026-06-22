@@ -240,7 +240,7 @@ export default function NotificationBell({ recipientId, recipientType, theme = '
             {isOpen && (
                 <div style={{
                     position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                    width: '340px', maxHeight: '480px',
+                    width: 'min(320px, calc(100vw - 24px))', maxHeight: '480px',
                     backgroundColor: tok.dropBg,
                     border: `1px solid ${tok.dropBorder}`,
                     borderRadius: '14px',
