@@ -51,32 +51,6 @@ function TechnicianApp() {
         isOnlineRef.current = isOnline;
     }, [isOnline]);
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-
-        const handleUnauthorizedLogout = () => {
-            const isNative = typeof window !== 'undefined' && !!window.Capacitor;
-            if (isNative && GPSBridgePlugin) {
-                GPSBridgePlugin.clearTechnicianId().catch(() => {});
-            }
-            if (technicianId) {
-                fetch('/api/customer/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'logout', technician_id: technicianId })
-                }).catch(() => {});
-            }
-            localStorage.removeItem('technicianSession');
-            localStorage.removeItem('technicianData');
-            alert('You have been logged out because you logged in on another device.');
-            window.location.href = '/login';
-        };
-
-        window.addEventListener('unauthorized-session-logout', handleUnauthorizedLogout);
-        return () => {
-            window.removeEventListener('unauthorized-session-logout', handleUnauthorizedLogout);
-        };
-    }, [technicianId]);
 
     // Offline Sync States & Listeners
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
@@ -290,6 +264,33 @@ function TechnicianApp() {
             router.push('/login');
         }
     }, [router]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const handleUnauthorizedLogout = () => {
+            const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+            if (isNative && GPSBridgePlugin) {
+                GPSBridgePlugin.clearTechnicianId().catch(() => {});
+            }
+            if (technicianId) {
+                fetch('/api/customer/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'logout', technician_id: technicianId })
+                }).catch(() => {});
+            }
+            localStorage.removeItem('technicianSession');
+            localStorage.removeItem('technicianData');
+            alert('You have been logged out because you logged in on another device.');
+            window.location.href = '/login';
+        };
+
+        window.addEventListener('unauthorized-session-logout', handleUnauthorizedLogout);
+        return () => {
+            window.removeEventListener('unauthorized-session-logout', handleUnauthorizedLogout);
+        };
+    }, [technicianId]);
 
     // ── Request push notification permission once logged in ────────────────
     usePushNotifications({ userType: 'technician', userId: technicianId });
