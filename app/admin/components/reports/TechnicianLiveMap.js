@@ -63,35 +63,56 @@ function MapController({ panTo }) {
 }
 
 const groupInteractionsBySession = (interactions) => {
-    const sessions = {};
-    interactions.forEach(item => {
-        const token = item.metadata?.session_token || 'legacy_or_other_session';
-        if (!sessions[token]) {
-            sessions[token] = {
-                token,
+    if (!interactions || interactions.length === 0) return [];
+
+    // 1. Sort chronologically (oldest first) to construct sessions sequentially
+    const sorted = [...interactions].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+    const sessionsList = [];
+    let currentSession = null;
+
+    sorted.forEach(item => {
+        const isLoginEvent = item.type === 'technician-login' || item.type === 'technician-login-otp';
+        const itemSessionToken = item.metadata?.session_token;
+
+        // Determine if we should start a new session:
+        // - No session bucket has been created yet
+        // - Encountered an explicit login event
+        // - The item has a session token that is different from our current session token
+        const shouldStartNew = !currentSession || isLoginEvent || (itemSessionToken && currentSession.token && itemSessionToken !== currentSession.token);
+
+        if (shouldStartNew) {
+            const sessionIp = item.metadata?.ip || item.metadata?.ip_address || (isLoginEvent ? item.metadata?.ip : null);
+            currentSession = {
+                token: itemSessionToken || `session_${item.timestamp}_${Math.random().toString(36).substring(2, 7)}`,
                 startTime: item.timestamp,
                 endTime: item.timestamp,
-                ip: item.metadata?.ip || null,
+                ip: sessionIp,
                 activities: []
             };
+            sessionsList.push(currentSession);
         }
-        sessions[token].activities.push(item);
-        if (new Date(item.timestamp) < new Date(sessions[token].startTime)) {
-            sessions[token].startTime = item.timestamp;
+
+        currentSession.activities.push(item);
+        
+        // Update session boundaries
+        if (new Date(item.timestamp) < new Date(currentSession.startTime)) {
+            currentSession.startTime = item.timestamp;
         }
-        if (new Date(item.timestamp) > new Date(sessions[token].endTime)) {
-            sessions[token].endTime = item.timestamp;
+        if (new Date(item.timestamp) > new Date(currentSession.endTime)) {
+            currentSession.endTime = item.timestamp;
+        }
+        if (!currentSession.ip && item.metadata?.ip) {
+            currentSession.ip = item.metadata.ip;
         }
     });
 
-    return Object.values(sessions).map(sess => {
-        sess.activities.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-        const loginAct = sess.activities.find(a => a.type.includes('login'));
-        if (loginAct) {
-            sess.ip = loginAct.metadata?.ip || loginAct.metadata?.ip_address || sess.ip;
-        }
+    // 2. Within each session, sort activities descending (newest activity first)
+    // 3. Sort session list descending (newest session first)
+    return sessionsList.map(sess => {
+        sess.activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         return sess;
-    }).sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+    }).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 };
 
 function formatAge(secondsAgo) {

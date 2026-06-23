@@ -447,6 +447,16 @@ export async function POST(request) {
                         return NextResponse.json({ error: 'Failed to create active session. Please try again.' }, { status: 500 })
                     }
 
+                    await logInteractionServer({
+                        type: 'technician-login',
+                        category: 'account',
+                        customerId: technician.ledger_id || null,
+                        customerName: technician.name,
+                        description: `Technician logged in via password (${last10})`,
+                        metadata: { session_token: sessionToken, ip: clientIp },
+                        source: 'Technician App'
+                    }).catch(() => {})
+
                     const { password_hash, ...safeTech } = technician
                     return NextResponse.json({
                         success: true,
@@ -530,7 +540,16 @@ export async function POST(request) {
                     return NextResponse.json({ error: 'Failed to create active session. Please try again.' }, { status: 500 })
                 }
 
-                await logInteractionServer({ type: 'technician-login-otp', category: 'account', customerId: technician.ledger_id || null, customerName: technician.name, description: `Technician logged in via OTP (${last10})`, source: 'Technician App' })
+                await logInteractionServer({
+                    type: 'technician-login-otp',
+                    category: 'account',
+                    customerId: technician.ledger_id || null,
+                    customerName: technician.name,
+                    description: `Technician logged in via OTP (${last10})`,
+                    metadata: { session_token: sessionToken, ip: clientIp },
+                    source: 'Technician App'
+                }).catch(() => {})
+
                 const { password_hash, ...safeTech } = technician
                 return NextResponse.json({
                     success: true,
