@@ -42,13 +42,26 @@ const offlineIcon = new L.DivIcon({
 
 const MUMBAI = [19.076, 72.8777];
 
-function FitBounds({ positions }) {
+function FitBounds({ positions, trigger }) {
     const map = useMap();
+    const hasFitRef = useRef(false);
+    const prevTriggerRef = useRef(trigger);
+
     useEffect(() => {
         if (positions.length === 0) return;
-        const bounds = L.latLngBounds(positions.map(p => [p.latitude, p.longitude]));
-        if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-    }, [positions, map]);
+        
+        // Fit bounds if it is the first time, OR if the trigger was incremented
+        const shouldFit = !hasFitRef.current || trigger !== prevTriggerRef.current;
+        
+        if (shouldFit) {
+            const bounds = L.latLngBounds(positions.map(p => [p.latitude, p.longitude]));
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+                hasFitRef.current = true;
+                prevTriggerRef.current = trigger;
+            }
+        }
+    }, [positions, map, trigger]);
     return null;
 }
 
@@ -140,6 +153,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
 
     const [addressCache, setAddressCache] = useState({});
     const [mapType, setMapType] = useState('google-roadmap'); // 'google-roadmap', 'google-hybrid', 'voyager'
+    const [fitBoundsTrigger, setFitBoundsTrigger] = useState(0);
 
     // Helper to get or trigger reverse geocoding
     const fetchAddressForCoords = async (lat, lng) => {
@@ -383,6 +397,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                     right: 10,
                     zIndex: 1000,
                     display: 'flex',
+                    alignItems: 'center',
                     gap: 6,
                     backgroundColor: 'rgba(15, 23, 42, 0.85)',
                     backdropFilter: 'blur(8px)',
@@ -390,6 +405,24 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                     borderRadius: 8,
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                 }}>
+                    <button
+                        onClick={() => setFitBoundsTrigger(prev => prev + 1)}
+                        style={{
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: 'rgba(255,255,255,0.1)',
+                            color: '#fff',
+                            transition: 'all 0.2s',
+                        }}
+                        title="Center map on all technicians"
+                    >
+                        🎯 Center Map
+                    </button>
+                    <div style={{ width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center' }} />
                     <button
                         onClick={() => setMapType('google-roadmap')}
                         style={{
@@ -459,7 +492,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                             attribution='&copy; <a href="https://carto.com/">Carto</a>'
                         />
                     )}
-                    {mergedLocations.length > 0 && <FitBounds positions={mergedLocations} />}
+                    {mergedLocations.length > 0 && <FitBounds positions={mergedLocations} trigger={fitBoundsTrigger} />}
                     <MapController panTo={mapPanTarget} />
 
                     {mergedLocations.map(loc => {
