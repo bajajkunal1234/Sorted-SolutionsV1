@@ -1414,17 +1414,6 @@ function TechnicianManagement({ initialSubTab }) {
                             <h3 style={{ fontWeight: 700, marginBottom: 4 }}>Live Technician Fleet</h3>
                             <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Real-time locations of all technicians currently on in-progress jobs.</p>
                         </div>
-                        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                            <button onClick={fetchActiveJobs} disabled={fleetLoading} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.4)', background: 'rgba(99,102,241,0.1)', color: '#6366f1', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-                                <RefreshCcw size={14} style={{ animation: fleetLoading ? 'spin 0.8s linear infinite' : 'none' }} /> Refresh
-                            </button>
-                            {geocodeCount > 0 && (
-                                <button onClick={handleRunGeocode} disabled={geocodeStatus === 'running'} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-                                    <MapPin size={14} />
-                                    {geocodeStatus === 'running' ? 'Converting...' : `🔄 Convert ${geocodeCount} Old Addresses`}
-                                </button>
-                            )}
-                        </div>
                     </div>
                     <TechnicianLiveMap activeJobs={activeJobs} />
                 </div>
