@@ -10,6 +10,12 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Prevent screenshots / video recordings of the app
+        getWindow().setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_SECURE,
+            android.view.WindowManager.LayoutParams.FLAG_SECURE
+        );
+
         registerPlugin(GPSBridgePlugin.class);
         super.onCreate(savedInstanceState);
         // Set the window background to solid black programmatically to prevent any splash screen image leak

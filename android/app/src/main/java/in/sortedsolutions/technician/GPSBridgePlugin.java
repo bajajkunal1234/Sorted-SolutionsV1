@@ -39,11 +39,12 @@ public class GPSBridgePlugin extends Plugin {
         }
         editor.apply();
 
-        // Start background location service immediately (24/7 tracking) ONLY if permission is granted
+        // Start background location service immediately (24/7 tracking) ONLY if permission is granted AND online
+        boolean isOnline = prefs.getBoolean("is_online", true);
         boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
         boolean hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
 
-        if (hasFineLocation || hasCoarseLocation) {
+        if (isOnline && (hasFineLocation || hasCoarseLocation)) {
             Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -55,7 +56,7 @@ public class GPSBridgePlugin extends Plugin {
                 e.printStackTrace();
             }
         } else {
-            android.util.Log.w("GPSBridgePlugin", "Location permission not granted yet. Service will start once permission is obtained.");
+            android.util.Log.i("GPSBridgePlugin", "Service not started: isOnline=" + isOnline + ", hasPermission=" + (hasFineLocation || hasCoarseLocation));
         }
 
         JSObject ret = new JSObject();
@@ -73,19 +74,28 @@ public class GPSBridgePlugin extends Plugin {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putBoolean("is_online", isOnline).apply();
 
-        // Trigger onStartCommand to apply location listener changes immediately
+        // Trigger onStartCommand to apply location listener changes immediately, or stop the service
         String techId = prefs.getString(KEY_TECH_ID, "");
         if (!techId.isEmpty()) {
-            boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            boolean hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
-            if (hasFineLocation || hasCoarseLocation) {
-                Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                        context.startForegroundService(serviceIntent);
-                    } else {
-                        context.startService(serviceIntent);
+            Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
+            if (isOnline) {
+                boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                boolean hasCoarseLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
+                if (hasFineLocation || hasCoarseLocation) {
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            context.startForegroundService(serviceIntent);
+                        } else {
+                            context.startService(serviceIntent);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
+                }
+            } else {
+                // Stop the service completely when offline to hide the sticky notification
+                try {
+                    context.stopService(serviceIntent);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

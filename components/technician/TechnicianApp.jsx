@@ -2234,7 +2234,7 @@ function TechnicianApp() {
                         <div style={{ color: '#f59e0b', fontSize: '12px', fontWeight: 500, display: 'flex', alignItems: 'flex-start', gap: '6px', backgroundColor: 'rgba(245, 158, 11, 0.1)', padding: '8px 12px', borderRadius: '6px', lineHeight: 1.4 }}>
                             <AlertCircle size={14} style={{ marginTop: '2px', flexShrink: 0 }} />
                             <div>
-                                <strong>Alert:</strong> You are scheduled to be on duty today. Please switch to Online status to receive and view your jobs.
+                                <strong>Alert:</strong> You are scheduled to be on duty today (Working hours: 8:00 AM - 9:00 PM). Please switch to Online status to receive and view your jobs.
                             </div>
                         </div>
                     )}
