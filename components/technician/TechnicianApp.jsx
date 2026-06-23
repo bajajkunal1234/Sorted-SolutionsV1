@@ -2099,7 +2099,7 @@ function TechnicianApp() {
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.4 }}>
                         {isOnline 
                             ? "You are Online. Precise GPS location tracking is active. Customers and admin can see your live dispatch status." 
-                            : "You are Offline. Live GPS dispatch status is disabled. Customer phone numbers and details are hidden."}
+                            : "You are Offline. Live GPS dispatch status is disabled."}
                     </p>
 
                     {dutyStatusError && (
