@@ -147,8 +147,8 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
         };
     });
 
-    const activeTechsList = mergedLocations.filter(l => l.seconds_ago <= 900);
-    const offlineTechsList = mergedLocations.filter(l => l.seconds_ago > 900);
+    const activeTechsList = mergedLocations.filter(l => l.is_online && l.seconds_ago <= 900);
+    const offlineTechsList = mergedLocations.filter(l => !l.is_online || l.seconds_ago > 900);
     const onJobCount = activeTechsList.filter(l => l.is_on_job).length;
     const idleCount = activeTechsList.filter(l => !l.is_on_job).length;
     const onlineCount = activeTechsList.length;
@@ -217,7 +217,8 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                     {mergedLocations.length > 0 && <FitBounds positions={mergedLocations} />}
 
                     {mergedLocations.map(loc => {
-                        const isOffline = loc.seconds_ago > 900;
+                        const isOffline = !loc.is_online || loc.seconds_ago > 900;
+                        const isTrulyOnline = loc.is_online && loc.seconds_ago <= 900;
                         let markerIcon = idleIcon;
                         if (isOffline) {
                             markerIcon = offlineIcon;
@@ -239,11 +240,11 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
                                             <span style={{
                                                 padding: '2px 8px', borderRadius: 12,
-                                                background: loc.is_online ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
-                                                color: loc.is_online ? '#10b981' : '#94a3b8',
+                                                background: isTrulyOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)',
+                                                color: isTrulyOnline ? '#10b981' : '#94a3b8',
                                                 fontSize: 10, fontWeight: 700
                                             }}>
-                                                {loc.is_online ? 'ONLINE' : 'OFFLINE'}
+                                                {isTrulyOnline ? 'ONLINE' : 'OFFLINE'}
                                             </span>
                                             <span style={{
                                                 padding: '2px 8px', borderRadius: 12,
@@ -279,7 +280,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
                                             <div>📍 Last seen: {formatAge(loc.seconds_ago)}</div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                {loc.tracking_source === 'native_service' ? (
+                                                {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
                                                     <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
                                                 ) : (
                                                     <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(148,163,184,0.1)', color: '#94a3b8', fontWeight: 700 }}>🌐 WEB</span>
@@ -306,7 +307,8 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
             {showRoster && mergedLocations.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 8 }}>
                     {mergedLocations.map(loc => {
-                        const isOffline = loc.seconds_ago > 900;
+                        const isOffline = !loc.is_online || loc.seconds_ago > 900;
+                        const isTrulyOnline = loc.is_online && loc.seconds_ago <= 900;
                         const isRedAlert = loc.seconds_ago > 1800;
                         return (
                             <div key={loc.technician_id} style={{
@@ -331,7 +333,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                     </div>
                                     <div style={{ fontSize: 11, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
                                         <div>
-                                            {loc.is_online ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
+                                            {isTrulyOnline ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
                                         </div>
                                         <div>
                                             Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}

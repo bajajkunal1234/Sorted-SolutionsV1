@@ -46,6 +46,11 @@ function TechnicianApp() {
     const [leavesLoading, setLeavesLoading] = useState(false);
     const [dutyStatusError, setDutyStatusError] = useState(null);
 
+    const isOnlineRef = useRef(isOnline);
+    useEffect(() => {
+        isOnlineRef.current = isOnline;
+    }, [isOnline]);
+
     // Offline Sync States & Listeners
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [isDeviceOnline, setIsDeviceOnline] = useState(true);
@@ -287,8 +292,13 @@ function TechnicianApp() {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 setGpsStatus('granted');
-                // Web/PWA: post coordinates inside working hours.
-                if (!isNative && isWorkingHoursCheck()) {
+                // Web/PWA: post coordinates.
+                if (!isNative) {
+                    const activeWorkingHours = isWorkingHoursCheck();
+                    const currentOnline = isOnlineRef.current;
+                    const pingOnline = activeWorkingHours ? currentOnline : false;
+                    const pingPrecision = pingOnline ? 'precise' : 'approx';
+
                     fetch('/api/technician/location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -297,7 +307,9 @@ function TechnicianApp() {
                             latitude: pos.coords.latitude,
                             longitude: pos.coords.longitude,
                             is_on_job: false,
-                            tracking_source: 'web'
+                            tracking_source: 'web',
+                            is_online: pingOnline,
+                            location_precision: pingPrecision
                         }),
                     }).catch(() => {});
                 }
