@@ -12,10 +12,8 @@ export const dynamic = 'force-dynamic'
 export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')
-
-    if (!q || q.trim().length < 3) {
-        return NextResponse.json({ success: false, error: 'Missing or too short query' }, { status: 400 })
-    }
+    const lat = searchParams.get('lat')
+    const lng = searchParams.get('lng')
 
     const key = process.env.GOOGLE_GEOCODING_API_KEY
     if (!key) {
@@ -23,21 +21,40 @@ export async function GET(request) {
     }
 
     try {
-        const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&key=${key}&region=in&components=country:IN`
-        const res = await fetch(url)
-        const data = await res.json()
+        if (lat && lng) {
+            // Reverse Geocoding (coordinates to address)
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${key}`
+            const res = await fetch(url)
+            const data = await res.json()
 
-        if (data.status === 'OK' && data.results.length > 0) {
-            const { lat, lng } = data.results[0].geometry.location
-            return NextResponse.json({
-                success: true,
-                lat,
-                lng,
-                formatted: data.results[0].formatted_address
-            })
+            if (data.status === 'OK' && data.results.length > 0) {
+                return NextResponse.json({
+                    success: true,
+                    formatted: data.results[0].formatted_address
+                })
+            }
+            return NextResponse.json({ success: false, status: data.status })
+        } else {
+            // Geocoding (address to coordinates)
+            if (!q || q.trim().length < 3) {
+                return NextResponse.json({ success: false, error: 'Missing or too short query' }, { status: 400 })
+            }
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(q)}&key=${key}&region=in&components=country:IN`
+            const res = await fetch(url)
+            const data = await res.json()
+
+            if (data.status === 'OK' && data.results.length > 0) {
+                const { lat: resolvedLat, lng: resolvedLng } = data.results[0].geometry.location
+                return NextResponse.json({
+                    success: true,
+                    lat: resolvedLat,
+                    lng: resolvedLng,
+                    formatted: data.results[0].formatted_address
+                })
+            }
+
+            return NextResponse.json({ success: false, status: data.status })
         }
-
-        return NextResponse.json({ success: false, status: data.status })
     } catch (err) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 })
     }

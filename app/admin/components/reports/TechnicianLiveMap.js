@@ -138,6 +138,32 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
     const [timelineLoading, setTimelineLoading] = useState(false);
     const [mapPanTarget, setMapPanTarget] = useState(null);
 
+    const [addressCache, setAddressCache] = useState({});
+    const [mapType, setMapType] = useState('google-roadmap'); // 'google-roadmap', 'google-hybrid', 'voyager'
+
+    // Helper to get or trigger reverse geocoding
+    const fetchAddressForCoords = async (lat, lng) => {
+        if (lat === null || lat === undefined || lng === null || lng === undefined) return;
+        const cacheKey = `${parseFloat(lat).toFixed(5)},${parseFloat(lng).toFixed(5)}`;
+        if (addressCache[cacheKey]) return;
+
+        // Set state to resolving to avoid duplicate concurrent calls
+        setAddressCache(prev => ({ ...prev, [cacheKey]: 'Resolving address...' }));
+
+        try {
+            const res = await fetch(`/api/geocode?lat=${lat}&lng=${lng}`);
+            const data = await res.json();
+            if (data.success && data.formatted) {
+                setAddressCache(prev => ({ ...prev, [cacheKey]: data.formatted }));
+            } else {
+                setAddressCache(prev => ({ ...prev, [cacheKey]: 'Address unavailable' }));
+            }
+        } catch (e) {
+            console.error('Failed to reverse geocode:', e);
+            setAddressCache(prev => ({ ...prev, [cacheKey]: 'Error resolving address' }));
+        }
+    };
+
     const handleRemoteLogout = async (technicianId, technicianName) => {
         if (!window.confirm(`Are you sure you want to remotely log off ${technicianName}?`)) return;
         try {
@@ -262,6 +288,32 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
         };
     });
 
+    // Auto-resolve addresses for merged live locations
+    useEffect(() => {
+        mergedLocations.forEach(loc => {
+            if (loc.latitude && loc.longitude) {
+                const cacheKey = `${parseFloat(loc.latitude).toFixed(5)},${parseFloat(loc.longitude).toFixed(5)}`;
+                if (!addressCache[cacheKey]) {
+                    fetchAddressForCoords(loc.latitude, loc.longitude);
+                }
+            }
+        });
+    }, [allLocations, livePositions]);
+
+    // Auto-resolve addresses for timeline data activities
+    useEffect(() => {
+        timelineData.forEach(act => {
+            if (act.metadata?.latitude && act.metadata?.longitude) {
+                const lat = act.metadata.latitude;
+                const lng = act.metadata.longitude;
+                const cacheKey = `${parseFloat(lat).toFixed(5)},${parseFloat(lng).toFixed(5)}`;
+                if (!addressCache[cacheKey]) {
+                    fetchAddressForCoords(lat, lng);
+                }
+            }
+        });
+    }, [timelineData]);
+
     const activeTechsList = mergedLocations.filter(l => l.is_online && l.seconds_ago <= 900);
     const offlineTechsList = mergedLocations.filter(l => !l.is_online || l.seconds_ago > 900);
     const onJobCount = activeTechsList.filter(l => l.is_on_job).length;
@@ -323,12 +375,90 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
             )}
 
             {/* Map */}
-            <div style={{ height: height, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+            <div style={{ position: 'relative', height: height, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+                {/* Map Type Switcher Floating Overlay */}
+                <div style={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 10,
+                    zIndex: 1000,
+                    display: 'flex',
+                    gap: 6,
+                    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                    backdropFilter: 'blur(8px)',
+                    padding: 4,
+                    borderRadius: 8,
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                }}>
+                    <button
+                        onClick={() => setMapType('google-roadmap')}
+                        style={{
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: mapType === 'google-roadmap' ? '#6366f1' : 'transparent',
+                            color: '#fff',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🗺️ Google Map
+                    </button>
+                    <button
+                        onClick={() => setMapType('google-hybrid')}
+                        style={{
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: mapType === 'google-hybrid' ? '#6366f1' : 'transparent',
+                            color: '#fff',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🛰️ Satellite
+                    </button>
+                    <button
+                        onClick={() => setMapType('voyager')}
+                        style={{
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                            borderRadius: 6,
+                            border: 'none',
+                            cursor: 'pointer',
+                            backgroundColor: mapType === 'voyager' ? '#6366f1' : 'transparent',
+                            color: '#fff',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        🎨 Classic
+                    </button>
+                </div>
+
                 <MapContainer center={MUMBAI} zoom={12} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer
-                        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                        attribution='&copy; <a href="https://carto.com/">Carto</a>'
-                    />
+                    {mapType === 'google-roadmap' && (
+                        <TileLayer
+                            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+                            attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
+                        />
+                    )}
+                    {mapType === 'google-hybrid' && (
+                        <TileLayer
+                            url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+                            attribution='&copy; <a href="https://google.com/maps">Google Maps</a>'
+                        />
+                    )}
+                    {mapType === 'voyager' && (
+                        <TileLayer
+                            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                            attribution='&copy; <a href="https://carto.com/">Carto</a>'
+                        />
+                    )}
                     {mergedLocations.length > 0 && <FitBounds positions={mergedLocations} />}
                     <MapController panTo={mapPanTarget} />
 
@@ -424,6 +554,28 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                                 )}
                                                 {loc.isRealtime && <span style={{ color: '#10b981', fontWeight: 700, fontSize: 10 }}>● LIVE</span>}
                                             </div>
+                                            {(() => {
+                                                const cacheKey = `${parseFloat(loc.latitude).toFixed(5)},${parseFloat(loc.longitude).toFixed(5)}`;
+                                                const addr = addressCache[cacheKey];
+                                                if (addr) {
+                                                    return (
+                                                        <div style={{ 
+                                                            fontSize: 10, 
+                                                            color: '#e2e8f0', 
+                                                            marginTop: 6, 
+                                                            padding: '6px 8px', 
+                                                            backgroundColor: 'rgba(255,255,255,0.05)', 
+                                                            borderRadius: 6,
+                                                            border: '1px solid rgba(255,255,255,0.05)',
+                                                            lineHeight: '1.4',
+                                                            wordBreak: 'break-word'
+                                                        }}>
+                                                            🏠 {addr}
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
                                         </div>
 
                                         <button
@@ -526,6 +678,19 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         <div>
                                             Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}
                                         </div>
+                                        {(() => {
+                                            const cacheKey = `${parseFloat(loc.latitude).toFixed(5)},${parseFloat(loc.longitude).toFixed(5)}`;
+                                            const addr = addressCache[cacheKey];
+                                            if (addr) {
+                                                return (
+                                                    <div style={{ color: '#cbd5e1', fontSize: 11, marginTop: 4, display: 'flex', gap: 4, fontStyle: 'italic', wordBreak: 'break-word', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }}>
+                                                        <span>🏠</span>
+                                                        <span>{addr}</span>
+                                                    </div>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
@@ -766,6 +931,20 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                                                     near {act.metadata.locality}
                                                                 </span>
                                                             )}
+                                                            {(() => {
+                                                                const lat = act.metadata.latitude;
+                                                                const lng = act.metadata.longitude;
+                                                                const cacheKey = `${parseFloat(lat).toFixed(5)},${parseFloat(lng).toFixed(5)}`;
+                                                                const addr = addressCache[cacheKey];
+                                                                if (addr) {
+                                                                    return (
+                                                                        <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic', display: 'block', width: '100%', marginTop: 2 }}>
+                                                                            🏠 {addr}
+                                                                        </span>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
                                                         </div>
                                                     )}
                                                 </div>
