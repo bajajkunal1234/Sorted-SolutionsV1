@@ -39,6 +39,7 @@ function TechnicianApp() {
     const [activeTags, setActiveTags] = useState([]);
     const [savedViews, setSavedViews] = useState([]);
     const [saveStatus, setSaveStatus] = useState(null);
+    const [selectedJob, setSelectedJob] = useState(null);
     const [gpsStatus, setGpsStatus] = useState('checking'); // 'checking' | 'granted' | 'denied' | 'error'
     const [isOnline, setIsOnline] = useState(true);
     const [leaves, setLeaves] = useState([]);
