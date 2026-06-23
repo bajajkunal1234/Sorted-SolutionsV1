@@ -26,6 +26,14 @@ const CUSTOMER_CARD_FIELDS = [
 
 function TechnicianManagement({ initialSubTab }) {
     const [activeTab, setActiveTab] = useState('profile');
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // ─── Fleet map state ──────────────────────────────────────────────────────
     const [activeJobs, setActiveJobs] = useState([]);
@@ -568,6 +576,46 @@ function TechnicianManagement({ initialSubTab }) {
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
+            <style dangerouslySetInnerHTML={{ __html: `
+                .admin-tabs-container::-webkit-scrollbar {
+                    display: none;
+                }
+                .admin-sticky-table-container {
+                    overflow: auto;
+                    max-height: 550px;
+                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--border-primary);
+                    -webkit-overflow-scrolling: touch;
+                    position: relative;
+                }
+                .admin-sticky-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: var(--font-size-sm);
+                }
+                .admin-sticky-table th {
+                    position: sticky;
+                    top: 0;
+                    z-index: 10;
+                    background-color: var(--bg-secondary) !important;
+                    box-shadow: inset 0 -1px 0 var(--border-primary);
+                    padding: 10px 14px;
+                    font-weight: 600;
+                    white-space: nowrap;
+                    text-align: left;
+                }
+                .admin-sticky-table td {
+                    padding: 10px 14px;
+                    border-bottom: 1px solid var(--border-primary);
+                    vertical-align: top;
+                }
+                .admin-sticky-table tr:last-child td {
+                    border-bottom: none;
+                }
+                .admin-sticky-table tr:hover {
+                    background-color: rgba(255, 255, 255, 0.015);
+                }
+            ` }} />
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-lg)' }}>
                 <div>
@@ -577,7 +625,7 @@ function TechnicianManagement({ initialSubTab }) {
             </div>
 
             {/* Top-level subtabs */}
-            <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', paddingBottom: 0 }}>
+            <div className="admin-tabs-container" style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-lg)', borderBottom: '1px solid var(--border-primary)', paddingBottom: 0, overflowX: 'auto', whiteSpace: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
                 {[
                     { id: 'profile', label: '👤 Technician Profile' },
                     { id: 'expenses', label: '💰 Technician Expenses' },
@@ -594,7 +642,8 @@ function TechnicianManagement({ initialSubTab }) {
                             backgroundColor: 'transparent',
                             color: activeTab === t.id ? 'var(--color-primary)' : 'var(--text-secondary)',
                             fontWeight: activeTab === t.id ? 600 : 400,
-                            fontSize: 'var(--font-size-sm)', transition: 'all 0.15s'
+                            fontSize: 'var(--font-size-sm)', transition: 'all 0.15s',
+                            flexShrink: 0
                         }}
                     >{t.label}</button>
                 ))}
@@ -602,55 +651,66 @@ function TechnicianManagement({ initialSubTab }) {
 
             {/* ──────────────── TECHNICIAN PROFILE TAB ──────────────── */}
             {activeTab === 'profile' && (
-                <div style={{ display: 'grid', gridTemplateColumns: selectedTech ? '280px 1fr' : '1fr', gap: 20, alignItems: 'start' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'start' }}>
                     {/* Technician list */}
-                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                        <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', margin: 0 }}>Technicians</h3>
-                            <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{technicians.length} total</span>
-                        </div>
-                        {technicians.length === 0 ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
-                                No technicians found.<br />Add technicians via the Accounts tab.
+                    {(!isMobile || !selectedTech) && (
+                        <div style={{ flex: selectedTech ? '0 0 280px' : '1 1 100%', minWidth: '280px', backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+                            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-secondary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', margin: 0 }}>Technicians</h3>
+                                <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{technicians.length} total</span>
                             </div>
-                        ) : (
-                            technicians.map(tech => (
-                                <div
-                                    key={tech.id}
-                                    onClick={() => handleSelectTech(tech)}
-                                    style={{
-                                        display: 'flex', alignItems: 'center', gap: 12,
-                                        padding: '12px 16px', cursor: 'pointer',
-                                        borderBottom: '1px solid var(--border-primary)',
-                                        background: selectedTech?.id === tech.id ? 'rgba(99,102,241,0.08)' : 'transparent',
-                                        borderLeft: selectedTech?.id === tech.id ? '3px solid var(--color-primary)' : '3px solid transparent',
-                                        transition: 'all 0.15s',
-                                    }}
-                                >
-                                    {tech.photo_url
-                                        ? <img src={tech.photo_url} alt={tech.name} style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-                                        : <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 15, fontWeight: 700 }}>
-                                            {tech.name?.[0]?.toUpperCase() || '?'}
-                                          </div>
-                                    }
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>{tech.name}</div>
-                                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{tech.phone || '—'}</div>
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-                                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 9999, backgroundColor: tech.is_active !== false ? '#d1fae5' : '#fee2e2', color: tech.is_active !== false ? '#059669' : '#dc2626' }}>
-                                            {tech.is_active !== false ? 'Active' : 'Inactive'}
-                                        </span>
-                                        {tech.rating > 0 && <span style={{ fontSize: 11, color: '#f59e0b' }}>★ {tech.rating}</span>}
-                                    </div>
+                            {technicians.length === 0 ? (
+                                <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)', fontSize: 13 }}>
+                                    No technicians found.<br />Add technicians via the Accounts tab.
                                 </div>
-                            ))
-                        )}
-                    </div>
+                            ) : (
+                                technicians.map(tech => (
+                                    <div
+                                        key={tech.id}
+                                        onClick={() => handleSelectTech(tech)}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 12,
+                                            padding: '12px 16px', cursor: 'pointer',
+                                            borderBottom: '1px solid var(--border-primary)',
+                                            background: selectedTech?.id === tech.id ? 'rgba(99,102,241,0.08)' : 'transparent',
+                                            borderLeft: selectedTech?.id === tech.id ? '3px solid var(--color-primary)' : '3px solid transparent',
+                                            transition: 'all 0.15s',
+                                        }}
+                                    >
+                                        {tech.photo_url
+                                            ? <img src={tech.photo_url} alt={tech.name} style={{ width: 38, height: 38, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                                            : <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#fff', fontSize: 15, fontWeight: 700 }}>
+                                                {tech.name?.[0]?.toUpperCase() || '?'}
+                                              </div>
+                                        }
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 600, fontSize: 'var(--font-size-sm)', marginBottom: 2 }}>{tech.name}</div>
+                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', fontFamily: 'monospace' }}>{tech.phone || '—'}</div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                                            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 9999, backgroundColor: tech.is_active !== false ? '#d1fae5' : '#fee2e2', color: tech.is_active !== false ? '#059669' : '#dc2626' }}>
+                                                {tech.is_active !== false ? 'Active' : 'Inactive'}
+                                            </span>
+                                            {tech.rating > 0 && <span style={{ fontSize: 11, color: '#f59e0b' }}>★ {tech.rating}</span>}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
 
                     {/* Profile Editor */}
                     {selectedTech && profileDraft && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ flex: '1 1 400px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            {isMobile && (
+                                <button 
+                                    className="btn btn-secondary" 
+                                    onClick={() => { setSelectedTech(null); setProfileDraft(null); }}
+                                    style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, marginBottom: 4 }}
+                                >
+                                    ← Back to Technicians
+                                </button>
+                            )}
                             {/* OTP Login notice */}
                             <div style={{ padding: '10px 14px', backgroundColor: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, fontSize: 13, color: '#6ee7b7', display: 'flex', gap: 8, alignItems: 'center' }}>
                                 📱 <span><strong>{selectedTech.name}</strong> logs in via <strong>OTP</strong> on their registered mobile number — no password needed.</span>
@@ -825,7 +885,7 @@ function TechnicianManagement({ initialSubTab }) {
             {activeTab === 'expenses' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
                     <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                        <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
+                        <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', flexWrap: 'wrap', gap: '12px' }}>
                             <div>
                                 <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', margin: 0 }}>Allowed Expense Categories</h3>
                                 <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Define what technicians can claim and the daily limits</p>
@@ -837,7 +897,7 @@ function TechnicianManagement({ initialSubTab }) {
                         <div style={{ padding: 'var(--spacing-md)' }}>
                             <div style={{ display: 'grid', gap: 'var(--spacing-sm)', marginBottom: 'var(--spacing-md)' }}>
                                 {categories.map((cat, i) => (
-                                    <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                                    <div key={cat.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', flexWrap: 'wrap' }}>
                                         <div style={{ width: 14, height: 14, borderRadius: '50%', backgroundColor: cat.color, flexShrink: 0 }} />
                                         {editingCat === i ? (
                                             <>
@@ -857,8 +917,8 @@ function TechnicianManagement({ initialSubTab }) {
                                     </div>
                                 ))}
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-primary)' }}>
-                                <input className="form-input" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory(p => ({ ...p, name: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-sm)' }} />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)', padding: 'var(--spacing-sm)', backgroundColor: 'rgba(59,130,246,0.05)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-primary)', flexWrap: 'wrap' }}>
+                                <input className="form-input" placeholder="Category name" value={newCategory.name} onChange={e => setNewCategory(p => ({ ...p, name: e.target.value }))} style={{ flex: '1 1 120px', minWidth: '100px', padding: '6px 10px', fontSize: 'var(--font-size-sm)' }} />
                                 <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>Limit ₹</span>
                                 <input className="form-input" type="number" placeholder="500" value={newCategory.daily_limit} onChange={e => setNewCategory(p => ({ ...p, daily_limit: e.target.value }))} style={{ width: '80px', padding: '6px 8px', fontSize: 'var(--font-size-sm)' }} />
                                 <button className="btn btn-primary" onClick={handleAddCategory} style={{ padding: '6px 12px', fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -958,7 +1018,7 @@ function TechnicianManagement({ initialSubTab }) {
                             ) : (
                                 <div style={{ padding: 'var(--spacing-md)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
                                     {/* Balance Cards */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr', gap: 'var(--spacing-md)' }}>
                                         <div style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-lg)', padding: 'var(--spacing-md)', textAlign: 'center' }}>
                                             <div style={{ fontSize: '11px', color: 'var(--text-tertiary)', textTransform: 'uppercase', fontWeight: 600 }}>Approved Claims (Credit)</div>
                                             <div style={{ fontSize: '18px', fontWeight: 700, color: '#10b981', marginTop: '4px' }}>₹{adminLedgerData.summary.total_expenses.toLocaleString('en-IN')}</div>
@@ -985,17 +1045,17 @@ function TechnicianManagement({ initialSubTab }) {
                                     </div>
 
                                     {/* Ledger Table */}
-                                    <div style={{ overflowX: 'auto', marginTop: 'var(--spacing-sm)' }}>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                                    <div className="admin-sticky-table-container" style={{ marginTop: 'var(--spacing-sm)' }}>
+                                        <table className="admin-sticky-table" style={{ minWidth: '850px' }}>
                                             <thead>
                                                 <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
-                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Date</th>
-                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Type</th>
-                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Reference</th>
-                                                    <th style={{ padding: '10px 14px', fontWeight: 600 }}>Description</th>
-                                                    <th style={{ padding: '10px 14px', fontWeight: 600, textAlign: 'right' }}>Debit (Paid)</th>
-                                                    <th style={{ padding: '10px 14px', fontWeight: 600, textAlign: 'right' }}>Credit (Claimed)</th>
-                                                    <th style={{ padding: '10px 14px', fontWeight: 600, textAlign: 'right' }}>Running Balance</th>
+                                                    <th style={{ textAlign: 'left' }}>Date</th>
+                                                    <th style={{ textAlign: 'left' }}>Type</th>
+                                                    <th style={{ textAlign: 'left' }}>Reference</th>
+                                                    <th style={{ textAlign: 'left' }}>Description</th>
+                                                    <th style={{ textAlign: 'right' }}>Debit (Paid)</th>
+                                                    <th style={{ textAlign: 'right' }}>Credit (Claimed)</th>
+                                                    <th style={{ textAlign: 'right' }}>Running Balance</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1126,14 +1186,16 @@ function TechnicianManagement({ initialSubTab }) {
                                                     </div>
                                                 </div>
                                                 {exp.status === 'pending' && (
-                                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)' }}>
-                                                        <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
-                                                        <button onClick={() => handleApproveExpenseDirectly(exp)} style={{ padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            <Check size={14} /> Approve & Post to Ledger
-                                                        </button>
-                                                        <button onClick={() => handleReviewExpense(exp, 'rejected')} style={{ padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                            <X size={14} /> Reject
-                                                        </button>
+                                                    <div style={{ display: 'flex', gap: 'var(--spacing-sm)', alignItems: 'center', marginTop: 'var(--spacing-xs)', flexWrap: 'wrap' }}>
+                                                        <input className="form-input" placeholder="Admin note (optional for rejection)" value={reviewNotes[exp.id] || ''} onChange={e => setReviewNotes(p => ({ ...p, [exp.id]: e.target.value }))} style={{ flex: '1 1 200px', minWidth: '150px', padding: '6px 10px', fontSize: 'var(--font-size-xs)' }} />
+                                                        <div style={{ display: 'flex', gap: 'var(--spacing-sm)', flexWrap: 'wrap', width: isMobile ? '100%' : 'auto' }}>
+                                                            <button onClick={() => handleApproveExpenseDirectly(exp)} style={{ flex: isMobile ? 1 : 'none', padding: '6px 14px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                                                                <Check size={14} /> Approve &amp; Post to Ledger
+                                                            </button>
+                                                            <button onClick={() => handleReviewExpense(exp, 'rejected')} style={{ flex: isMobile ? 1 : 'none', padding: '6px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600, fontSize: 'var(--font-size-sm)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                                                                <X size={14} /> Reject
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
@@ -1172,19 +1234,19 @@ function TechnicianManagement({ initialSubTab }) {
                                 <div>No {sparesFilter === 'all' ? '' : sparesFilter === 'pending' ? 'pending' : 'posted'} spares purchases found</div>
                             </div>
                         ) : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-sm)' }}>
+                            <div className="admin-sticky-table-container">
+                                <table className="admin-sticky-table" style={{ minWidth: '1050px' }}>
                                     <thead>
                                         <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600 }}>Date</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600 }}>Technician</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600 }}>Shop/Vendor</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600 }}>Invoice Details</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Total Amount</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Paid / Balance</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'center' }}>Status</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'center' }}>Handed to SC</th>
-                                            <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'center' }}>Actions</th>
+                                            <th style={{ textAlign: 'left' }}>Date</th>
+                                            <th style={{ textAlign: 'left' }}>Technician</th>
+                                            <th style={{ textAlign: 'left' }}>Shop/Vendor</th>
+                                            <th style={{ textAlign: 'left' }}>Invoice Details</th>
+                                            <th style={{ textAlign: 'right' }}>Total Amount</th>
+                                            <th style={{ textAlign: 'right' }}>Paid / Balance</th>
+                                            <th style={{ textAlign: 'center' }}>Status</th>
+                                            <th style={{ textAlign: 'center' }}>Handed to SC</th>
+                                            <th style={{ textAlign: 'center' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1337,16 +1399,16 @@ function TechnicianManagement({ initialSubTab }) {
                     }).length === 0 ? (
                         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)', border: '1px dashed var(--border-primary)', borderRadius: 10 }}>No leave requests found.</div>
                     ) : (
-                        <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                        <div className="admin-sticky-table-container">
+                            <table className="admin-sticky-table" style={{ minWidth: '800px' }}>
                                 <thead>
-                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
-                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Technician</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Leave Date</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Reason</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Applied On</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 600 }}>Status</th>
-                                        <th style={{ padding: '12px 16px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
+                                    <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
+                                        <th style={{ textAlign: 'left' }}>Technician</th>
+                                        <th style={{ textAlign: 'left' }}>Leave Date</th>
+                                        <th style={{ textAlign: 'left' }}>Reason</th>
+                                        <th style={{ textAlign: 'left' }}>Applied On</th>
+                                        <th style={{ textAlign: 'left' }}>Status</th>
+                                        <th style={{ textAlign: 'right' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
