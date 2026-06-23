@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Phone, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { Phone, Lock, ArrowRight, ShieldCheck, Eye, EyeOff, Loader2, ChevronLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import Header from '@/components/common/Header';
 import { auth } from '@/lib/firebase';
