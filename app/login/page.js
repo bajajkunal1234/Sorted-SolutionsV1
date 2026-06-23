@@ -32,7 +32,7 @@ function saveSession(user, persist) {
     }
 
     if (user.role === 'technician') {
-        const techSession = JSON.stringify({ technicianId: user.id });
+        const techSession = JSON.stringify({ technicianId: user.id, session_token: user.session_token });
         storage.setItem('technicianSession', techSession);
         storage.setItem('technicianData', JSON.stringify(user));
     } else {
@@ -147,6 +147,7 @@ function LoginContent() {
     const [successMsg, setSuccessMsg] = useState('');
     
     const [confirmationResult, setConfirmationResult] = useState(null);
+    const [pendingConfirm, setPendingConfirm] = useState(null);
     const recaptchaInitRef = useRef(false);
     const recaptchaVerifierRef = useRef(null);
 
@@ -170,6 +171,7 @@ function LoginContent() {
         setOtp(['', '', '', '', '', '']);
         setPassword('');
         setConfirmPassword('');
+        setPendingConfirm(null);
         if (toStep === 'phone') {
             setAccountStatus(null);
             setConfirmationResult(null);
@@ -283,15 +285,27 @@ function LoginContent() {
     };
 
     // ── STEP 2: PASSWORD LOGIN ───────────────────────────────────────────────
-    const handlePasswordLogin = async (e) => {
-        e.preventDefault(); setError(''); setLoading(true);
+    const handlePasswordLogin = async (e, confirmOverride = false) => {
+        if (e) e.preventDefault();
+        setError(''); setLoading(true);
         try {
+            const bodyPayload = { action: 'login', phone, password };
+            if (confirmOverride) {
+                bodyPayload.confirm_logout_other_device = true;
+            }
             const res = await fetch('/api/customer/auth', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'login', phone, password })
+                body: JSON.stringify(bodyPayload)
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Login failed');
+            if (!res.ok) {
+                if (data.require_confirmation) {
+                    setPendingConfirm({ action: 'login', payload: bodyPayload, message: data.message });
+                    setLoading(false);
+                    return;
+                }
+                throw new Error(data.error || 'Login failed');
+            }
             finishLogin(data.user);
         } catch (err) {
             setError(err.message);
@@ -307,18 +321,32 @@ function LoginContent() {
     };
 
     // ── STEP 3: VERIFY OTP (for Login) ───────────────────────────────────────
-    const handleOtpLoginVerify = async (e) => {
-        e.preventDefault();
-        const ok = await verifyOtp();
+    const handleOtpLoginVerify = async (e, confirmOverride = false) => {
+        if (e) e.preventDefault();
+        let ok = true;
+        if (!confirmOverride) {
+            ok = await verifyOtp();
+        }
         if (!ok) return;
         setLoading(true); setError('');
         try {
+            const bodyPayload = { action: 'otp-login', phone };
+            if (confirmOverride) {
+                bodyPayload.confirm_logout_other_device = true;
+            }
             const res = await fetch('/api/customer/auth', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'otp-login', phone })
+                body: JSON.stringify(bodyPayload)
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Login failed');
+            if (!res.ok) {
+                if (data.require_confirmation) {
+                    setPendingConfirm({ action: 'otp-login', payload: bodyPayload, message: data.message });
+                    setLoading(false);
+                    return;
+                }
+                throw new Error(data.error || 'Login failed');
+            }
             finishLogin(data.user);
         } catch (err) { setError(err.message); }
         finally { setLoading(false); }
@@ -410,6 +438,75 @@ function LoginContent() {
             <main style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                 <div style={cardStyle}>
                     
+                    {/* Confirmation Modal */}
+                    {pendingConfirm && (
+                        <div style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                            backdropFilter: 'blur(8px)',
+                            borderRadius: 24,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'center',
+                            alignItems: 'center',
+                            padding: 24,
+                            zIndex: 100,
+                            textAlign: 'center'
+                        }}>
+                            <AlertCircle size={48} color="#fca5a5" style={{ marginBottom: 16 }} />
+                            <h3 style={{ color: '#fff', fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Active Session Detected</h3>
+                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, lineHeight: '1.5', marginBottom: 24 }}>
+                                {pendingConfirm.message}
+                            </p>
+                            <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                                <button
+                                    onClick={() => {
+                                        const { action } = pendingConfirm;
+                                        setPendingConfirm(null);
+                                        if (action === 'login') {
+                                            handlePasswordLogin(null, true);
+                                        } else if (action === 'otp-login') {
+                                            handleOtpLoginVerify(null, true);
+                                        }
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px 16px',
+                                        backgroundColor: '#fff',
+                                        color: '#000',
+                                        border: 'none',
+                                        borderRadius: 12,
+                                        fontWeight: 700,
+                                        fontSize: 14,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Yes, Proceed
+                                </button>
+                                <button
+                                    onClick={() => setPendingConfirm(null)}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px 16px',
+                                        backgroundColor: 'rgba(255,255,255,0.08)',
+                                        color: '#fff',
+                                        border: '1px solid rgba(255,255,255,0.15)',
+                                        borderRadius: 12,
+                                        fontWeight: 700,
+                                        fontSize: 14,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Brand Header */}
                     <div style={{ textAlign: 'center', marginBottom: 32 }}>
                         <h1 style={{ fontSize: 24, fontWeight: 900, color: 'white', marginBottom: 4, letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-geist-sans), sans-serif', textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}>Sorted Solutions</h1>

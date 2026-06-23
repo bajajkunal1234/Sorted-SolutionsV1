@@ -17,10 +17,12 @@ public class GPSBridgePlugin extends Plugin {
 
     private static final String PREFS_NAME = "SortedSolutionsGPS";
     private static final String KEY_TECH_ID = "technician_id";
+    private static final String KEY_SESSION_TOKEN = "session_token";
 
     @PluginMethod
     public void setTechnicianId(PluginCall call) {
         String id = call.getString("id");
+        String sessionToken = call.getString("sessionToken");
         if (id == null || id.isEmpty()) {
             call.reject("Technician ID is required");
             return;
@@ -28,7 +30,14 @@ public class GPSBridgePlugin extends Plugin {
 
         Context context = getContext();
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().putString(KEY_TECH_ID, id).apply();
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString(KEY_TECH_ID, id);
+        if (sessionToken != null) {
+            editor.putString(KEY_SESSION_TOKEN, sessionToken);
+        } else {
+            editor.remove(KEY_SESSION_TOKEN);
+        }
+        editor.apply();
 
         // Start background location service immediately (24/7 tracking) ONLY if permission is granted
         boolean hasFineLocation = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED;
@@ -92,7 +101,7 @@ public class GPSBridgePlugin extends Plugin {
     public void clearTechnicianId(PluginCall call) {
         Context context = getContext();
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        prefs.edit().remove(KEY_TECH_ID).apply();
+        prefs.edit().remove(KEY_TECH_ID).remove(KEY_SESSION_TOKEN).apply();
 
         // Stop background location service immediately
         Intent serviceIntent = new Intent(context, BackgroundLocationService.class);

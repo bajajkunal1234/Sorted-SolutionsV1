@@ -51,6 +51,33 @@ function TechnicianApp() {
         isOnlineRef.current = isOnline;
     }, [isOnline]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const handleUnauthorizedLogout = () => {
+            const isNative = typeof window !== 'undefined' && !!window.Capacitor;
+            if (isNative && GPSBridgePlugin) {
+                GPSBridgePlugin.clearTechnicianId().catch(() => {});
+            }
+            if (technicianId) {
+                fetch('/api/customer/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'logout', technician_id: technicianId })
+                }).catch(() => {});
+            }
+            localStorage.removeItem('technicianSession');
+            localStorage.removeItem('technicianData');
+            alert('You have been logged out because you logged in on another device.');
+            window.location.href = '/login';
+        };
+
+        window.addEventListener('unauthorized-session-logout', handleUnauthorizedLogout);
+        return () => {
+            window.removeEventListener('unauthorized-session-logout', handleUnauthorizedLogout);
+        };
+    }, [technicianId]);
+
     // Offline Sync States & Listeners
     const [pendingSyncCount, setPendingSyncCount] = useState(0);
     const [isDeviceOnline, setIsDeviceOnline] = useState(true);
@@ -290,8 +317,14 @@ function TechnicianApp() {
         };
 
         navigator.geolocation.getCurrentPosition(
-            (pos) => {
+            async (pos) => {
                 setGpsStatus('granted');
+                try {
+                    localStorage.setItem('lastKnownCoordinates', JSON.stringify({
+                        latitude: pos.coords.latitude,
+                        longitude: pos.coords.longitude
+                    }));
+                } catch (e) {}
                 // Web/PWA: post coordinates.
                 if (!isNative) {
                     const activeWorkingHours = isWorkingHoursCheck();
@@ -299,19 +332,64 @@ function TechnicianApp() {
                     const pingOnline = activeWorkingHours ? currentOnline : false;
                     const pingPrecision = pingOnline ? 'precise' : 'approx';
 
-                    fetch('/api/technician/location', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            technician_id: technicianId,
-                            latitude: pos.coords.latitude,
-                            longitude: pos.coords.longitude,
-                            is_on_job: false,
-                            tracking_source: 'web',
-                            is_online: pingOnline,
-                            location_precision: pingPrecision
-                        }),
-                    }).catch(() => {});
+                    let sessionToken = null;
+                    try {
+                        const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+                        if (session) {
+                            sessionToken = JSON.parse(session).session_token;
+                        }
+                    } catch (e) {}
+
+                    let batteryLevel = null;
+                    if (typeof navigator !== 'undefined' && navigator.getBattery) {
+                        try {
+                            const battery = await navigator.getBattery();
+                            batteryLevel = Math.round(battery.level * 100);
+                        } catch (e) {}
+                    }
+
+                    let connectivityStatus = 'online';
+                    if (typeof navigator !== 'undefined') {
+                        if (!navigator.onLine) {
+                            connectivityStatus = 'offline';
+                        } else if (navigator.connection) {
+                            const connType = navigator.connection.type || navigator.connection.effectiveType || 'unknown';
+                            if (connType.includes('wifi')) {
+                                connectivityStatus = 'WiFi';
+                            } else if (connType.includes('cellular') || ['4g', '3g', '2g'].includes(connType)) {
+                                connectivityStatus = 'Cellular';
+                            } else {
+                                connectivityStatus = connType;
+                            }
+                        }
+                    }
+
+                    try {
+                        const res = await fetch('/api/technician/location', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                            },
+                            body: JSON.stringify({
+                                technician_id: technicianId,
+                                latitude: pos.coords.latitude,
+                                longitude: pos.coords.longitude,
+                                is_on_job: false,
+                                tracking_source: 'web',
+                                is_online: pingOnline,
+                                location_precision: pingPrecision,
+                                session_token: sessionToken,
+                                battery_level: batteryLevel,
+                                connectivity_status: connectivityStatus
+                            }),
+                        });
+                        if (res.status === 401) {
+                            window.dispatchEvent(new CustomEvent('unauthorized-session-logout'));
+                        }
+                    } catch (err) {
+                        console.warn('Failed to post location ping:', err);
+                    }
                 }
             },
             (err) => {
@@ -516,7 +594,15 @@ function TechnicianApp() {
         const isNative = typeof window !== 'undefined' && !!window.Capacitor;
 
         if (isNative && GPSBridgePlugin) {
-            GPSBridgePlugin.setTechnicianId({ id: String(technicianId) })
+            let sessionToken = null;
+            try {
+                const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+                if (session) {
+                    sessionToken = JSON.parse(session).session_token;
+                }
+            } catch (e) {}
+
+            GPSBridgePlugin.setTechnicianId({ id: String(technicianId), sessionToken: sessionToken })
                 .then(() => console.log('[Native GPS] Technician ID registered on native service'))
                 .catch(err => console.error('[Native GPS] Failed to register technician ID:', err));
         }

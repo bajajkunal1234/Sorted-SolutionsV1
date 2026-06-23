@@ -164,7 +164,7 @@ public class BackgroundLocationService extends Service {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
-                            sendLocationToServer(technicianId, loc.getLatitude(), loc.getLongitude());
+                            sendLocationToServer(technicianId, loc);
                         }
                     }).start();
                 } else {
@@ -174,7 +174,7 @@ public class BackgroundLocationService extends Service {
                         new Thread(new Runnable() {
                             @Override
                             public void run() {
-                                sendLocationToServer(technicianId, lastLocation.getLatitude(), lastLocation.getLongitude());
+                                sendLocationToServer(technicianId, lastLocation);
                             }
                         }).start();
                     }
@@ -189,7 +189,7 @@ public class BackgroundLocationService extends Service {
         handler.post(pingRunnable);
     }
 
-    private void sendLocationToServer(String technicianId, double lat, double lng) {
+    private void sendLocationToServer(String technicianId, Location loc) {
         HttpURLConnection conn = null;
         try {
             URL url = new URL("https://sortedsolutions.in/api/technician/location");
@@ -205,10 +205,76 @@ public class BackgroundLocationService extends Service {
             boolean isOnline = prefs.getBoolean("is_online", true);
             String precision = isOnline ? "precise" : "approx";
 
+            String sessionToken = prefs.getString("session_token", "");
+            if (sessionToken != null && !sessionToken.isEmpty()) {
+                conn.setRequestProperty("x-session-token", sessionToken);
+            }
+
+            boolean isMocked = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                isMocked = loc.isFromMockProvider();
+            }
+
+            int batteryLevel = -1;
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                    android.os.BatteryManager bm = (android.os.BatteryManager) getSystemService(BATTERY_SERVICE);
+                    if (bm != null) {
+                        batteryLevel = bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY);
+                    }
+                } else {
+                    Intent batteryIntent = registerReceiver(null, new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+                    if (batteryIntent != null) {
+                        int level = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                        int scale = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+                        if (level >= 0 && scale > 0) {
+                            batteryLevel = Math.round((level / (float) scale) * 100);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            String connectivityStatus = "offline";
+            try {
+                android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+                if (cm != null) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        android.net.Network activeNetwork = cm.getActiveNetwork();
+                        if (activeNetwork != null) {
+                            android.net.NetworkCapabilities capabilities = cm.getNetworkCapabilities(activeNetwork);
+                            if (capabilities != null) {
+                                if (capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI)) {
+                                    connectivityStatus = "WiFi";
+                                } else if (capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR)) {
+                                    connectivityStatus = "Cellular";
+                                } else {
+                                    connectivityStatus = "online";
+                                }
+                            }
+                        }
+                    } else {
+                        android.net.NetworkInfo activeNetworkInfo = cm.getActiveNetworkInfo();
+                        if (activeNetworkInfo != null && activeNetworkInfo.isConnected()) {
+                            if (activeNetworkInfo.getType() == android.net.ConnectivityManager.TYPE_WIFI) {
+                                connectivityStatus = "WiFi";
+                            } else if (activeNetworkInfo.getType() == android.net.ConnectivityManager.TYPE_MOBILE) {
+                                connectivityStatus = "Cellular";
+                            } else {
+                                connectivityStatus = "online";
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
             String jsonPayload = String.format(
                 Locale.US,
-                "{\"technician_id\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"is_on_job\":false,\"tracking_source\":\"native_service\",\"is_online\":%b,\"location_precision\":\"%s\"}",
-                technicianId, lat, lng, isOnline, precision
+                "{\"technician_id\":\"%s\",\"latitude\":%f,\"longitude\":%f,\"is_on_job\":false,\"tracking_source\":\"native_service\",\"is_online\":%b,\"location_precision\":\"%s\",\"session_token\":\"%s\",\"battery_level\":%d,\"connectivity_status\":\"%s\",\"is_mocked\":%b}",
+                technicianId, loc.getLatitude(), loc.getLongitude(), isOnline, precision, sessionToken, batteryLevel, connectivityStatus, isMocked
             );
 
             try (OutputStream os = conn.getOutputStream()) {
@@ -217,7 +283,13 @@ public class BackgroundLocationService extends Service {
             }
 
             int code = conn.getResponseCode();
-            // Success or failure log
+            if (code == 401) {
+                SharedPreferences.Editor editor = prefs.edit();
+                editor.remove(KEY_TECH_ID);
+                editor.remove("session_token");
+                editor.apply();
+                stopSelf();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

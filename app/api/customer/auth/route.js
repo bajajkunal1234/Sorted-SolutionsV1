@@ -2,6 +2,25 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { logInteractionServer } from '@/lib/log-interaction-server'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
+
+function getClientIp(request) {
+    const xForwardedFor = request.headers.get('x-forwarded-for')
+    if (xForwardedFor) {
+        return xForwardedFor.split(',')[0].trim()
+    }
+    const realIp = request.headers.get('x-real-ip')
+    if (realIp) return realIp
+    return request.ip || '127.0.0.1'
+}
+
+function generateSessionToken() {
+    try {
+        return crypto.randomUUID()
+    } catch (e) {
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    }
+}
 
 // ─── Shared helper: find a customer row matching any phone format ─────────────
 // Strips ALL non-digits from the stored phone and compares against last10.
@@ -142,6 +161,18 @@ export async function POST(request) {
         
         const body = await request.json()
         const { action } = body
+
+        // ── 0. LOGOUT (Technician only) ───────────────────────────────────────
+        if (action === 'logout') {
+            const { technician_id } = body
+            if (technician_id) {
+                await supabase
+                    .from('technicians')
+                    .update({ current_session_token: null })
+                    .eq('id', technician_id)
+            }
+            return NextResponse.json({ success: true, message: 'Logged out successfully' })
+        }
 
         // ── 1. SIGNUP ─────────────────────────────────────────────────────────
         if (action === 'signup') {
@@ -392,8 +423,36 @@ export async function POST(request) {
                     : technician.password_hash === password
 
                 if (techValid) {
+                    if (technician.current_session_token && !body.confirm_logout_other_device) {
+                        return NextResponse.json({
+                            success: false,
+                            require_confirmation: true,
+                            message: 'You are already logged in on another device. Logging in here will log you out of the other device. Do you want to proceed?'
+                        })
+                    }
+
+                    const sessionToken = generateSessionToken()
+                    const clientIp = getClientIp(request)
+
+                    const { error: updateError } = await supabase
+                        .from('technicians')
+                        .update({
+                            current_session_token: sessionToken,
+                            last_device_ip: clientIp,
+                            updated_at: new Date().toISOString()
+                        })
+                        .eq('id', technician.id)
+
+                    if (updateError) {
+                        return NextResponse.json({ error: 'Failed to create active session. Please try again.' }, { status: 500 })
+                    }
+
                     const { password_hash, ...safeTech } = technician
-                    return NextResponse.json({ success: true, user: { ...safeTech, role: 'technician' }, message: 'Login successful' })
+                    return NextResponse.json({
+                        success: true,
+                        user: { ...safeTech, role: 'technician', session_token: sessionToken },
+                        message: 'Login successful'
+                    })
                 }
                 return NextResponse.json({ error: 'Incorrect password. Try again.' }, { status: 401 })
             }
@@ -446,9 +505,38 @@ export async function POST(request) {
                 if (technician.is_active === false) {
                     return NextResponse.json({ error: 'Your account has been deactivated. Please contact the administrator.' }, { status: 403 })
                 }
+
+                if (technician.current_session_token && !body.confirm_logout_other_device) {
+                    return NextResponse.json({
+                        success: false,
+                        require_confirmation: true,
+                        message: 'You are already logged in on another device. Logging in here will log you out of the other device. Do you want to proceed?'
+                    })
+                }
+
+                const sessionToken = generateSessionToken()
+                const clientIp = getClientIp(request)
+
+                const { error: updateError } = await supabase
+                    .from('technicians')
+                    .update({
+                        current_session_token: sessionToken,
+                        last_device_ip: clientIp,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', technician.id)
+
+                if (updateError) {
+                    return NextResponse.json({ error: 'Failed to create active session. Please try again.' }, { status: 500 })
+                }
+
                 await logInteractionServer({ type: 'technician-login-otp', category: 'account', customerId: technician.ledger_id || null, customerName: technician.name, description: `Technician logged in via OTP (${last10})`, source: 'Technician App' })
                 const { password_hash, ...safeTech } = technician
-                return NextResponse.json({ success: true, user: { ...safeTech, role: 'technician' }, message: 'Login successful' })
+                return NextResponse.json({
+                    success: true,
+                    user: { ...safeTech, role: 'technician', session_token: sessionToken },
+                    message: 'Login successful'
+                })
             }
 
             // ── Check if Admin ──

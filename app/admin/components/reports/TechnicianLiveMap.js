@@ -52,6 +52,48 @@ function FitBounds({ positions }) {
     return null;
 }
 
+function MapController({ panTo }) {
+    const map = useMap();
+    useEffect(() => {
+        if (panTo) {
+            map.setView(panTo, 16, { animate: true });
+        }
+    }, [panTo, map]);
+    return null;
+}
+
+const groupInteractionsBySession = (interactions) => {
+    const sessions = {};
+    interactions.forEach(item => {
+        const token = item.metadata?.session_token || 'legacy_or_other_session';
+        if (!sessions[token]) {
+            sessions[token] = {
+                token,
+                startTime: item.timestamp,
+                endTime: item.timestamp,
+                ip: item.metadata?.ip || null,
+                activities: []
+            };
+        }
+        sessions[token].activities.push(item);
+        if (new Date(item.timestamp) < new Date(sessions[token].startTime)) {
+            sessions[token].startTime = item.timestamp;
+        }
+        if (new Date(item.timestamp) > new Date(sessions[token].endTime)) {
+            sessions[token].endTime = item.timestamp;
+        }
+    });
+
+    return Object.values(sessions).map(sess => {
+        sess.activities.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        const loginAct = sess.activities.find(a => a.type.includes('login'));
+        if (loginAct) {
+            sess.ip = loginAct.metadata?.ip || loginAct.metadata?.ip_address || sess.ip;
+        }
+        return sess;
+    }).sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+};
+
 function formatAge(secondsAgo) {
     if (secondsAgo < 90)  return `${secondsAgo}s ago`;
     if (secondsAgo < 3600) return `${Math.round(secondsAgo / 60)}m ago`;
@@ -69,6 +111,34 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
     const [localActiveJobs, setLocalActiveJobs] = useState([]);
+
+    const [selectedTechForTimeline, setSelectedTechForTimeline] = useState(null);
+    const [timelineData, setTimelineData] = useState([]);
+    const [timelineLoading, setTimelineLoading] = useState(false);
+    const [mapPanTarget, setMapPanTarget] = useState(null);
+
+    // Fetch timeline interactions for the selected technician
+    useEffect(() => {
+        if (!selectedTechForTimeline) {
+            setTimelineData([]);
+            return;
+        }
+        const loadTimeline = async () => {
+            setTimelineLoading(true);
+            try {
+                const res = await fetch(`/api/admin/technician-timeline?technicianId=${selectedTechForTimeline.id}`);
+                const data = await res.json();
+                if (data.success) {
+                    setTimelineData(data.data || []);
+                }
+            } catch (e) {
+                console.error('Failed to load timeline:', e);
+            } finally {
+                setTimelineLoading(false);
+            }
+        };
+        loadTimeline();
+    }, [selectedTechForTimeline]);
 
     // Job-specific real-time positions (for on-job technicians via Supabase Realtime)
     const [livePositions, setLivePositions] = useState({});
@@ -215,6 +285,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                         attribution='&copy; <a href="https://carto.com/">Carto</a>'
                     />
                     {mergedLocations.length > 0 && <FitBounds positions={mergedLocations} />}
+                    <MapController panTo={mapPanTarget} />
 
                     {mergedLocations.map(loc => {
                         const isOffline = !loc.is_online || loc.seconds_ago > 900;
@@ -266,6 +337,18 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             )}
                                         </div>
 
+                                        {loc.is_mocked && (
+                                            <div style={{
+                                                color: '#ffffff', backgroundColor: '#ef4444',
+                                                padding: '4px 8px', borderRadius: 6, fontSize: 10,
+                                                fontWeight: 800, textTransform: 'uppercase',
+                                                marginBottom: 6, textAlign: 'center',
+                                                animation: 'pulse 1.5s infinite'
+                                            }}>
+                                                🚨 FAKE GPS DETECTED!
+                                            </div>
+                                        )}
+
                                         {loc.seconds_ago > 1800 && (
                                             <div style={{
                                                 color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)',
@@ -279,7 +362,16 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
 
                                         <div style={{ fontSize: 11, color: '#94a3b8', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
                                             <div>📍 Last seen: {formatAge(loc.seconds_ago)}</div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
+                                                <div>🔋 Battery: <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{loc.battery_level}%</span></div>
+                                            )}
+                                            {loc.connectivity_status && (
+                                                <div>📶 Connection: <span style={{ color: '#cbd5e1', fontWeight: 600 }}>{loc.connectivity_status}</span></div>
+                                            )}
+                                            {loc.ip_address && (
+                                                <div style={{ fontSize: 10, color: '#64748b' }}>🌐 IP: {loc.ip_address}</div>
+                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                                                 {loc.tracking_source === 'native_service' || loc.tracking_source === 'native' ? (
                                                     <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.15)', color: '#38bdf8', fontWeight: 700 }}>📱 NATIVE</span>
                                                 ) : (
@@ -288,6 +380,25 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                                 {loc.isRealtime && <span style={{ color: '#10b981', fontWeight: 700, fontSize: 10 }}>● LIVE</span>}
                                             </div>
                                         </div>
+
+                                        <button
+                                            onClick={() => setSelectedTechForTimeline({ id: loc.technician_id, name: loc.name })}
+                                            style={{
+                                                width: '100%',
+                                                padding: '6px 8px',
+                                                backgroundColor: '#6366f1',
+                                                border: 'none',
+                                                borderRadius: 6,
+                                                color: '#fff',
+                                                fontWeight: 700,
+                                                fontSize: 10,
+                                                cursor: 'pointer',
+                                                marginTop: 8,
+                                                textAlign: 'center'
+                                            }}
+                                        >
+                                            📅 View Session Timeline
+                                        </button>
                                     </div>
                                 </Popup>
                             </Marker>
@@ -330,10 +441,24 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         {isRedAlert && (
                                             <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700 }}>🚨 LATE</span>
                                         )}
+                                        {loc.is_mocked && (
+                                            <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>🚨 MOCK GPS</span>
+                                        )}
                                     </div>
                                     <div style={{ fontSize: 11, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
                                         <div>
                                             {isTrulyOnline ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#94a3b8' }}>
+                                            {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
+                                                <span>🔋 {loc.battery_level}%</span>
+                                            )}
+                                            {loc.connectivity_status && (
+                                                <span>📶 {loc.connectivity_status}</span>
+                                            )}
+                                            {loc.ip_address && (
+                                                <span style={{ opacity: 0.8 }}>🌐 {loc.ip_address}</span>
+                                            )}
                                         </div>
                                         <div>
                                             Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}
@@ -349,10 +474,208 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                     {loc.isRealtime && (
                                         <div style={{ fontSize: 10, color: '#10b981', fontWeight: 700 }}>● LIVE</div>
                                     )}
+                                    <button
+                                        onClick={() => setSelectedTechForTimeline({ id: loc.technician_id, name: loc.name })}
+                                        style={{
+                                            padding: '2px 6px',
+                                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                            border: '1px solid rgba(99, 102, 241, 0.25)',
+                                            borderRadius: 6,
+                                            color: '#818cf8',
+                                            fontSize: 9,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            marginTop: 2
+                                        }}
+                                    >
+                                        📅 TIMELINE
+                                    </button>
                                 </div>
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Custom Animations and Global Style */}
+            <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.5; }
+                }
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            ` }} />
+
+            {/* Timeline Overlay/Panel */}
+            {selectedTechForTimeline && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    right: 0,
+                    width: '450px',
+                    maxWidth: '100%',
+                    height: '100vh',
+                    backgroundColor: '#0f172a',
+                    borderLeft: '1px solid rgba(255,255,255,0.1)',
+                    boxShadow: '-8px 0 32px rgba(0,0,0,0.5)',
+                    zIndex: 9999,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    animation: 'slideIn 0.3s ease-out'
+                }}>
+                    <style dangerouslySetInnerHTML={{ __html: `
+                        @keyframes slideIn {
+                            from { transform: translateX(100%); }
+                            to { transform: translateX(0); }
+                        }
+                        .timeline-scroll::-webkit-scrollbar {
+                            width: 6px;
+                        }
+                        .timeline-scroll::-webkit-scrollbar-track {
+                            background: transparent;
+                        }
+                        .timeline-scroll::-webkit-scrollbar-thumb {
+                            background: rgba(255,255,255,0.1);
+                            border-radius: 3px;
+                        }
+                        .timeline-scroll::-webkit-scrollbar-thumb:hover {
+                            background: rgba(255,255,255,0.2);
+                        }
+                    ` }} />
+
+                    {/* Header */}
+                    <div style={{ padding: 20, borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
+                                Activity Timeline
+                            </h3>
+                            <span style={{ fontSize: 13, color: '#94a3b8' }}>{selectedTechForTimeline.name}</span>
+                        </div>
+                        <button
+                            onClick={() => setSelectedTechForTimeline(null)}
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#94a3b8',
+                                cursor: 'pointer',
+                                fontSize: 20,
+                                padding: 4,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    {/* Content */}
+                    <div className="timeline-scroll" style={{ flex: 1, overflowY: 'auto', padding: 20 }}>
+                        {timelineLoading ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 12 }}>
+                                <div style={{ width: 32, height: 32, border: '3px solid rgba(255,255,255,0.1)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                                <span style={{ fontSize: 13, color: '#64748b' }}>Loading activities...</span>
+                            </div>
+                        ) : timelineData.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: 40, color: '#64748b', fontSize: 13 }}>
+                                No activity logs recorded for this technician.
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                {groupInteractionsBySession(timelineData).map((session, sIdx) => (
+                                    <div key={session.token} style={{
+                                        backgroundColor: 'rgba(255,255,255,0.02)',
+                                        borderRadius: 12,
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        padding: 16
+                                    }}>
+                                        {/* Session Header */}
+                                        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: 10, marginBottom: 12 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 6px', borderRadius: 4, backgroundColor: 'rgba(56,189,248,0.1)', color: '#38bdf8' }}>
+                                                    SESSION
+                                                </span>
+                                                <span style={{ fontSize: 11, color: '#64748b' }}>
+                                                    {new Date(session.startTime).toLocaleDateString()}
+                                                </span>
+                                            </div>
+                                            <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
+                                                ⏰ Started: {new Date(session.startTime).toLocaleTimeString()}
+                                            </div>
+                                            {session.ip && (
+                                                <div style={{ marginTop: 2, fontSize: 11, color: '#64748b' }}>
+                                                    🌐 IP Address: <span style={{ color: '#cbd5e1' }}>{session.ip}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Session Activities List */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, borderLeft: '2px solid rgba(255,255,255,0.05)', marginLeft: 8, paddingLeft: 16 }}>
+                                            {session.activities.map((act, aIdx) => (
+                                                <div key={act.id || aIdx} style={{ position: 'relative' }}>
+                                                    {/* Dot indicator */}
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        left: -22,
+                                                        top: 4,
+                                                        width: 10,
+                                                        height: 10,
+                                                        borderRadius: '50%',
+                                                        backgroundColor: act.type.includes('login') ? '#10b981' : (act.type.includes('job') ? '#38bdf8' : '#64748b'),
+                                                        border: '2px solid #0f172a'
+                                                    }} />
+                                                    
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                                        <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
+                                                            {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' }}>
+                                                            {act.category || 'general'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ fontSize: 13, color: '#e2e8f0', marginTop: 2 }}>
+                                                        {act.description}
+                                                    </div>
+                                                    
+                                                    {/* Map Location Actions */}
+                                                    {act.metadata?.latitude && act.metadata?.longitude && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                                                            <button
+                                                                onClick={() => setMapPanTarget([act.metadata.latitude, act.metadata.longitude])}
+                                                                style={{
+                                                                    background: 'rgba(56,189,248,0.1)',
+                                                                    border: '1px solid rgba(56,189,248,0.25)',
+                                                                    borderRadius: 6,
+                                                                    color: '#38bdf8',
+                                                                    padding: '2px 8px',
+                                                                    fontSize: 11,
+                                                                    cursor: 'pointer',
+                                                                    fontWeight: 600,
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: 4
+                                                                }}
+                                                            >
+                                                                📍 Show on Map
+                                                            </button>
+                                                            {act.metadata.locality && (
+                                                                <span style={{ fontSize: 11, color: '#64748b' }}>
+                                                                    near {act.metadata.locality}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>
