@@ -23,6 +23,20 @@ export async function GET(request, { params }) {
             return NextResponse.json({ error: 'Job not found', details: error?.message, hint: error?.hint, code: error?.code }, { status: 404 })
         }
 
+        // Validate active session
+        if (job.technician_id) {
+            const sessionToken = request.headers.get('x-session-token')
+            const { data: tech } = await supabase
+                .from('technicians')
+                .select('current_session_token')
+                .eq('id', job.technician_id)
+                .single()
+
+            if (!tech || tech.current_session_token !== sessionToken) {
+                return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+            }
+        }
+
         // Fetch rental / AMC data separately — graceful: null if view doesn't exist or no match
         let rentalData = null
         let amcData = null
@@ -168,6 +182,24 @@ export async function PUT(request, { params }) {
             .select('status, customer_id, customer_name, job_number, technician_id, technician_name, repair_note_added_at, on_way_at, arrived_at')
             .eq('id', id)
             .single();
+
+        if (!existing) {
+            return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+        }
+
+        // Validate active session
+        if (existing.technician_id) {
+            const sessionToken = request.headers.get('x-session-token')
+            const { data: tech } = await supabase
+                .from('technicians')
+                .select('current_session_token')
+                .eq('id', existing.technician_id)
+                .single()
+
+            if (!tech || tech.current_session_token !== sessionToken) {
+                return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+            }
+        }
 
         const customerId = existing?.customer_id ? String(existing.customer_id) : null;
         const customerName = existing?.customer_name || null;

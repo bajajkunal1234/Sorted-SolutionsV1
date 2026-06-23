@@ -13,19 +13,26 @@ export async function GET(request) {
             )
         }
 
+        const sessionToken = request.headers.get('x-session-token')
         const { data: technician, error } = await supabase
             .from('technicians')
-            .select('id, name, phone, is_active, created_at')
+            .select('id, name, phone, is_active, created_at, current_session_token')
             .eq('id', technicianId)
             .single()
 
-        if (error) {
+        if (error || !technician) {
             console.error('Error fetching technician profile:', error)
             return NextResponse.json(
                 { error: 'Technician not found' },
                 { status: 404 }
             )
         }
+
+        if (technician.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+        }
+
+        delete technician.current_session_token
 
         return NextResponse.json({
             success: true,
@@ -50,6 +57,18 @@ export async function PATCH(request) {
                 { error: 'Technician ID is required' },
                 { status: 400 }
             )
+        }
+
+        // Validate active session
+        const sessionToken = request.headers.get('x-session-token')
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token')
+            .eq('id', technicianId)
+            .single()
+
+        if (!tech || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
         }
 
         // Don't allow updating sensitive fields

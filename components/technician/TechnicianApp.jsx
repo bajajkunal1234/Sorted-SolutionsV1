@@ -672,59 +672,82 @@ function TechnicianApp() {
         }
     };
 
-    // Fetch jobs and incentives when technician ID is available
+    const fetchJobs = async () => {
+        if (!technicianId) return;
+        try {
+            setLoading(true);
+            const response = await apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`);
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch jobs');
+            }
+
+            const data = await response.json();
+            setJobs(data.jobs || []);
+            setError(null);
+        } catch (err) {
+            console.error('Error fetching jobs:', err);
+            setError('Failed to load jobs. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchIncentives = async () => {
+        if (!technicianId) return;
+        try {
+            const response = await apiCall(`/api/technician/incentives?technicianId=${technicianId}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setIncentiveData(data.data);
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching incentives:', err);
+        }
+    };
+
+    const fetchProfile = async () => {
+        if (!technicianId) return;
+        try {
+            const response = await apiCall(`/api/technician/profile?technicianId=${technicianId}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setTechnicianData(data.technician);
+                    // Update local storage to keep it fresh
+                    localStorage.setItem('technicianData', JSON.stringify(data.technician));
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching profile:', err);
+        }
+    };
+
+    // Instant session check on focus/visibility change
     useEffect(() => {
         if (!technicianId) return;
 
-        const fetchJobs = async () => {
-            try {
-                setLoading(true);
-                const response = await apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`);
-
-                if (!response.ok) {
-                    throw new Error('Failed to fetch jobs');
-                }
-
-                const data = await response.json();
-                setJobs(data.jobs || []);
-                setError(null);
-            } catch (err) {
-                console.error('Error fetching jobs:', err);
-                setError('Failed to load jobs. Please try again.');
-            } finally {
-                setLoading(false);
+        const handleCheck = () => {
+            if (document.visibilityState === 'visible') {
+                // Fetching profile checks session immediately on the server
+                fetchProfile();
             }
         };
 
-        const fetchIncentives = async () => {
-            try {
-                const response = await apiCall(`/api/technician/incentives?technicianId=${technicianId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        setIncentiveData(data.data);
-                    }
-                }
-            } catch (err) {
-                console.error('Error fetching incentives:', err);
-            }
-        };
+        window.addEventListener('focus', handleCheck);
+        document.addEventListener('visibilitychange', handleCheck);
 
-        const fetchProfile = async () => {
-            try {
-                const response = await apiCall(`/api/technician/profile?technicianId=${technicianId}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        setTechnicianData(data.technician);
-                        // Update local storage to keep it fresh
-                        localStorage.setItem('technicianData', JSON.stringify(data.technician));
-                    }
-                }
-            } catch (err) {
-                console.error('Error fetching profile:', err);
-            }
+        return () => {
+            window.removeEventListener('focus', handleCheck);
+            document.removeEventListener('visibilitychange', handleCheck);
         };
+    }, [technicianId]);
+
+    // Fetch jobs and incentives when technician ID is available
+    useEffect(() => {
+        if (!technicianId) return;
 
         fetchJobs();
         fetchIncentives();
@@ -738,12 +761,12 @@ function TechnicianApp() {
         };
         window.addEventListener('offline-sync-complete', handleSyncComplete);
 
-        // 5-minute polling — fallback in case Supabase realtime misses an event
+        // 30-second polling — fallback in case Supabase realtime misses an event
         // Realtime handles instant updates; polling is just a safety net
         const pollInterval = setInterval(() => {
             fetchJobs();
             fetchRepeatCalls();
-        }, 300000);
+        }, 30000);
 
         // Setup real-time listener (best-effort; polling handles missed events)
         const channel = supabase

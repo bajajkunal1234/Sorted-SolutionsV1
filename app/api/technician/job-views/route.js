@@ -19,6 +19,19 @@ export async function GET(request) {
 
         const key = `tech_jobs_views_${technicianId}`
         const supabase = createServerSupabase()
+
+        // Validate active session
+        const sessionToken = request.headers.get('x-session-token')
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token')
+            .eq('id', technicianId)
+            .single()
+
+        if (!tech || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+        }
+
         const { data, error } = await supabase
             .from('website_settings')
             .select('value')
@@ -48,6 +61,19 @@ export async function POST(request) {
 
         const key = `tech_jobs_views_${technicianId}`
         const supabase = createServerSupabase()
+
+        // Validate active session
+        const sessionToken = request.headers.get('x-session-token')
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token')
+            .eq('id', technicianId)
+            .single()
+
+        if (!tech || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+        }
+
         const { data, error } = await supabase
             .from('website_settings')
             .upsert(

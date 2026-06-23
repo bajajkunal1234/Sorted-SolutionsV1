@@ -16,6 +16,18 @@ export async function GET(request) {
             )
         }
 
+        // Validate active session
+        const sessionToken = request.headers.get('x-session-token')
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token')
+            .eq('id', technicianId)
+            .single()
+
+        if (!tech || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
+        }
+
         // Build query — always exclude closed and cancelled; technician only sees active work
         let query = supabase
             .from('jobs')

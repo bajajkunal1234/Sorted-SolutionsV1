@@ -160,10 +160,11 @@ export async function GET(request) {
         const month = monthParam ? parseInt(monthParam) : now.getMonth() + 1
         const year = yearParam ? parseInt(yearParam) : now.getFullYear()
 
-        // Fetch technician details to get ledger_id
+        // Fetch technician details to get ledger_id and active session
+        const sessionToken = request.headers.get('x-session-token')
         const { data: tech, error: techError } = await supabase
             .from('technicians')
-            .select('id, name, ledger_id')
+            .select('id, name, ledger_id, current_session_token')
             .eq('id', technicianId)
             .single()
 
@@ -173,6 +174,10 @@ export async function GET(request) {
                 { error: 'Technician not found' },
                 { status: 404 }
             )
+        }
+
+        if (tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 })
         }
 
         // Calculate start and end dates for the month

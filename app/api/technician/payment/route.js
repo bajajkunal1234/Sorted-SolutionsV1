@@ -25,6 +25,19 @@ export async function POST(request) {
         amount, method = 'cash', amount_label = 'payment', notes = ''
     } = body;
 
+    if (technician_id) {
+        const sessionToken = request.headers.get('x-session-token');
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token')
+            .eq('id', technician_id)
+            .single();
+
+        if (!tech || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 });
+        }
+    }
+
     if (!job_id || !amount || amount <= 0) {
         return NextResponse.json({ success: false, error: 'job_id and amount are required' }, { status: 400 });
     }

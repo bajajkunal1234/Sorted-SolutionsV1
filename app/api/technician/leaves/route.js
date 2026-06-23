@@ -40,6 +40,18 @@ export async function GET(request) {
             return NextResponse.json({ success: false, error: 'Technician ID is required' }, { status: 400 });
         }
 
+        // Validate active session
+        const sessionToken = request.headers.get('x-session-token');
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token')
+            .eq('id', technicianId)
+            .single();
+
+        if (!tech || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 });
+        }
+
         const { data, error } = await supabase
             .from('technician_leaves')
             .select('*')
@@ -66,6 +78,18 @@ export async function POST(request) {
             return NextResponse.json({ success: false, error: 'Technician ID and Leave Date are required' }, { status: 400 });
         }
 
+        // Validate active session and fetch name
+        const sessionToken = request.headers.get('x-session-token');
+        const { data: tech } = await supabase
+            .from('technicians')
+            .select('current_session_token, name')
+            .eq('id', technician_id)
+            .single();
+
+        if (!tech || tech.current_session_token !== sessionToken) {
+            return NextResponse.json({ error: 'Unauthorized session' }, { status: 401 });
+        }
+
         // Validate date is not a Sunday
         const reqDate = new Date(leave_date);
         if (reqDate.getDay() === 0) {
@@ -83,13 +107,6 @@ export async function POST(request) {
                 error: `Leaves must be applied at least 6 working days in advance. First available leave date: ${minAllowed.toISOString().split('T')[0]}`
             }, { status: 400 });
         }
-
-        // Fetch technician's name
-        const { data: tech } = await supabase
-            .from('technicians')
-            .select('name')
-            .eq('id', technician_id)
-            .single();
 
         const techName = tech?.name || 'Technician';
 
