@@ -49,3 +49,32 @@ export async function PATCH(request) {
         return NextResponse.json({ success: false, error: err.message }, { status: 500 })
     }
 }
+
+export async function POST(request) {
+    const supabase = createServerSupabase()
+    try {
+        const body = await request.json()
+        const { id, action } = body
+
+        if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+
+        if (action === 'remote-logout') {
+            const { data, error } = await supabase
+                .from('technicians')
+                .update({ 
+                    current_session_token: null, 
+                    updated_at: new Date().toISOString() 
+                })
+                .eq('id', id)
+                .select('id, name')
+                .single()
+
+            if (error) throw error
+            return NextResponse.json({ success: true, message: `Technician ${data.name} logged out remotely.`, data })
+        }
+
+        return NextResponse.json({ error: 'invalid action' }, { status: 400 })
+    } catch (err) {
+        return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+    }
+}

@@ -19,20 +19,23 @@ export async function GET() {
 
         if (error) throw error
 
-        // Enrich with technician names
+        // Enrich with technician details
         const ids = (data || []).map(r => r.technician_id)
-        let nameMap = {}
+        let techMap = {}
         if (ids.length > 0) {
             const { data: techs } = await supabase
                 .from('technicians')
-                .select('id, name')
+                .select('id, name, current_session_token')
                 .in('id', ids)
-            for (const t of techs || []) nameMap[t.id] = t.name
+            for (const t of techs || []) {
+                techMap[t.id] = { name: t.name, current_session_token: t.current_session_token }
+            }
         }
 
         const enriched = (data || []).map(r => ({
             technician_id: r.technician_id,
-            name: nameMap[r.technician_id] || 'Technician',
+            name: techMap[r.technician_id]?.name || 'Technician',
+            current_session_token: techMap[r.technician_id]?.current_session_token || null,
             latitude: r.latitude,
             longitude: r.longitude,
             is_on_job: r.is_on_job,
