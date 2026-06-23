@@ -444,26 +444,24 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         >
                                             📅 View Session Timeline
                                         </button>
-                                        {loc.current_session_token && (
-                                            <button
-                                                onClick={() => handleRemoteLogout(loc.technician_id, loc.name)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '6px 8px',
-                                                    backgroundColor: '#dc2626',
-                                                    border: 'none',
-                                                    borderRadius: 6,
-                                                    color: '#fff',
-                                                    fontWeight: 700,
-                                                    fontSize: 10,
-                                                    cursor: 'pointer',
-                                                    marginTop: 6,
-                                                    textAlign: 'center'
-                                                }}
-                                            >
-                                                📴 Remotely Log Out
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => handleRemoteLogout(loc.technician_id, loc.name)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '6px 8px',
+                                                backgroundColor: '#dc2626',
+                                                border: 'none',
+                                                borderRadius: 6,
+                                                color: '#fff',
+                                                fontWeight: 700,
+                                                fontSize: 10,
+                                                cursor: 'pointer',
+                                                marginTop: 6,
+                                                textAlign: 'center'
+                                            }}
+                                        >
+                                            📴 Remotely Log Out
+                                        </button>
                                     </div>
                                 </Popup>
                             </Marker>
@@ -555,24 +553,22 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                     >
                                         📅 TIMELINE
                                     </button>
-                                    {loc.current_session_token && (
-                                        <button
-                                            onClick={() => handleRemoteLogout(loc.technician_id, loc.name)}
-                                            style={{
-                                                padding: '2px 6px',
-                                                backgroundColor: 'rgba(220, 38, 38, 0.1)',
-                                                border: '1px solid rgba(220, 38, 38, 0.25)',
-                                                borderRadius: 6,
-                                                color: '#ef4444',
-                                                fontSize: 9,
-                                                fontWeight: 700,
-                                                cursor: 'pointer',
-                                                marginTop: 4
-                                            }}
-                                        >
-                                            📴 LOG OUT
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => handleRemoteLogout(loc.technician_id, loc.name)}
+                                        style={{
+                                            padding: '2px 6px',
+                                            backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                                            border: '1px solid rgba(220, 38, 38, 0.25)',
+                                            borderRadius: 6,
+                                            color: '#ef4444',
+                                            fontSize: 9,
+                                            fontWeight: 700,
+                                            cursor: 'pointer',
+                                            marginTop: 4
+                                        }}
+                                    >
+                                        📴 LOG OUT
+                                    </button>
                                 </div>
                             </div>
                         );
@@ -631,8 +627,6 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
 
                     {/* Header */}
                     {(() => {
-                        const activeTechLoc = allLocations.find(l => l.technician_id === selectedTechForTimeline.id);
-                        const hasActiveSession = activeTechLoc && activeTechLoc.current_session_token;
                         return (
                             <div style={{ padding: 20, borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div>
@@ -640,25 +634,23 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                         Activity Timeline
                                     </h3>
                                     <span style={{ fontSize: 13, color: '#94a3b8' }}>{selectedTechForTimeline.name}</span>
-                                    {hasActiveSession && (
-                                        <button
-                                            onClick={() => handleRemoteLogout(selectedTechForTimeline.id, selectedTechForTimeline.name)}
-                                            style={{
-                                                display: 'block',
-                                                marginTop: 8,
-                                                padding: '4px 10px',
-                                                backgroundColor: '#dc2626',
-                                                border: 'none',
-                                                borderRadius: 6,
-                                                color: '#fff',
-                                                fontWeight: 700,
-                                                fontSize: 11,
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            📴 Remotely Log Out
-                                        </button>
-                                    )}
+                                    <button
+                                        onClick={() => handleRemoteLogout(selectedTechForTimeline.id, selectedTechForTimeline.name)}
+                                        style={{
+                                            display: 'block',
+                                            marginTop: 8,
+                                            padding: '4px 10px',
+                                            backgroundColor: '#dc2626',
+                                            border: 'none',
+                                            borderRadius: 6,
+                                            color: '#fff',
+                                            fontWeight: 700,
+                                            fontSize: 11,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        📴 Remotely Log Out
+                                    </button>
                                 </div>
                                 <button
                                     onClick={() => setSelectedTechForTimeline(null)}
