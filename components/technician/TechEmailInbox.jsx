@@ -16,6 +16,7 @@ export default function TechEmailInbox({ technicianData, onBack }) {
     const [selectedEmail, setSelectedEmail] = useState(null)
     const [isReplying, setIsReplying] = useState(false)
     const [replyBody, setReplyBody] = useState('')
+    const [replySubject, setReplySubject] = useState('')
     const [sendingReply, setSendingReply] = useState(false)
     const [successMessage, setSuccessMessage] = useState('')
     const [isComposing, setIsComposing] = useState(false)
@@ -99,9 +100,7 @@ export default function TechEmailInbox({ technicianData, onBack }) {
                 body: JSON.stringify({
                     from: technicianEmail,
                     to: selectedEmail.sender_email,
-                    subject: selectedEmail.subject.startsWith('Re:') 
-                        ? selectedEmail.subject 
-                        : `Re: ${selectedEmail.subject}`,
+                    subject: replySubject || selectedEmail.subject,
                     body_text: replyBody,
                     body_html: `<div style="font-family: sans-serif; font-size: 14px; line-height: 1.5; color: #1e293b;">
                         <p>${replyBody.replace(/\n/g, '<br>')}</p>
@@ -448,20 +447,59 @@ export default function TechEmailInbox({ technicianData, onBack }) {
                         </div>
                     </div>
 
-                    {/* Email Body */}
-                    <div 
-                        className="email-body-content"
-                        style={{ 
-                            fontSize: '14px', lineHeight: '1.6', color: 'var(--text-primary)',
-                            padding: '4px', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                            minHeight: '200px'
-                        }}
-                    >
-                        {email.body_html ? (
-                            <div dangerouslySetInnerHTML={{ __html: email.body_html }} />
-                        ) : (
-                            <div>{email.body_text}</div>
-                        )}
+                    {/* Email Body Container (Iframe for style isolation and white background) */}
+                    <div style={{ 
+                        borderRadius: '8px', 
+                        overflow: 'hidden', 
+                        border: '1px solid var(--border-primary)',
+                        backgroundColor: '#ffffff',
+                        marginBottom: '20px'
+                    }}>
+                        <iframe
+                            title="Email Content"
+                            srcDoc={`
+                                <!DOCTYPE html>
+                                <html>
+                                <head>
+                                    <meta charset="utf-8">
+                                    <base target="_blank">
+                                    <style>
+                                        body {
+                                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                                            font-size: 14px;
+                                            line-height: 1.6;
+                                            color: #1e293b;
+                                            background-color: #ffffff;
+                                            margin: 0;
+                                            padding: 16px;
+                                            word-wrap: break-word;
+                                        }
+                                        a { color: #3b82f6; text-decoration: underline; }
+                                        blockquote { border-left: 3px solid #cbd5e1; padding-left: 12px; color: #64748b; margin-left: 0; }
+                                    </style>
+                                </head>
+                                <body>
+                                    ${email.body_html || email.body_text?.replace(/\n/g, '<br>')}
+                                </body>
+                                </html>
+                            `}
+                            style={{
+                                width: '100%',
+                                height: '250px',
+                                border: 'none',
+                                display: 'block'
+                            }}
+                            onLoad={(e) => {
+                                try {
+                                    const doc = e.target.contentWindow?.document || e.target.contentDocument;
+                                    if (doc && doc.body) {
+                                        e.target.style.height = `${doc.body.scrollHeight + 20}px`;
+                                    }
+                                } catch (err) {
+                                    console.error("Iframe resize failed:", err);
+                                }
+                            }}
+                        />
                     </div>
 
                     {/* Reply Section */}
@@ -482,20 +520,38 @@ export default function TechEmailInbox({ technicianData, onBack }) {
                                     <X size={16} />
                                 </button>
                             </div>
+
+                            {/* Subject Field */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)' }}>Subject</label>
+                                <input
+                                    type="text"
+                                    value={replySubject}
+                                    onChange={(e) => setReplySubject(e.target.value)}
+                                    style={{
+                                        padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)',
+                                        fontSize: '13px', outline: 'none'
+                                    }}
+                                />
+                            </div>
                             
-                            <textarea
-                                ref={replyTextareaRef}
-                                value={replyBody}
-                                onChange={(e) => setReplyBody(e.target.value)}
-                                placeholder="Type your reply here..."
-                                style={{
-                                    width: '100%', minHeight: '120px', padding: '10px',
-                                    borderRadius: '8px', border: '1px solid var(--border-primary)',
-                                    backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)',
-                                    outline: 'none', fontSize: '13px', fontFamily: 'sans-serif',
-                                    resize: 'vertical'
-                                }}
-                            />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-tertiary)' }}>Message</label>
+                                <textarea
+                                    ref={replyTextareaRef}
+                                    value={replyBody}
+                                    onChange={(e) => setReplyBody(e.target.value)}
+                                    placeholder="Type your reply here..."
+                                    style={{
+                                        width: '100%', minHeight: '120px', padding: '10px',
+                                        borderRadius: '8px', border: '1px solid var(--border-primary)',
+                                        backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)',
+                                        outline: 'none', fontSize: '13px', fontFamily: 'sans-serif',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
 
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                                 <button
@@ -528,6 +584,7 @@ export default function TechEmailInbox({ technicianData, onBack }) {
                                 <button
                                     onClick={() => {
                                         setIsReplying(true)
+                                        setReplySubject(email.subject.startsWith('Re:') ? email.subject : `Re: ${email.subject}`)
                                         setTimeout(() => replyTextareaRef.current?.focus(), 100)
                                     }}
                                     style={{

@@ -338,9 +338,9 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                             >
                                 <option value="all">All Inboxes (Unified)</option>
                                 <option value="support@sortedsolutions.in">support@sortedsolutions.in</option>
-                                <option value="kunalbajaj@sortedsolutions.in">kunalbajaj@sortedsolutions.in</option>
+                                <option value="kunal.bajaj@sortedsolutions.in">kunal.bajaj@sortedsolutions.in</option>
                                 {mailboxes
-                                    .filter(m => m !== 'support@sortedsolutions.in' && m !== 'kunalbajaj@sortedsolutions.in')
+                                    .filter(m => m !== 'support@sortedsolutions.in' && m !== 'kunal.bajaj@sortedsolutions.in')
                                     .map(mbox => (
                                         <option key={mbox} value={mbox}>{mbox}</option>
                                     ))
@@ -605,9 +605,9 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                         }}
                                     >
                                         <option value="support@sortedsolutions.in">support@sortedsolutions.in (Sorted Solutions Support)</option>
-                                        <option value="kunalbajaj@sortedsolutions.in">kunalbajaj@sortedsolutions.in (Kunal Bajaj)</option>
+                                        <option value="kunal.bajaj@sortedsolutions.in">kunal.bajaj@sortedsolutions.in (Kunal Bajaj)</option>
                                         {mailboxes
-                                            .filter(m => m !== 'support@sortedsolutions.in' && m !== 'kunalbajaj@sortedsolutions.in')
+                                            .filter(m => m !== 'support@sortedsolutions.in' && m !== 'kunal.bajaj@sortedsolutions.in')
                                             .map(mbox => (
                                                 <option key={mbox} value={mbox}>{mbox}</option>
                                             ))
@@ -919,6 +919,7 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                                     <html>
                                                     <head>
                                                         <meta charset="utf-8">
+                                                        <base target="_blank">
                                                         <style>
                                                             body {
                                                                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -944,6 +945,16 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
                                                     minHeight: '450px',
                                                     border: 'none',
                                                     display: 'block'
+                                                }}
+                                                onLoad={(e) => {
+                                                    try {
+                                                        const doc = e.target.contentWindow?.document || e.target.contentDocument;
+                                                        if (doc && doc.body) {
+                                                            e.target.style.height = `${doc.body.scrollHeight + 30}px`;
+                                                        }
+                                                    } catch (err) {
+                                                        console.error("Iframe resize failed:", err);
+                                                    }
                                                 }}
                                             />
                                         </div>

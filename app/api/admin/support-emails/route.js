@@ -27,7 +27,7 @@ export async function GET(request) {
 
         const mailboxSet = new Set()
         mailboxSet.add('support@sortedsolutions.in')
-        mailboxSet.add('kunalbajaj@sortedsolutions.in')
+        mailboxSet.add('kunal.bajaj@sortedsolutions.in')
 
         mailboxData?.forEach(m => {
             const isOutbound = m.metadata?.direction === 'outbound'
