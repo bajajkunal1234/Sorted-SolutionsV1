@@ -1,5 +1,7 @@
 import { getSupabaseServer } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
+import { simpleParser } from 'mailparser'
+
 
 export async function POST(request) {
     try {
@@ -58,6 +60,31 @@ export async function POST(request) {
             subject = formData.get('subject') || 'No Subject';
             body_text = formData.get('text') || formData.get('plain') || '';
             body_html = formData.get('html') || '';
+        } else if (contentType.includes('message/rfc822') || contentType.includes('application/octet-stream') || !contentType) {
+            // Read raw body bytes
+            const rawBody = await request.arrayBuffer();
+            const buffer = Buffer.from(rawBody);
+            
+            // Parse using mailparser
+            const parsed = await simpleParser(buffer);
+            
+            const sender_email_raw = parsed.from?.value?.[0]?.address || 'unknown@example.com';
+            sender_email = sender_email_raw.toLowerCase().trim();
+            sender_name = parsed.from?.value?.[0]?.name || sender_email.split('@')[0];
+            
+            const envelopeTo = request.headers.get('X-Envelope-To') || request.headers.get('x-envelope-to');
+            recipient_email = extractEmail(envelopeTo || parsed.to?.value?.[0]?.address || 'support@sortedsolutions.in');
+            
+            subject = parsed.subject || 'No Subject';
+            body_text = parsed.text || '';
+            body_html = parsed.html || parsed.textAsHtml || '';
+            
+            const messageId = parsed.messageId || '';
+            rawPayload = {
+                direction: 'inbound',
+                messageId,
+                headers: parsed.headers ? Object.fromEntries(parsed.headers) : {}
+            };
         } else {
             return NextResponse.json({ success: false, error: 'Unsupported Content-Type' }, { status: 400 });
         }
