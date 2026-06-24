@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle } from 'lucide-react';
+import { MapPin, Clock, Phone, ChevronRight, ChevronLeft, Navigation, Briefcase, TrendingUp, Settings, User, Moon, Sun, Calendar, DollarSign, Calculator, LayoutGrid, List, Columns, Maximize, BookOpen, LayoutDashboard, X, Package, Trash2, Table, Activity, AlertCircle, Mail } from 'lucide-react';
 import JobDetailView from '@/components/technician/JobDetailView';
 import ExpensesList from '@/components/technician/ExpensesList';
 import CalendarView from '@/components/technician/CalendarView';
@@ -15,6 +15,7 @@ import JobsSearchPanel from '@/components/shared/JobsSearchPanel';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import PWAPrompt from '@/components/common/PWAPrompt';
 import TechSupportTab from '@/components/technician/TechSupportTab';
+import TechEmailInbox from '@/components/technician/TechEmailInbox';
 import CollectPaymentFlow from '@/components/shared/CollectPaymentFlow';
 import LocalityCombobox from '@/components/common/LocalityCombobox';
 import { apiCall } from '@/lib/offlineSync';
@@ -222,6 +223,7 @@ function TechnicianApp() {
     }, [darkMode]);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
     const [showSupport, setShowSupport] = useState(false);
+    const [showEmailInbox, setShowEmailInbox] = useState(false);
     const [leaveStartDate, setLeaveStartDate] = useState('');
     const [leaveEndDate, setLeaveEndDate] = useState('');
     const [leaveReason, setLeaveReason] = useState('');
@@ -2128,6 +2130,13 @@ function TechnicianApp() {
                 icon: <DollarSign size={20} color="#ef4444" />,
                 color: '#ef4444',
                 onClick: () => setActiveTab('expenses')
+            },
+            {
+                title: 'Email Inbox',
+                description: 'Read and reply to client & support emails',
+                icon: <Mail size={20} color="#3b82f6" />,
+                color: '#3b82f6',
+                onClick: () => setShowEmailInbox(true)
             }
         ];
         
@@ -2506,6 +2515,13 @@ function TechnicianApp() {
                             <TechSupportTab />
                         </div>
                     </>
+                ) : showEmailInbox ? (
+                    <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <TechEmailInbox 
+                            technicianData={technicianData} 
+                            onBack={() => setShowEmailInbox(false)} 
+                        />
+                    </div>
                 ) : (
                     <>
                         {activeTab === 'dashboard' && renderDashboardTab()}
@@ -2528,9 +2544,10 @@ function TechnicianApp() {
             {/* Bottom Tabs */}
             <nav className="bottom-tabs">
                 <button
-                    className={`tab-item ${(activeTab === 'dashboard' && !showSupport) ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'dashboard' && !showSupport && !showEmailInbox) ? 'active' : ''}`}
                     onClick={() => {
                         setShowSupport(false);
+                        setShowEmailInbox(false);
                         setShowPurchaseRequestsList(false);
                         setActiveTab('dashboard');
                     }}
@@ -2539,9 +2556,10 @@ function TechnicianApp() {
                     <span>Dashboard</span>
                 </button>
                 <button
-                    className={`tab-item ${(activeTab === 'jobs' && !showSupport) ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'jobs' && !showSupport && !showEmailInbox) ? 'active' : ''}`}
                     onClick={() => {
                         setShowSupport(false);
+                        setShowEmailInbox(false);
                         setActiveTab('jobs');
                     }}
                 >
@@ -2549,9 +2567,10 @@ function TechnicianApp() {
                     <span>Jobs</span>
                 </button>
                 <button
-                    className={`tab-item ${(activeTab === 'settings' || showSupport) ? 'active' : ''}`}
+                    className={`tab-item ${(activeTab === 'settings' || showSupport || showEmailInbox) ? 'active' : ''}`}
                     onClick={() => {
                         setShowSupport(false);
+                        setShowEmailInbox(false);
                         setActiveTab('settings');
                     }}
                 >
