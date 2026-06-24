@@ -77,6 +77,21 @@ export default function SupportInbox({ subSection, setSubSection, searchTerm: he
         loadInbox();
     }, [statusFilter, mailboxFilter, localSearch, headerSearch]);
 
+    useEffect(() => {
+        const syncEmails = async () => {
+            try {
+                const res = await fetch('/api/admin/support-emails/sync?secret=sorted_solutions_secret_2026');
+                const data = await res.json();
+                if (data.success && data.stats && data.stats.inserted > 0) {
+                    loadInbox();
+                }
+            } catch (err) {
+                console.error("Failed to sync emails on load:", err);
+            }
+        };
+        syncEmails();
+    }, []);
+
     // Handle single action updates (status changes)
     const updateEmailStatus = async (emailId, newStatus) => {
         setActionLoading(true);

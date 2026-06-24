@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/admin/support-emails/sync?secret=sorted_solutions_secret_2026",
+      "schedule": "0 * * * *"
+    }
+  ]
+}
