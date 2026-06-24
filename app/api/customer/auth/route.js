@@ -428,7 +428,7 @@ export async function POST(request) {
                             success: false,
                             require_confirmation: true,
                             message: 'You are already logged in on another device. Logging in here will log you out of the other device. Do you want to proceed?'
-                        })
+                        }, { status: 400 })
                     }
 
                     const sessionToken = generateSessionToken()
@@ -521,7 +521,7 @@ export async function POST(request) {
                         success: false,
                         require_confirmation: true,
                         message: 'You are already logged in on another device. Logging in here will log you out of the other device. Do you want to proceed?'
-                    })
+                    }, { status: 400 })
                 }
 
                 const sessionToken = generateSessionToken()

@@ -298,7 +298,7 @@ function LoginContent() {
                 body: JSON.stringify(bodyPayload)
             });
             const data = await res.json();
-            if (!res.ok) {
+            if (!res.ok || !data.success) {
                 if (data.require_confirmation) {
                     setPendingConfirm({ action: 'login', payload: bodyPayload, message: data.message });
                     setLoading(false);
@@ -339,7 +339,7 @@ function LoginContent() {
                 body: JSON.stringify(bodyPayload)
             });
             const data = await res.json();
-            if (!res.ok) {
+            if (!res.ok || !data.success) {
                 if (data.require_confirmation) {
                     setPendingConfirm({ action: 'otp-login', payload: bodyPayload, message: data.message });
                     setLoading(false);
