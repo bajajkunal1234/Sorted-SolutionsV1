@@ -76,6 +76,29 @@ function TechnicianManagement({ initialSubTab }) {
     const [editingPurchase, setEditingPurchase] = useState(null);
     const [payingSparesInvoice, setPayingSparesInvoice] = useState(null);
 
+    // Spares columns configuration
+    const [sparesColumns, setSparesColumns] = useState([
+        { id: 'date', label: 'Date', visible: true, width: 130 },
+        { id: 'technician', label: 'Technician', visible: true, width: 140 },
+        { id: 'vendor', label: 'Shop/Vendor', visible: true, width: 160 },
+        { id: 'details', label: 'Invoice Details', visible: true, width: 220 },
+        { id: 'total_amount', label: 'Total Amount', visible: true, width: 110 },
+        { id: 'paid_balance', label: 'Paid / Balance', visible: true, width: 130 },
+        { id: 'status', label: 'Status', visible: true, width: 100 },
+        { id: 'handed_to_sc', label: 'Handed to SC', visible: true, width: 110 },
+        { id: 'actions', label: 'Actions', visible: true, width: 120 }
+    ]);
+    const [sparesSort, setSparesSort] = useState({ column: 'date', direction: 'desc' });
+    const [showColSettings, setShowColSettings] = useState(false);
+    const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+    const [sparesSearch, setSparesSearch] = useState('');
+    const [sparesDateStart, setSparesDateStart] = useState('');
+    const [sparesDateEnd, setSparesDateEnd] = useState('');
+    const [sparesMinAmount, setSparesMinAmount] = useState('');
+    const [sparesMaxAmount, setSparesMaxAmount] = useState('');
+    const [sparesPaidBy, setSparesPaidBy] = useState('all');
+    const [sparesBalanceStatus, setSparesBalanceStatus] = useState('all');
+
     // ─── Leaves state ─────────────────────────────────────────────────────────
     const [leaves, setLeaves] = useState([]);
     const [leavesLoading, setLeavesLoading] = useState(false);
@@ -364,6 +387,55 @@ function TechnicianManagement({ initialSubTab }) {
                 setSelectedTech(prev => ({ ...prev, is_active: newActive }));
             }
         } catch (err) { alert('Failed to update status: ' + err.message); }
+    };
+
+    const handleColumnResizeMouseDown = (colId, e) => {
+        e.preventDefault();
+        const startX = e.clientX;
+        const currentCol = sparesColumns.find(c => c.id === colId);
+        if (!currentCol) return;
+        const startWidth = currentCol.width || 120;
+
+        const handleMouseMove = (moveEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            setSparesColumns(prev => prev.map(c => 
+                c.id === colId ? { ...c, width: Math.max(60, startWidth + deltaX) } : c
+            ));
+        };
+
+        const handleMouseUp = () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const handleSortSpares = (colId) => {
+        if (colId === 'actions' || colId === 'handed_to_sc' || colId === 'details') return;
+        setSparesSort(prev => {
+            if (prev.column === colId) {
+                return { column: colId, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            return { column: colId, direction: 'asc' };
+        });
+    };
+
+    const moveSparesColumn = (index, direction) => {
+        const newCols = [...sparesColumns];
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= newCols.length) return;
+        const temp = newCols[index];
+        newCols[index] = newCols[targetIndex];
+        newCols[targetIndex] = temp;
+        setSparesColumns(newCols);
+    };
+
+    const toggleSparesColumnVisibility = (colId) => {
+        setSparesColumns(prev => prev.map(c => 
+            c.id === colId ? { ...c, visible: !c.visible } : c
+        ));
     };
 
     // ─── Expense helpers ──────────────────────────────────────────────────────
@@ -671,6 +743,19 @@ function TechnicianManagement({ initialSubTab }) {
                     background-color: #1e293b;
                     opacity: 0.5;
                     cursor: not-allowed;
+                }
+                .col-resize-handle {
+                    position: absolute;
+                    right: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 6px;
+                    cursor: col-resize;
+                    z-index: 100;
+                    transition: background-color 0.2s;
+                }
+                .col-resize-handle:hover, .col-resize-handle:active {
+                    background-color: var(--color-primary, #6366f1) !important;
                 }
             ` }} />
             {/* Header */}
@@ -1331,143 +1416,428 @@ function TechnicianManagement({ initialSubTab }) {
             )}
 
             {/* ──────────────── SPARES PURCHASES TAB ──────────────── */}
-            {activeTab === 'spares' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
-                    <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
-                        <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)' }}>
-                            <div>
-                                <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', margin: 0 }}>⚙️ Technician Spares Purchases</h3>
-                                <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Review and approve technician spares purchases, allocate suppliers, and log payments</p>
+            {activeTab === 'spares' && (() => {
+                const filteredSpares = spares
+                    .filter(s => {
+                        if (sparesFilter === 'pending') return s.status === 'draft';
+                        if (sparesFilter === 'posted') return s.status === 'finalized';
+                        return true;
+                    })
+                    .filter(item => {
+                        if (!sparesSearch) return true;
+                        const query = sparesSearch.toLowerCase();
+                        const techName = technicians.find(t => t.id === item.po_reference)?.name || 'Field Tech';
+                        const vendor = (item.account_name || '').toLowerCase();
+                        const docRef = (item.vendor_invoice_number || '').toLowerCase();
+                        const notes = (item.notes || '').toLowerCase();
+                        const matchesItems = item.items?.some(it => (it.description || '').toLowerCase().includes(query)) || false;
+                        
+                        return techName.toLowerCase().includes(query) ||
+                            vendor.includes(query) ||
+                            docRef.includes(query) ||
+                            notes.includes(query) ||
+                            matchesItems;
+                    })
+                    .filter(item => {
+                        const itemDate = new Date(item.created_at || item.date);
+                        if (sparesDateStart) {
+                            const startDate = new Date(sparesDateStart);
+                            startDate.setHours(0, 0, 0, 0);
+                            if (itemDate < startDate) return false;
+                        }
+                        if (sparesDateEnd) {
+                            const endDate = new Date(sparesDateEnd);
+                            endDate.setHours(23, 59, 59, 999);
+                            if (itemDate > endDate) return false;
+                        }
+                        return true;
+                    })
+                    .filter(item => {
+                        const amount = parseFloat(item.total_amount || 0);
+                        if (sparesMinAmount && amount < parseFloat(sparesMinAmount)) return false;
+                        if (sparesMaxAmount && amount > parseFloat(sparesMaxAmount)) return false;
+                        return true;
+                    })
+                    .filter(item => {
+                        if (sparesPaidBy === 'all') return true;
+                        return item.paid_by === sparesPaidBy;
+                    })
+                    .filter(item => {
+                        if (sparesBalanceStatus === 'all') return true;
+                        const balance = parseFloat(item.total_amount || 0) - parseFloat(item.paid_amount || 0);
+                        if (sparesBalanceStatus === 'settled') return balance <= 0;
+                        if (sparesBalanceStatus === 'pending') return balance > 0;
+                        return true;
+                    });
+
+                const sortedSpares = [...filteredSpares].sort((a, b) => {
+                    if (!sparesSort.column) return 0;
+                    
+                    let valA, valB;
+                    switch (sparesSort.column) {
+                        case 'date':
+                            valA = new Date(a.created_at || a.date).getTime();
+                            valB = new Date(b.created_at || b.date).getTime();
+                            break;
+                        case 'technician':
+                            valA = (technicians.find(t => t.id === a.po_reference)?.name || 'Field Tech').toLowerCase();
+                            valB = (technicians.find(t => t.id === b.po_reference)?.name || 'Field Tech').toLowerCase();
+                            break;
+                        case 'vendor':
+                            valA = (a.account_name || '').toLowerCase();
+                            valB = (b.account_name || '').toLowerCase();
+                            break;
+                        case 'total_amount':
+                            valA = parseFloat(a.total_amount || 0);
+                            valB = parseFloat(b.total_amount || 0);
+                            break;
+                        case 'paid_balance':
+                            valA = parseFloat(a.total_amount || 0) - parseFloat(a.paid_amount || 0);
+                            valB = parseFloat(b.total_amount || 0) - parseFloat(b.paid_amount || 0);
+                            break;
+                        case 'status':
+                            valA = a.status || '';
+                            valB = b.status || '';
+                            break;
+                        default:
+                            return 0;
+                    }
+                    
+                    if (valA < valB) return sparesSort.direction === 'asc' ? -1 : 1;
+                    if (valA > valB) return sparesSort.direction === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                const totalTableWidth = sparesColumns.filter(c => c.visible).reduce((sum, c) => sum + (c.width || 120), 0);
+
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-lg)' }}>
+                        <div style={{ backgroundColor: 'var(--bg-elevated)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-primary)', overflow: 'hidden' }}>
+                            
+                            {/* Main Header */}
+                            <div style={{ padding: 'var(--spacing-md)', borderBottom: '1px solid var(--border-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-secondary)', flexWrap: 'wrap', gap: 12 }}>
+                                <div>
+                                    <h3 style={{ fontWeight: 600, fontSize: 'var(--font-size-base)', margin: 0 }}>⚙️ Technician Spares Purchases</h3>
+                                    <p style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-secondary)', margin: '2px 0 0' }}>Review and approve technician spares purchases, allocate suppliers, and log payments</p>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+                                    <select value={sparesFilter} onChange={e => setSparesFilter(e.target.value)} className="form-select" style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)' }}>
+                                        <option value="pending">Pending Review</option>
+                                        <option value="posted">Posted (Finalized)</option>
+                                        <option value="all">All Purchases</option>
+                                    </select>
+                                    <button className="btn-icon" onClick={fetchSpares} title="Refresh"><RefreshCcw size={16} /></button>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
-                                <select value={sparesFilter} onChange={e => setSparesFilter(e.target.value)} className="form-select" style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)' }}>
-                                    <option value="pending">Pending Review</option>
-                                    <option value="posted">Posted (Finalized)</option>
-                                    <option value="all">All Purchases</option>
-                                </select>
-                                <button className="btn-icon" onClick={fetchSpares} title="Refresh"><RefreshCcw size={16} /></button>
-                            </div>
-                        </div>
-                        {sparesLoading ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading spares purchases...</div>
-                        ) : spares.filter(s => sparesFilter === 'pending' ? s.status === 'draft' : sparesFilter === 'posted' ? s.status === 'finalized' : true).length === 0 ? (
-                            <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                <Package size={40} style={{ margin: '0 auto var(--spacing-sm)', opacity: 0.3 }} />
-                                <div>No {sparesFilter === 'all' ? '' : sparesFilter === 'pending' ? 'pending' : 'posted'} spares purchases found</div>
-                            </div>
-                        ) : (
-                            <div className="admin-sticky-table-container">
-                                <table className="admin-sticky-table" style={{ minWidth: '1050px' }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', textAlign: 'left' }}>
-                                            <th style={{ textAlign: 'left' }}>Date</th>
-                                            <th style={{ textAlign: 'left' }}>Technician</th>
-                                            <th style={{ textAlign: 'left' }}>Shop/Vendor</th>
-                                            <th style={{ textAlign: 'left' }}>Invoice Details</th>
-                                            <th style={{ textAlign: 'right' }}>Total Amount</th>
-                                            <th style={{ textAlign: 'right' }}>Paid / Balance</th>
-                                            <th style={{ textAlign: 'center' }}>Status</th>
-                                            <th style={{ textAlign: 'center' }}>Handed to SC</th>
-                                            <th style={{ textAlign: 'center' }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {spares.filter(s => sparesFilter === 'pending' ? s.status === 'draft' : sparesFilter === 'posted' ? s.status === 'finalized' : true).map((item) => {
-                                            const techName = technicians.find(t => t.id === item.po_reference)?.name || 'Field Tech';
-                                            const balance = parseFloat(item.total_amount || 0) - parseFloat(item.paid_amount || 0);
-                                            const isPending = item.status === 'draft';
-                                            
-                                            return (
-                                                <tr key={item.id} style={{ borderBottom: '1px solid var(--border-primary)', transition: 'background-color 0.15s' }}>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                                                         <div>{new Date(item.created_at || item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div><div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{new Date(item.created_at || item.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', fontWeight: 600 }}>
-                                                        {techName}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
-                                                        <div>{item.account_name}</div>
-                                                        {item.vendor_invoice_number && (
-                                                            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
-                                                                Doc Ref: {item.vendor_invoice_number}
+
+                            {/* Toolbar (Search & Controls) */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: 12, backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, width: isMobile ? '100%' : 'auto' }}>
+                                    <input 
+                                        type="text" 
+                                        placeholder="🔍 Search vendor, technician, item..." 
+                                        value={sparesSearch} 
+                                        onChange={e => setSparesSearch(e.target.value)} 
+                                        className="form-input" 
+                                        style={{ width: isMobile ? '100%' : 260, padding: '6px 12px', fontSize: 13 }} 
+                                    />
+                                    <button 
+                                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                                        className="btn btn-secondary"
+                                        style={{ padding: '6px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, backgroundColor: showAdvancedFilters ? 'rgba(99,102,241,0.12)' : 'transparent', borderColor: showAdvancedFilters ? 'var(--color-primary)' : 'var(--border-primary)', width: isMobile ? '100%' : 'auto', justifyContent: 'center' }}
+                                    >
+                                        🎨 Advanced Filters {showAdvancedFilters ? '▲' : '▼'}
+                                    </button>
+                                </div>
+                                
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end' }}>
+                                    {/* Columns Settings Toggle */}
+                                    <div style={{ position: 'relative', width: isMobile ? '100%' : 'auto' }}>
+                                        <button 
+                                            onClick={() => setShowColSettings(!showColSettings)}
+                                            className="btn btn-secondary"
+                                            style={{ padding: '6px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, width: '100%', justifyContent: 'center' }}
+                                        >
+                                            ⚙️ Manage Columns
+                                        </button>
+                                        {showColSettings && (
+                                            <div style={{ position: 'absolute', right: isMobile ? 'auto' : 0, left: isMobile ? 0 : 'auto', top: '100%', marginTop: 6, width: 260, backgroundColor: 'var(--bg-elevated)', border: '1px solid var(--border-primary)', borderRadius: 10, padding: 12, zIndex: 9999, boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)' }}>
+                                                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span>Manage Columns</span>
+                                                    <button onClick={() => setSparesColumns([
+                                                        { id: 'date', label: 'Date', visible: true, width: 130 },
+                                                        { id: 'technician', label: 'Technician', visible: true, width: 140 },
+                                                        { id: 'vendor', label: 'Shop/Vendor', visible: true, width: 160 },
+                                                        { id: 'details', label: 'Invoice Details', visible: true, width: 220 },
+                                                        { id: 'total_amount', label: 'Total Amount', visible: true, width: 110 },
+                                                        { id: 'paid_balance', label: 'Paid / Balance', visible: true, width: 130 },
+                                                        { id: 'status', label: 'Status', visible: true, width: 100 },
+                                                        { id: 'handed_to_sc', label: 'Handed to SC', visible: true, width: 110 },
+                                                        { id: 'actions', label: 'Actions', visible: true, width: 120 }
+                                                    ])} style={{ background: 'none', border: 'none', color: 'var(--color-primary)', fontSize: 11, cursor: 'pointer', padding: 0 }}>Reset</button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                                                    {sparesColumns.map((col, idx) => (
+                                                        <div key={col.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, padding: '4px 0' }}>
+                                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', userSelect: 'none', flex: 1 }}>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={col.visible} 
+                                                                    onChange={() => toggleSparesColumnVisibility(col.id)} 
+                                                                    disabled={col.id === 'actions'} 
+                                                                    style={{ cursor: 'pointer' }}
+                                                                />
+                                                                <span style={{ opacity: col.visible ? 1 : 0.5 }}>{col.label}</span>
+                                                            </label>
+                                                            <div style={{ display: 'flex', gap: 2 }}>
+                                                                <button onClick={() => moveSparesColumn(idx, -1)} disabled={idx === 0} style={{ padding: '2px 4px', fontSize: 10, cursor: idx === 0 ? 'not-allowed' : 'pointer', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 4, opacity: idx === 0 ? 0.3 : 1 }}>▲</button>
+                                                                <button onClick={() => moveSparesColumn(idx, 1)} disabled={idx === sparesColumns.length - 1} style={{ padding: '2px 4px', fontSize: 10, cursor: idx === sparesColumns.length - 1 ? 'not-allowed' : 'pointer', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: 4, opacity: idx === sparesColumns.length - 1 ? 0.3 : 1 }}>▼</button>
                                                             </div>
-                                                        )}
-                                                        {item.notes && (
-                                                            <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4, fontStyle: 'italic', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.notes}>
-                                                                {item.notes}
-                                                            </div>
-                                                        )}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
-                                                        {item.items && item.items.length > 0 ? (
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                                {item.items.map((it, idx) => (
-                                                                    <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                                                                        • <strong>{it.description}</strong> (Qty: {it.qty} × ₹{parseFloat(it.rate || 0).toLocaleString('en-IN')})
-                                                                    </div>
-                                                                 ))}
-                                                            </div>
-                                                        ) : (
-                                                            <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>No items</span>
-                                                        )}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'right', fontWeight: 700 }}>
-                                                        ₹{parseFloat(item.total_amount || 0).toLocaleString('en-IN')}
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'right' }}>
-                                                        <div style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>Paid: ₹{parseFloat(item.paid_amount || 0).toLocaleString('en-IN')}</div>
-                                                        <div style={{ fontSize: 12, color: balance > 0 ? '#ef4444' : '#10b981', fontWeight: 700, marginTop: 2 }}>
-                                                            Bal: ₹{balance.toLocaleString('en-IN')}
                                                         </div>
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'center' }}>
-                                                        <span style={{
-                                                            padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600,
-                                                            backgroundColor: isPending ? '#fef3c7' : '#d1fae5',
-                                                            color: isPending ? '#d97706' : '#059669'
-                                                        }}>
-                                                            {isPending ? 'Pending Audit' : 'Posted'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'center' }}>
-                                                        <input 
-                                                            type="checkbox"
-                                                            checked={!!item.handed_to_service_center}
-                                                            onChange={(e) => handleToggleHandover(item, e.target.checked)}
-                                                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                                                        />
-                                                    </td>
-                                                    <td style={{ padding: '12px 16px', verticalAlign: 'top', textAlign: 'center' }}>
-                                                        {isPending ? (
-                                                            <button
-                                                                onClick={() => setEditingPurchase(item)}
-                                                                className="btn btn-primary"
-                                                                style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
-                                                            >
-                                                                Review &amp; Post
-                                                            </button>
-                                                        ) : balance > 0 ? (
-                                                            <button
-                                                                onClick={() => setPayingSparesInvoice(item)}
-                                                                className="btn btn-primary"
-                                                                style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
-                                                            >
-                                                                {item.paid_by === 'technician' ? 'Pay Technician' : 'Pay Supplier'}
-                                                            </button>
-                                                        ) : (
-                                                            <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>✓ Settled</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                                                    ))}
+                                                </div>
+                                                <div style={{ marginTop: 8, padding: '4px 0', borderTop: '1px solid var(--border-primary)', textAlign: 'center' }}>
+                                                    <button onClick={() => setShowColSettings(false)} className="btn btn-secondary" style={{ width: '100%', padding: '4px 8px', fontSize: 11 }}>Done</button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                        )}
+
+                            {/* Advanced Filters Panel */}
+                            {showAdvancedFilters && (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, padding: 12, backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                    <div>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>📅 Start Date</label>
+                                        <input type="date" value={sparesDateStart} onChange={e => setSparesDateStart(e.target.value)} className="form-input" style={{ width: '100%', padding: '6px 8px', fontSize: 12 }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>📅 End Date</label>
+                                        <input type="date" value={sparesDateEnd} onChange={e => setSparesDateEnd(e.target.value)} className="form-input" style={{ width: '100%', padding: '6px 8px', fontSize: 12 }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>💰 Min Amount (₹)</label>
+                                        <input type="number" placeholder="Min ₹" value={sparesMinAmount} onChange={e => setSparesMinAmount(e.target.value)} className="form-input" style={{ width: '100%', padding: '6px 8px', fontSize: 12 }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>💰 Max Amount (₹)</label>
+                                        <input type="number" placeholder="Max ₹" value={sparesMaxAmount} onChange={e => setSparesMaxAmount(e.target.value)} className="form-input" style={{ width: '100%', padding: '6px 8px', fontSize: 12 }} />
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>💳 Paid By</label>
+                                        <select value={sparesPaidBy} onChange={e => setSparesPaidBy(e.target.value)} className="form-select" style={{ width: '100%', padding: '6px 8px', fontSize: 12 }}>
+                                            <option value="all">All Modes</option>
+                                            <option value="technician">Technician</option>
+                                            <option value="company">Company</option>
+                                            <option value="supplier">Supplier</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>⚖️ Payment Balance</label>
+                                        <select value={sparesBalanceStatus} onChange={e => setSparesBalanceStatus(e.target.value)} className="form-select" style={{ width: '100%', padding: '6px 8px', fontSize: 12 }}>
+                                            <option value="all">All Balances</option>
+                                            <option value="pending">With Outstanding Balance</option>
+                                            <option value="settled">Fully Settled</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                        <button 
+                                            onClick={() => {
+                                                setSparesSearch('');
+                                                setSparesDateStart('');
+                                                setSparesDateEnd('');
+                                                setSparesMinAmount('');
+                                                setSparesMaxAmount('');
+                                                setSparesPaidBy('all');
+                                                setSparesBalanceStatus('all');
+                                            }}
+                                            className="btn btn-secondary" 
+                                            style={{ width: '100%', padding: '6px 12px', fontSize: 12, backgroundColor: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.2)' }}
+                                        >
+                                            Clear Filters
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Spares Purchases List / Table */}
+                            {sparesLoading ? (
+                                <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading spares purchases...</div>
+                            ) : sortedSpares.length === 0 ? (
+                                <div style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                    <Package size={40} style={{ margin: '0 auto var(--spacing-sm)', opacity: 0.3 }} />
+                                    <div>No spares purchases match your criteria</div>
+                                </div>
+                            ) : (
+                                <div className="admin-sticky-table-container" style={{ overflowX: 'auto', width: '100%' }}>
+                                    <table className="admin-sticky-table" style={{ tableLayout: 'fixed', width: `${totalTableWidth}px`, borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)' }}>
+                                                {sparesColumns.filter(c => c.visible).map((col, index) => {
+                                                    const isSortable = col.id !== 'actions' && col.id !== 'handed_to_sc' && col.id !== 'details';
+                                                    return (
+                                                        <th 
+                                                            key={col.id} 
+                                                            style={{ 
+                                                                width: `${col.width}px`, 
+                                                                minWidth: `${col.width}px`, 
+                                                                position: 'relative',
+                                                                cursor: isSortable ? 'pointer' : 'default',
+                                                                userSelect: 'none',
+                                                                textAlign: col.id === 'total_amount' || col.id === 'paid_balance' ? 'right' : col.id === 'status' || col.id === 'handed_to_sc' || col.id === 'actions' ? 'center' : 'left',
+                                                                padding: '10px 14px'
+                                                            }}
+                                                            onClick={() => isSortable && handleSortSpares(col.id)}
+                                                        >
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: col.id === 'total_amount' || col.id === 'paid_balance' ? 'flex-end' : col.id === 'status' || col.id === 'handed_to_sc' || col.id === 'actions' ? 'center' : 'flex-start', gap: 4 }}>
+                                                                <span>{col.label}</span>
+                                                                {isSortable && sparesSort.column === col.id && (
+                                                                    <span style={{ fontSize: 10, color: 'var(--color-primary)' }}>{sparesSort.direction === 'asc' ? '▲' : '▼'}</span>
+                                                                )}
+                                                            </div>
+                                                            <span 
+                                                                className="col-resize-handle"
+                                                                onMouseDown={(e) => handleColumnResizeMouseDown(col.id, e)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                        </th>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sortedSpares.map((item) => {
+                                                const techName = technicians.find(t => t.id === item.po_reference)?.name || 'Field Tech';
+                                                const balance = parseFloat(item.total_amount || 0) - parseFloat(item.paid_amount || 0);
+                                                const isPending = item.status === 'draft';
+                                                
+                                                return (
+                                                    <tr key={item.id} style={{ borderBottom: '1px solid var(--border-primary)', transition: 'background-color 0.15s' }}>
+                                                        {sparesColumns.filter(c => c.visible).map((col) => {
+                                                            switch (col.id) {
+                                                                case 'date':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                                                                             <div>{new Date(item.created_at || item.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+                                                                             <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px' }}>{new Date(item.created_at || item.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                                                                        </td>
+                                                                    );
+                                                                case 'technician':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', fontWeight: 600 }}>
+                                                                            {techName}
+                                                                        </td>
+                                                                    );
+                                                                case 'vendor':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top' }}>
+                                                                            <div style={{ fontWeight: 500 }}>{item.account_name}</div>
+                                                                            {item.vendor_invoice_number && (
+                                                                                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                                                                    Doc Ref: {item.vendor_invoice_number}
+                                                                                </div>
+                                                                            )}
+                                                                            {item.notes && (
+                                                                                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4, fontStyle: 'italic', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.notes}>
+                                                                                    {item.notes}
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                    );
+                                                                case 'details':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top' }}>
+                                                                            {item.items && item.items.length > 0 ? (
+                                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                                                    {item.items.map((it, idx) => (
+                                                                                        <div key={idx} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                                                                            • <strong>{it.description}</strong> (Qty: {it.qty} × ₹{parseFloat(it.rate || 0).toLocaleString('en-IN')})
+                                                                                        </div>
+                                                                                     ))}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <span style={{ color: 'var(--text-tertiary)', fontSize: 12 }}>No items</span>
+                                                                            )}
+                                                                        </td>
+                                                                    );
+                                                                case 'total_amount':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', textAlign: 'right', fontWeight: 700 }}>
+                                                                            ₹{parseFloat(item.total_amount || 0).toLocaleString('en-IN')}
+                                                                        </td>
+                                                                    );
+                                                                case 'paid_balance':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', textAlign: 'right' }}>
+                                                                            <div style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>Paid: ₹{parseFloat(item.paid_amount || 0).toLocaleString('en-IN')}</div>
+                                                                            <div style={{ fontSize: 12, color: balance > 0 ? '#ef4444' : '#10b981', fontWeight: 700, marginTop: 2 }}>
+                                                                                Bal: ₹{balance.toLocaleString('en-IN')}
+                                                                            </div>
+                                                                        </td>
+                                                                    );
+                                                                case 'status':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', textAlign: 'center' }}>
+                                                                            <span style={{
+                                                                                padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600,
+                                                                                backgroundColor: isPending ? '#fef3c7' : '#d1fae5',
+                                                                                color: isPending ? '#d97706' : '#059669'
+                                                                            }}>
+                                                                                {isPending ? 'Pending Audit' : 'Posted'}
+                                                                            </span>
+                                                                        </td>
+                                                                    );
+                                                                case 'handed_to_sc':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', textAlign: 'center' }}>
+                                                                            <input 
+                                                                                type="checkbox"
+                                                                                checked={!!item.handed_to_service_center}
+                                                                                onChange={(e) => handleToggleHandover(item, e.target.checked)}
+                                                                                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                                                            />
+                                                                        </td>
+                                                                    );
+                                                                case 'actions':
+                                                                    return (
+                                                                        <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', textAlign: 'center' }}>
+                                                                            {isPending ? (
+                                                                                <button
+                                                                                    onClick={() => setEditingPurchase(item)}
+                                                                                    className="btn btn-primary"
+                                                                                    style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
+                                                                                >
+                                                                                    Review &amp; Post
+                                                                                </button>
+                                                                            ) : balance > 0 ? (
+                                                                                <button
+                                                                                    onClick={() => setPayingSparesInvoice(item)}
+                                                                                    className="btn btn-primary"
+                                                                                    style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
+                                                                                >
+                                                                                    {item.paid_by === 'technician' ? 'Pay Tech' : 'Pay Supplier'}
+                                                                                </button>
+                                                                            ) : (
+                                                                                <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>✓ Settled</span>
+                                                                            )}
+                                                                        </td>
+                                                                    );
+                                                                default:
+                                                                    return null;
+                                                            }
+                                                        })}
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* ──────────────── LEAVE REQUESTS TAB ──────────────── */}
             {activeTab === 'leaves' && (
