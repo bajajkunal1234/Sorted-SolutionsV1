@@ -101,8 +101,6 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
             setCreatedCustomer(result);
             setAccountConfirmed(true);
             setShowAccountForm(false);
-            // Auto-open job form after a brief pause so the footer re-renders
-            setTimeout(() => setShowJobForm(true), 350);
         } catch (err) {
             console.error('Error saving account:', err);
             alert('Failed to save account: ' + err.message);
@@ -282,17 +280,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
 
         // Admin has clicked Confirm/Create and saved
         if (accountConfirmed) {
-            return (
-                <button className="btn" disabled style={{
-                    minWidth: 175,
-                    backgroundColor: 'rgba(16,185,129,0.12)',
-                    color: '#10b981',
-                    border: '1px solid rgba(16,185,129,0.35)',
-                    cursor: 'default',
-                }}>
-                    <CheckCircle2 size={14} /> Account Confirmed
-                </button>
-            );
+            return null; // Save space
         }
 
         // Account found automatically — admin must review before proceeding
@@ -339,7 +327,7 @@ function BookingReviewModal({ booking, onClose, onConverted, onDismissed }) {
     // ── Render ──────────────────────────────────────────────────────────────────
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px' }}>
+            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '680px', width: '100%' }}>
 
                 {/* Header */}
                 <div className="modal-header">
