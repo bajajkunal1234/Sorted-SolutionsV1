@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon, Clock, User, Briefcase, Plus, ChevronLeft, ChevronRight, CheckCircle, XCircle, AlertCircle, FileText } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { apiCall } from '@/lib/offlineSync';
 
 const getLocalDateString = (d) => {
     const year = d.getFullYear();
@@ -56,7 +57,7 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
         if (!technicianId) return;
         setLeavesLoading(true);
         try {
-            const res = await fetch(`/api/technician/leaves?technicianId=${technicianId}`);
+            const res = await apiCall(`/api/technician/leaves?technicianId=${technicianId}`);
             const data = await res.json();
             if (data.success) {
                 setLeaves(data.leaves || []);
@@ -164,7 +165,7 @@ export default function CalendarView({ technicianId, jobs = [], onSelectJob, set
 
         setSubmittingLeave(true);
         try {
-            const res = await fetch('/api/technician/leaves', {
+            const res = await apiCall('/api/technician/leaves', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

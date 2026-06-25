@@ -460,6 +460,14 @@ function TechnicianApp() {
             }
         }
 
+        let sessionToken = null;
+        try {
+            const session = localStorage.getItem('technicianSession') || sessionStorage.getItem('technicianSession');
+            if (session) {
+                sessionToken = JSON.parse(session).session_token;
+            }
+        } catch (e) {}
+
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
@@ -468,7 +476,10 @@ function TechnicianApp() {
                     
                     fetch('/api/technician/location', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            ...(sessionToken ? { 'x-session-token': sessionToken } : {})
+                        },
                         body: JSON.stringify({
                             technician_id: technicianId,
                             latitude: pos.coords.latitude,
@@ -476,9 +487,16 @@ function TechnicianApp() {
                             is_on_job: false,
                             tracking_source: trackingSource,
                             is_online: status,
-                            location_precision: precision
+                            location_precision: precision,
+                            session_token: sessionToken
                         }),
-                    }).catch((err) => console.error('Error posting location on toggle:', err));
+                    })
+                    .then((res) => {
+                        if (res.status === 401) {
+                            window.dispatchEvent(new CustomEvent('unauthorized-session-logout'));
+                        }
+                    })
+                    .catch((err) => console.error('Error posting location on toggle:', err));
                 },
                 (err) => {
                     console.warn('Error getting location on toggle:', err);
@@ -1430,7 +1448,7 @@ function TechnicianApp() {
                         <button
                             onClick={() => {
                                 setLoading(true);
-                                fetch(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
+                                apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
                                     .then(r => r.json())
                                     .then(d => { setJobs(d.jobs || []); setError(null); })
                                     .catch(() => setError('Failed to refresh.'))
@@ -2707,7 +2725,7 @@ function TechnicianApp() {
                         // Background refetch for full consistency
                         setTimeout(() => {
                             if (technicianId) {
-                                fetch(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
+                                apiCall(`/api/technician/jobs?technicianId=${technicianId}&t=${Date.now()}`)
                                     .then(res => res.json())
                                     .then(data => setJobs(data.jobs || []))
                                     .catch(err => console.error('Error refreshing jobs:', err));

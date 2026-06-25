@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Calendar, DollarSign, Tag, FileText, AlertCircle, Clock, CheckCircle, XCircle, Camera, Trash2, Loader2, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { apiCall } from '@/lib/offlineSync';
 
 const getLocalDateString = () => {
     const d = new Date();
@@ -83,7 +84,7 @@ export default function ExpensesList({ technicianId }) {
     const fetchExpenses = async () => {
         try {
             setLoading(true);
-            const response = await fetch(`/api/technician/expenses?technicianId=${technicianId}`);
+            const response = await apiCall(`/api/technician/expenses?technicianId=${technicianId}`);
             if (!response.ok) throw new Error('Failed to fetch expenses');
             const data = await response.json();
             setExpenses(data.expenses || []);
@@ -98,7 +99,7 @@ export default function ExpensesList({ technicianId }) {
     const fetchLedger = async () => {
         try {
             setLedgerLoading(true);
-            const response = await fetch(`/api/technician/expenses/ledger?technicianId=${technicianId}`);
+            const response = await apiCall(`/api/technician/expenses/ledger?technicianId=${technicianId}`);
             if (!response.ok) throw new Error('Failed to fetch ledger');
             const data = await response.json();
             setLedgerData({
@@ -164,7 +165,7 @@ export default function ExpensesList({ technicianId }) {
         
         setError(null);
         try {
-            const res = await fetch(`/api/technician/expenses?id=${expenseId}&technicianId=${technicianId}`, {
+            const res = await apiCall(`/api/technician/expenses?id=${expenseId}&technicianId=${technicianId}`, {
                 method: 'DELETE'
             });
 
@@ -216,7 +217,7 @@ export default function ExpensesList({ technicianId }) {
         }
 
         try {
-            const response = await fetch('/api/technician/expenses', {
+            const response = await apiCall('/api/technician/expenses', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
