@@ -2016,11 +2016,11 @@ function TechnicianApp() {
                                                 borderRadius: '9999px',
                                                 fontSize: '11px',
                                                 fontWeight: 600,
-                                                backgroundColor: isPending ? '#fef3c7' : '#d1fae5',
-                                                color: isPending ? '#d97706' : '#059669',
+                                                backgroundColor: req.status === 'cancelled' ? '#fee2e2' : (isPending ? '#fef3c7' : '#d1fae5'),
+                                                color: req.status === 'cancelled' ? '#dc2626' : (isPending ? '#d97706' : '#059669'),
                                                 whiteSpace: 'nowrap'
                                             }}>
-                                                {isPending ? 'Pending Audit' : 'Approved'}
+                                                {req.status === 'cancelled' ? 'Rejected' : (isPending ? 'Pending Audit' : 'Approved')}
                                             </span>
                                             {/* Handover Badge */}
                                             <span style={{

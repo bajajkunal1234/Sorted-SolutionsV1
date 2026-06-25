@@ -218,6 +218,20 @@ function TechnicianManagement({ initialSubTab }) {
         }
     };
 
+    const handleRejectSpares = async (item) => {
+        if (!confirm('Are you sure you want to reject this purchase request? This will mark it as cancelled.')) {
+            return;
+        }
+        try {
+            await transactionsAPI.update(item.id, { status: 'cancelled' }, 'purchase');
+            alert('✅ Spares purchase request rejected successfully!');
+            fetchSpares();
+        } catch (err) {
+            console.error('Error rejecting spares request:', err);
+            alert('Failed to reject spares request: ' + err.message);
+        }
+    };
+
     const handleSaveSparesPaymentVoucher = async (voucherData) => {
         if (!payingSparesInvoice) return;
         try {
@@ -1421,6 +1435,7 @@ function TechnicianManagement({ initialSubTab }) {
                     .filter(s => {
                         if (sparesFilter === 'pending') return s.status === 'draft';
                         if (sparesFilter === 'posted') return s.status === 'finalized';
+                        if (sparesFilter === 'rejected') return s.status === 'cancelled';
                         return true;
                     })
                     .filter(item => {
@@ -1524,6 +1539,7 @@ function TechnicianManagement({ initialSubTab }) {
                                     <select value={sparesFilter} onChange={e => setSparesFilter(e.target.value)} className="form-select" style={{ padding: '6px 10px', fontSize: 'var(--font-size-sm)' }}>
                                         <option value="pending">Pending Review</option>
                                         <option value="posted">Posted (Finalized)</option>
+                                        <option value="rejected">Rejected</option>
                                         <option value="all">All Purchases</option>
                                     </select>
                                     <button className="btn-icon" onClick={fetchSpares} title="Refresh"><RefreshCcw size={16} /></button>
@@ -1730,17 +1746,28 @@ function TechnicianManagement({ initialSubTab }) {
                                                                         </td>
                                                                     );
                                                                 case 'vendor':
+                                                                    const displayVendorName = (item.account_name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+                                                                    const displayNotes = (() => {
+                                                                        const notes = item.notes || '';
+                                                                        if (notes.includes(' | Notes: ')) {
+                                                                            return notes.split(' | Notes: ')[1];
+                                                                        }
+                                                                        if (notes.startsWith('Technician: ') || notes.startsWith('Technician Expense: ')) {
+                                                                            return '';
+                                                                        }
+                                                                        return notes;
+                                                                    })();
                                                                     return (
                                                                         <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top' }}>
-                                                                            <div style={{ fontWeight: 500 }}>{item.account_name}</div>
+                                                                            <div style={{ fontWeight: 500 }}>{displayVendorName}</div>
                                                                             {item.vendor_invoice_number && (
                                                                                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 2 }}>
                                                                                     Doc Ref: {item.vendor_invoice_number}
                                                                                 </div>
                                                                             )}
-                                                                            {item.notes && (
-                                                                                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4, fontStyle: 'italic', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.notes}>
-                                                                                    {item.notes}
+                                                                            {displayNotes && (
+                                                                                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4, fontStyle: 'italic', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={displayNotes}>
+                                                                                    {displayNotes}
                                                                                 </div>
                                                                             )}
                                                                         </td>
@@ -1781,10 +1808,10 @@ function TechnicianManagement({ initialSubTab }) {
                                                                         <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', textAlign: 'center' }}>
                                                                             <span style={{
                                                                                 padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 600,
-                                                                                backgroundColor: isPending ? '#fef3c7' : '#d1fae5',
-                                                                                color: isPending ? '#d97706' : '#059669'
+                                                                                backgroundColor: item.status === 'cancelled' ? '#fee2e2' : (isPending ? '#fef3c7' : '#d1fae5'),
+                                                                                color: item.status === 'cancelled' ? '#dc2626' : (isPending ? '#d97706' : '#059669')
                                                                             }}>
-                                                                                {isPending ? 'Pending Audit' : 'Posted'}
+                                                                                {item.status === 'cancelled' ? 'Rejected' : (isPending ? 'Pending Audit' : 'Posted')}
                                                                             </span>
                                                                         </td>
                                                                     );
@@ -1802,14 +1829,25 @@ function TechnicianManagement({ initialSubTab }) {
                                                                 case 'actions':
                                                                     return (
                                                                         <td key={col.id} style={{ width: `${col.width}px`, minWidth: `${col.width}px`, padding: '12px 14px', verticalAlign: 'top', textAlign: 'center' }}>
-                                                                            {isPending ? (
-                                                                                <button
-                                                                                    onClick={() => setEditingPurchase(item)}
-                                                                                    className="btn btn-primary"
-                                                                                    style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
-                                                                                >
-                                                                                    Review &amp; Post
-                                                                                </button>
+                                                                            {item.status === 'cancelled' ? (
+                                                                                <span style={{ fontSize: 12, color: '#ef4444', fontWeight: 600 }}>Rejected</span>
+                                                                            ) : isPending ? (
+                                                                                <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                                                                                    <button
+                                                                                        onClick={() => setEditingPurchase(item)}
+                                                                                        className="btn btn-primary"
+                                                                                        style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#f59e0b', borderColor: '#f59e0b', color: '#fff' }}
+                                                                                    >
+                                                                                        Review &amp; Post
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => handleRejectSpares(item)}
+                                                                                        className="btn btn-danger"
+                                                                                        style={{ padding: '4px 10px', fontSize: '12px', height: 'auto', minHeight: '28px', backgroundColor: '#dc2626', borderColor: '#dc2626', color: '#fff' }}
+                                                                                    >
+                                                                                        Reject
+                                                                                    </button>
+                                                                                </div>
                                                                             ) : balance > 0 ? (
                                                                                 <button
                                                                                     onClick={() => setPayingSparesInvoice(item)}
