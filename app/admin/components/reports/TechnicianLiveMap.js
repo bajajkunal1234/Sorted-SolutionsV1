@@ -140,7 +140,7 @@ function formatAge(secondsAgo) {
  * Idle = grey dot, On-job = blue icon.
  * Refreshes every 60s automatically.
  */
-export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, height = 480, showRoster = true }) {
+export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, height = 480, showRoster = true, isDashboard = false }) {
     const [allLocations, setAllLocations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
@@ -365,7 +365,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
             </div>
 
             {/* Red Alert Banner */}
-            {redAlertCount > 0 && (
+            {!isDashboard && redAlertCount > 0 && (
                 <div style={{
                     padding: '12px 16px',
                     borderRadius: 8,
@@ -557,7 +557,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             </div>
                                         )}
 
-                                        {loc.seconds_ago > 1800 && (
+                                        {!isDashboard && loc.seconds_ago > 1800 && (
                                             <div style={{
                                                 color: '#ef4444', backgroundColor: 'rgba(239,68,68,0.1)',
                                                 padding: '4px 8px', borderRadius: 6, fontSize: 11,
@@ -668,7 +668,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                     {mergedLocations.map(loc => {
                         const isOffline = !loc.is_online || loc.seconds_ago > 900;
                         const isTrulyOnline = loc.is_online && loc.seconds_ago <= 900;
-                        const isRedAlert = loc.seconds_ago > 1800;
+                        const isRedAlert = !isDashboard && loc.seconds_ago > 1800;
                         return (
                             <div key={loc.technician_id} style={{
                                 padding: '10px 12px', borderRadius: 10,
@@ -693,11 +693,11 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             <span style={{ fontSize: 9, padding: '1px 4px', borderRadius: 4, backgroundColor: '#ef4444', color: '#ffffff', fontWeight: 700, animation: 'pulse 1.5s infinite' }}>🚨 MOCK GPS</span>
                                         )}
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#64748b', display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+                                    <div style={{ fontSize: 12, color: '#ffffff', display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4, fontWeight: '500' }}>
                                         <div>
                                             {isTrulyOnline ? '🟢 Online' : '⚪ Offline'} · {loc.location_precision === 'precise' ? 'Precise' : 'Approx'}
                                         </div>
-                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#94a3b8' }}>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#e2e8f0' }}>
                                             {loc.battery_level !== null && loc.battery_level !== undefined && loc.battery_level >= 0 && (
                                                 <span>🔋 {loc.battery_level}%</span>
                                             )}
@@ -705,10 +705,10 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                                 <span>📶 {loc.connectivity_status}</span>
                                             )}
                                             {loc.ip_address && (
-                                                <span style={{ opacity: 0.8 }}>🌐 {loc.ip_address}</span>
+                                                <span style={{ opacity: 0.9 }}>🌐 {loc.ip_address}</span>
                                             )}
                                         </div>
-                                        <div>
+                                        <div style={{ color: '#ffffff' }}>
                                             Status: {loc.is_on_job ? 'On job' : 'Idle'} · {formatAge(loc.seconds_ago)}
                                         </div>
                                         {(() => {
@@ -716,7 +716,7 @@ export default function TechnicianLiveMap({ activeTechnicians = [], activeJobs, 
                                             const addr = addressCache[cacheKey];
                                             if (addr) {
                                                 return (
-                                                    <div style={{ color: '#cbd5e1', fontSize: 11, marginTop: 4, display: 'flex', gap: 4, fontStyle: 'italic', wordBreak: 'break-word', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }}>
+                                                    <div style={{ color: '#e2e8f0', fontSize: 11, marginTop: 4, display: 'flex', gap: 4, fontStyle: 'italic', wordBreak: 'break-word', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 4 }}>
                                                         <span>🏠</span>
                                                         <span>{addr}</span>
                                                     </div>

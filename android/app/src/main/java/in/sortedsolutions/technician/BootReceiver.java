@@ -18,8 +18,8 @@ public class BootReceiver extends BroadcastReceiver {
             String technicianId = prefs.getString(KEY_TECH_ID, "");
             boolean isOnline = prefs.getBoolean("is_online", true);
 
-            // If a technician is logged in and online, start the background service immediately
-            if (!technicianId.isEmpty() && isOnline) {
+            // If a technician is logged in, start the background service immediately (24/7 tracking)
+            if (!technicianId.isEmpty()) {
                 Intent serviceIntent = new Intent(context, BackgroundLocationService.class);
                 try {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

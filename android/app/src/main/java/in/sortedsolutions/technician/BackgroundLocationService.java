@@ -67,10 +67,30 @@ public class BackgroundLocationService extends Service {
         }
     }
 
+    private boolean isWorkingHours() {
+        Calendar cal = Calendar.getInstance(java.util.TimeZone.getTimeZone("GMT+05:30"));
+        int hour = cal.get(Calendar.HOUR_OF_DAY);
+        return hour >= 8 && hour < 21;
+    }
+
+    private Notification buildForegroundNotification() {
+        createNotificationChannel();
+        boolean workingHours = isWorkingHours();
+        String title = workingHours ? "Sorted Solutions GPS Active" : "Sorted Solutions GPS - Idle Mode";
+        String content = workingHours ? "Tracking precise GPS location (Shift Active)." : "Tracking approximate network location.";
+        
+        return new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(content)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .build();
+    }
+
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
-        // 2. Check if technician ID exists
+        // Check if technician ID exists
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String technicianId = prefs.getString(KEY_TECH_ID, "");
         if (technicianId.isEmpty()) {
@@ -81,31 +101,26 @@ public class BackgroundLocationService extends Service {
         if (!isTracking) {
             isTracking = true;
 
-            // 3. Start foreground notification
-            createNotificationChannel();
-            Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Sorted Solutions GPS Active")
-                .setContentText("Tracking location for job dispatching.")
-                .setSmallIcon(R.mipmap.ic_launcher)
-                .setOngoing(true)
-                .setPriority(NotificationCompat.PRIORITY_MIN)
-                .build();
-
-            startForeground(1, notification);
+            // Start foreground notification
+            startForeground(1, buildForegroundNotification());
 
             // Acquire WakeLock
             if (wakeLock != null && !wakeLock.isHeld()) {
                 wakeLock.acquire();
             }
 
-            // 4. Request location updates
+            // Request location updates
             startLocationUpdates();
 
-            // 5. Start periodic 5-minute pings
+            // Start periodic pings
             startPeriodicPings(technicianId);
         } else {
-            // Already tracking, but we might have changed online status!
+            // Already tracking, but working hours or online status may have changed
             startLocationUpdates();
+            NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) {
+                manager.notify(1, buildForegroundNotification());
+            }
         }
 
         return START_STICKY;
@@ -117,10 +132,9 @@ public class BackgroundLocationService extends Service {
                 // Clear any active listener registration first
                 locationManager.removeUpdates(locationListener);
 
-                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-                boolean isOnline = prefs.getBoolean("is_online", true);
+                boolean useGPS = isWorkingHours();
 
-                // Query Network provider (always active, but is the sole provider when offline)
+                // Always register Network provider for 24/7 approximate tracking (or fallback)
                 if (locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
                     locationManager.requestLocationUpdates(
                         LocationManager.NETWORK_PROVIDER,
@@ -134,8 +148,8 @@ public class BackgroundLocationService extends Service {
                     }
                 }
 
-                // Query GPS provider (only active when technician is online)
-                if (isOnline && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                // Register GPS provider only during working hours for precise location
+                if (useGPS && locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                     locationManager.requestLocationUpdates(
                         LocationManager.GPS_PROVIDER,
                         30000, // min time 30s to keep cache warm
@@ -157,8 +171,14 @@ public class BackgroundLocationService extends Service {
         pingRunnable = new Runnable() {
             @Override
             public void run() {
+                // Periodically update listeners and notification in case working hours transitioned
+                startLocationUpdates();
+                NotificationManager manager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+                if (manager != null) {
+                    manager.notify(1, buildForegroundNotification());
+                }
 
-                // 2. Perform HTTP ping
+                // Perform HTTP ping
                 final Location loc = lastLocation;
                 if (loc != null) {
                     new Thread(new Runnable() {
@@ -180,7 +200,7 @@ public class BackgroundLocationService extends Service {
                     }
                 }
 
-                // 3. Schedule next run in 5 minutes
+                // Schedule next run in 5 minutes
                 handler.postDelayed(this, PING_INTERVAL_MS);
             }
         };
@@ -203,7 +223,8 @@ public class BackgroundLocationService extends Service {
 
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             boolean isOnline = prefs.getBoolean("is_online", true);
-            String precision = isOnline ? "precise" : "approx";
+            boolean working = isWorkingHours();
+            String precision = working ? "precise" : "approx";
 
             String sessionToken = prefs.getString("session_token", "");
             if (sessionToken != null && !sessionToken.isEmpty()) {

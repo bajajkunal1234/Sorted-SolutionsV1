@@ -422,7 +422,7 @@ function LoginContent() {
     const showOtpOption = accountStatus?.exists;
 
     return (
-        <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', backgroundColor: '#000', position: 'relative', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top, 0px)', paddingBottom: 'env(safe-area-inset-bottom, 0px)', boxSizing: 'border-box' }}>
             <style dangerouslySetInnerHTML={{ __html: `
                 html, body, #root, #__next {
                     background-color: #000000 !important;

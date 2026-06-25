@@ -262,13 +262,28 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
         <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)' }}>
 
             {/* ── TOP BAR ── */}
-            <div style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', padding: '10px 14px', flexShrink: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '16px', fontWeight: 700 }}>🧮 Estimate</span>
-                        {job?.job_number && <span style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '9999px' }}>#{job.job_number}</span>}
+            <div style={{ backgroundColor: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-primary)', padding: 'calc(10px + env(safe-area-inset-top, 0px)) 14px 10px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                {invoiceLabel && invoiceLabel.toLowerCase().includes('purchase') ? '🛒 Purchase Spare Parts' : '🧮 Job Repair Estimate'}
+                            </span>
+                            {job?.job_number && (
+                                <span style={{ fontSize: '11px', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '2px 8px', borderRadius: '9999px', fontWeight: 600 }}>
+                                    #{job.job_number}
+                                </span>
+                            )}
+                        </div>
+                        {job && (
+                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                                <span>👤 {job.customerName || job.customer_name || job.customer?.name || 'Walk-in'}</span>
+                                <span style={{ color: 'var(--border-primary)' }}>•</span>
+                                <span>🔧 {job.description || job.product?.type || job.issueCategory || job.category || 'General Repair'}</span>
+                            </div>
+                        )}
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-secondary)' }}><X size={22} /></button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: 'var(--text-secondary)', marginTop: '-2px' }}><X size={22} /></button>
                 </div>
 
                 {/* Search */}
@@ -299,7 +314,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
             )}
 
             {/* ── ITEM CARDS GRID ── */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px', paddingBottom: basket.length > 0 ? '90px' : '10px' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px', paddingBottom: basket.length > 0 ? 'calc(90px + env(safe-area-inset-bottom, 0px))' : 'calc(10px + env(safe-area-inset-bottom, 0px))' }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>Loading inventory...</div>
                 ) : (
@@ -392,7 +407,7 @@ export default function RepairCalculator({ job, onCreateQuotation, onCreateInvoi
 
             {/* ── STICKY BASKET ── */}
             {basket.length > 0 && (
-                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1300, backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-primary)', boxShadow: '0 -4px 20px rgba(0,0,0,0.2)' }}>
+                <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1300, backgroundColor: 'var(--bg-elevated)', borderTop: '2px solid var(--border-primary)', boxShadow: '0 -4px 20px rgba(0,0,0,0.2)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
 
                     {/* Expanded basket items */}
                     {basketOpen && (

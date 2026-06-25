@@ -615,7 +615,7 @@ export default function TechEmailInbox({ technicianData, onBack }) {
             }}>
                 {/* Compose Header */}
                 <div style={{ 
-                    padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: 'calc(12px + env(safe-area-inset-top, 0px)) 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     borderBottom: '1px solid var(--border-primary)', backgroundColor: 'var(--bg-elevated)'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -643,7 +643,7 @@ export default function TechEmailInbox({ technicianData, onBack }) {
                 </div>
 
                 {/* Form fields */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px calc(16px + env(safe-area-inset-bottom, 0px))', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {/* From (read-only) */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)' }}>From</label>
